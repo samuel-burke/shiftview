@@ -188,7 +188,7 @@ export default function CoverageTimeline({ schedules, nowMinutes }: Props) {
                 fontSize: 12,
                 color: "#f1f5f9",
               }}
-              formatter={(v: number) => [`${v} staff`, "Coverage"]}
+              formatter={(v) => [`${v} staff`, "Coverage"]}
             />
             <Area
               type="monotone"
