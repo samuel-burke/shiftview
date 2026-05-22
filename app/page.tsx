@@ -1,6 +1,7 @@
 "use client";
-
-import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useEffect, Suspense, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Employee,
   Schedule,
@@ -13,6 +14,7 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
+import { createClient } from "@/lib/supabase-browser";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -38,6 +40,7 @@ function offsetDate(d: Date, days: number) {
 
 export default function Page() {
   const today = new Date();
+  const router = useRouter();
   const [date, setDate] = useState(today);
   const [selected, setSelected] = useState<{
     emp: Employee;
@@ -48,7 +51,15 @@ export default function Page() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+  const supabase = createClient();
 
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
@@ -57,7 +68,7 @@ export default function Page() {
 
   // Fetch employees once on mount
   useEffect(() => {
-    fetch("/api/employees", { cache: "no-store" })
+    fetch(`/api/employees?demo=${isDemo}`)
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => setError("Failed to load employees"));
@@ -68,7 +79,7 @@ export default function Page() {
     const dateKey = toDateKey(date);
     setLoading(true);
     setError(null);
-    fetch(`/api/schedules?date=${dateKey}`, { cache: "no-store" })
+    fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
       .then((r) => r.json())
       .then((data) => {
         setSchedules(data);
@@ -132,126 +143,157 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
+  const goNext = useCallback(() => setDate((d) => offsetDate(d, 1)), []);
+  const goPrev = useCallback(() => setDate((d) => offsetDate(d, -1)), []);
+
+  useEffect(() => {
+    let startX: number | null = null;
+
+    function onTouchStart(e: TouchEvent) {
+      startX = e.touches[0].clientX;
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (startX === null) return;
+      const diff = startX - e.changedTouches[0].clientX;
+      if (Math.abs(diff) < 50) return;
+      if (diff > 0) goNext();
+      else goPrev();
+      startX = null;
+    }
+
+    window.addEventListener("touchstart", onTouchStart);
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [goNext, goPrev]);
+
   return (
-    <main
-      style={{
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "24px 16px 80px",
-        background: "#0a1628",
-        minHeight: "100vh",
-      }}
-    >
-      {loading && (
+    <Suspense>
+      <main
+        style={{
+          maxWidth: 480,
+          margin: "0 auto",
+          padding: "24px 16px 80px",
+          background: "#0a1628",
+          minHeight: "100vh",
+        }}
+      >
+        {loading && (
+          <div
+            style={{
+              color: "#475569",
+              textAlign: "center",
+              fontSize: 13,
+              marginBottom: 12,
+            }}
+          >
+            Loading...
+          </div>
+        )}
+
+        <CoverageHeader
+          date={date}
+          today={today}
+          onPrev={() => setDate((d) => offsetDate(d, -1))}
+          onNext={() => setDate((d) => offsetDate(d, 1))}
+          onNow={() => setDate(new Date())}
+          isToday={isToday}
+          hereCount={hereNow.length}
+          scheduledCount={scheduled.length}
+          offCount={off.length}
+          nowMinutes={nowMinutes}
+          coverageStatus={coverageStatus}
+          onSignOut={isDemo ? undefined : handleSignOut}
+          onSignIn={isDemo ? () => router.push("/login") : undefined}
+        />
+
+        <CoverageTimeline
+          schedules={daySchedules}
+          nowMinutes={nowMinutes}
+          isToday={isToday}
+        />
+
+        {/* Legend */}
         <div
           style={{
-            color: "#475569",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: 12,
+            display: "flex",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 20,
+            padding: "12px 14px",
+            background: "#1a2236",
+            borderRadius: 12,
           }}
         >
-          Loading...
+          {[
+            { label: "Opener", color: "#f59e0b" },
+            { label: "Mid", color: "#6366f1" },
+            { label: "Closer", color: "#8b5cf6" },
+          ].map(({ label, color }) => (
+            <div
+              key={label}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: color,
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>{label}</span>
+            </div>
+          ))}
         </div>
-      )}
 
-      <CoverageHeader
-        date={date}
-        today={today}
-        onPrev={() => setDate((d) => offsetDate(d, -1))}
-        onNext={() => setDate((d) => offsetDate(d, 1))}
-        onNow={() => setDate(new Date())}
-        isToday={isToday}
-        hereCount={hereNow.length}
-        scheduledCount={scheduled.length}
-        offCount={off.length}
-        nowMinutes={nowMinutes}
-        coverageStatus={coverageStatus}
-      />
+        <TeamSection
+          label="Scheduled"
+          count={scheduled.length}
+          schedules={sortedScheduled}
+          employees={employees}
+          nowMinutes={nowMinutes}
+          isToday={isToday}
+          onSelect={(emp, sch) => setSelected({ emp, sch })}
+        />
 
-      <CoverageTimeline
-        schedules={daySchedules}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-      />
+        <TeamSection
+          label="Off Today"
+          count={off.length}
+          schedules={off}
+          employees={employees}
+          nowMinutes={nowMinutes}
+          isToday={isToday}
+          onSelect={(emp, sch) => setSelected({ emp, sch })}
+        />
 
-      {/* Legend */}
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          flexWrap: "wrap",
-          marginBottom: 20,
-          padding: "12px 14px",
-          background: "#1a2236",
-          borderRadius: 12,
-        }}
-      >
-        {[
-          { label: "Opener", color: "#f59e0b" },
-          { label: "Mid", color: "#6366f1" },
-          { label: "Closer", color: "#8b5cf6" },
-        ].map(({ label, color }) => (
-          <div
-            key={label}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: color,
-                display: "inline-block",
-              }}
-            />
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>{label}</span>
-          </div>
-        ))}
-      </div>
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <span style={{ fontSize: 12, color: "#334155" }}>
+            Last updated: {lastUpdated}
+          </span>
+        </div>
 
-      <TeamSection
-        label="Scheduled"
-        count={scheduled.length}
-        schedules={sortedScheduled}
-        employees={employees}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onSelect={(emp, sch) => setSelected({ emp, sch })}
-      />
-
-      <TeamSection
-        label="Off Today"
-        count={off.length}
-        schedules={off}
-        employees={employees}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onSelect={(emp, sch) => setSelected({ emp, sch })}
-      />
-
-      <div
-        style={{
-          textAlign: "center",
-          marginTop: 8,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        <span style={{ fontSize: 12, color: "#334155" }}>
-          Last updated: {lastUpdated}
-        </span>
-      </div>
-
-      <EmployeeDrawer
-        open={!!selected}
-        employee={selected?.emp ?? null}
-        schedule={selected?.sch ?? null}
-        nowMinutes={nowMinutes}
-        onClose={() => setSelected(null)}
-      />
-    </main>
+        <EmployeeDrawer
+          open={!!selected}
+          employee={selected?.emp ?? null}
+          schedule={selected?.sch ?? null}
+          nowMinutes={nowMinutes}
+          onClose={() => setSelected(null)}
+        />
+      </main>
+    </Suspense>
   );
 }

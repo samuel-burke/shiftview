@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
+
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const table = user ? "employees" : "employees_demo";
+
   const { data, error } = await supabase
-    .from("employees")
+    .from(table)
     .select("*")
     .order("id");
 
-  if (error) {
-    console.error("Supabase error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
