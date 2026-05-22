@@ -1,9 +1,10 @@
 "use client";
 
-import { OPTIMAL_COVERAGE, MINIMUM_COVERAGE } from "../data/mockData";
+import { CoverageStatus } from "../data/types";
 
 type Props = {
   date: Date;
+  today: Date;
   onPrev: () => void;
   onNext: () => void;
   onNow: () => void;
@@ -12,6 +13,7 @@ type Props = {
   scheduledCount: number;
   offCount: number;
   nowMinutes: number;
+  coverageStatus: CoverageStatus;
 };
 
 function fmtTime(m: number): string {
@@ -26,6 +28,7 @@ function fmtTime(m: number): string {
 
 export default function CoverageHeader({
   date,
+  today,
   onPrev,
   onNext,
   onNow,
@@ -34,6 +37,7 @@ export default function CoverageHeader({
   scheduledCount,
   offCount,
   nowMinutes,
+  coverageStatus,
 }: Props) {
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
@@ -42,10 +46,53 @@ export default function CoverageHeader({
   });
   const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
   const timeStr = fmtTime(nowMinutes);
-  const total = scheduledCount + offCount;
-  const coverageOk = hereCount >= OPTIMAL_COVERAGE;
-  const coverageWarn =
-    hereCount >= MINIMUM_COVERAGE && hereCount < OPTIMAL_COVERAGE;
+
+  const isPast = date < today && !isToday;
+  const isFuture = date > today && !isToday;
+
+  const alertConfig = (() => {
+    if (isPast)
+      return {
+        icon: "📅",
+        message: "Viewing past schedule",
+        bg: "rgba(71,85,105,0.12)",
+        border: "rgba(71,85,105,0.3)",
+        text: "#94a3b8",
+      };
+    if (isFuture)
+      return {
+        icon: "📅",
+        message: "Viewing future schedule",
+        bg: "rgba(71,85,105,0.12)",
+        border: "rgba(71,85,105,0.3)",
+        text: "#94a3b8",
+      };
+    if (coverageStatus === "closed")
+      return {
+        icon: "🔒",
+        message: "Store closed",
+        bg: "rgba(71,85,105,0.12)",
+        border: "rgba(71,85,105,0.3)",
+        text: "#94a3b8",
+      };
+    if (coverageStatus === "critical")
+      return {
+        icon: "⚠",
+        message: `Coverage below minimum — ${hereCount} here now`,
+        bg: "rgba(239,68,68,0.12)",
+        border: "rgba(239,68,68,0.3)",
+        text: "#f87171",
+      };
+    if (coverageStatus === "low")
+      return {
+        icon: "⚠",
+        message: `Coverage below optimal — ${hereCount} here now`,
+        bg: "rgba(245,158,11,0.12)",
+        border: "rgba(245,158,11,0.3)",
+        text: "#fbbf24",
+      };
+    return null;
+  })();
 
   const statCard = (value: number, label: string, color: string) => (
     <div
@@ -155,7 +202,7 @@ export default function CoverageHeader({
           </div>
           {isToday && (
             <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
-              Simulated: {timeStr}
+              Live: {timeStr}
             </div>
           )}
         </div>
@@ -172,28 +219,23 @@ export default function CoverageHeader({
       </div>
 
       {/* Alert */}
-      {!coverageOk && hereCount >= 0 && (
+      {alertConfig && (
         <div
           style={{
             marginTop: 12,
             padding: "10px 14px",
-            background: coverageWarn
-              ? "rgba(245,158,11,0.12)"
-              : "rgba(239,68,68,0.12)",
-            border: `1px solid ${coverageWarn ? "rgba(245,158,11,0.3)" : "rgba(239,68,68,0.3)"}`,
+            background: alertConfig.bg,
+            border: `1px solid ${alertConfig.border}`,
             borderRadius: 10,
             fontSize: 12,
-            color: coverageWarn ? "#fbbf24" : "#f87171",
+            color: alertConfig.text,
             display: "flex",
             alignItems: "center",
             gap: 8,
           }}
         >
-          <span>⚠</span>
-          <span>
-            Coverage {coverageWarn ? "below optimal" : "below threshold"} —{" "}
-            {hereCount} here of {total} scheduled
-          </span>
+          <span>{alertConfig.icon}</span>
+          <span>{alertConfig.message}</span>
         </div>
       )}
     </div>

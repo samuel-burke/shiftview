@@ -2,29 +2,38 @@
 
 import { useMemo, useState, useEffect } from "react";
 import {
-  employees,
-  schedules,
   Employee,
   Schedule,
   isHere,
-} from "../data/mockData";
+  OPTIMAL_COVERAGE,
+  MINIMUM_COVERAGE,
+  CoverageStatus,
+} from "../data/types";
 import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 
 function toDateKey(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
+
+function getNowMinutes() {
+  const now = new Date();
+  const parts = now.toLocaleTimeString("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const [h, m] = parts.split(":").map(Number);
+  return h * 60 + m;
+}
+
 function offsetDate(d: Date, days: number) {
   const n = new Date(d);
   n.setDate(n.getDate() + days);
   return n;
-}
-
-function getNowMinutes() {
-  const n = new Date();
-  return n.getHours() * 60 + n.getMinutes();
 }
 
 export default function Page() {
@@ -35,21 +44,49 @@ export default function Page() {
     sch: Schedule;
   } | null>(null);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Update every minute
+  // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
     return () => clearInterval(t);
   }, []);
 
+  // Fetch employees once on mount
+  useEffect(() => {
+    fetch("/api/employees", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setEmployees)
+      .catch(() => setError("Failed to load employees"));
+  }, []);
+
+  // Fetch schedules whenever date changes
+  useEffect(() => {
+    const dateKey = toDateKey(date);
+    setLoading(true);
+    setError(null);
+    fetch(`/api/schedules?date=${dateKey}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        setSchedules(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load schedules");
+        setLoading(false);
+      });
+  }, [date]);
+
   const isToday = toDateKey(date) === toDateKey(today);
   const dateKey = toDateKey(date);
 
   const daySchedules = useMemo(
-    () => schedules.filter((s) => s.date === dateKey),
-    [dateKey],
+    () => schedules.filter((s) => s.date.slice(0, 10) === dateKey),
+    [schedules, dateKey],
   );
-
   const scheduled = useMemo(
     () => daySchedules.filter((s) => s.startMinutes >= 0),
     [daySchedules],
@@ -75,6 +112,26 @@ export default function Page() {
     return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
   })();
 
+  const storeHours = useMemo(() => {
+    const day = date.getDay(); // 0 = Sunday
+    return day === 0
+      ? { open: 480, close: 1200 } // 8am–8pm
+      : { open: 360, close: 1320 }; // 6am–10pm
+  }, [date]);
+
+  const isStoreOpen = useMemo(() => {
+    if (!isToday) return true; // non-today dates always show live alert
+    return nowMinutes >= storeHours.open && nowMinutes < storeHours.close;
+  }, [isToday, nowMinutes, storeHours]);
+
+  const coverageStatus = useMemo((): CoverageStatus => {
+    if (!isToday) return "closed";
+    if (!isStoreOpen) return "closed";
+    if (hereNow.length < MINIMUM_COVERAGE) return "critical";
+    if (hereNow.length < OPTIMAL_COVERAGE) return "low";
+    return "optimal";
+  }, [isToday, isStoreOpen, hereNow.length]);
+
   return (
     <main
       style={{
@@ -85,8 +142,22 @@ export default function Page() {
         minHeight: "100vh",
       }}
     >
+      {loading && (
+        <div
+          style={{
+            color: "#475569",
+            textAlign: "center",
+            fontSize: 13,
+            marginBottom: 12,
+          }}
+        >
+          Loading...
+        </div>
+      )}
+
       <CoverageHeader
         date={date}
+        today={today}
         onPrev={() => setDate((d) => offsetDate(d, -1))}
         onNext={() => setDate((d) => offsetDate(d, 1))}
         onNow={() => setDate(new Date())}
@@ -95,9 +166,14 @@ export default function Page() {
         scheduledCount={scheduled.length}
         offCount={off.length}
         nowMinutes={nowMinutes}
+        coverageStatus={coverageStatus}
       />
 
-      <CoverageTimeline schedules={daySchedules} nowMinutes={nowMinutes} />
+      <CoverageTimeline
+        schedules={daySchedules}
+        nowMinutes={nowMinutes}
+        isToday={isToday}
+      />
 
       {/* Legend */}
       <div
@@ -140,6 +216,7 @@ export default function Page() {
         schedules={sortedScheduled}
         employees={employees}
         nowMinutes={nowMinutes}
+        isToday={isToday}
         onSelect={(emp, sch) => setSelected({ emp, sch })}
       />
 
@@ -149,6 +226,7 @@ export default function Page() {
         schedules={off}
         employees={employees}
         nowMinutes={nowMinutes}
+        isToday={isToday}
         onSelect={(emp, sch) => setSelected({ emp, sch })}
       />
 

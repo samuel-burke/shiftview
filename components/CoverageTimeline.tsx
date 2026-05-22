@@ -8,9 +8,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Schedule } from "../data/mockData";
+import { Schedule } from "../data/types";
 
-type Props = { schedules: Schedule[]; nowMinutes: number };
+type Props = { schedules: Schedule[]; nowMinutes: number; isToday: boolean };
 
 const START_M = 360; // 6AM
 const END_M = 1320; // 10PM
@@ -67,7 +67,11 @@ function fmtMinutes(m: number): string {
 const Y_AXIS_WIDTH = 8; // left offset (left: -28 shifts axis, net chart starts ~8px in from container left... we'll measure)
 const RIGHT_PAD = 8;
 
-export default function CoverageTimeline({ schedules, nowMinutes }: Props) {
+export default function CoverageTimeline({
+  schedules,
+  nowMinutes,
+  isToday,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [chartRect, setChartRect] = useState<{
     left: number;
@@ -80,7 +84,7 @@ export default function CoverageTimeline({ schedules, nowMinutes }: Props) {
     return POINTS.map(({ label, m }) => ({
       label,
       staff: schedules.filter(
-        (s) => s.startMinutes >= 0 && m >= s.startMinutes && m < s.endMinutes,
+        (s) => s.startMinutes >= 0 && m >= s.startMinutes && m <= s.endMinutes,
       ).length,
     }));
   }, [schedules]);
@@ -202,50 +206,53 @@ export default function CoverageTimeline({ schedules, nowMinutes }: Props) {
         </ResponsiveContainer>
 
         {/* Now line overlay — positioned absolutely over the chart */}
-        {lineLeft !== null && lineTop !== null && lineHeight !== null && (
-          <div
-            style={{
-              position: "absolute",
-              left: lineLeft,
-              top: lineTop,
-              width: 0,
-              height: lineHeight,
-              pointerEvents: "none",
-            }}
-          >
-            {/* Dashed line */}
+        {isToday &&
+          lineLeft !== null &&
+          lineTop !== null &&
+          lineHeight !== null && (
             <div
               style={{
                 position: "absolute",
-                left: 0,
-                top: 0,
-                width: "1.5px",
-                height: "100%",
-                background:
-                  "repeating-linear-gradient(to bottom, #94a3b8 0px, #94a3b8 4px, transparent 4px, transparent 7px)",
-              }}
-            />
-            {/* Label badge above the line */}
-            <div
-              style={{
-                position: "absolute",
-                top: -24,
-                left: "50%",
-                transform: "translateX(-50%)",
-                background: "#1e293b",
-                border: "1px solid #334155",
-                borderRadius: 6,
-                padding: "2px 7px",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#e2e8f0",
-                whiteSpace: "nowrap",
+                left: lineLeft,
+                top: lineTop,
+                width: 0,
+                height: lineHeight,
+                pointerEvents: "none",
               }}
             >
-              {timeStr}
+              {/* Dashed line */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "1.5px",
+                  height: "100%",
+                  background:
+                    "repeating-linear-gradient(to bottom, #94a3b8 0px, #94a3b8 4px, transparent 4px, transparent 7px)",
+                }}
+              />
+              {/* Label badge above the line */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -24,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "#1e293b",
+                  border: "1px solid #334155",
+                  borderRadius: 6,
+                  padding: "2px 7px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#e2e8f0",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {timeStr}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     </div>
   );
