@@ -146,19 +146,47 @@ export default function Page() {
   const goNext = useCallback(() => setDate((d) => offsetDate(d, 1)), []);
   const goPrev = useCallback(() => setDate((d) => offsetDate(d, -1)), []);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
+    let startY: number | null = null;
     let startX: number | null = null;
 
     function onTouchStart(e: TouchEvent) {
+      startY = e.touches[0].clientY;
       startX = e.touches[0].clientX;
     }
 
-    function onTouchEnd(e: TouchEvent) {
-      if (startX === null) return;
-      const diff = startX - e.changedTouches[0].clientX;
-      if (Math.abs(diff) < 50) return;
-      if (diff > 0) goNext();
+    async function onTouchEnd(e: TouchEvent) {
+      if (startY === null || startX === null) return;
+      const diffY = e.changedTouches[0].clientY - startY;
+      const diffX = startX - e.changedTouches[0].clientX;
+
+      // Pull to refresh — only when at top of page and pulling down
+      if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
+        setRefreshing(true);
+        const dateKey = toDateKey(date);
+        await Promise.all([
+          fetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then(setEmployees),
+          fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
+            cache: "no-store",
+          })
+            .then((r) => r.json())
+            .then(setSchedules),
+        ]);
+        setRefreshing(false);
+        return;
+      }
+
+      // Swipe left/right to change days
+      const diffSwipeX = startX - e.changedTouches[0].clientX;
+      if (Math.abs(diffSwipeX) < 50) return;
+      if (diffSwipeX > 0) goNext();
       else goPrev();
+
+      startY = null;
       startX = null;
     }
 
@@ -168,7 +196,7 @@ export default function Page() {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [goNext, goPrev]);
+  }, [goNext, goPrev, date, isDemo]);
 
   return (
     <main
@@ -192,7 +220,18 @@ export default function Page() {
           Loading...
         </div>
       )}
-
+      {refreshing && (
+        <div
+          style={{
+            color: "#3b82f6",
+            textAlign: "center",
+            fontSize: 13,
+            marginBottom: 12,
+          }}
+        >
+          Refreshing...
+        </div>
+      )}
       <CoverageHeader
         date={date}
         today={today}
@@ -207,6 +246,7 @@ export default function Page() {
         coverageStatus={coverageStatus}
         onSignOut={isDemo ? undefined : handleSignOut}
         onSignIn={isDemo ? () => router.push("/login") : undefined}
+        isDemo={isDemo}
       />
 
       <CoverageTimeline

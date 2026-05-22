@@ -16,6 +16,7 @@ type Props = {
   offCount: number;
   nowMinutes: number;
   coverageStatus: CoverageStatus;
+  isDemo: boolean;
 };
 
 function fmtTime(m: number): string {
@@ -42,6 +43,7 @@ export default function CoverageHeader({
   offCount,
   nowMinutes,
   coverageStatus,
+  isDemo,
 }: Props) {
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
