@@ -21,6 +21,7 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/icon-512.png" />
         <meta name="theme-color" content="#0a1628" />
+        <meta name="screen-orientation" content="portrait" />
       </head>
       <body>{children}</body>
     </html>

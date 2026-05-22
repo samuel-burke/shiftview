@@ -8,6 +8,8 @@ type Props = {
   onPrev: () => void;
   onNext: () => void;
   onNow: () => void;
+  onSignOut?: () => void;
+  onSignIn?: () => void;
   isToday: boolean;
   hereCount: number;
   scheduledCount: number;
@@ -32,6 +34,8 @@ export default function CoverageHeader({
   onPrev,
   onNext,
   onNow,
+  onSignOut,
+  onSignIn,
   isToday,
   hereCount,
   scheduledCount,
@@ -132,15 +136,19 @@ export default function CoverageHeader({
           marginBottom: 12,
         }}
       >
+        {/* Left — brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
             style={{
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: "#22c55e",
+              background: coverageStatus === "closed" ? "#ef4444" : "#22c55e",
               display: "inline-block",
-              boxShadow: "0 0 0 3px rgba(34,197,94,0.2)",
+              boxShadow:
+                coverageStatus === "closed"
+                  ? "0 0 0 3px #ef444433"
+                  : "0 0 0 3px #22c55e33",
             }}
           />
           <span
@@ -152,26 +160,64 @@ export default function CoverageHeader({
               textTransform: "uppercase",
             }}
           >
-            Fulfillment Team
+            SHIFTVIEW
           </span>
         </div>
-        {!isToday && (
-          <button
-            onClick={onNow}
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#f1f5f9",
-              background: "#334155",
-              border: "none",
-              borderRadius: 8,
-              padding: "5px 12px",
-              cursor: "pointer",
-            }}
-          >
-            TODAY
-          </button>
-        )}
+
+        {/* Right — actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {!isToday && (
+            <button
+              onClick={onNow}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#f1f5f9",
+                background: "#334155",
+                border: "none",
+                borderRadius: 8,
+                padding: "5px 12px",
+                cursor: "pointer",
+              }}
+            >
+              TODAY
+            </button>
+          )}
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#475569",
+                background: "transparent",
+                border: "1px solid #1e293b",
+                borderRadius: 8,
+                padding: "5px 12px",
+                cursor: "pointer",
+              }}
+            >
+              Sign Out
+            </button>
+          )}
+          {onSignIn && (
+            <button
+              onClick={onSignIn}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#3b82f6",
+                background: "transparent",
+                border: "1px solid #1e293b",
+                borderRadius: 8,
+                padding: "5px 12px",
+                cursor: "pointer",
+              }}
+            >
+              Sign In
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Date nav */}
