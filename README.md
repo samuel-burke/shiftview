@@ -11,14 +11,16 @@ A mobile-first shift dashboard for retail and hospitality managers — see who's
 ## Features
 
 - **Live coverage status** — real-time indicator of whether staffing is optimal, low, or critical
-- **Coverage timeline** — area chart showing staff count across the full operating day
-- **Shift cards** — sorted list of scheduled employees with shift type, times, and "Here" badge for who's currently on shift
+- **Coverage timeline** — area chart showing staff count across the full operating day, with a pulsing now-indicator at the current time
+- **Shift cards** — sorted list of scheduled employees with shift type (opener / mid / closer), times, and "Here" badge for who's currently on shift
 - **Arrival countdown** — shows how long until the next employee's shift starts
 - **Date navigation** — swipe or tap to browse past and future schedules
 - **Pull to refresh** — drag down on mobile to fetch the latest data
-- **Employee drawer** — tap any employee for a detail sheet with start/end times and shift type
+- **Employee drawer** — tap any employee for a detail sheet with start/end times, shift type, and status
+- **Manager controls** — edit shift times, mark an employee as off, or add an off employee back to the schedule
+- **Dynamic store hours** — open and close times are stored per day in the database, not hardcoded
 - **Demo mode** — try the app without an account at `/?demo=true`
-- **Auth** — sign in via Supabase to view live schedule data
+- **Auth** — sign in via Supabase to view and manage live schedule data
 
 ## Tech Stack
 
@@ -29,7 +31,6 @@ A mobile-first shift dashboard for retail and hospitality managers — see who's
 | Styling | Tailwind CSS v4 |
 | Database / Auth | Supabase |
 | Charts | Recharts |
-| Animation | Framer Motion |
 | Testing | Vitest + React Testing Library |
 
 ## Getting Started
@@ -68,24 +69,24 @@ npm test          # single run
 npm run test:watch  # watch mode
 ```
 
-57 smoke tests covering utility functions and all UI components.
-
 ## Project Structure
 
 ```
 app/
   api/
     employees/    # GET /api/employees
-    schedules/    # GET /api/schedules?date=YYYY-MM-DD
+    me/           # GET /api/me — returns isManager flag for current user
+    schedules/    # GET, POST, PUT, DELETE /api/schedules
+    store-hours/  # GET /api/store-hours — per-day open/close times
   login/          # sign-in page
   page.tsx        # server entry, wraps pageClient in Suspense
   pageClient.tsx  # main dashboard client component
 components/
   CoverageHeader.tsx    # date nav, stat cards, coverage alert
-  CoverageTimeline.tsx  # recharts area chart
-  EmployeeDrawer.tsx    # bottom sheet employee detail
+  CoverageTimeline.tsx  # recharts area chart with now-line overlay
+  EmployeeDrawer.tsx    # bottom sheet for viewing and editing a shift
   ShiftCard.tsx         # individual employee row
-  TeamSection.tsx       # grouped list of shift cards
+  TeamSection.tsx       # grouped list of shift cards or off employees
 data/
   types.ts        # shared types and pure utility functions
 lib/
@@ -95,11 +96,15 @@ lib/
 
 ## Database Schema
 
-The app expects two sets of tables in Supabase — live tables (`employees`, `schedules`) used when a user is signed in, and read-only demo tables (`employees_demo`, `schedules_demo`) used in demo mode.
+The app uses two sets of tables — live tables used when signed in, and read-only demo tables used in demo mode.
 
 | Table | Columns |
 |---|---|
-| `employees` / `employees_demo` | `id`, `name`, `avatar` |
+| `employees` / `employees_demo` | `id`, `name` |
 | `schedules` / `schedules_demo` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
+| `store_hours` | `day_of_week` (0–6), `open_minutes`, `close_minutes` |
+| `managers` | `user_id` |
 
-Times are stored as minutes since midnight (e.g. `480` = 8:00 AM).
+Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
+
+Row Level Security is enabled on all live tables. Managers can insert, update, and delete schedules; all authenticated users can read.
