@@ -19,6 +19,7 @@ type Props = {
   isToday: boolean;
   onClose: () => void;
   onSave: (scheduleId: number, startMinutes: number, endMinutes: number) => Promise<void>;
+  onMarkOff: (scheduleId: number) => Promise<void>;
   isManager: boolean;
 };
 
@@ -40,6 +41,7 @@ export default function EmployeeDrawer({
   isToday,
   onClose,
   onSave,
+  onMarkOff,
   isManager,
 }: Props) {
   const [editing, setEditing] = useState(false);
@@ -67,13 +69,10 @@ export default function EmployeeDrawer({
 
   const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
   const here = isToday && isHere(schedule, nowMinutes);
-  const scheduled = schedule.startMinutes >= 0;
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
   const statusLabel = here
     ? "Here"
-    : !scheduled
-      ? (isToday ? "Off Today" : "Off")
-      : (isToday ? "Not Yet In / Off" : "Scheduled");
+    : isToday ? "Not Yet In / Off" : "Scheduled";
   const statusColor = here ? "#22c55e" : "#64748b";
 
   async function handleSave() {
@@ -100,11 +99,11 @@ export default function EmployeeDrawer({
     setSaving(true);
     setError(null);
     try {
-      await onSave(schedule.id, -1, -1);
+      await onMarkOff(schedule.id);
       setEditing(false);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save shift");
+      setError(e instanceof Error ? e.message : "Failed to mark as off");
     } finally {
       setSaving(false);
     }
@@ -289,9 +288,9 @@ export default function EmployeeDrawer({
             <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
                 {[
-                  { label: "Start",      value: scheduled ? fmtMinutes(schedule.startMinutes) : "—" },
-                  { label: "End",        value: scheduled ? fmtMinutes(schedule.endMinutes) : "—" },
-                  { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "Off" },
+                  { label: "Start",      value: fmtMinutes(schedule.startMinutes) },
+                  { label: "End",        value: fmtMinutes(schedule.endMinutes) },
+                  { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "—" },
                   { label: "Status",     value: statusLabel },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ background: "#1a2236", borderRadius: 12, padding: "12px 14px" }}>
@@ -319,7 +318,7 @@ export default function EmployeeDrawer({
                       cursor: "pointer",
                     }}
                   >
-                    {scheduled ? "Edit Shift" : "Add Shift"}
+                    Edit Shift
                   </button>
                 )}
                 <button

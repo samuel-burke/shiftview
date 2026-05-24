@@ -30,7 +30,7 @@ export function getShiftType(startMinutes: number, endMinutes: number): ShiftTyp
 }
 
 export function isHere(s: Schedule, nowMinutes: number): boolean {
-  return s.startMinutes >= 0 && nowMinutes >= s.startMinutes && nowMinutes < s.endMinutes;
+  return nowMinutes >= s.startMinutes && nowMinutes < s.endMinutes;
 }
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
@@ -51,12 +51,10 @@ export function getDayCoverageStatus(
   const openMinutes  = day === 0 ? 480  : 360;  // 8am Sun, 6am Mo-Sa
   const closeMinutes = day === 0 ? 1200 : 1320; // 8pm Sun, 10pm Mo-Sa
 
-  const scheduled = schedules.filter((s) => s.startMinutes >= 0);
-
   let minCoverage = Infinity;
 
   for (let t = openMinutes; t < closeMinutes; t += 30) {
-    const count = scheduled.filter(
+    const count = schedules.filter(
       (s) => t >= s.startMinutes && t < s.endMinutes
     ).length;
     minCoverage = Math.min(minCoverage, count);

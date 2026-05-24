@@ -14,14 +14,6 @@ const scheduled: Schedule = {
   endMinutes: 960,   // 4pm
 };
 
-const off: Schedule = {
-  id: 2,
-  employeeId: 1,
-  date: "2026-05-23",
-  startMinutes: -1,
-  endMinutes: -1,
-};
-
 describe("ShiftCard", () => {
   it("renders without crashing", () => {
     render(
@@ -48,7 +40,7 @@ describe("ShiftCard", () => {
     expect(screen.getByText("Alice Smith")).toBeInTheDocument();
   });
 
-  it("displays shift time range when scheduled", () => {
+  it("displays shift time range", () => {
     render(
       <ShiftCard
         employee={employee}
@@ -60,19 +52,6 @@ describe("ShiftCard", () => {
     );
     expect(screen.getByText(/8:00 AM/)).toBeInTheDocument();
     expect(screen.getByText(/4:00 PM/)).toBeInTheDocument();
-  });
-
-  it("shows 'Off' when not scheduled", () => {
-    render(
-      <ShiftCard
-        employee={employee}
-        schedule={off}
-        nowMinutes={600}
-        isToday={true}
-        onClick={() => {}}
-      />
-    );
-    expect(screen.getByText("Off")).toBeInTheDocument();
   });
 
   it("shows 'Here' badge when employee is currently on shift", () => {

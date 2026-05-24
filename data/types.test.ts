@@ -56,10 +56,6 @@ describe("isHere", () => {
     expect(isHere(sch, 960)).toBe(false);
   });
 
-  it("returns false for off-day schedules (startMinutes < 0)", () => {
-    const off: Schedule = { ...sch, startMinutes: -1 };
-    expect(isHere(off, 720)).toBe(false);
-  });
 });
 
 describe("fmtMinutes", () => {
@@ -123,13 +119,4 @@ describe("getDayCoverageStatus", () => {
     expect(getDayCoverageStatus(schedules, monday)).toBe("critical");
   });
 
-  it("ignores off-day schedules (startMinutes < 0)", () => {
-    const monday = new Date("2026-05-25");
-    const schedules = [
-      makeSchedule(-1, -1, 1),
-      makeSchedule(-1, -1, 2),
-      makeSchedule(-1, -1, 3),
-    ];
-    expect(getDayCoverageStatus(schedules, monday)).toBe("critical");
-  });
 });

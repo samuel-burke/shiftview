@@ -77,6 +77,19 @@ export default function Page() {
     const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
   }
+
+  async function handleMarkOff(scheduleId: number) {
+    const res = await fetch("/api/schedules", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: scheduleId }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to mark as off");
+    }
+    setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
+  }
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
@@ -119,13 +132,10 @@ export default function Page() {
     () => schedules.filter((s) => s.date.slice(0, 10) === dateKey),
     [schedules, dateKey],
   );
-  const scheduled = useMemo(
-    () => daySchedules.filter((s) => s.startMinutes >= 0),
-    [daySchedules],
-  );
+  const scheduled = daySchedules;
   const off = useMemo(
-    () => daySchedules.filter((s) => s.startMinutes < 0),
-    [daySchedules],
+    () => employees.filter((emp) => !daySchedules.some((s) => s.employeeId === emp.id)),
+    [employees, daySchedules],
   );
   const hereNow = useMemo(
     () => scheduled.filter((s) => isHere(s, nowMinutes)),
@@ -305,11 +315,9 @@ export default function Page() {
           <TeamSection
             label="Off Today"
             count={off.length}
-            schedules={off}
-            employees={employees}
+            employees={off}
             nowMinutes={nowMinutes}
             isToday={isToday}
-            onSelect={(emp, sch) => setSelected({ emp, sch })}
           />
         </>
       )}
@@ -337,6 +345,7 @@ export default function Page() {
         isToday={isToday}
         onClose={() => setSelected(null)}
         onSave={handleSaveShift}
+        onMarkOff={handleMarkOff}
         isManager={isManager}
       />
     </main>

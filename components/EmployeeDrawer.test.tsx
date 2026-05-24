@@ -25,6 +25,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
@@ -41,6 +42,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
@@ -57,6 +59,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
@@ -73,6 +76,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
@@ -90,6 +94,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
@@ -106,6 +111,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
@@ -122,45 +128,12 @@ describe("EmployeeDrawer", () => {
         isToday={false}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
     expect(screen.queryByText("Here")).not.toBeInTheDocument();
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
-  });
-
-  it("shows 'Off Today' status for off-day schedule", () => {
-    const offSchedule: Schedule = { ...schedule, startMinutes: -1, endMinutes: -1 };
-    render(
-      <EmployeeDrawer
-        open={true}
-        employee={employee}
-        schedule={offSchedule}
-        nowMinutes={600}
-        isToday={true}
-        onClose={vi.fn()}
-        onSave={vi.fn().mockResolvedValue(undefined)}
-        isManager={true}
-      />
-    );
-    expect(screen.getByText("Off Today")).toBeInTheDocument();
-  });
-
-  it("shows 'Off' status for off-day schedule on non-today days", () => {
-    const offSchedule: Schedule = { ...schedule, startMinutes: -1, endMinutes: -1 };
-    render(
-      <EmployeeDrawer
-        open={true}
-        employee={employee}
-        schedule={offSchedule}
-        nowMinutes={600}
-        isToday={false}
-        onClose={vi.fn()}
-        onSave={vi.fn().mockResolvedValue(undefined)}
-        isManager={true}
-      />
-    );
-    expect(screen.getAllByText("Off").length).toBeGreaterThan(0);
   });
 
   it("calls onClose when the close button is clicked", async () => {
@@ -207,6 +180,7 @@ describe("EmployeeDrawer", () => {
         isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
+        onMarkOff={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
