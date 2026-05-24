@@ -84,7 +84,7 @@ export default function CoverageTimeline({
     return POINTS.map(({ label, m }) => ({
       label,
       staff: schedules.filter(
-        (s) => s.startMinutes >= 0 && m >= s.startMinutes && m <= s.endMinutes,
+        (s) => s.startMinutes >= 0 && m >= s.startMinutes && m < s.endMinutes,
       ).length,
     }));
   }, [schedules]);
