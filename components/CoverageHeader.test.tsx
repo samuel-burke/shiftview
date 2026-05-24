@@ -57,6 +57,12 @@ describe("CoverageHeader", () => {
     expect(screen.getByText("Off")).toBeInTheDocument();
   });
 
+  it("does not show 'Here Now' card on non-today days", () => {
+    const pastDate = new Date(2026, 4, 20);
+    render(<CoverageHeader {...baseProps} date={pastDate} isToday={false} />);
+    expect(screen.queryByText("Here Now")).not.toBeInTheDocument();
+  });
+
   it("does not show TODAY button when viewing today", () => {
     render(<CoverageHeader {...baseProps} isToday={true} />);
     expect(screen.queryByText("TODAY")).not.toBeInTheDocument();

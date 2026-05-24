@@ -157,7 +157,7 @@ export default function CoverageTimeline({
           paddingLeft: 6,
         }}
       >
-        Today's Coverage Timeline
+        Coverage Timeline
       </p>
 
       {/* Wrapper — position relative so overlay can be absolute */}

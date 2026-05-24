@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import ShiftCard from "./ShiftCard";
 import type { Employee, Schedule } from "../data/types";
 
-const employee: Employee = { id: 1, name: "Alice Smith", avatar: "AS" };
+const employee: Employee = { id: 1, name: "Alice Smith" };
 
 const scheduled: Schedule = {
   id: 1,
@@ -133,12 +133,12 @@ describe("ShiftCard", () => {
     render(
       <ShiftCard
         employee={employee}
-        schedule={scheduled} // 8am = opener
+        schedule={scheduled} // 8am–4pm = mid
         nowMinutes={600}
         isToday={true}
         onClick={() => {}}
       />
     );
-    expect(screen.getByText("opener")).toBeInTheDocument();
+    expect(screen.getByText("mid")).toBeInTheDocument();
   });
 });

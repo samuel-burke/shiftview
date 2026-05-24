@@ -5,6 +5,7 @@ import {
   Employee,
   Schedule,
   getShiftType,
+  getMonogram,
   isHere,
   SHIFT_COLORS,
   fmtMinutes,
@@ -15,6 +16,7 @@ type Props = {
   employee: Employee | null;
   schedule: Schedule | null;
   nowMinutes: number;
+  isToday: boolean;
   onClose: () => void;
   onSave: (scheduleId: number, startMinutes: number, endMinutes: number) => Promise<void>;
   isManager: boolean;
@@ -35,6 +37,7 @@ export default function EmployeeDrawer({
   employee,
   schedule,
   nowMinutes,
+  isToday,
   onClose,
   onSave,
   isManager,
@@ -62,11 +65,15 @@ export default function EmployeeDrawer({
 
   if (!employee || !schedule) return null;
 
-  const shiftType = getShiftType(schedule.startMinutes);
-  const here = isHere(schedule, nowMinutes);
+  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
+  const here = isToday && isHere(schedule, nowMinutes);
   const scheduled = schedule.startMinutes >= 0;
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
-  const statusLabel = here ? "Here" : scheduled ? "Not Yet In / Off" : "Off Today";
+  const statusLabel = here
+    ? "Here"
+    : !scheduled
+      ? (isToday ? "Off Today" : "Off")
+      : (isToday ? "Not Yet In / Off" : "Scheduled");
   const statusColor = here ? "#22c55e" : "#64748b";
 
   async function handleSave() {
@@ -157,7 +164,7 @@ export default function EmployeeDrawer({
                   color: shiftColor,
                 }}
               >
-                {employee.avatar}
+                {getMonogram(employee.name)}
               </div>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>

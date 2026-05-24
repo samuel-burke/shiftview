@@ -307,7 +307,7 @@ export default function CoverageHeader({
 
       {/* Stat cards */}
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        {statCard(hereCount, "Here Now", "#22c55e")}
+        {isToday && statCard(hereCount, "Here Now", "#22c55e")}
         {statCard(scheduledCount, "Scheduled", "#6366f1")}
         {statCard(offCount, "Off", "#475569")}
       </div>
