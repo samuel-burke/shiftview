@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
 
@@ -52,6 +52,18 @@ export default function CoverageHeader({
   loading = false,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [barHeight, setBarHeight] = useState(0);
+  const topBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!topBarRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (topBarRef.current) setBarHeight(topBarRef.current.offsetHeight);
+    });
+    ro.observe(topBarRef.current);
+    setBarHeight(topBarRef.current.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -142,6 +154,22 @@ export default function CoverageHeader({
 
   return (
     <div style={{ marginBottom: 16 }}>
+      {/* Fixed top bar */}
+      <div
+        ref={topBarRef}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 30,
+          background: "#0a1628",
+          borderBottom: "1px solid #1e293b",
+          maxWidth: 480,
+          margin: "0 auto",
+          padding: "calc(env(safe-area-inset-top) + 12px) 16px 12px",
+        }}
+      >
       {/* Team label + today btn */}
       <div
         style={{
@@ -272,6 +300,10 @@ export default function CoverageHeader({
           →
         </button>
       </div>
+      </div>{/* end fixed top bar */}
+
+      {/* Spacer matching fixed bar height */}
+      <div style={{ height: barHeight }} />
 
       {/* Stat cards */}
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
