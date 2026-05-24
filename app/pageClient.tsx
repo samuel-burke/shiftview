@@ -211,7 +211,7 @@ export default function Page() {
       style={{
         maxWidth: 480,
         margin: "0 auto",
-        padding: "24px 16px 80px",
+        padding: "0 16px 80px",
         background: "#0a1628",
         minHeight: "100vh",
       }}
@@ -234,6 +234,12 @@ export default function Page() {
         isDemo={isDemo}
         loading={loading}
       />
+
+      {refreshing && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+          <div className="spinner" />
+        </div>
+      )}
 
       {loading ? (
         <SkeletonTimeline />
