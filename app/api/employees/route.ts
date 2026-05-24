@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from(table)
-    .select("*")
+    .select("id, name")
     .order("id");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

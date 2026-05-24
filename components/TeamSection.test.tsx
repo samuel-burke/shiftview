@@ -4,8 +4,8 @@ import TeamSection from "./TeamSection";
 import type { Employee, Schedule } from "../data/types";
 
 const employees: Employee[] = [
-  { id: 1, name: "Alice Smith", avatar: "AS" },
-  { id: 2, name: "Bob Jones", avatar: "BJ" },
+  { id: 1, name: "Alice Smith" },
+  { id: 2, name: "Bob Jones" },
 ];
 
 const schedules: Schedule[] = [

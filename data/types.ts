@@ -3,8 +3,15 @@ export type ShiftType = "opener" | "mid" | "closer";
 export type Employee = {
   id: number;
   name: string;
-  avatar: string;
 };
+
+export function getMonogram(name: string): string {
+  const words = name.split(" ").filter(Boolean);
+  const initials = words.length === 1
+    ? [words[0]]
+    : [words[0], words[words.length - 1]];
+  return initials.map((w) => w[0].toUpperCase()).join("");
+}
 
 export type Schedule = {
   id: number;
@@ -14,12 +21,12 @@ export type Schedule = {
   endMinutes: number;
 };
 
-// Derived — computed from start time, not stored
-export function getShiftType(startMinutes: number): ShiftType | null {
+// Derived — computed from clock-in/out times, not stored
+export function getShiftType(startMinutes: number, endMinutes: number): ShiftType | null {
   if (startMinutes < 0) return null;
-  if (startMinutes < 540) return "opener"; // before 9am
-  if (startMinutes < 720) return "mid";    // 9am–noon
-  return "closer";                          // noon+
+  if (startMinutes <= 420) return "opener"; // clock-in at or before 7am
+  if (endMinutes >= 1260) return "closer";                        // 9pm+ clock-out
+  return "mid";
 }
 
 export function isHere(s: Schedule, nowMinutes: number): boolean {

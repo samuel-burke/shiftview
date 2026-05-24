@@ -5,6 +5,7 @@ import {
   Employee,
   Schedule,
   getShiftType,
+  getMonogram,
   isHere,
   SHIFT_COLORS,
   fmtMinutes,
@@ -62,7 +63,7 @@ export default function EmployeeDrawer({
 
   if (!employee || !schedule) return null;
 
-  const shiftType = getShiftType(schedule.startMinutes);
+  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
   const here = isHere(schedule, nowMinutes);
   const scheduled = schedule.startMinutes >= 0;
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
@@ -157,7 +158,7 @@ export default function EmployeeDrawer({
                   color: shiftColor,
                 }}
               >
-                {employee.avatar}
+                {getMonogram(employee.name)}
               </div>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>

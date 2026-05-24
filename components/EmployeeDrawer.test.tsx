@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import EmployeeDrawer from "./EmployeeDrawer";
 import type { Employee, Schedule } from "../data/types";
 
-const employee: Employee = { id: 1, name: "Alice Smith", avatar: "AS" };
+const employee: Employee = { id: 1, name: "Alice Smith" };
 
 const schedule: Schedule = {
   id: 1,
@@ -81,14 +81,14 @@ describe("EmployeeDrawer", () => {
       <EmployeeDrawer
         open={true}
         employee={employee}
-        schedule={schedule} // 8am = opener
+        schedule={schedule} // 8am–4pm = mid
         nowMinutes={600}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
-    expect(screen.getByText("Opener")).toBeInTheDocument();
+    expect(screen.getByText("Mid")).toBeInTheDocument();
   });
 
   it("shows 'Here' status when employee is currently on shift", () => {

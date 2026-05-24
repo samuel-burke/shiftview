@@ -5,6 +5,7 @@ import {
   Schedule,
   ShiftType,
   getShiftType,
+  getMonogram,
   isHere,
   SHIFT_COLORS,
   fmtMinutes,
@@ -25,7 +26,7 @@ export default function ShiftCard({
   isToday,
   onClick,
 }: Props) {
-  const shiftType = getShiftType(schedule.startMinutes);
+  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
   const scheduled = schedule.startMinutes >= 0;
   const here = isToday && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
@@ -77,7 +78,7 @@ export default function ShiftCard({
           flexShrink: 0,
         }}
       >
-        {employee.avatar}
+        {getMonogram(employee.name)}
       </div>
 
       {/* Name + shift type */}
