@@ -56,7 +56,7 @@ export default function Page() {
   const [date, setDate] = useState(today);
   const [selected, setSelected] = useState<{
     emp: Employee;
-    sch: Schedule;
+    sch: Schedule | null;
   } | null>(null);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -86,6 +86,21 @@ export default function Page() {
       throw new Error(error ?? "Failed to save shift");
     }
     const dateKey = toDateKey(date);
+    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    setSchedules(data);
+  }
+
+  async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number) {
+    const dateKey = toDateKey(date);
+    const res = await fetch("/api/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to add shift");
+    }
     const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
   }
@@ -331,6 +346,7 @@ export default function Page() {
             employees={off}
             nowMinutes={nowMinutes}
             isToday={isToday}
+            onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined}
           />
         </>
       )}
@@ -358,6 +374,7 @@ export default function Page() {
         isToday={isToday}
         onClose={() => setSelected(null)}
         onSave={handleSaveShift}
+        onCreate={handleCreateShift}
         onMarkOff={handleMarkOff}
         isManager={isManager}
       />

@@ -11,6 +11,7 @@ type Props = {
   nowMinutes: number;
   isToday: boolean;
   onSelect?: (emp: Employee, sch: Schedule) => void;
+  onSelectOff?: (emp: Employee) => void;
 };
 
 export default function TeamSection({
@@ -21,6 +22,7 @@ export default function TeamSection({
   nowMinutes,
   isToday,
   onSelect,
+  onSelectOff,
 }: Props) {
   if (count === 0) return null;
 
@@ -90,6 +92,7 @@ export default function TeamSection({
       {employees.map((emp) => (
         <div
           key={emp.id}
+          onClick={() => onSelectOff?.(emp)}
           style={{
             width: "100%",
             background: "#111827",
@@ -101,6 +104,7 @@ export default function TeamSection({
             display: "flex",
             alignItems: "center",
             gap: 12,
+            cursor: onSelectOff ? "pointer" : "default",
           }}
         >
           <div

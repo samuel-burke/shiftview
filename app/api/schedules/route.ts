@@ -83,6 +83,30 @@ export async function PUT(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
+export async function POST(request: Request) {
+  const { employeeId, date, startMinutes, endMinutes } = await request.json();
+
+  if (employeeId == null || !date || startMinutes == null || endMinutes == null)
+    return NextResponse.json({ error: "employeeId, date, startMinutes, endMinutes required" }, { status: 400 });
+  if (!DATE_RE.test(date))
+    return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
+
+  const validationError = validateShiftMinutes(startMinutes, endMinutes);
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
+
+  const supabase = await createClient();
+  const { error: authError } = await requireManager(supabase);
+  if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
+
+  const { error } = await supabase
+    .from("schedules")
+    .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true }, { status: 201 });
+}
+
 export async function DELETE(request: Request) {
   const { id } = await request.json();
 
