@@ -52,6 +52,7 @@ export default function Page() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isManager, setIsManager] = useState(false);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -61,18 +62,37 @@ export default function Page() {
     router.push("/login");
     router.refresh();
   }
+
+  async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number) {
+    const res = await fetch("/api/schedules", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: scheduleId, startMinutes, endMinutes }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to save shift");
+    }
+    const dateKey = toDateKey(date);
+    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    setSchedules(data);
+  }
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
     return () => clearInterval(t);
   }, []);
 
-  // Fetch employees once on mount
+  // Fetch employees and manager status once on mount
   useEffect(() => {
     fetch(`/api/employees?demo=${isDemo}`)
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => setError("Failed to load employees"));
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(({ isManager }) => setIsManager(isManager))
+      .catch(() => {});
   }, []);
 
   // Fetch schedules whenever date changes
@@ -309,6 +329,8 @@ export default function Page() {
         schedule={selected?.sch ?? null}
         nowMinutes={nowMinutes}
         onClose={() => setSelected(null)}
+        onSave={handleSaveShift}
+        isManager={isManager}
       />
     </main>
   );

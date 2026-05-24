@@ -31,3 +31,32 @@ export async function GET(request: Request) {
 
   return NextResponse.json(mapped);
 }
+
+export async function PUT(request: Request) {
+  const { id, startMinutes, endMinutes } = await request.json();
+
+  if (id == null || startMinutes == null || endMinutes == null)
+    return NextResponse.json({ error: "id, startMinutes, endMinutes required" }, { status: 400 });
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const { data: managerRow } = await supabase
+    .from("managers")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!managerRow) return NextResponse.json({ error: "Manager access required" }, { status: 403 });
+
+  const { error } = await supabase
+    .from("schedules")
+    .update({ start_minutes: startMinutes, end_minutes: endMinutes })
+    .eq("id", id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
