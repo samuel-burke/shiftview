@@ -42,14 +42,13 @@ export const SHIFT_COLORS: Record<ShiftType, string> = {
 export const OPTIMAL_COVERAGE = 3;
 export const MINIMUM_COVERAGE = 2;
 export type CoverageStatus = "optimal" | "low" | "critical" | "closed";
+export type StoreHours = { open: number; close: number };
 
 export function getDayCoverageStatus(
   schedules: Schedule[],
-  date: Date
+  storeHours: StoreHours
 ): CoverageStatus {
-  const day = date.getDay(); // 0 = Sunday
-  const openMinutes  = day === 0 ? 480  : 360;  // 8am Sun, 6am Mo-Sa
-  const closeMinutes = day === 0 ? 1200 : 1320; // 8pm Sun, 10pm Mo-Sa
+  const { open: openMinutes, close: closeMinutes } = storeHours;
 
   let minCoverage = Infinity;
 

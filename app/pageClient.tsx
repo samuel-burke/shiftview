@@ -5,11 +5,22 @@ import { useSearchParams } from "next/navigation";
 import {
   Employee,
   Schedule,
+  StoreHours,
   isHere,
   OPTIMAL_COVERAGE,
   MINIMUM_COVERAGE,
   CoverageStatus,
 } from "../data/types";
+
+const DEFAULT_HOURS: Record<number, StoreHours> = {
+  0: { open: 480, close: 1200 },
+  1: { open: 360, close: 1320 },
+  2: { open: 360, close: 1320 },
+  3: { open: 360, close: 1320 },
+  4: { open: 360, close: 1320 },
+  5: { open: 360, close: 1320 },
+  6: { open: 360, close: 1320 },
+};
 import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
@@ -53,6 +64,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isManager, setIsManager] = useState(false);
+  const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -96,7 +108,7 @@ export default function Page() {
     return () => clearInterval(t);
   }, []);
 
-  // Fetch employees and manager status once on mount
+  // Fetch employees, manager status, and store hours once on mount
   useEffect(() => {
     fetch(`/api/employees?demo=${isDemo}`)
       .then((r) => r.json())
@@ -106,6 +118,10 @@ export default function Page() {
       .then((r) => r.json())
       .then(({ isManager }) => setIsManager(isManager))
       .catch(() => {});
+    fetch("/api/store-hours")
+      .then((r) => r.json())
+      .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+      .catch(() => {}); // fall back to DEFAULT_HOURS on error
   }, []);
 
   // Fetch schedules whenever date changes
@@ -154,12 +170,7 @@ export default function Page() {
     return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
   })();
 
-  const storeHours = useMemo(() => {
-    const day = date.getDay(); // 0 = Sunday
-    return day === 0
-      ? { open: 480, close: 1200 } // 8am–8pm
-      : { open: 360, close: 1320 }; // 6am–10pm
-  }, [date]);
+  const storeHours = weeklyHours[date.getDay()];
 
   const isStoreOpen = useMemo(() => {
     if (!isToday) return true; // non-today dates always show live alert
@@ -258,6 +269,8 @@ export default function Page() {
           schedules={daySchedules}
           nowMinutes={nowMinutes}
           isToday={isToday}
+          openMinutes={storeHours.open}
+          closeMinutes={storeHours.close}
         />
       )}
 
