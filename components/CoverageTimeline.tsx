@@ -6,6 +6,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  ReferenceLine,
+  ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
 import { Schedule } from "../data/types";
@@ -28,10 +30,18 @@ function fmtMinutes(m: number): string {
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
 
-// Recharts leaves ~30px for YAxis on the left and ~8px on the right
-// We need to match this to position our overlay line correctly
-const Y_AXIS_WIDTH = 8; // left offset (left: -28 shifts axis, net chart starts ~8px in from container left... we'll measure)
-const RIGHT_PAD = 8;
+function PulsingDot({ cx, cy }: { cx?: number; cy?: number }) {
+  if (cx === undefined || cy === undefined) return null;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={4} fill="#3b82f6" />
+      <circle cx={cx} cy={cy} r={4} fill="none" stroke="#3b82f6" strokeWidth={2}>
+        <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
+        <animate attributeName="stroke-opacity" values="0.8;0;0.8" dur="1.5s" repeatCount="indefinite" />
+      </circle>
+    </g>
+  );
+}
 
 export default function CoverageTimeline({
   schedules,
@@ -44,7 +54,7 @@ export default function CoverageTimeline({
 
   const points = useMemo(() => {
     const pts = [];
-    for (let m = openMinutes; m <= closeMinutes; m += 15) {
+    for (let m = openMinutes; m <= closeMinutes; m += 1) {
       pts.push({ label: fmtMinutes(m), m });
     }
     return pts;
@@ -73,6 +83,16 @@ export default function CoverageTimeline({
       ).length,
     }));
   }, [schedules, points]);
+
+  const nowDataPoint = useMemo(() => {
+    if (!isToday) return null;
+    const snappedM = Math.min(Math.max(Math.round(nowMinutes), openMinutes), closeMinutes);
+    const label = fmtMinutes(snappedM);
+    const staff = schedules.filter(
+      (s) => snappedM >= s.startMinutes && snappedM < s.endMinutes,
+    ).length;
+    return { label, staff };
+  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules]);
 
   // Measure the actual chart area after mount and on resize
   useEffect(() => {
@@ -116,11 +136,9 @@ export default function CoverageTimeline({
   const nowPct = (nowClamped - openMinutes) / range; // 0–1
   const timeStr = fmtMinutes(nowMinutes);
 
-  // Pixel position of the line within the container
+  // Pixel position of the badge within the container
   const lineLeft = chartRect ? chartRect.left + nowPct * chartRect.width : null;
-  // Top of chart area (leave room for label above)
   const lineTop = chartRect ? chartRect.top + 28 : null; // 28 = margin.top
-  const lineHeight = chartRect ? chartRect.height - 28 - 20 : null; // subtract top margin + bottom axis
 
   return (
     <div
@@ -200,57 +218,46 @@ export default function CoverageTimeline({
               fill="url(#covGrad)"
               dot={false}
             />
+            {isToday && nowDataPoint && (
+              <ReferenceLine
+                x={nowDataPoint.label}
+                stroke="#94a3b8"
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+              />
+            )}
+            {isToday && nowDataPoint && (
+              <ReferenceDot
+                x={nowDataPoint.label}
+                y={nowDataPoint.staff}
+                shape={<PulsingDot />}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
 
-        {/* Now line overlay — positioned absolutely over the chart */}
-        {isToday &&
-          lineLeft !== null &&
-          lineTop !== null &&
-          lineHeight !== null && (
-            <div
-              style={{
-                position: "absolute",
-                left: lineLeft,
-                top: lineTop,
-                width: 0,
-                height: lineHeight,
-                pointerEvents: "none",
-              }}
-            >
-              {/* Dashed line */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "1.5px",
-                  height: "100%",
-                  background:
-                    "repeating-linear-gradient(to bottom, #94a3b8 0px, #94a3b8 4px, transparent 4px, transparent 7px)",
-                }}
-              />
-              {/* Label badge above the line */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: -24,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: 6,
-                  padding: "2px 7px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#e2e8f0",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {timeStr}
-              </div>
-            </div>
-          )}
+        {/* Time badge — positioned above the now line */}
+        {isToday && lineLeft !== null && lineTop !== null && (
+          <div
+            style={{
+              position: "absolute",
+              left: lineLeft,
+              top: lineTop - 24,
+              transform: "translateX(-50%)",
+              background: "#1e293b",
+              border: "1px solid #334155",
+              borderRadius: 6,
+              padding: "2px 7px",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#e2e8f0",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+            }}
+          >
+            {timeStr}
+          </div>
+        )}
       </div>
     </div>
   );
