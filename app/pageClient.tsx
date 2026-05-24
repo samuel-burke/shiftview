@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -143,9 +143,6 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
-  const goNext = useCallback(() => setDate((d) => offsetDate(d, 1)), []);
-  const goPrev = useCallback(() => setDate((d) => offsetDate(d, -1)), []);
-
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -177,17 +174,7 @@ export default function Page() {
             .then(setSchedules),
         ]);
         setRefreshing(false);
-        return;
       }
-
-      // Swipe left/right to change days
-      const diffSwipeX = startX - e.changedTouches[0].clientX;
-      if (Math.abs(diffSwipeX) < 50) return;
-      if (diffSwipeX > 0) goNext();
-      else goPrev();
-
-      startY = null;
-      startX = null;
     }
 
     window.addEventListener("touchstart", onTouchStart);
@@ -196,7 +183,7 @@ export default function Page() {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [goNext, goPrev, date, isDemo]);
+  }, [date, isDemo]);
 
   return (
     <main
