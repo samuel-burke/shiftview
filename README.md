@@ -2,6 +2,10 @@
 
 A mobile-first shift dashboard for retail and hospitality managers — see who's in, who's next, and whether coverage is on track, all at a glance.
 
+**[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app?demo=true)
+
+![ShiftView screenshot](public/screenshot.png)
+
 ![Test](https://github.com/samuel-burke/shift-dashboard/actions/workflows/test.yml/badge.svg?branch=dev)
 
 ## Features
@@ -54,6 +58,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). To use demo mode without an account, visit [http://localhost:3000?demo=true](http://localhost:3000?demo=true).
+
+> The live app is deployed at [shiftview.app](https://shiftview.app). Try the demo at [shiftview.app?demo=true](https://shiftview.app?demo=true).
 
 ## Running Tests
 

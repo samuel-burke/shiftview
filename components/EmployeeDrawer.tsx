@@ -70,6 +70,7 @@ export default function EmployeeDrawer({
   const statusColor = here ? "#22c55e" : "#64748b";
 
   async function handleSave() {
+    if (!schedule) return;
     if (!startVal || !endVal) { setError("Both times are required."); return; }
     const start = timeToMinutes(startVal);
     const end = timeToMinutes(endVal);
@@ -88,6 +89,7 @@ export default function EmployeeDrawer({
   }
 
   async function handleMarkOff() {
+    if (!schedule) return;
     setSaving(true);
     setError(null);
     try {
