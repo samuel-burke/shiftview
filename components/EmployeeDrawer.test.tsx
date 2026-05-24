@@ -23,6 +23,8 @@ describe("EmployeeDrawer", () => {
         schedule={schedule}
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(container.firstChild).toBeNull();
@@ -36,6 +38,8 @@ describe("EmployeeDrawer", () => {
         schedule={null}
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(container.firstChild).toBeNull();
@@ -49,6 +53,8 @@ describe("EmployeeDrawer", () => {
         schedule={schedule}
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(screen.getByText("Alice Smith")).toBeInTheDocument();
@@ -62,6 +68,8 @@ describe("EmployeeDrawer", () => {
         schedule={schedule}
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(screen.getByText("8:00 AM")).toBeInTheDocument();
@@ -76,6 +84,8 @@ describe("EmployeeDrawer", () => {
         schedule={schedule} // 8am = opener
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(screen.getByText("Opener")).toBeInTheDocument();
@@ -89,6 +99,8 @@ describe("EmployeeDrawer", () => {
         schedule={schedule}
         nowMinutes={600} // 10am — within 8am–4pm
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(screen.getAllByText("Here").length).toBeGreaterThan(0);
@@ -103,6 +115,8 @@ describe("EmployeeDrawer", () => {
         schedule={offSchedule}
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(screen.getByText("Off Today")).toBeInTheDocument();
@@ -148,6 +162,8 @@ describe("EmployeeDrawer", () => {
         schedule={schedule}
         nowMinutes={600}
         onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
       />
     );
     expect(screen.getByText("Edit Shift")).toBeInTheDocument();
