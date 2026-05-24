@@ -56,7 +56,11 @@ export default function TeamSection({
 
   if (schedules) {
     const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
-    const sorted = [...schedules].sort((a, b) => a.startMinutes - b.startMinutes);
+    const sorted = [...schedules].sort((a, b) =>
+      a.startMinutes !== b.startMinutes
+        ? a.startMinutes - b.startMinutes
+        : a.endMinutes - b.endMinutes
+    );
 
     return (
       <div style={{ marginBottom: 20 }}>

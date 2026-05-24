@@ -44,7 +44,7 @@ export default function CoverageTimeline({
 
   const points = useMemo(() => {
     const pts = [];
-    for (let m = openMinutes; m <= closeMinutes; m += 30) {
+    for (let m = openMinutes; m <= closeMinutes; m += 15) {
       pts.push({ label: fmtMinutes(m), m });
     }
     return pts;
