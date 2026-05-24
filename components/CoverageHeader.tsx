@@ -17,6 +17,7 @@ type Props = {
   nowMinutes: number;
   coverageStatus: CoverageStatus;
   isDemo: boolean;
+  loading?: boolean;
 };
 
 function fmtTime(m: number): string {
@@ -44,6 +45,7 @@ export default function CoverageHeader({
   nowMinutes,
   coverageStatus,
   isDemo,
+  loading = false,
 }: Props) {
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
@@ -111,9 +113,15 @@ export default function CoverageHeader({
         border: `1px solid ${color}33`,
       }}
     >
-      <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>
-        {value}
-      </div>
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
+          <div className="skeleton" style={{ height: 28, width: 32, borderRadius: 6 }} />
+        </div>
+      ) : (
+        <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>
+          {value}
+        </div>
+      )}
       <div
         style={{
           fontSize: 11,
@@ -139,32 +147,25 @@ export default function CoverageHeader({
         }}
       >
         {/* Left — brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          style={{
+            fontSize: 24,
+            fontWeight: 800,
+            color: "#f1f5f9",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Shift
           <span
             style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              background: coverageStatus === "closed" ? "#ef4444" : "#22c55e",
-              display: "inline-block",
-              boxShadow:
-                coverageStatus === "closed"
-                  ? "0 0 0 3px #ef444433"
-                  : "0 0 0 3px #22c55e33",
-            }}
-          />
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              color: "#94a3b8",
-              textTransform: "uppercase",
+              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
             }}
           >
-            SHIFTVIEW
+            View
           </span>
-        </div>
+        </span>
 
         {/* Right — actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -172,13 +173,13 @@ export default function CoverageHeader({
             <button
               onClick={onNow}
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 color: "#f1f5f9",
                 background: "#334155",
                 border: "none",
-                borderRadius: 8,
-                padding: "5px 12px",
+                borderRadius: 10,
+                padding: "8px 16px",
                 cursor: "pointer",
               }}
             >
@@ -189,13 +190,13 @@ export default function CoverageHeader({
             <button
               onClick={onSignOut}
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 color: "#475569",
                 background: "transparent",
                 border: "1px solid #1e293b",
-                borderRadius: 8,
-                padding: "5px 12px",
+                borderRadius: 10,
+                padding: "8px 16px",
                 cursor: "pointer",
               }}
             >
@@ -206,13 +207,13 @@ export default function CoverageHeader({
             <button
               onClick={onSignIn}
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 color: "#3b82f6",
                 background: "transparent",
                 border: "1px solid #1e293b",
-                borderRadius: 8,
-                padding: "5px 12px",
+                borderRadius: 10,
+                padding: "8px 16px",
                 cursor: "pointer",
               }}
             >
@@ -267,7 +268,7 @@ export default function CoverageHeader({
       </div>
 
       {/* Alert */}
-      {alertConfig && (
+      {alertConfig && !loading && (
         <div
           style={{
             marginTop: 12,

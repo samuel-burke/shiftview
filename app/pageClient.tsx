@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -14,6 +14,7 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
+import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import { createClient } from "@/lib/supabase-browser";
 
 function toDateKey(d: Date) {
@@ -143,9 +144,6 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
-  const goNext = useCallback(() => setDate((d) => offsetDate(d, 1)), []);
-  const goPrev = useCallback(() => setDate((d) => offsetDate(d, -1)), []);
-
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -177,17 +175,7 @@ export default function Page() {
             .then(setSchedules),
         ]);
         setRefreshing(false);
-        return;
       }
-
-      // Swipe left/right to change days
-      const diffSwipeX = startX - e.changedTouches[0].clientX;
-      if (Math.abs(diffSwipeX) < 50) return;
-      if (diffSwipeX > 0) goNext();
-      else goPrev();
-
-      startY = null;
-      startX = null;
     }
 
     window.addEventListener("touchstart", onTouchStart);
@@ -196,7 +184,7 @@ export default function Page() {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [goNext, goPrev, date, isDemo]);
+  }, [date, isDemo]);
 
   return (
     <main
@@ -208,30 +196,6 @@ export default function Page() {
         minHeight: "100vh",
       }}
     >
-      {loading && (
-        <div
-          style={{
-            color: "#475569",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
-          Loading...
-        </div>
-      )}
-      {refreshing && (
-        <div
-          style={{
-            color: "#3b82f6",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
-          Refreshing...
-        </div>
-      )}
       <CoverageHeader
         date={date}
         today={today}
@@ -247,13 +211,18 @@ export default function Page() {
         onSignOut={isDemo ? undefined : handleSignOut}
         onSignIn={isDemo ? () => router.push("/login") : undefined}
         isDemo={isDemo}
+        loading={loading}
       />
 
-      <CoverageTimeline
-        schedules={daySchedules}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-      />
+      {loading ? (
+        <SkeletonTimeline />
+      ) : (
+        <CoverageTimeline
+          schedules={daySchedules}
+          nowMinutes={nowMinutes}
+          isToday={isToday}
+        />
+      )}
 
       {/* Legend */}
       <div
@@ -290,25 +259,33 @@ export default function Page() {
         ))}
       </div>
 
-      <TeamSection
-        label="Scheduled"
-        count={scheduled.length}
-        schedules={sortedScheduled}
-        employees={employees}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onSelect={(emp, sch) => setSelected({ emp, sch })}
-      />
-
-      <TeamSection
-        label="Off Today"
-        count={off.length}
-        schedules={off}
-        employees={employees}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onSelect={(emp, sch) => setSelected({ emp, sch })}
-      />
+      {loading ? (
+        <>
+          <SkeletonTeamSection count={4} />
+          <SkeletonTeamSection count={2} />
+        </>
+      ) : (
+        <>
+          <TeamSection
+            label="Scheduled"
+            count={scheduled.length}
+            schedules={sortedScheduled}
+            employees={employees}
+            nowMinutes={nowMinutes}
+            isToday={isToday}
+            onSelect={(emp, sch) => setSelected({ emp, sch })}
+          />
+          <TeamSection
+            label="Off Today"
+            count={off.length}
+            schedules={off}
+            employees={employees}
+            nowMinutes={nowMinutes}
+            isToday={isToday}
+            onSelect={(emp, sch) => setSelected({ emp, sch })}
+          />
+        </>
+      )}
 
       <div
         style={{
