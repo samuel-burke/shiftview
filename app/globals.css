@@ -6,14 +6,41 @@
 html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
+  background: #0a1628;
 }
 
 body {
-  background: #020617;
+  background: #0a1628;
   color: #f8fafc;
   font-family: Inter, sans-serif;
+  padding-top: env(safe-area-inset-top);
 }
 
 * {
   box-sizing: border-box;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #1e293b;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1a2236 25%, #243150 50%, #1a2236 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
 }

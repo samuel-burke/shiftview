@@ -155,7 +155,14 @@ export default function CoverageTimeline({
       </p>
 
       {/* Wrapper — position relative so overlay can be absolute */}
-      <div ref={containerRef} style={{ position: "relative" }}>
+      <div
+        ref={containerRef}
+        style={{ position: "relative" }}
+        onTouchEnd={() => {
+          const svg = containerRef.current?.querySelector("svg");
+          svg?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true }));
+        }}
+      >
         <ResponsiveContainer
           width="100%"
           height={150}

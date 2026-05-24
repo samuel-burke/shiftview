@@ -14,6 +14,7 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
+import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import { createClient } from "@/lib/supabase-browser";
 
 function toDateKey(d: Date) {
@@ -195,30 +196,6 @@ export default function Page() {
         minHeight: "100vh",
       }}
     >
-      {loading && (
-        <div
-          style={{
-            color: "#475569",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
-          Loading...
-        </div>
-      )}
-      {refreshing && (
-        <div
-          style={{
-            color: "#3b82f6",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
-          Refreshing...
-        </div>
-      )}
       <CoverageHeader
         date={date}
         today={today}
@@ -234,13 +211,18 @@ export default function Page() {
         onSignOut={isDemo ? undefined : handleSignOut}
         onSignIn={isDemo ? () => router.push("/login") : undefined}
         isDemo={isDemo}
+        loading={loading}
       />
 
-      <CoverageTimeline
-        schedules={daySchedules}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-      />
+      {loading ? (
+        <SkeletonTimeline />
+      ) : (
+        <CoverageTimeline
+          schedules={daySchedules}
+          nowMinutes={nowMinutes}
+          isToday={isToday}
+        />
+      )}
 
       {/* Legend */}
       <div
@@ -277,25 +259,33 @@ export default function Page() {
         ))}
       </div>
 
-      <TeamSection
-        label="Scheduled"
-        count={scheduled.length}
-        schedules={sortedScheduled}
-        employees={employees}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onSelect={(emp, sch) => setSelected({ emp, sch })}
-      />
-
-      <TeamSection
-        label="Off Today"
-        count={off.length}
-        schedules={off}
-        employees={employees}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onSelect={(emp, sch) => setSelected({ emp, sch })}
-      />
+      {loading ? (
+        <>
+          <SkeletonTeamSection count={4} />
+          <SkeletonTeamSection count={2} />
+        </>
+      ) : (
+        <>
+          <TeamSection
+            label="Scheduled"
+            count={scheduled.length}
+            schedules={sortedScheduled}
+            employees={employees}
+            nowMinutes={nowMinutes}
+            isToday={isToday}
+            onSelect={(emp, sch) => setSelected({ emp, sch })}
+          />
+          <TeamSection
+            label="Off Today"
+            count={off.length}
+            schedules={off}
+            employees={employees}
+            nowMinutes={nowMinutes}
+            isToday={isToday}
+            onSelect={(emp, sch) => setSelected({ emp, sch })}
+          />
+        </>
+      )}
 
       <div
         style={{
