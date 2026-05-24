@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { CoverageStatus } from "../data/types";
+import DatePickerSheet from "./DatePickerSheet";
 
 type Props = {
   date: Date;
@@ -10,6 +12,7 @@ type Props = {
   onNow: () => void;
   onSignOut?: () => void;
   onSignIn?: () => void;
+  onDateSelect: (date: Date) => void;
   isToday: boolean;
   hereCount: number;
   scheduledCount: number;
@@ -38,6 +41,7 @@ export default function CoverageHeader({
   onNow,
   onSignOut,
   onSignIn,
+  onDateSelect,
   isToday,
   hereCount,
   scheduledCount,
@@ -47,6 +51,7 @@ export default function CoverageHeader({
   isDemo,
   loading = false,
 }: Props) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -235,16 +240,24 @@ export default function CoverageHeader({
         <button onClick={onPrev} style={navBtn}>
           ←
         </button>
-        <div style={{ textAlign: "center" }}>
+        <button
+          onClick={() => setPickerOpen(true)}
+          style={{ textAlign: "center", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+        >
           <div
             style={{
               fontSize: 24,
               fontWeight: 800,
               color: "#f1f5f9",
               letterSpacing: "-0.02em",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
             }}
           >
             {dateLabel}
+            <span style={{ fontSize: 13, color: "#3b82f6", fontWeight: 400 }}>▾</span>
           </div>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
             {dayName}
@@ -254,7 +267,7 @@ export default function CoverageHeader({
               Live: {timeStr}
             </div>
           )}
-        </div>
+        </button>
         <button onClick={onNext} style={navBtn}>
           →
         </button>
@@ -287,6 +300,14 @@ export default function CoverageHeader({
           <span>{alertConfig.message}</span>
         </div>
       )}
+
+      <DatePickerSheet
+        open={pickerOpen}
+        selected={date}
+        today={today}
+        onSelect={onDateSelect}
+        onClose={() => setPickerOpen(false)}
+      />
     </div>
   );
 }
