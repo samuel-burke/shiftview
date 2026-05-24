@@ -4,6 +4,8 @@ A mobile-first shift dashboard for retail and hospitality managers — see who's
 
 **[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app?demo=true)
 
+![ShiftView screenshot](public/screenshot.png)
+
 ![Test](https://github.com/samuel-burke/shift-dashboard/actions/workflows/test.yml/badge.svg?branch=dev)
 
 ## Features
