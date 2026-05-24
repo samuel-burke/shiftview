@@ -202,6 +202,7 @@ export default function Page() {
         onPrev={() => setDate((d) => offsetDate(d, -1))}
         onNext={() => setDate((d) => offsetDate(d, 1))}
         onNow={() => setDate(new Date())}
+        onDateSelect={(d) => setDate(d)}
         isToday={isToday}
         hereCount={hereNow.length}
         scheduledCount={scheduled.length}

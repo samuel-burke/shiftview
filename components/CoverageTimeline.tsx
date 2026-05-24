@@ -115,9 +115,15 @@ export default function CoverageTimeline({
     if (containerRef.current) ro.observe(containerRef.current);
     // Retry after recharts renders
     const t = setTimeout(measure, 100);
+    // Re-measure after orientation change — ResizeObserver fires before the
+    // browser finishes laying out the new orientation, so Recharts' SVG still
+    // has the old dimensions. A short delay lets everything settle first.
+    function onResize() { setTimeout(measure, 150); }
+    window.addEventListener("resize", onResize);
     return () => {
       ro.disconnect();
       clearTimeout(t);
+      window.removeEventListener("resize", onResize);
     };
   }, []);
 
