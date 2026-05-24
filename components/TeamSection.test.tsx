@@ -14,7 +14,7 @@ const schedules: Schedule[] = [
 ];
 
 describe("TeamSection", () => {
-  it("returns null when schedules array is empty", () => {
+  it("returns null when count is 0", () => {
     const { container } = render(
       <TeamSection
         label="On Shift"
@@ -97,24 +97,17 @@ describe("TeamSection", () => {
     expect(aliceIndex).toBeLessThan(bobIndex);
   });
 
-  it("puts off-day schedules last", () => {
-    const mixed: Schedule[] = [
-      { id: 3, employeeId: 2, date: "2026-05-23", startMinutes: -1, endMinutes: -1 },
-      { id: 1, employeeId: 1, date: "2026-05-23", startMinutes: 480, endMinutes: 960 },
-    ];
+  it("renders off employees without schedules", () => {
     render(
       <TeamSection
-        label="All"
+        label="Off Today"
         count={2}
-        schedules={mixed}
         employees={employees}
         nowMinutes={600}
         isToday={true}
-        onSelect={vi.fn()}
       />
     );
-    const buttons = screen.getAllByRole("button");
-    expect(buttons[0].textContent).toContain("Alice Smith");
-    expect(buttons[1].textContent).toContain("Bob Jones");
+    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
   });
 });

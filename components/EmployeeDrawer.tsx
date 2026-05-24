@@ -19,6 +19,8 @@ type Props = {
   isToday: boolean;
   onClose: () => void;
   onSave: (scheduleId: number, startMinutes: number, endMinutes: number) => Promise<void>;
+  onCreate: (employeeId: number, startMinutes: number, endMinutes: number) => Promise<void>;
+  onMarkOff: (scheduleId: number) => Promise<void>;
   isManager: boolean;
 };
 
@@ -40,6 +42,8 @@ export default function EmployeeDrawer({
   isToday,
   onClose,
   onSave,
+  onCreate,
+  onMarkOff,
   isManager,
 }: Props) {
   const [editing, setEditing] = useState(false);
@@ -55,29 +59,24 @@ export default function EmployeeDrawer({
 
   // Reset edit state when drawer opens or selected employee changes
   useEffect(() => {
-    if (open && schedule) {
-      setEditing(false);
-      setStartVal(minutesToTime(schedule.startMinutes));
-      setEndVal(minutesToTime(schedule.endMinutes));
+    if (open) {
+      setEditing(!schedule);
+      setStartVal(schedule ? minutesToTime(schedule.startMinutes) : "09:00");
+      setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
       setError(null);
     }
   }, [open, schedule]);
 
-  if (!employee || !schedule) return null;
+  if (!employee) return null;
 
-  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
-  const here = isToday && isHere(schedule, nowMinutes);
-  const scheduled = schedule.startMinutes >= 0;
+  const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes) : null;
+  const here = isToday && !!schedule && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
-  const statusLabel = here
-    ? "Here"
-    : !scheduled
-      ? (isToday ? "Off Today" : "Off")
-      : (isToday ? "Not Yet In / Off" : "Scheduled");
+  const statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
   const statusColor = here ? "#22c55e" : "#64748b";
 
   async function handleSave() {
-    if (!schedule) return;
+    if (!employee) return;
     if (!startVal || !endVal) { setError("Both times are required."); return; }
     const start = timeToMinutes(startVal);
     const end = timeToMinutes(endVal);
@@ -85,7 +84,11 @@ export default function EmployeeDrawer({
     setSaving(true);
     setError(null);
     try {
-      await onSave(schedule.id, start, end);
+      if (schedule) {
+        await onSave(schedule.id, start, end);
+      } else {
+        await onCreate(employee.id, start, end);
+      }
       setEditing(false);
       onClose();
     } catch (e) {
@@ -100,11 +103,11 @@ export default function EmployeeDrawer({
     setSaving(true);
     setError(null);
     try {
-      await onSave(schedule.id, -1, -1);
+      await onMarkOff(schedule.id);
       setEditing(false);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save shift");
+      setError(e instanceof Error ? e.message : "Failed to mark as off");
     } finally {
       setSaving(false);
     }
@@ -249,23 +252,25 @@ export default function EmployeeDrawer({
                 {saving ? "Saving…" : "Save Shift"}
               </button>
 
-              <button
-                onClick={handleMarkOff}
-                disabled={saving}
-                style={{
-                  padding: "14px 0",
-                  borderRadius: 12,
-                  background: "transparent",
-                  border: "1px solid #334155",
-                  color: "#f87171",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  opacity: saving ? 0.7 : 1,
-                }}
-              >
-                Mark as Off
-              </button>
+              {schedule && (
+                <button
+                  onClick={handleMarkOff}
+                  disabled={saving}
+                  style={{
+                    padding: "14px 0",
+                    borderRadius: 12,
+                    background: "transparent",
+                    border: "1px solid #334155",
+                    color: "#f87171",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  Mark as Off
+                </button>
+              )}
 
               <button
                 onClick={() => { setEditing(false); setError(null); }}
@@ -289,9 +294,9 @@ export default function EmployeeDrawer({
             <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
                 {[
-                  { label: "Start",      value: scheduled ? fmtMinutes(schedule.startMinutes) : "—" },
-                  { label: "End",        value: scheduled ? fmtMinutes(schedule.endMinutes) : "—" },
-                  { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "Off" },
+                  { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },
+                  { label: "End",        value: schedule ? fmtMinutes(schedule.endMinutes) : "—" },
+                  { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "—" },
                   { label: "Status",     value: statusLabel },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ background: "#1a2236", borderRadius: 12, padding: "12px 14px" }}>
@@ -319,7 +324,7 @@ export default function EmployeeDrawer({
                       cursor: "pointer",
                     }}
                   >
-                    {scheduled ? "Edit Shift" : "Add Shift"}
+                    Edit Shift
                   </button>
                 )}
                 <button

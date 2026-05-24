@@ -56,10 +56,6 @@ describe("isHere", () => {
     expect(isHere(sch, 960)).toBe(false);
   });
 
-  it("returns false for off-day schedules (startMinutes < 0)", () => {
-    const off: Schedule = { ...sch, startMinutes: -1 };
-    expect(isHere(off, 720)).toBe(false);
-  });
 });
 
 describe("fmtMinutes", () => {
@@ -84,6 +80,7 @@ describe("fmtMinutes", () => {
 });
 
 describe("getDayCoverageStatus", () => {
+  const weekdayHours = { open: 360, close: 1320 }; // 6am–10pm
   const makeSchedule = (start: number, end: number, id = 1): Schedule => ({
     id,
     employeeId: id,
@@ -93,43 +90,38 @@ describe("getDayCoverageStatus", () => {
   });
 
   it("returns critical when there are no schedules", () => {
-    const monday = new Date("2026-05-25"); // Monday
-    expect(getDayCoverageStatus([], monday)).toBe("critical");
+    expect(getDayCoverageStatus([], weekdayHours)).toBe("critical");
   });
 
   it("returns optimal when >= 3 staff cover the full day", () => {
-    const monday = new Date("2026-05-25");
     const schedules = [
       makeSchedule(360, 1320, 1),
       makeSchedule(360, 1320, 2),
       makeSchedule(360, 1320, 3),
     ];
-    expect(getDayCoverageStatus(schedules, monday)).toBe("optimal");
+    expect(getDayCoverageStatus(schedules, weekdayHours)).toBe("optimal");
   });
 
   it("returns low when min coverage is 2 (below optimal)", () => {
-    const monday = new Date("2026-05-25");
     const schedules = [
       makeSchedule(360, 1320, 1),
       makeSchedule(360, 1320, 2),
     ];
-    expect(getDayCoverageStatus(schedules, monday)).toBe("low");
+    expect(getDayCoverageStatus(schedules, weekdayHours)).toBe("low");
   });
 
   it("returns critical when min coverage drops to 1", () => {
-    const monday = new Date("2026-05-25");
-    // Only one person for the whole day
     const schedules = [makeSchedule(360, 1320, 1)];
-    expect(getDayCoverageStatus(schedules, monday)).toBe("critical");
+    expect(getDayCoverageStatus(schedules, weekdayHours)).toBe("critical");
   });
 
-  it("ignores off-day schedules (startMinutes < 0)", () => {
-    const monday = new Date("2026-05-25");
+  it("respects custom store hours (Sunday)", () => {
+    const sundayHours = { open: 480, close: 1200 }; // 8am–8pm
     const schedules = [
-      makeSchedule(-1, -1, 1),
-      makeSchedule(-1, -1, 2),
-      makeSchedule(-1, -1, 3),
+      makeSchedule(480, 1200, 1),
+      makeSchedule(480, 1200, 2),
+      makeSchedule(480, 1200, 3),
     ];
-    expect(getDayCoverageStatus(schedules, monday)).toBe("critical");
+    expect(getDayCoverageStatus(schedules, sundayHours)).toBe("optimal");
   });
 });

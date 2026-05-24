@@ -5,11 +5,22 @@ import { useSearchParams } from "next/navigation";
 import {
   Employee,
   Schedule,
+  StoreHours,
   isHere,
   OPTIMAL_COVERAGE,
   MINIMUM_COVERAGE,
   CoverageStatus,
 } from "../data/types";
+
+const DEFAULT_HOURS: Record<number, StoreHours> = {
+  0: { open: 480, close: 1200 },
+  1: { open: 360, close: 1320 },
+  2: { open: 360, close: 1320 },
+  3: { open: 360, close: 1320 },
+  4: { open: 360, close: 1320 },
+  5: { open: 360, close: 1320 },
+  6: { open: 360, close: 1320 },
+};
 import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
@@ -45,7 +56,7 @@ export default function Page() {
   const [date, setDate] = useState(today);
   const [selected, setSelected] = useState<{
     emp: Employee;
-    sch: Schedule;
+    sch: Schedule | null;
   } | null>(null);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -53,6 +64,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isManager, setIsManager] = useState(false);
+  const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -77,13 +89,41 @@ export default function Page() {
     const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
   }
+
+  async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number) {
+    const dateKey = toDateKey(date);
+    const res = await fetch("/api/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to add shift");
+    }
+    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    setSchedules(data);
+  }
+
+  async function handleMarkOff(scheduleId: number) {
+    const res = await fetch("/api/schedules", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: scheduleId }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to mark as off");
+    }
+    setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
+  }
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
     return () => clearInterval(t);
   }, []);
 
-  // Fetch employees and manager status once on mount
+  // Fetch employees, manager status, and store hours once on mount
   useEffect(() => {
     fetch(`/api/employees?demo=${isDemo}`)
       .then((r) => r.json())
@@ -93,6 +133,10 @@ export default function Page() {
       .then((r) => r.json())
       .then(({ isManager }) => setIsManager(isManager))
       .catch(() => {});
+    fetch("/api/store-hours")
+      .then((r) => r.json())
+      .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+      .catch(() => {}); // fall back to DEFAULT_HOURS on error
   }, []);
 
   // Fetch schedules whenever date changes
@@ -119,13 +163,10 @@ export default function Page() {
     () => schedules.filter((s) => s.date.slice(0, 10) === dateKey),
     [schedules, dateKey],
   );
-  const scheduled = useMemo(
-    () => daySchedules.filter((s) => s.startMinutes >= 0),
-    [daySchedules],
-  );
+  const scheduled = daySchedules;
   const off = useMemo(
-    () => daySchedules.filter((s) => s.startMinutes < 0),
-    [daySchedules],
+    () => employees.filter((emp) => !daySchedules.some((s) => s.employeeId === emp.id)),
+    [employees, daySchedules],
   );
   const hereNow = useMemo(
     () => scheduled.filter((s) => isHere(s, nowMinutes)),
@@ -144,12 +185,7 @@ export default function Page() {
     return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
   })();
 
-  const storeHours = useMemo(() => {
-    const day = date.getDay(); // 0 = Sunday
-    return day === 0
-      ? { open: 480, close: 1200 } // 8am–8pm
-      : { open: 360, close: 1320 }; // 6am–10pm
-  }, [date]);
+  const storeHours = weeklyHours[date.getDay()];
 
   const isStoreOpen = useMemo(() => {
     if (!isToday) return true; // non-today dates always show live alert
@@ -248,6 +284,8 @@ export default function Page() {
           schedules={daySchedules}
           nowMinutes={nowMinutes}
           isToday={isToday}
+          openMinutes={storeHours.open}
+          closeMinutes={storeHours.close}
         />
       )}
 
@@ -305,11 +343,10 @@ export default function Page() {
           <TeamSection
             label="Off Today"
             count={off.length}
-            schedules={off}
-            employees={employees}
+            employees={off}
             nowMinutes={nowMinutes}
             isToday={isToday}
-            onSelect={(emp, sch) => setSelected({ emp, sch })}
+            onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined}
           />
         </>
       )}
@@ -337,6 +374,8 @@ export default function Page() {
         isToday={isToday}
         onClose={() => setSelected(null)}
         onSave={handleSaveShift}
+        onCreate={handleCreateShift}
+        onMarkOff={handleMarkOff}
         isManager={isManager}
       />
     </main>

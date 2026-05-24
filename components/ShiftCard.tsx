@@ -27,13 +27,12 @@ export default function ShiftCard({
   onClick,
 }: Props) {
   const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
-  const scheduled = schedule.startMinutes >= 0;
   const here = isToday && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
 
   // Arrival countdown
   let arrivalText: string | null = null;
-  if (isToday && scheduled && !here && schedule.startMinutes > nowMinutes) {
+  if (isToday && !here && schedule.startMinutes > nowMinutes) {
     const diff = schedule.startMinutes - nowMinutes;
     const h = Math.floor(diff / 60);
     const m = diff % 60;
@@ -48,7 +47,7 @@ export default function ShiftCard({
         textAlign: "left",
         background: "#111827",
         border: "1px solid #1e293b",
-        borderLeft: scheduled ? `3px solid ${shiftColor}` : "3px solid #1e293b",
+        borderLeft: `3px solid ${shiftColor}`,
         borderRadius: 12,
         padding: "12px 14px",
         marginBottom: 8,
@@ -67,14 +66,14 @@ export default function ShiftCard({
           width: 38,
           height: 38,
           borderRadius: "50%",
-          background: scheduled ? `${shiftColor}22` : "#1e293b",
-          border: `1.5px solid ${scheduled ? shiftColor + "55" : "#334155"}`,
+          background: `${shiftColor}22`,
+          border: `1.5px solid ${shiftColor}55`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 12,
           fontWeight: 700,
-          color: scheduled ? shiftColor : "#475569",
+          color: shiftColor,
           flexShrink: 0,
         }}
       >
@@ -111,14 +110,10 @@ export default function ShiftCard({
 
       {/* Right side */}
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        {scheduled ? (
-          <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
-            {fmtMinutes(schedule.startMinutes)} –{" "}
-            {fmtMinutes(schedule.endMinutes)}
-          </div>
-        ) : (
-          <div style={{ fontSize: 11, color: "#334155" }}>Off</div>
-        )}
+        <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
+          {fmtMinutes(schedule.startMinutes)} –{" "}
+          {fmtMinutes(schedule.endMinutes)}
+        </div>
         <div
           style={{
             marginTop: 5,
