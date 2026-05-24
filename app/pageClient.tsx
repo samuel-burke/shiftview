@@ -334,6 +334,7 @@ export default function Page() {
         employee={selected?.emp ?? null}
         schedule={selected?.sch ?? null}
         nowMinutes={nowMinutes}
+        isToday={isToday}
         onClose={() => setSelected(null)}
         onSave={handleSaveShift}
         isManager={isManager}

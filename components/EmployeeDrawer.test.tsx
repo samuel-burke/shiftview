@@ -22,6 +22,7 @@ describe("EmployeeDrawer", () => {
         employee={null}
         schedule={schedule}
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
@@ -37,6 +38,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={null}
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
@@ -52,6 +54,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={schedule}
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
@@ -67,6 +70,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={schedule}
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
@@ -83,6 +87,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={schedule} // 8am–4pm = mid
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
@@ -91,19 +96,37 @@ describe("EmployeeDrawer", () => {
     expect(screen.getByText("Mid")).toBeInTheDocument();
   });
 
-  it("shows 'Here' status when employee is currently on shift", () => {
+  it("shows 'Here' status when employee is currently on shift today", () => {
     render(
       <EmployeeDrawer
         open={true}
         employee={employee}
         schedule={schedule}
         nowMinutes={600} // 10am — within 8am–4pm
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
     expect(screen.getAllByText("Here").length).toBeGreaterThan(0);
+  });
+
+  it("shows 'Scheduled' status on non-today days even when nowMinutes is within shift", () => {
+    render(
+      <EmployeeDrawer
+        open={true}
+        employee={employee}
+        schedule={schedule}
+        nowMinutes={600} // 10am — within 8am–4pm, but not today
+        isToday={false}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
+      />
+    );
+    expect(screen.queryByText("Here")).not.toBeInTheDocument();
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
   });
 
   it("shows 'Off Today' status for off-day schedule", () => {
@@ -114,12 +137,30 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={offSchedule}
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
       />
     );
     expect(screen.getByText("Off Today")).toBeInTheDocument();
+  });
+
+  it("shows 'Off' status for off-day schedule on non-today days", () => {
+    const offSchedule: Schedule = { ...schedule, startMinutes: -1, endMinutes: -1 };
+    render(
+      <EmployeeDrawer
+        open={true}
+        employee={employee}
+        schedule={offSchedule}
+        nowMinutes={600}
+        isToday={false}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        isManager={true}
+      />
+    );
+    expect(screen.getAllByText("Off").length).toBeGreaterThan(0);
   });
 
   it("calls onClose when the close button is clicked", async () => {
@@ -130,6 +171,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={schedule}
         nowMinutes={600}
+        isToday={true}
         onClose={onClose}
       />
     );
@@ -145,6 +187,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={schedule}
         nowMinutes={600}
+        isToday={true}
         onClose={onClose}
       />
     );
@@ -161,6 +204,7 @@ describe("EmployeeDrawer", () => {
         employee={employee}
         schedule={schedule}
         nowMinutes={600}
+        isToday={true}
         onClose={vi.fn()}
         onSave={vi.fn().mockResolvedValue(undefined)}
         isManager={true}
