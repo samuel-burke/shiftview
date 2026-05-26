@@ -46,12 +46,12 @@ test.describe("Demo mode — schedule view", () => {
   });
 
   test("page loads and shows scheduled employees", async ({ page }) => {
-    await expect(page.getByText("Alice Smith")).toBeVisible();
-    await expect(page.getByText("Bob Jones")).toBeVisible();
+    await expect(page.getByText("Alice S.")).toBeVisible();
+    await expect(page.getByText("Bob J.")).toBeVisible();
   });
 
-  test("shows Carol White in the Off Today section", async ({ page }) => {
-    await expect(page.getByText("Carol White")).toBeVisible();
+  test("shows Carol W. in the Off Today section", async ({ page }) => {
+    await expect(page.getByText("Carol W.")).toBeVisible();
     await expect(page.getByText("Off Today")).toBeVisible();
   });
 
@@ -126,20 +126,20 @@ test.describe("Demo mode — employee drawer", () => {
   });
 
   test("opens drawer when a shift card is tapped", async ({ page }) => {
-    await page.getByText("Alice Smith").first().click();
+    await page.getByText("Alice S.").first().click();
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("6:00 AM")).toBeVisible();
     await expect(drawer.getByText("2:00 PM")).toBeVisible();
   });
 
   test("shows shift type in drawer", async ({ page }) => {
-    await page.getByText("Alice Smith").first().click();
+    await page.getByText("Alice S.").first().click();
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("Opener", { exact: true })).toBeVisible();
   });
 
   test("closes drawer when close button is tapped", async ({ page }) => {
-    await page.getByText("Alice Smith").first().click();
+    await page.getByText("Alice S.").first().click();
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("6:00 AM")).toBeVisible();
     await drawer.getByText("✕").click();
@@ -147,7 +147,7 @@ test.describe("Demo mode — employee drawer", () => {
   });
 
   test("does not show Edit Shift button in demo mode (non-manager)", async ({ page }) => {
-    await page.getByText("Alice Smith").first().click();
+    await page.getByText("Alice S.").first().click();
     await expect(page.getByRole("button", { name: /edit shift/i })).not.toBeVisible();
   });
 });
