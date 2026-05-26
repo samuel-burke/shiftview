@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function formatName(raw: string): string {
+  return raw.trim().replace(/\S+/g, (word) =>
+    word.replace(/(^|[-])(\S)/g, (_, sep, char) => sep + char.toUpperCase())
+  );
+}
+
 export async function POST(request: Request) {
   const { name, email } = await request.json();
 
@@ -31,7 +37,7 @@ export async function POST(request: Request) {
 
   const { data: employee, error: insertError } = await admin
     .from("employees")
-    .insert({ name: name.trim(), email })
+    .insert({ name: formatName(name), email })
     .select("id")
     .single();
 

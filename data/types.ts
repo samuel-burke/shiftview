@@ -7,6 +7,12 @@ export type Employee = {
   user_id?: string | null;
 };
 
+export function formatDisplayName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
 export function getMonogram(name: string): string {
   const words = name.split(" ").filter(Boolean);
   const initials = words.length === 1

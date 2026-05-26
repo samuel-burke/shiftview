@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import ShiftCard from "./ShiftCard";
 import type { Employee, Schedule } from "../data/types";
 
-const employee: Employee = { id: 1, name: "Alice Smith" };
+const employee: Employee = { id: 1, name: "Alice S." };
 
 const scheduled: Schedule = {
   id: 1,
@@ -37,7 +37,7 @@ describe("ShiftCard", () => {
         onClick={() => {}}
       />
     );
-    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+    expect(screen.getByText("Alice S.")).toBeInTheDocument();
   });
 
   it("displays shift time range", () => {
