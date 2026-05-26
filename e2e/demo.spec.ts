@@ -60,7 +60,7 @@ test.describe("Demo mode — schedule view", () => {
   });
 
   test("shows the Scheduled section with count", async ({ page }) => {
-    await expect(page.getByText("Scheduled")).toBeVisible();
+    await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
   });
 
   test("shows a Sign In button in demo mode (not Sign Out)", async ({ page }) => {
@@ -91,7 +91,7 @@ test.describe("Demo mode — date navigation", () => {
       weekday: "long",
       timeZone: "America/New_York",
     });
-    await page.getByRole("button", { name: "‹" }).click();
+    await page.getByRole("button", { name: "Previous day" }).click();
     await expect(page.getByText(new RegExp(prevDay, "i"))).toBeVisible();
   });
 
@@ -102,7 +102,7 @@ test.describe("Demo mode — date navigation", () => {
       weekday: "long",
       timeZone: "America/New_York",
     });
-    await page.getByRole("button", { name: "›" }).click();
+    await page.getByRole("button", { name: "Next day" }).click();
     await expect(page.getByText(new RegExp(nextDay, "i"))).toBeVisible();
   });
 
@@ -113,7 +113,7 @@ test.describe("Demo mode — date navigation", () => {
       timeZone: "America/New_York",
     });
     // Navigate away then back
-    await page.getByRole("button", { name: "‹" }).click();
+    await page.getByRole("button", { name: "Previous day" }).click();
     await page.getByRole("button", { name: /today/i }).click();
     await expect(page.getByText(new RegExp(dayName, "i"))).toBeVisible();
   });
@@ -127,21 +127,23 @@ test.describe("Demo mode — employee drawer", () => {
 
   test("opens drawer when a shift card is tapped", async ({ page }) => {
     await page.getByText("Alice Smith").first().click();
-    // Drawer shows name and shift details
-    await expect(page.getByText("6:00 AM")).toBeVisible();
-    await expect(page.getByText("2:00 PM")).toBeVisible();
+    const drawer = page.getByTestId("employee-drawer");
+    await expect(drawer.getByText("6:00 AM")).toBeVisible();
+    await expect(drawer.getByText("2:00 PM")).toBeVisible();
   });
 
   test("shows shift type in drawer", async ({ page }) => {
     await page.getByText("Alice Smith").first().click();
-    await expect(page.getByText("Opener")).toBeVisible();
+    const drawer = page.getByTestId("employee-drawer");
+    await expect(drawer.getByText("Opener", { exact: true })).toBeVisible();
   });
 
   test("closes drawer when close button is tapped", async ({ page }) => {
     await page.getByText("Alice Smith").first().click();
-    await expect(page.getByText("6:00 AM")).toBeVisible();
+    const drawer = page.getByTestId("employee-drawer");
+    await expect(drawer.getByText("6:00 AM")).toBeVisible();
     await page.getByText("✕").click();
-    await expect(page.getByText("6:00 AM")).not.toBeVisible();
+    await expect(drawer.getByText("6:00 AM")).not.toBeVisible();
   });
 
   test("does not show Edit Shift button in demo mode (non-manager)", async ({ page }) => {

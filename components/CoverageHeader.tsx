@@ -265,7 +265,7 @@ export default function CoverageHeader({
           marginBottom: 4,
         }}
       >
-        <button onClick={onPrev} style={navBtn}>
+        <button onClick={onPrev} aria-label="Previous day" style={navBtn}>
           ←
         </button>
         <button
@@ -296,7 +296,7 @@ export default function CoverageHeader({
             </div>
           )}
         </button>
-        <button onClick={onNext} style={navBtn}>
+        <button onClick={onNext} aria-label="Next day" style={navBtn}>
           →
         </button>
       </div>
