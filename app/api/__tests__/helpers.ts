@@ -16,6 +16,9 @@ function makeQueryBuilder(result: { data: any; error: any }) {
 export function makeSupabaseClient({
   user = null as any,
   isManager = false,
+  // When explicitly set (even to null), used for `from("employees")` lookups.
+  // When omitted (undefined), `from("employees")` falls through to queryData/queryError.
+  linkedEmployee = undefined as { id: number; name: string } | null | undefined,
   queryData = null as any,
   queryError = null as any,
 } = {}) {
@@ -24,12 +27,12 @@ export function makeSupabaseClient({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
-    from: vi.fn().mockImplementation((table: string) =>
-      makeQueryBuilder(
-        table === "managers"
-          ? { data: managerRow, error: null }
-          : { data: queryData, error: queryError }
-      )
-    ),
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "managers")
+        return makeQueryBuilder({ data: managerRow, error: null });
+      if (table === "employees" && linkedEmployee !== undefined)
+        return makeQueryBuilder({ data: linkedEmployee, error: null });
+      return makeQueryBuilder({ data: queryData, error: queryError });
+    }),
   };
 }
