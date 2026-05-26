@@ -11,7 +11,8 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   const table = user ? "employees" : "employees_demo";
 
-  const { data, error } = await supabase.from(table).select("id, name").order("id");
+  const fields = user ? "id, name, email, user_id" : "id, name";
+  const { data, error } = await supabase.from(table).select(fields).order("id");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
