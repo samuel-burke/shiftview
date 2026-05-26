@@ -128,6 +128,7 @@ export default function EmployeeDrawer({
         }}
       />
       <div
+        data-testid="employee-drawer"
         style={{
           position: "fixed",
           bottom: 0,
