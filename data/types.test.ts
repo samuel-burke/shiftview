@@ -1,11 +1,34 @@
 import { describe, it, expect } from "vitest";
 import {
+  getMonogram,
   getShiftType,
   isHere,
   fmtMinutes,
   getDayCoverageStatus,
 } from "./types";
 import type { Schedule } from "./types";
+
+describe("getMonogram", () => {
+  it("returns first and last initial for a two-word name", () => {
+    expect(getMonogram("Alice Smith")).toBe("AS");
+  });
+
+  it("returns first and last initial for a three-word name", () => {
+    expect(getMonogram("Mary Jane Watson")).toBe("MW");
+  });
+
+  it("returns a single initial for a one-word name", () => {
+    expect(getMonogram("Prince")).toBe("P");
+  });
+
+  it("uppercases initials", () => {
+    expect(getMonogram("alice smith")).toBe("AS");
+  });
+
+  it("handles extra whitespace between words", () => {
+    expect(getMonogram("alice  smith")).toBe("AS");
+  });
+});
 
 describe("getShiftType", () => {
   it("returns null for negative startMinutes (off)", () => {
