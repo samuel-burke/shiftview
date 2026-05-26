@@ -22,6 +22,7 @@ type Props = {
   onSave: (scheduleId: number, startMinutes: number, endMinutes: number) => Promise<void>;
   onCreate: (employeeId: number, startMinutes: number, endMinutes: number) => Promise<void>;
   onMarkOff: (scheduleId: number) => Promise<void>;
+  onResendInvite?: (email: string) => Promise<void>;
   isManager: boolean;
 };
 
@@ -45,6 +46,7 @@ export default function EmployeeDrawer({
   onSave,
   onCreate,
   onMarkOff,
+  onResendInvite,
   isManager,
 }: Props) {
   const isDesktop = useIsDesktop();
@@ -53,6 +55,7 @@ export default function EmployeeDrawer({
   const [endVal, setEndVal] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inviteSent, setInviteSent] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -65,6 +68,7 @@ export default function EmployeeDrawer({
       setStartVal(schedule ? minutesToTime(schedule.startMinutes) : "09:00");
       setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
       setError(null);
+      setInviteSent(false);
     }
   }, [open, schedule]);
 
@@ -246,6 +250,26 @@ export default function EmployeeDrawer({
                   Message
                 </button>
               </div>
+
+              {isManager && onResendInvite && !employee.user_id && employee.email && (
+                <button
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await onResendInvite(employee.email!);
+                      setInviteSent(true);
+                    } catch {
+                      setError("Failed to resend invite");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={saving || inviteSent}
+                  className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-500"}`}
+                >
+                  {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
+                </button>
+              )}
             </>
           )}
         </div>

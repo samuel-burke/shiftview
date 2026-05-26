@@ -3,6 +3,8 @@ export type ShiftType = "opener" | "mid" | "closer";
 export type Employee = {
   id: number;
   name: string;
+  email?: string;
+  user_id?: string | null;
 };
 
 export function getMonogram(name: string): string {

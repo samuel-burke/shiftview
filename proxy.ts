@@ -22,11 +22,11 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isLoginPage = request.nextUrl.pathname === "/login";
+  const { pathname } = request.nextUrl;
+  const isPublic = pathname === "/login" || pathname.startsWith("/auth/");
   const isDemo = request.nextUrl.searchParams.get("demo") === "true";
 
-  // Redirect unauthenticated non-demo users to login
-  if (!user && !isLoginPage && !isDemo) {
+  if (!user && !isPublic && !isDemo) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -38,7 +38,9 @@ export async function POST(request: Request) {
   if (insertError)
     return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email);
+  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+  });
 
   if (inviteError) {
     // Roll back the employee row so retrying the invite starts clean
@@ -47,4 +49,29 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true, employeeId: employee.id }, { status: 201 });
+}
+
+export async function PUT(request: Request) {
+  const { email } = await request.json();
+
+  if (!email || !EMAIL_RE.test(email))
+    return NextResponse.json({ error: "valid email required" }, { status: 400 });
+
+  const supabase = await createClient();
+  const { error: authError } = await requireManager(supabase);
+  if (authError)
+    return NextResponse.json(
+      { error: authError },
+      { status: authError === "Not authenticated" ? 401 : 403 }
+    );
+
+  const admin = createAdminClient();
+  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+  });
+
+  if (inviteError)
+    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
 }

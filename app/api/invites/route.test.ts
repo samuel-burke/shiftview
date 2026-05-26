@@ -164,6 +164,9 @@ describe("POST /api/invites — business logic", () => {
 
     await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
 
-    expect(adminClient.auth.admin.inviteUserByEmail).toHaveBeenCalledWith("alice@example.com");
+    expect(adminClient.auth.admin.inviteUserByEmail).toHaveBeenCalledWith(
+      "alice@example.com",
+      expect.objectContaining({ redirectTo: expect.stringContaining("/auth/callback") })
+    );
   });
 });

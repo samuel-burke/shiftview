@@ -107,6 +107,18 @@ export default function Page() {
     setSchedules(data);
   }
 
+  async function handleResendInvite(email: string) {
+    const res = await fetch("/api/invites", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to resend invite");
+    }
+  }
+
   async function handleMarkOff(scheduleId: number) {
     const res = await fetch("/api/schedules", {
       method: "DELETE",
@@ -327,6 +339,7 @@ export default function Page() {
       onSave={handleSaveShift}
       onCreate={handleCreateShift}
       onMarkOff={handleMarkOff}
+      onResendInvite={handleResendInvite}
       isManager={isManager}
     />
   );
