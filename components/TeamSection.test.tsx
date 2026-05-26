@@ -4,8 +4,8 @@ import TeamSection from "./TeamSection";
 import type { Employee, Schedule } from "../data/types";
 
 const employees: Employee[] = [
-  { id: 1, name: "Alice Smith" },
-  { id: 2, name: "Bob Jones" },
+  { id: 1, name: "Alice S." },
+  { id: 2, name: "Bob J." },
 ];
 
 const schedules: Schedule[] = [
@@ -71,8 +71,8 @@ describe("TeamSection", () => {
         onSelect={vi.fn()}
       />
     );
-    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
-    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    expect(screen.getByText("Alice S.")).toBeInTheDocument();
+    expect(screen.getByText("Bob J.")).toBeInTheDocument();
   });
 
   it("sorts schedules by startMinutes ascending", () => {
@@ -92,8 +92,8 @@ describe("TeamSection", () => {
       />
     );
     const names = screen.getAllByRole("button").map((b) => b.textContent);
-    const aliceIndex = names.findIndex((t) => t?.includes("Alice Smith"));
-    const bobIndex = names.findIndex((t) => t?.includes("Bob Jones"));
+    const aliceIndex = names.findIndex((t) => t?.includes("Alice S."));
+    const bobIndex = names.findIndex((t) => t?.includes("Bob J."));
     expect(aliceIndex).toBeLessThan(bobIndex);
   });
 
@@ -107,7 +107,7 @@ describe("TeamSection", () => {
         isToday={true}
       />
     );
-    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
-    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    expect(screen.getByText("Alice S.")).toBeInTheDocument();
+    expect(screen.getByText("Bob J.")).toBeInTheDocument();
   });
 });

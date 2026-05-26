@@ -1,6 +1,6 @@
 "use client";
 
-import { Employee, Schedule, getMonogram } from "../data/types";
+import { Employee, Schedule, getMonogram, formatDisplayName } from "../data/types";
 import ShiftCard from "./ShiftCard";
 
 type Props = {
@@ -78,7 +78,7 @@ export default function TeamSection({
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-sm text-slate-500 truncate">
-              {emp.name}
+              {formatDisplayName(emp.name)}
             </div>
           </div>
           <div className="text-[11px] text-slate-700">Off</div>

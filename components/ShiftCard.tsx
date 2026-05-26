@@ -5,6 +5,7 @@ import {
   Schedule,
   getShiftType,
   getMonogram,
+  formatDisplayName,
   isHere,
   SHIFT_COLORS,
   fmtMinutes,
@@ -58,7 +59,7 @@ export default function ShiftCard({
       {/* Name + shift type */}
       <div className="flex-1 min-w-0">
         <div className={`font-semibold text-sm truncate ${here ? "text-slate-100" : "text-slate-500"}`}>
-          {employee.name}
+          {formatDisplayName(employee.name)}
         </div>
         {shiftType && (
           <div className="text-[11px] mt-0.5 capitalize" style={{ color: shiftColor }}>
