@@ -3,7 +3,6 @@
 import {
   Employee,
   Schedule,
-  ShiftType,
   getShiftType,
   getMonogram,
   isHere,
@@ -30,7 +29,6 @@ export default function ShiftCard({
   const here = isToday && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
 
-  // Arrival countdown
   let arrivalText: string | null = null;
   if (isToday && !here && schedule.startMinutes > nowMinutes) {
     const diff = schedule.startMinutes - nowMinutes;
@@ -42,103 +40,44 @@ export default function ShiftCard({
   return (
     <button
       onClick={onClick}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        background: "#111827",
-        border: "1px solid #1e293b",
-        borderLeft: `3px solid ${shiftColor}`,
-        borderRadius: 12,
-        padding: "12px 14px",
-        marginBottom: 8,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        transition: "background 0.15s",
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "#1a2236")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "#111827")}
+      className="w-full text-left bg-gray-900 hover:bg-card border border-slate-800 rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-colors duration-150"
+      style={{ borderLeft: `3px solid ${shiftColor}` }}
     >
       {/* Avatar */}
       <div
+        className="size-[38px] rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: "50%",
           background: `${shiftColor}22`,
           border: `1.5px solid ${shiftColor}55`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          fontWeight: 700,
           color: shiftColor,
-          flexShrink: 0,
         }}
       >
         {getMonogram(employee.name)}
       </div>
 
       {/* Name + shift type */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontWeight: 600,
-            fontSize: 14,
-            color: here ? "#f1f5f9" : "#64748b",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
+      <div className="flex-1 min-w-0">
+        <div className={`font-semibold text-sm truncate ${here ? "text-slate-100" : "text-slate-500"}`}>
           {employee.name}
         </div>
         {shiftType && (
-          <div
-            style={{
-              fontSize: 11,
-              color: shiftColor,
-              marginTop: 2,
-              textTransform: "capitalize",
-            }}
-          >
+          <div className="text-[11px] mt-0.5 capitalize" style={{ color: shiftColor }}>
             {shiftType}
           </div>
         )}
       </div>
 
       {/* Right side */}
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
-          {fmtMinutes(schedule.startMinutes)} –{" "}
-          {fmtMinutes(schedule.endMinutes)}
+      <div className="text-right shrink-0">
+        <div className="text-[11px] text-slate-500 whitespace-nowrap">
+          {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
         </div>
-        <div
-          style={{
-            marginTop: 5,
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
+        <div className="mt-[5px] flex justify-end items-center gap-1.5">
           {arrivalText && (
-            <span style={{ fontSize: 10, color: "#94a3b8" }}>
-              {arrivalText}
-            </span>
+            <span className="text-[10px] text-slate-400">{arrivalText}</span>
           )}
           {here && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "2px 9px",
-                borderRadius: 6,
-                background: "rgba(34,197,94,0.15)",
-                color: "#22c55e",
-              }}
-            >
+            <span className="text-[11px] font-bold px-[9px] py-0.5 rounded-md bg-green-500/15 text-green-500">
               Here
             </span>
           )}

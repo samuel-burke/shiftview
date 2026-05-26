@@ -57,151 +57,98 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
     <>
       <div
         onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          zIndex: 40,
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-          transition: "opacity 0.25s",
-        }}
+        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
       />
-      <div
-        style={isDesktop ? {
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)",
-          opacity: open ? 1 : 0,
-          transition: "opacity 0.2s, transform 0.2s",
-          pointerEvents: open ? "auto" : "none",
-          zIndex: 50,
-          background: "#0f172a",
-          border: "1px solid #1e293b",
-          borderRadius: 20,
-          width: 420,
-        } : {
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          background: "#0f172a",
-          borderTop: "1px solid #1e293b",
-          borderRadius: "24px 24px 0 0",
-          transform: open ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
-          maxWidth: 480,
-          margin: "0 auto",
-        }}
-      >
-        {!isDesktop && (
-          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
+      {isDesktop ? (
+        <div
+          className={`fixed top-1/2 left-1/2 z-50 bg-slate-900 border border-slate-800 rounded-[20px] w-[420px] transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+          style={{ transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)" }}
+        >
+          {sheetContent()}
+        </div>
+      ) : (
+        <div
+          className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
+        >
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-slate-700" />
           </div>
-        )}
+          {sheetContent()}
+        </div>
+      )}
+    </>
+  );
 
-        <div style={{ padding: isDesktop ? "24px 28px 28px" : "8px 24px 44px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>
-              Add Employee
+  function sheetContent() {
+    const padding = isDesktop ? "px-7 pt-6 pb-7" : "px-6 pt-2 pb-11";
+    return (
+      <div className={padding}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="text-lg font-bold text-slate-100">Add Employee</div>
+          <button
+            onClick={onClose}
+            className="size-8 rounded-full bg-slate-800 border-none text-slate-500 text-base cursor-pointer flex items-center justify-center"
+          >
+            ✕
+          </button>
+        </div>
+
+        {sent ? (
+          <div className="text-center py-6">
+            <div className="text-[32px] mb-3">✉️</div>
+            <div className="text-base font-semibold text-slate-100 mb-2">Invite sent!</div>
+            <div className="text-[13px] text-slate-500 mb-6">
+              {name} will receive an email to set up their account.
             </div>
             <button
               onClick={onClose}
-              style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: "#1e293b", border: "none",
-                color: "#64748b", fontSize: 16, cursor: "pointer",
-              }}
+              className="px-8 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
             >
-              ✕
+              Done
             </button>
           </div>
-
-          {sent ? (
-            <div style={{ textAlign: "center", padding: "24px 0" }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>✉️</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>
-                Invite sent!
-              </div>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>
-                {name} will receive an email to set up their account.
-              </div>
-              <button
-                onClick={onClose}
-                style={{
-                  padding: "12px 32px", borderRadius: 12,
-                  background: "#1e293b", border: "1px solid #334155",
-                  color: "#94a3b8", fontWeight: 600, fontSize: 14, cursor: "pointer",
-                }}
-              >
-                Done
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                { label: "Full Name", val: name, set: setName, type: "text", placeholder: "Alice Smith" },
-                { label: "Email",     val: email, set: setEmail, type: "email", placeholder: "alice@example.com" },
-              ].map(({ label, val, set, type, placeholder }) => (
-                <div key={label}>
-                  <div style={{ fontSize: 11, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-                    {label}
-                  </div>
-                  <input
-                    type={type}
-                    value={val}
-                    placeholder={placeholder}
-                    onChange={(e) => { set(e.target.value); setError(null); }}
-                    style={{
-                      width: "100%",
-                      background: "#1a2236",
-                      border: "1px solid #334155",
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      color: "#f1f5f9",
-                      fontSize: 16,
-                      colorScheme: "dark",
-                      boxSizing: "border-box",
-                    }}
-                  />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {[
+              { label: "Full Name", val: name, set: setName, type: "text", placeholder: "Alice Smith" },
+              { label: "Email",     val: email, set: setEmail, type: "email", placeholder: "alice@example.com" },
+            ].map(({ label, val, set, type, placeholder }) => (
+              <div key={label}>
+                <div className="text-[11px] text-slate-600 uppercase tracking-[0.08em] mb-1.5">
+                  {label}
                 </div>
-              ))}
+                <input
+                  type={type}
+                  value={val}
+                  placeholder={placeholder}
+                  onChange={(e) => { set(e.target.value); setError(null); }}
+                  className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
+                />
+              </div>
+            ))}
 
-              {error && (
-                <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>{error}</div>
-              )}
+            {error && (
+              <div className="text-xs text-red-400 text-center">{error}</div>
+            )}
 
-              <button
-                onClick={handleSubmit}
-                disabled={saving}
-                style={{
-                  padding: "14px 0", borderRadius: 12, marginTop: 4,
-                  background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-                  border: "none", color: "#fff",
-                  fontWeight: 700, fontSize: 14, cursor: "pointer",
-                  opacity: saving ? 0.7 : 1,
-                }}
-              >
-                {saving ? "Sending…" : "Send Invite"}
-              </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+            >
+              {saving ? "Sending…" : "Send Invite"}
+            </button>
 
-              <button
-                onClick={onClose}
-                disabled={saving}
-                style={{
-                  padding: "14px 0", borderRadius: 12,
-                  background: "transparent", border: "none",
-                  color: "#475569", fontWeight: 600, fontSize: 14, cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="py-[14px] rounded-xl bg-transparent border-none text-slate-600 font-semibold text-sm cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
-    </>
-  );
+    );
+  }
 }

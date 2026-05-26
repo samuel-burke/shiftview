@@ -268,20 +268,23 @@ export default function Page() {
   );
 
   const statCard = (value: number, label: string, color: string) => (
-    <div style={{ flex: 1, background: "#1a2236", borderRadius: 12, padding: "12px 8px", textAlign: "center", border: `1px solid ${color}33` }}>
+    <div
+      className="flex-1 bg-card rounded-xl px-2 py-3 text-center"
+      style={{ border: `1px solid ${color}33` }}
+    >
       {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
-          <div className="skeleton" style={{ height: 28, width: 32, borderRadius: 6 }} />
+        <div className="flex justify-center mb-1.5">
+          <div className="skeleton h-7 w-8 rounded-[6px]" />
         </div>
       ) : (
-        <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+        <div className="text-[28px] font-extrabold leading-none" style={{ color }}>{value}</div>
       )}
-      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 500 }}>{label}</div>
+      <div className="text-[11px] text-slate-500 mt-1 font-medium">{label}</div>
     </div>
   );
 
   const statsRow = (
-    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+    <div className="flex gap-2 mb-3">
       {isToday && statCard(hereNow.length, "Here Now", "#22c55e")}
       {statCard(scheduled.length, "Scheduled", "#6366f1")}
       {statCard(off.length, "Off", "#475569")}
@@ -289,11 +292,11 @@ export default function Page() {
   );
 
   const legend = (
-    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20, padding: "12px 14px", background: "#1a2236", borderRadius: 12 }}>
+    <div className="flex gap-4 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl">
       {[{ label: "Opener", color: "#f59e0b" }, { label: "Mid", color: "#6366f1" }, { label: "Closer", color: "#8b5cf6" }].map(({ label, color }) => (
-        <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>{label}</span>
+        <div key={label} className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full inline-block" style={{ background: color }} />
+          <span className="text-xs text-slate-400">{label}</span>
         </div>
       ))}
     </div>
@@ -306,7 +309,7 @@ export default function Page() {
       <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
       <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined} />
       {isManager && !isDemo && (
-        <button onClick={() => setShowInvite(true)} style={{ width: "100%", marginTop: 8, padding: "14px 0", borderRadius: 12, background: "transparent", border: "1px dashed #334155", color: "#475569", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+        <button onClick={() => setShowInvite(true)} className="w-full mt-2 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 text-slate-600 font-semibold text-sm cursor-pointer">
           + Add Employee
         </button>
       )}
@@ -341,21 +344,21 @@ export default function Page() {
 
   if (isDesktop) {
     return (
-      <main style={{ background: "#0a1628", minHeight: "100vh" }}>
+      <main className="bg-bg min-h-screen">
         <CoverageHeader {...headerProps} />
-        {refreshing && <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}><div className="spinner" /></div>}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 32, padding: "0 24px 32px", alignItems: "start" }}>
+        {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+        <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
             {statsRow}
             {timeline}
             {legend}
-            <div style={{ textAlign: "center", marginTop: 8 }}>
-              <span style={{ fontSize: 12, color: "#334155" }}>Last updated: {lastUpdated}</span>
+            <div className="text-center mt-2">
+              <span className="text-xs text-slate-700">Last updated: {lastUpdated}</span>
             </div>
           </div>
           {/* Right: team list */}
-          <div style={{ position: "sticky", top: 16 }}>
+          <div className="sticky top-4">
             {teamSections}
           </div>
         </div>
@@ -366,15 +369,15 @@ export default function Page() {
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 80px", background: "#0a1628", minHeight: "100vh" }}>
+    <main className="max-w-[480px] mx-auto px-4 pb-20 bg-bg min-h-screen">
       <CoverageHeader {...headerProps} />
-      {refreshing && <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}><div className="spinner" /></div>}
+      {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {statsRow}
       {timeline}
       {legend}
       {teamSections}
-      <div style={{ textAlign: "center", marginTop: 16 }}>
-        <span style={{ fontSize: 12, color: "#334155" }}>Last updated: {lastUpdated}</span>
+      <div className="text-center mt-4">
+        <span className="text-xs text-slate-700">Last updated: {lastUpdated}</span>
       </div>
       {drawer}
       {inviteSheet}

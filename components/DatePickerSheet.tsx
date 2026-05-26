@@ -37,7 +37,6 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth());
 
-  // Sync view when selected date changes externally
   useEffect(() => {
     if (open) {
       setViewYear(selected.getFullYear());
@@ -67,76 +66,53 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          zIndex: 40,
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-          transition: "opacity 0.25s",
-        }}
+        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
       />
 
       {/* Sheet */}
-      <div
-        style={isDesktop ? {
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)",
-          opacity: open ? 1 : 0,
-          transition: "opacity 0.2s, transform 0.2s",
-          pointerEvents: open ? "auto" : "none",
-          zIndex: 50,
-          background: "#0f172a",
-          border: "1px solid #1e293b",
-          borderRadius: 20,
-          width: 360,
-          padding: "24px 24px 28px",
-        } : {
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          background: "#0f172a",
-          borderTop: "1px solid #1e293b",
-          borderRadius: "24px 24px 0 0",
-          transform: open ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
-          maxWidth: 480,
-          margin: "0 auto",
-          padding: "12px 24px 44px",
-        }}
-      >
-        {/* Drag handle (mobile only) */}
-        {!isDesktop && (
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
+      {isDesktop ? (
+        <div
+          className={`fixed top-1/2 left-1/2 z-50 bg-slate-900 border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7 transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+          style={{ transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)" }}
+        >
+          {sheetContent()}
+        </div>
+      ) : (
+        <div
+          className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
+        >
+          <div className="flex justify-center mb-5">
+            <div className="w-10 h-1 rounded-full bg-slate-700" />
           </div>
-        )}
+          {sheetContent()}
+        </div>
+      )}
+    </>
+  );
 
+  function sheetContent() {
+    return (
+      <>
         {/* Month nav */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <button onClick={prevMonth} style={navBtn}>←</button>
-          <span style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>
+        <div className="flex items-center justify-between mb-5">
+          <button onClick={prevMonth} className={navBtn}>←</button>
+          <span className="text-base font-bold text-slate-100">
             {MONTHS[viewMonth]} {viewYear}
           </span>
-          <button onClick={nextMonth} style={navBtn}>→</button>
+          <button onClick={nextMonth} className={navBtn}>→</button>
         </div>
 
         {/* Weekday headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 8 }}>
+        <div className="grid grid-cols-7 mb-2">
           {WEEKDAYS.map(d => (
-            <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#475569", paddingBottom: 6 }}>
+            <div key={d} className="text-center text-[11px] font-semibold text-slate-600 pb-1.5">
               {d}
             </div>
           ))}
         </div>
 
         {/* Day grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px 0" }}>
+        <div className="grid grid-cols-7 gap-y-1">
           {days.map((day, i) => {
             if (!day) return <div key={i} />;
 
@@ -144,48 +120,29 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
             const isToday_ = sameDay(day, today);
 
             return (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <div key={i} className="flex flex-col items-center gap-[3px]">
                 <button
                   onClick={() => { onSelect(day); onClose(); }}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "50%",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    fontWeight: isSelected || isToday_ ? 700 : 400,
-                    color: isSelected ? "#fff" : isToday_ ? "#3b82f6" : "#94a3b8",
-                    background: isSelected
-                      ? "linear-gradient(135deg, #3b82f6, #8b5cf6)"
-                      : "transparent",
-                  }}
+                  className={`size-[38px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
+                    isSelected
+                      ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold"
+                      : isToday_
+                      ? "bg-transparent text-blue-500 font-bold"
+                      : "bg-transparent text-slate-400 font-normal"
+                  }`}
                 >
                   {day.getDate()}
                 </button>
-                {/* Today dot */}
                 {isToday_ && !isSelected && (
-                  <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#3b82f6" }} />
+                  <div className="size-1 rounded-full bg-blue-500" />
                 )}
               </div>
             );
           })}
         </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  }
 }
 
-const navBtn: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  background: "#1e293b",
-  border: "1px solid #334155",
-  color: "#94a3b8",
-  fontSize: 16,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
+const navBtn = "size-9 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";

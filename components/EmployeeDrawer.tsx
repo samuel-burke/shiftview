@@ -59,7 +59,6 @@ export default function EmployeeDrawer({
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
-  // Reset edit state when drawer opens or selected employee changes
   useEffect(() => {
     if (open) {
       setEditing(!schedule);
@@ -119,82 +118,41 @@ export default function EmployeeDrawer({
     <>
       <div
         onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          zIndex: 40,
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-          transition: "opacity 0.25s",
-        }}
+        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
       />
       <div
         data-testid="employee-drawer"
-        style={isDesktop ? {
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 420,
-          zIndex: 50,
-          background: "#0f172a",
-          borderLeft: "1px solid #1e293b",
-          transform: open ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
-          overflowY: "auto",
-        } : {
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          background: "#0f172a",
-          borderTop: "1px solid #1e293b",
-          borderRadius: "24px 24px 0 0",
-          transform: open ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
-          maxWidth: 480,
-          margin: "0 auto",
-        }}
+        className={`fixed z-50 bg-slate-900 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isDesktop
+            ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${open ? "translate-x-0" : "translate-x-full"}`
+            : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto ${open ? "translate-y-0" : "translate-y-full"}`
+        }`}
       >
-        {/* Drag handle (mobile only) */}
         {!isDesktop && (
-          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-slate-700" />
           </div>
         )}
 
-        <div style={{ padding: isDesktop ? "24px 28px" : "8px 24px 44px" }}>
+        <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3.5">
               <div
+                className="size-[52px] rounded-[14px] flex items-center justify-center text-base font-extrabold"
                 style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 14,
                   background: `${shiftColor}22`,
                   border: `2px solid ${shiftColor}55`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 16,
-                  fontWeight: 800,
                   color: shiftColor,
                 }}
               >
                 {getMonogram(employee.name)}
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>
-                  {employee.name}
-                </div>
-                <div style={{ fontSize: 12, marginTop: 3 }}>
+                <div className="text-lg font-bold text-slate-100">{employee.name}</div>
+                <div className="text-xs mt-[3px]">
                   {shiftType && (
-                    <span style={{ color: shiftColor, textTransform: "capitalize", marginRight: 6 }}>
-                      {shiftType}
-                    </span>
+                    <span className="capitalize mr-1.5" style={{ color: shiftColor }}>{shiftType}</span>
                   )}
                   <span style={{ color: statusColor }}>· {statusLabel}</span>
                 </div>
@@ -202,69 +160,39 @@ export default function EmployeeDrawer({
             </div>
             <button
               onClick={onClose}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                background: "#1e293b",
-                border: "none",
-                color: "#64748b",
-                fontSize: 16,
-                cursor: "pointer",
-              }}
+              className="size-8 rounded-full bg-slate-800 border-none text-slate-500 text-base cursor-pointer flex items-center justify-center"
             >
               ✕
             </button>
           </div>
 
           {editing ? (
-            /* ── Edit mode ── */
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="flex flex-col gap-3">
               {[
                 { label: "Start time", val: startVal, set: setStartVal },
                 { label: "End time",   val: endVal,   set: setEndVal   },
               ].map(({ label, val, set }) => (
                 <div key={label}>
-                  <div style={{ fontSize: 11, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                  <div className="text-[11px] text-slate-600 uppercase tracking-[0.08em] mb-1.5">
                     {label}
                   </div>
                   <input
                     type="time"
                     value={val}
                     onChange={(e) => { set(e.target.value); setError(null); }}
-                    style={{
-                      width: "100%",
-                      background: "#1a2236",
-                      border: "1px solid #334155",
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      color: "#f1f5f9",
-                      fontSize: 16,
-                      colorScheme: "dark",
-                    }}
+                    className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
                   />
                 </div>
               ))}
 
               {error && (
-                <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>{error}</div>
+                <div className="text-xs text-red-400 text-center">{error}</div>
               )}
 
               <button
                 onClick={handleSave}
                 disabled={saving}
-                style={{
-                  padding: "14px 0",
-                  borderRadius: 12,
-                  background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-                  border: "none",
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  opacity: saving ? 0.7 : 1,
-                  marginTop: 4,
-                }}
+                className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
               >
                 {saving ? "Saving…" : "Save Shift"}
               </button>
@@ -273,17 +201,7 @@ export default function EmployeeDrawer({
                 <button
                   onClick={handleMarkOff}
                   disabled={saving}
-                  style={{
-                    padding: "14px 0",
-                    borderRadius: 12,
-                    background: "transparent",
-                    border: "1px solid #334155",
-                    color: "#f87171",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    opacity: saving ? 0.7 : 1,
-                  }}
+                  className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
                 >
                   Mark as Off
                 </button>
@@ -292,70 +210,38 @@ export default function EmployeeDrawer({
               <button
                 onClick={() => { setEditing(false); setError(null); }}
                 disabled={saving}
-                style={{
-                  padding: "14px 0",
-                  borderRadius: 12,
-                  background: "transparent",
-                  border: "none",
-                  color: "#475569",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
+                className="py-[14px] rounded-xl bg-transparent border-none text-slate-600 font-semibold text-sm cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           ) : (
-            /* ── View mode ── */
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
+              <div className="grid grid-cols-2 gap-2.5 mb-6">
                 {[
                   { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },
                   { label: "End",        value: schedule ? fmtMinutes(schedule.endMinutes) : "—" },
                   { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "—" },
                   { label: "Status",     value: statusLabel },
                 ].map(({ label, value }) => (
-                  <div key={label} style={{ background: "#1a2236", borderRadius: 12, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-                      {label}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>{value}</div>
+                  <div key={label} className="bg-card rounded-xl px-[14px] py-3">
+                    <div className="text-[10px] text-slate-600 uppercase tracking-[0.08em] mb-1">{label}</div>
+                    <div className="text-sm font-semibold text-slate-100">{value}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ display: "flex", gap: 10 }}>
+              <div className="flex gap-2.5">
                 {isManager && (
                   <button
                     onClick={() => setEditing(true)}
-                    style={{
-                      flex: 1,
-                      padding: "14px 0",
-                      borderRadius: 12,
-                      background: "#3b82f6",
-                      border: "none",
-                      color: "#fff",
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: "pointer",
-                    }}
+                    className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
                   >
                     Edit Shift
                   </button>
                 )}
                 <button
-                  style={{
-                    flex: 1,
-                    padding: "14px 0",
-                    borderRadius: 12,
-                    background: "#1e293b",
-                    border: "1px solid #334155",
-                    color: "#94a3b8",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    cursor: "pointer",
-                  }}
+                  className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
                 >
                   Message
                 </button>

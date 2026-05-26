@@ -2,35 +2,14 @@
 
 export function SkeletonShiftCard() {
   return (
-    <div
-      style={{
-        width: "100%",
-        background: "#111827",
-        border: "1px solid #1e293b",
-        borderLeft: "3px solid #1e293b",
-        borderRadius: 12,
-        padding: "12px 14px",
-        marginBottom: 8,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-      }}
-    >
-      {/* Avatar */}
-      <div
-        className="skeleton"
-        style={{ width: 38, height: 38, borderRadius: "50%", flexShrink: 0 }}
-      />
-
-      {/* Name + shift type */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="skeleton" style={{ height: 13, width: "55%", borderRadius: 4 }} />
-        <div className="skeleton" style={{ height: 10, width: "28%", borderRadius: 4, marginTop: 7 }} />
+    <div className="flex items-center gap-3 w-full bg-gray-900 border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
+      <div className="skeleton size-[38px] rounded-full shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="skeleton h-[13px] w-[55%] rounded" />
+        <div className="skeleton h-[10px] w-[28%] rounded mt-[7px]" />
       </div>
-
-      {/* Time range */}
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div className="skeleton" style={{ height: 10, width: 80, borderRadius: 4 }} />
+      <div className="text-right shrink-0">
+        <div className="skeleton h-[10px] w-20 rounded" />
       </div>
     </div>
   );
@@ -38,11 +17,10 @@ export function SkeletonShiftCard() {
 
 export function SkeletonTeamSection({ count = 4 }: { count?: number }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      {/* Label */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <div className="skeleton" style={{ height: 12, width: 80, borderRadius: 4 }} />
-        <div className="skeleton" style={{ height: 18, width: 28, borderRadius: 20 }} />
+    <div className="mb-5">
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="skeleton h-3 w-20 rounded" />
+        <div className="skeleton h-[18px] w-7 rounded-full" />
       </div>
       {Array.from({ length: count }, (_, i) => (
         <SkeletonShiftCard key={i} />
@@ -53,42 +31,23 @@ export function SkeletonTeamSection({ count = 4 }: { count?: number }) {
 
 export function SkeletonTimeline() {
   return (
-    <div
-      style={{
-        background: "#1a2236",
-        borderRadius: 16,
-        padding: "16px 10px 10px",
-        marginBottom: 16,
-      }}
-    >
-      {/* Title */}
-      <div
-        className="skeleton"
-        style={{ height: 11, width: 160, borderRadius: 4, marginBottom: 16, marginLeft: 6 }}
-      />
-
-      {/* Chart body */}
-      <div style={{ padding: "0 0 10px", height: 150, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 4 }}>
-        {/* Fake area chart silhouette using stacked bars of varying height */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: "100%", padding: "28px 8px 20px" }}>
+    <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
+      <div className="skeleton h-[11px] w-40 rounded mb-4 ml-1.5" />
+      <div className="flex flex-col justify-end gap-1 h-[150px] pb-[10px]">
+        <div className="flex items-end gap-[3px] h-full px-2 pt-7 pb-5">
           {[40, 55, 65, 70, 75, 80, 75, 72, 68, 70, 72, 75, 78, 80, 76, 70, 65, 60, 55, 50, 45, 42, 38, 35, 30, 28, 25, 22, 20, 18, 16, 14].map(
             (h, i) => (
               <div
                 key={i}
-                className="skeleton"
-                style={{
-                  flex: 1,
-                  height: `${h}%`,
-                  borderRadius: "3px 3px 0 0",
-                }}
+                className="skeleton flex-1 rounded-t-[3px]"
+                style={{ height: `${h}%` }}
               />
             )
           )}
         </div>
-        {/* X axis tick placeholders */}
-        <div style={{ display: "flex", justifyContent: "space-between", paddingInline: 8 }}>
+        <div className="flex justify-between px-2">
           {[80, 60, 60, 60, 56].map((w, i) => (
-            <div key={i} className="skeleton" style={{ height: 9, width: w, borderRadius: 4 }} />
+            <div key={i} className="skeleton h-[9px] rounded" style={{ width: w }} />
           ))}
         </div>
       </div>

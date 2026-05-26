@@ -50,39 +50,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0a1628",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 360,
-          background: "#1a2236",
-          borderRadius: 16,
-          border: "1px solid #1e293b",
-          padding: 32,
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
+    <main className="min-h-screen bg-bg flex items-center justify-center p-4">
+      <div className="w-full max-w-[360px] bg-card rounded-2xl border border-slate-800 p-8">
+        <div className="text-center mb-8">
+          <div className="text-2xl font-extrabold text-slate-100 tracking-tight">
             Shift
-            <span style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
               View
             </span>
           </div>
-          <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>
+          <div className="text-xs text-slate-600 mt-1.5">
             {step === "email" ? "Sign in to your account" : `Code sent to ${email}`}
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {step === "email" ? (
             <>
               <input
@@ -92,22 +74,26 @@ export default function LoginPage() {
                 onChange={(e) => { setEmail(e.target.value); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
                 autoFocus
-                style={inputStyle}
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm outline-none [color-scheme:dark]"
               />
-
-              {error && <div style={errorStyle}>{error}</div>}
-
-              <button onClick={handleSendCode} disabled={loading} style={primaryBtnStyle(loading)}>
+              {error && <div className="text-xs text-red-400 text-center">{error}</div>}
+              <button
+                onClick={handleSendCode}
+                disabled={loading}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity ${loading ? "opacity-70" : "opacity-100"}`}
+              >
                 {loading ? "Sending…" : "Send Code"}
               </button>
-
-              <button onClick={() => router.push("/?demo=true")} style={secondaryBtnStyle}>
+              <button
+                onClick={() => router.push("/?demo=true")}
+                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer"
+              >
                 View Demo
               </button>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", marginBottom: 4 }}>
+              <div className="text-[13px] text-slate-500 text-center mb-1">
                 Enter the 6-digit code from your email
               </div>
               <input
@@ -119,18 +105,19 @@ export default function LoginPage() {
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                style={{ ...inputStyle, textAlign: "center", fontSize: 24, letterSpacing: "0.3em" }}
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] outline-none [color-scheme:dark]"
               />
-
-              {error && <div style={errorStyle}>{error}</div>}
-
-              <button onClick={handleVerify} disabled={loading} style={primaryBtnStyle(loading)}>
+              {error && <div className="text-xs text-red-400 text-center">{error}</div>}
+              <button
+                onClick={handleVerify}
+                disabled={loading}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity ${loading ? "opacity-70" : "opacity-100"}`}
+              >
                 {loading ? "Verifying…" : "Verify"}
               </button>
-
               <button
                 onClick={() => { setStep("email"); setCode(""); setError(null); }}
-                style={secondaryBtnStyle}
+                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer"
               >
                 Back
               </button>
@@ -141,44 +128,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  background: "#0a1628",
-  border: "1px solid #1e293b",
-  borderRadius: 10,
-  padding: "12px 14px",
-  color: "#f1f5f9",
-  fontSize: 14,
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};
-
-const errorStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: "#f87171",
-  textAlign: "center",
-};
-
-const primaryBtnStyle = (loading: boolean): React.CSSProperties => ({
-  background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-  border: "none",
-  borderRadius: 10,
-  padding: "12px 14px",
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: 700,
-  cursor: "pointer",
-  opacity: loading ? 0.7 : 1,
-  marginTop: 4,
-});
-
-const secondaryBtnStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "1px solid #1e293b",
-  borderRadius: 10,
-  padding: "12px 14px",
-  color: "#64748b",
-  fontSize: 14,
-  cursor: "pointer",
-};

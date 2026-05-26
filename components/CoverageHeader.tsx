@@ -86,67 +86,61 @@ export default function CoverageHeader({
   })();
 
   const dateNav = (
-    <div style={{ display: "flex", alignItems: "center", gap: isDesktop ? 16 : 0, justifyContent: isDesktop ? undefined : "space-between" }}>
-      <button onClick={onPrev} aria-label="Previous day" style={navBtn(isDesktop)}>←</button>
+    <div className={`flex items-center ${isDesktop ? "gap-4" : "justify-between"}`}>
+      <button onClick={onPrev} aria-label="Previous day" className={navBtn}>←</button>
       <button
         onClick={() => setPickerOpen(true)}
-        style={{ textAlign: "center", background: "none", border: "none", cursor: "pointer", padding: isDesktop ? "0 8px" : 0 }}
+        className={`text-center bg-transparent border-none cursor-pointer ${isDesktop ? "px-2" : "p-0"}`}
       >
-        <div style={{ fontSize: isDesktop ? 18 : 24, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 6 }}>
+        <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>
           {dateLabel}
-          <span style={{ fontSize: 13, color: "#3b82f6", fontWeight: 400 }}>▾</span>
+          <span className="text-[13px] text-blue-500 font-normal">▾</span>
         </div>
-        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
+        <div className="text-[13px] text-slate-500 mt-0.5">
           {dayName}
-          {isToday && isDesktop && <span style={{ marginLeft: 8, color: "#475569" }}>· {timeStr}</span>}
+          {isToday && isDesktop && <span className="ml-2 text-slate-600">· {timeStr}</span>}
         </div>
         {isToday && !isDesktop && (
-          <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>Live: {timeStr}</div>
+          <div className="text-[11px] text-slate-600 mt-0.5">Live: {timeStr}</div>
         )}
       </button>
-      <button onClick={onNext} aria-label="Next day" style={navBtn(isDesktop)}>→</button>
+      <button onClick={onNext} aria-label="Next day" className={navBtn}>→</button>
     </div>
   );
 
   // ── Desktop layout ──────────────────────────────────────────────────────────
   if (isDesktop) {
     return (
-      <div style={{ marginBottom: 24 }}>
-        <div
-          style={{
-            background: "#0a1628",
-            borderBottom: "1px solid #1e293b",
-            padding: "14px 24px",
-            display: "flex",
-            alignItems: "center",
-            gap: 24,
-          }}
-        >
+      <div className="mb-6">
+        <div className="bg-bg border-b border-slate-800 px-6 py-[14px] flex items-center gap-6">
           {/* Brand */}
-          <span style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em", flexShrink: 0 }}>
+          <span className="text-[22px] font-extrabold text-slate-100 tracking-tight shrink-0">
             Shift
-            <span style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
               View
             </span>
           </span>
 
           {/* Date nav — centered */}
-          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+          <div className="flex-1 flex justify-center">
             {dateNav}
           </div>
 
           {/* Actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div className="flex items-center gap-2 shrink-0">
             {!isToday && (
-              <button onClick={onNow} style={actionBtn}>TODAY</button>
+              <button onClick={onNow} className={actionBtn}>TODAY</button>
             )}
-            {onSignOut && <button onClick={onSignOut} style={{ ...actionBtn, color: "#475569" }}>Sign Out</button>}
-            {onSignIn && <button onClick={onSignIn} style={{ ...actionBtn, color: "#3b82f6" }}>Sign In</button>}
+            {onSignOut && <button onClick={onSignOut} className={`${actionBtn} text-slate-600`}>Sign Out</button>}
+            {onSignIn && <button onClick={onSignIn} className={`${actionBtn} text-blue-500`}>Sign In</button>}
           </div>
         </div>
 
         {alertConfig && !loading && (
-          <div style={{ margin: "12px 24px 0", padding: "10px 14px", background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, borderRadius: 10, fontSize: 12, color: alertConfig.text, display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            className="mx-6 mt-3 px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
+            style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
+          >
             <span>{alertConfig.icon}</span>
             <span>{alertConfig.message}</span>
           </div>
@@ -159,35 +153,39 @@ export default function CoverageHeader({
 
   // ── Mobile layout ───────────────────────────────────────────────────────────
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div className="mb-4">
       <div
         ref={topBarRef}
-        style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, background: "#0a1628", borderBottom: "1px solid #1e293b", maxWidth: 480, margin: "0 auto", padding: "calc(env(safe-area-inset-top) + 12px) 16px 12px" }}
+        className="fixed top-0 left-0 right-0 z-30 bg-bg border-b border-slate-800 max-w-[480px] mx-auto px-4 pb-3"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <span style={{ fontSize: 24, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
             Shift
-            <span style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>View</span>
+            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">View</span>
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="flex items-center gap-2">
             {!isToday && (
-              <button onClick={onNow} style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9", background: "#334155", border: "none", borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>TODAY</button>
+              <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2 cursor-pointer">TODAY</button>
             )}
             {onSignOut && (
-              <button onClick={onSignOut} style={{ fontSize: 13, fontWeight: 700, color: "#475569", background: "transparent", border: "1px solid #1e293b", borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>Sign Out</button>
+              <button onClick={onSignOut} className="text-[13px] font-bold text-slate-600 bg-transparent border border-slate-800 rounded-[10px] px-4 py-2 cursor-pointer">Sign Out</button>
             )}
             {onSignIn && (
-              <button onClick={onSignIn} style={{ fontSize: 13, fontWeight: 700, color: "#3b82f6", background: "transparent", border: "1px solid #1e293b", borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>Sign In</button>
+              <button onClick={onSignIn} className="text-[13px] font-bold text-blue-500 bg-transparent border border-slate-800 rounded-[10px] px-4 py-2 cursor-pointer">Sign In</button>
             )}
           </div>
         </div>
-        <div style={{ marginBottom: 4 }}>{dateNav}</div>
+        <div className="mb-1">{dateNav}</div>
       </div>
 
       <div style={{ height: barHeight }} />
 
       {alertConfig && !loading && (
-        <div style={{ marginTop: 12, padding: "10px 14px", background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, borderRadius: 10, fontSize: 12, color: alertConfig.text, display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          className="mt-3 px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
+          style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
+        >
           <span>{alertConfig.icon}</span>
           <span>{alertConfig.message}</span>
         </div>
@@ -198,28 +196,6 @@ export default function CoverageHeader({
   );
 }
 
-const navBtn = (isDesktop: boolean): React.CSSProperties => ({
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  background: "#1e293b",
-  border: "1px solid #334155",
-  color: "#94a3b8",
-  fontSize: 16,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-});
+const navBtn = "size-9 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
 
-const actionBtn: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  color: "#f1f5f9",
-  background: "#1e293b",
-  border: "1px solid #334155",
-  borderRadius: 10,
-  padding: "8px 14px",
-  cursor: "pointer",
-};
+const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-[14px] py-2 cursor-pointer";
