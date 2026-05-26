@@ -141,32 +141,15 @@ export default function CoverageTimeline({
   const lineTop = chartRect ? chartRect.top + 28 : null; // 28 = margin.top
 
   return (
-    <div
-      style={{
-        background: "#1a2236",
-        borderRadius: 16,
-        padding: "16px 10px 10px",
-        marginBottom: 16,
-      }}
-    >
-      <p
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.1em",
-          color: "#64748b",
-          textTransform: "uppercase",
-          marginBottom: 12,
-          paddingLeft: 6,
-        }}
-      >
+    <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
+      <p className="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase mb-3 pl-1.5">
         Coverage Timeline
       </p>
 
       {/* Wrapper — position relative so overlay can be absolute */}
       <div
         ref={containerRef}
-        style={{ position: "relative" }}
+        className="relative"
         onTouchEnd={() => {
           const svg = containerRef.current?.querySelector("svg");
           svg?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true }));
@@ -239,21 +222,8 @@ export default function CoverageTimeline({
         {/* Time badge — positioned above the now line */}
         {isToday && lineLeft !== null && lineTop !== null && (
           <div
-            style={{
-              position: "absolute",
-              left: lineLeft,
-              top: lineTop - 24,
-              transform: "translateX(-50%)",
-              background: "#1e293b",
-              border: "1px solid #334155",
-              borderRadius: 6,
-              padding: "2px 7px",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#e2e8f0",
-              whiteSpace: "nowrap",
-              pointerEvents: "none",
-            }}
+            className="absolute bg-slate-800 border border-slate-700 rounded-md px-[7px] py-[2px] text-[11px] font-bold text-slate-200 whitespace-nowrap pointer-events-none -translate-x-1/2"
+            style={{ left: lineLeft, top: lineTop - 24 }}
           >
             {timeStr}
           </div>

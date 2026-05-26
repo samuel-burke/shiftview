@@ -5,15 +5,21 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!user) return NextResponse.json({ isManager: false });
+  if (!user)
+    return NextResponse.json({ isManager: false, employeeId: null, employeeName: null });
 
-  const { data } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: managerRow }, { data: emp }] = await Promise.all([
+    supabase.from("managers").select("user_id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("employees").select("id, name").eq("user_id", user.id).maybeSingle(),
+  ]);
 
-  return NextResponse.json({ isManager: !!data });
+  return NextResponse.json({
+    isManager: !!managerRow,
+    employeeId: emp?.id ?? null,
+    employeeName: emp?.name ?? null,
+  });
 }

@@ -1,22 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
+import { requireManager } from "@/lib/require-manager";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-async function requireManager(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { user: null, error: "Not authenticated" };
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!managerRow) return { user, error: "Manager access required" };
-  return { user, error: null };
-}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

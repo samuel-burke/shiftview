@@ -142,7 +142,7 @@ test.describe("Demo mode — employee drawer", () => {
     await page.getByText("Alice Smith").first().click();
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("6:00 AM")).toBeVisible();
-    await page.getByText("✕").click();
+    await drawer.getByText("✕").click();
     await expect(drawer.getByText("6:00 AM")).not.toBeVisible();
   });
 

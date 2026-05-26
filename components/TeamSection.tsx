@@ -27,30 +27,9 @@ export default function TeamSection({
   if (count === 0) return null;
 
   const sectionHeader = (
-    <div
-      style={{
-        fontSize: 12,
-        fontWeight: 700,
-        color: "#64748b",
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        marginBottom: 10,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
+    <div className="flex items-center gap-2 mb-[10px] text-xs font-bold text-slate-500 uppercase tracking-[0.08em]">
       {label}
-      <span
-        style={{
-          background: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: 20,
-          padding: "1px 8px",
-          fontSize: 11,
-          color: "#94a3b8",
-        }}
-      >
+      <span className="bg-slate-800 border border-slate-700 rounded-full px-2 py-px text-[11px] text-slate-400">
         {count}
       </span>
     </div>
@@ -65,7 +44,7 @@ export default function TeamSection({
     );
 
     return (
-      <div style={{ marginBottom: 20 }}>
+      <div className="mb-5">
         {sectionHeader}
         {sorted.map((sch) => {
           const emp = empMap[sch.employeeId];
@@ -85,61 +64,24 @@ export default function TeamSection({
     );
   }
 
-  // Off mode — employees without a schedule
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div className="mb-5">
       {sectionHeader}
       {employees.map((emp) => (
         <div
           key={emp.id}
           onClick={() => onSelectOff?.(emp)}
-          style={{
-            width: "100%",
-            background: "#111827",
-            border: "1px solid #1e293b",
-            borderLeft: "3px solid #1e293b",
-            borderRadius: 12,
-            padding: "12px 14px",
-            marginBottom: 8,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            cursor: onSelectOff ? "pointer" : "default",
-          }}
+          className={`flex items-center gap-3 w-full bg-gray-900 border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2 ${onSelectOff ? "cursor-pointer" : "cursor-default"}`}
         >
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: "50%",
-              background: "#1e293b",
-              border: "1.5px solid #334155",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#475569",
-              flexShrink: 0,
-            }}
-          >
+          <div className="size-[38px] rounded-full bg-slate-800 border-[1.5px] border-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
             {getMonogram(emp.name)}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: 14,
-                color: "#64748b",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm text-slate-500 truncate">
               {emp.name}
             </div>
           </div>
-          <div style={{ fontSize: 11, color: "#334155" }}>Off</div>
+          <div className="text-[11px] text-slate-700">Off</div>
         </div>
       ))}
     </div>
