@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import {
   Employee,
   Schedule,
@@ -46,6 +47,7 @@ export default function EmployeeDrawer({
   onMarkOff,
   isManager,
 }: Props) {
+  const isDesktop = useIsDesktop();
   const [editing, setEditing] = useState(false);
   const [startVal, setStartVal] = useState("");
   const [endVal, setEndVal] = useState("");
@@ -129,7 +131,19 @@ export default function EmployeeDrawer({
       />
       <div
         data-testid="employee-drawer"
-        style={{
+        style={isDesktop ? {
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 420,
+          zIndex: 50,
+          background: "#0f172a",
+          borderLeft: "1px solid #1e293b",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
+          overflowY: "auto",
+        } : {
           position: "fixed",
           bottom: 0,
           left: 0,
@@ -144,12 +158,14 @@ export default function EmployeeDrawer({
           margin: "0 auto",
         }}
       >
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
-        </div>
+        {/* Drag handle (mobile only) */}
+        {!isDesktop && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
+          </div>
+        )}
 
-        <div style={{ padding: "8px 24px 44px" }}>
+        <div style={{ padding: isDesktop ? "24px 28px" : "8px 24px 44px" }}>
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

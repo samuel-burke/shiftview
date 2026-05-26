@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 
 type Props = {
   open: boolean;
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export default function InviteSheet({ open, onClose, onSuccess }: Props) {
+  const isDesktop = useIsDesktop();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
@@ -66,7 +68,20 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
         }}
       />
       <div
-        style={{
+        style={isDesktop ? {
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)",
+          opacity: open ? 1 : 0,
+          transition: "opacity 0.2s, transform 0.2s",
+          pointerEvents: open ? "auto" : "none",
+          zIndex: 50,
+          background: "#0f172a",
+          border: "1px solid #1e293b",
+          borderRadius: 20,
+          width: 420,
+        } : {
           position: "fixed",
           bottom: 0,
           left: 0,
@@ -81,11 +96,13 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
           margin: "0 auto",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
-        </div>
+        {!isDesktop && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
+          </div>
+        )}
 
-        <div style={{ padding: "8px 24px 44px" }}>
+        <div style={{ padding: isDesktop ? "24px 28px 28px" : "8px 24px 44px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>
               Add Employee

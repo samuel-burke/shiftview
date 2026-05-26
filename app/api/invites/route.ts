@@ -25,7 +25,11 @@ export async function POST(request: Request) {
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  const { data: employee, error: insertError } = await supabase
+  // Use the admin client for both operations — bypasses RLS (we've already
+  // verified manager status above) and keeps privileges consistent.
+  const admin = createAdminClient();
+
+  const { data: employee, error: insertError } = await admin
     .from("employees")
     .insert({ name: name.trim(), email })
     .select("id")
@@ -34,11 +38,13 @@ export async function POST(request: Request) {
   if (insertError)
     return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email);
 
-  if (inviteError)
+  if (inviteError) {
+    // Roll back the employee row so retrying the invite starts clean
+    await admin.from("employees").delete().eq("id", employee.id);
     return NextResponse.json({ error: inviteError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, employeeId: employee.id }, { status: 201 });
 }

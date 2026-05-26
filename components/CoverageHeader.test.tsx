@@ -15,8 +15,6 @@ const baseProps = {
   onDateSelect: vi.fn(),
   isToday: true,
   hereCount: 2,
-  scheduledCount: 5,
-  offCount: 1,
   nowMinutes: 600, // 10am
   coverageStatus: "optimal" as const,
   isDemo: false,
@@ -40,27 +38,6 @@ describe("CoverageHeader", () => {
   it("shows the live time label when isToday", () => {
     render(<CoverageHeader {...baseProps} />);
     expect(screen.getByText(/Live:/)).toBeInTheDocument();
-  });
-
-  it("shows stat card counts", () => {
-    render(<CoverageHeader {...baseProps} />);
-    // Use getAllByText since calendar day numbers may clash; verify at least one match per stat
-    expect(screen.getAllByText("2").length).toBeGreaterThan(0); // hereCount
-    expect(screen.getAllByText("5").length).toBeGreaterThan(0); // scheduledCount
-    expect(screen.getAllByText("1").length).toBeGreaterThan(0); // offCount
-  });
-
-  it("shows stat card labels", () => {
-    render(<CoverageHeader {...baseProps} />);
-    expect(screen.getByText("Here Now")).toBeInTheDocument();
-    expect(screen.getByText("Scheduled")).toBeInTheDocument();
-    expect(screen.getByText("Off")).toBeInTheDocument();
-  });
-
-  it("does not show 'Here Now' card on non-today days", () => {
-    const pastDate = new Date(2026, 4, 20);
-    render(<CoverageHeader {...baseProps} date={pastDate} isToday={false} />);
-    expect(screen.queryByText("Here Now")).not.toBeInTheDocument();
   });
 
   it("does not show TODAY button when viewing today", () => {

@@ -28,6 +28,7 @@ import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import InviteSheet from "../components/InviteSheet";
 import { createClient } from "@/lib/supabase-browser";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -201,6 +202,7 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
+  const isDesktop = useIsDesktop();
   const [showInvite, setShowInvite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -244,174 +246,138 @@ export default function Page() {
     };
   }, [date, isDemo]);
 
-  return (
-    <main
-      style={{
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "0 16px 80px",
-        background: "#0a1628",
-        minHeight: "100vh",
-      }}
-    >
-      <CoverageHeader
-        date={date}
-        today={today}
-        onPrev={() => setDate((d) => offsetDate(d, -1))}
-        onNext={() => setDate((d) => offsetDate(d, 1))}
-        onNow={() => setDate(new Date())}
-        onDateSelect={(d) => setDate(d)}
-        isToday={isToday}
-        hereCount={hereNow.length}
-        scheduledCount={scheduled.length}
-        offCount={off.length}
-        nowMinutes={nowMinutes}
-        coverageStatus={coverageStatus}
-        onSignOut={isDemo ? undefined : handleSignOut}
-        onSignIn={isDemo ? () => router.push("/login") : undefined}
-        isDemo={isDemo}
-        loading={loading}
-      />
+  const headerProps = {
+    date, today, isToday, hereCount: hereNow.length,
+    nowMinutes, coverageStatus, isDemo, loading,
+    onPrev: () => setDate((d) => offsetDate(d, -1)),
+    onNext: () => setDate((d) => offsetDate(d, 1)),
+    onNow: () => setDate(new Date()),
+    onDateSelect: (d: Date) => setDate(d),
+    onSignOut: isDemo ? undefined : handleSignOut,
+    onSignIn: isDemo ? () => router.push("/login") : undefined,
+  };
 
-      {refreshing && (
-        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
-          <div className="spinner" />
+  const timeline = loading ? <SkeletonTimeline /> : (
+    <CoverageTimeline
+      schedules={daySchedules}
+      nowMinutes={nowMinutes}
+      isToday={isToday}
+      openMinutes={storeHours.open}
+      closeMinutes={storeHours.close}
+    />
+  );
+
+  const statCard = (value: number, label: string, color: string) => (
+    <div style={{ flex: 1, background: "#1a2236", borderRadius: 12, padding: "12px 8px", textAlign: "center", border: `1px solid ${color}33` }}>
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
+          <div className="skeleton" style={{ height: 28, width: 32, borderRadius: 6 }} />
         </div>
-      )}
-
-      {loading ? (
-        <SkeletonTimeline />
       ) : (
-        <CoverageTimeline
-          schedules={daySchedules}
-          nowMinutes={nowMinutes}
-          isToday={isToday}
-          openMinutes={storeHours.open}
-          closeMinutes={storeHours.close}
-        />
+        <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
       )}
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 500 }}>{label}</div>
+    </div>
+  );
 
-      {/* Legend */}
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          flexWrap: "wrap",
-          marginBottom: 20,
-          padding: "12px 14px",
-          background: "#1a2236",
-          borderRadius: 12,
-        }}
-      >
-        {[
-          { label: "Opener", color: "#f59e0b" },
-          { label: "Mid", color: "#6366f1" },
-          { label: "Closer", color: "#8b5cf6" },
-        ].map(({ label, color }) => (
-          <div
-            key={label}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: color,
-                display: "inline-block",
-              }}
-            />
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>{label}</span>
-          </div>
-        ))}
-      </div>
+  const statsRow = (
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      {isToday && statCard(hereNow.length, "Here Now", "#22c55e")}
+      {statCard(scheduled.length, "Scheduled", "#6366f1")}
+      {statCard(off.length, "Off", "#475569")}
+    </div>
+  );
 
-      {loading ? (
-        <>
-          <SkeletonTeamSection count={4} />
-          <SkeletonTeamSection count={2} />
-        </>
-      ) : (
-        <>
-          <TeamSection
-            label="Scheduled"
-            count={scheduled.length}
-            schedules={sortedScheduled}
-            employees={employees}
-            nowMinutes={nowMinutes}
-            isToday={isToday}
-            onSelect={(emp, sch) => setSelected({ emp, sch })}
-          />
-          <TeamSection
-            label="Off Today"
-            count={off.length}
-            employees={off}
-            nowMinutes={nowMinutes}
-            isToday={isToday}
-            onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined}
-          />
-        </>
-      )}
+  const legend = (
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20, padding: "12px 14px", background: "#1a2236", borderRadius: 12 }}>
+      {[{ label: "Opener", color: "#f59e0b" }, { label: "Mid", color: "#6366f1" }, { label: "Closer", color: "#8b5cf6" }].map(({ label, color }) => (
+        <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
 
+  const teamSections = loading ? (
+    <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
+  ) : (
+    <>
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined} />
       {isManager && !isDemo && (
-        <button
-          onClick={() => setShowInvite(true)}
-          style={{
-            width: "100%",
-            marginTop: 8,
-            padding: "14px 0",
-            borderRadius: 12,
-            background: "transparent",
-            border: "1px dashed #334155",
-            color: "#475569",
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={() => setShowInvite(true)} style={{ width: "100%", marginTop: 8, padding: "14px 0", borderRadius: 12, background: "transparent", border: "1px dashed #334155", color: "#475569", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
           + Add Employee
         </button>
       )}
+    </>
+  );
 
-      <div
-        style={{
-          textAlign: "center",
-          marginTop: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        <span style={{ fontSize: 12, color: "#334155" }}>
-          Last updated: {lastUpdated}
-        </span>
+  const drawer = (
+    <EmployeeDrawer
+      open={!!selected}
+      employee={selected?.emp ?? null}
+      schedule={selected?.sch ?? null}
+      nowMinutes={nowMinutes}
+      isToday={isToday}
+      onClose={() => setSelected(null)}
+      onSave={handleSaveShift}
+      onCreate={handleCreateShift}
+      onMarkOff={handleMarkOff}
+      isManager={isManager}
+    />
+  );
+
+  const inviteSheet = (
+    <InviteSheet
+      open={showInvite}
+      onClose={() => setShowInvite(false)}
+      onSuccess={() => {
+        setShowInvite(false);
+        fetch(`/api/employees?demo=${isDemo}`).then((r) => r.json()).then(setEmployees).catch(() => {});
+      }}
+    />
+  );
+
+  if (isDesktop) {
+    return (
+      <main style={{ background: "#0a1628", minHeight: "100vh" }}>
+        <CoverageHeader {...headerProps} />
+        {refreshing && <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}><div className="spinner" /></div>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 32, padding: "0 24px 32px", alignItems: "start" }}>
+          {/* Left: stats + timeline + legend */}
+          <div>
+            {statsRow}
+            {timeline}
+            {legend}
+            <div style={{ textAlign: "center", marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: "#334155" }}>Last updated: {lastUpdated}</span>
+            </div>
+          </div>
+          {/* Right: team list */}
+          <div style={{ position: "sticky", top: 16 }}>
+            {teamSections}
+          </div>
+        </div>
+        {drawer}
+        {inviteSheet}
+      </main>
+    );
+  }
+
+  return (
+    <main style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 80px", background: "#0a1628", minHeight: "100vh" }}>
+      <CoverageHeader {...headerProps} />
+      {refreshing && <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}><div className="spinner" /></div>}
+      {statsRow}
+      {timeline}
+      {legend}
+      {teamSections}
+      <div style={{ textAlign: "center", marginTop: 16 }}>
+        <span style={{ fontSize: 12, color: "#334155" }}>Last updated: {lastUpdated}</span>
       </div>
-
-      <InviteSheet
-        open={showInvite}
-        onClose={() => setShowInvite(false)}
-        onSuccess={() => {
-          setShowInvite(false);
-          fetch(`/api/employees?demo=${isDemo}`)
-            .then((r) => r.json())
-            .then(setEmployees)
-            .catch(() => {});
-        }}
-      />
-
-      <EmployeeDrawer
-        open={!!selected}
-        employee={selected?.emp ?? null}
-        schedule={selected?.sch ?? null}
-        nowMinutes={nowMinutes}
-        isToday={isToday}
-        onClose={() => setSelected(null)}
-        onSave={handleSaveShift}
-        onCreate={handleCreateShift}
-        onMarkOff={handleMarkOff}
-        isManager={isManager}
-      />
+      {drawer}
+      {inviteSheet}
     </main>
   );
 }

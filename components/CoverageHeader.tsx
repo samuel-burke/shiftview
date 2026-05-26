@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 
 type Props = {
   date: Date;
@@ -15,8 +16,6 @@ type Props = {
   onDateSelect: (date: Date) => void;
   isToday: boolean;
   hereCount: number;
-  scheduledCount: number;
-  offCount: number;
   nowMinutes: number;
   coverageStatus: CoverageStatus;
   isDemo: boolean;
@@ -44,26 +43,26 @@ export default function CoverageHeader({
   onDateSelect,
   isToday,
   hereCount,
-  scheduledCount,
-  offCount,
   nowMinutes,
   coverageStatus,
   isDemo,
   loading = false,
 }: Props) {
+  const isDesktop = useIsDesktop();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [barHeight, setBarHeight] = useState(0);
   const topBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!topBarRef.current) return;
+    if (isDesktop || !topBarRef.current) return;
     const ro = new ResizeObserver(() => {
       if (topBarRef.current) setBarHeight(topBarRef.current.offsetHeight);
     });
     ro.observe(topBarRef.current);
     setBarHeight(topBarRef.current.offsetHeight);
     return () => ro.disconnect();
-  }, []);
+  }, [isDesktop]);
+
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -71,280 +70,135 @@ export default function CoverageHeader({
   });
   const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
   const timeStr = fmtTime(nowMinutes);
-
   const isPast = date < today && !isToday;
   const isFuture = date > today && !isToday;
 
   const alertConfig = (() => {
-    if (isPast)
-      return {
-        icon: "📅",
-        message: "Viewing past schedule",
-        bg: "rgba(71,85,105,0.12)",
-        border: "rgba(71,85,105,0.3)",
-        text: "#94a3b8",
-      };
-    if (isFuture)
-      return {
-        icon: "📅",
-        message: "Viewing future schedule",
-        bg: "rgba(71,85,105,0.12)",
-        border: "rgba(71,85,105,0.3)",
-        text: "#94a3b8",
-      };
+    if (isPast || isFuture)
+      return { icon: "📅", message: isPast ? "Viewing past schedule" : "Viewing future schedule", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "#94a3b8" };
     if (coverageStatus === "closed")
-      return {
-        icon: "🔒",
-        message: "Store closed",
-        bg: "rgba(71,85,105,0.12)",
-        border: "rgba(71,85,105,0.3)",
-        text: "#94a3b8",
-      };
+      return { icon: "🔒", message: "Store closed", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "#94a3b8" };
     if (coverageStatus === "critical")
-      return {
-        icon: "⚠",
-        message: `Coverage below minimum — ${hereCount} here now`,
-        bg: "rgba(239,68,68,0.12)",
-        border: "rgba(239,68,68,0.3)",
-        text: "#f87171",
-      };
+      return { icon: "⚠", message: `Coverage below minimum — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "#f87171" };
     if (coverageStatus === "low")
-      return {
-        icon: "⚠",
-        message: `Coverage below optimal — ${hereCount} here now`,
-        bg: "rgba(245,158,11,0.12)",
-        border: "rgba(245,158,11,0.3)",
-        text: "#fbbf24",
-      };
+      return { icon: "⚠", message: `Coverage below optimal — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "#fbbf24" };
     return null;
   })();
 
-  const statCard = (value: number, label: string, color: string) => (
-    <div
-      style={{
-        flex: 1,
-        background: "#1a2236",
-        borderRadius: 12,
-        padding: "12px 8px",
-        textAlign: "center",
-        border: `1px solid ${color}33`,
-      }}
-    >
-      {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
-          <div className="skeleton" style={{ height: 28, width: 32, borderRadius: 6 }} />
-        </div>
-      ) : (
-        <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>
-          {value}
-        </div>
-      )}
-      <div
-        style={{
-          fontSize: 11,
-          color: "#64748b",
-          marginTop: 4,
-          fontWeight: 500,
-        }}
+  const dateNav = (
+    <div style={{ display: "flex", alignItems: "center", gap: isDesktop ? 16 : 0, justifyContent: isDesktop ? undefined : "space-between" }}>
+      <button onClick={onPrev} aria-label="Previous day" style={navBtn(isDesktop)}>←</button>
+      <button
+        onClick={() => setPickerOpen(true)}
+        style={{ textAlign: "center", background: "none", border: "none", cursor: "pointer", padding: isDesktop ? "0 8px" : 0 }}
       >
-        {label}
-      </div>
+        <div style={{ fontSize: isDesktop ? 18 : 24, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 6 }}>
+          {dateLabel}
+          <span style={{ fontSize: 13, color: "#3b82f6", fontWeight: 400 }}>▾</span>
+        </div>
+        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
+          {dayName}
+          {isToday && isDesktop && <span style={{ marginLeft: 8, color: "#475569" }}>· {timeStr}</span>}
+        </div>
+        {isToday && !isDesktop && (
+          <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>Live: {timeStr}</div>
+        )}
+      </button>
+      <button onClick={onNext} aria-label="Next day" style={navBtn(isDesktop)}>→</button>
     </div>
   );
 
-  return (
-    <div style={{ marginBottom: 16 }}>
-      {/* Fixed top bar */}
-      <div
-        ref={topBarRef}
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 30,
-          background: "#0a1628",
-          borderBottom: "1px solid #1e293b",
-          maxWidth: 480,
-          margin: "0 auto",
-          padding: "calc(env(safe-area-inset-top) + 12px) 16px 12px",
-        }}
-      >
-      {/* Team label + today btn */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 12,
-        }}
-      >
-        {/* Left — brand */}
-        <span
-          style={{
-            fontSize: 24,
-            fontWeight: 800,
-            color: "#f1f5f9",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Shift
-          <span
-            style={{
-              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            View
-          </span>
-        </span>
-
-        {/* Right — actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {!isToday && (
-            <button
-              onClick={onNow}
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#f1f5f9",
-                background: "#334155",
-                border: "none",
-                borderRadius: 10,
-                padding: "8px 16px",
-                cursor: "pointer",
-              }}
-            >
-              TODAY
-            </button>
-          )}
-          {onSignOut && (
-            <button
-              onClick={onSignOut}
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#475569",
-                background: "transparent",
-                border: "1px solid #1e293b",
-                borderRadius: 10,
-                padding: "8px 16px",
-                cursor: "pointer",
-              }}
-            >
-              Sign Out
-            </button>
-          )}
-          {onSignIn && (
-            <button
-              onClick={onSignIn}
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#3b82f6",
-                background: "transparent",
-                border: "1px solid #1e293b",
-                borderRadius: 10,
-                padding: "8px 16px",
-                cursor: "pointer",
-              }}
-            >
-              Sign In
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Date nav */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <button onClick={onPrev} aria-label="Previous day" style={navBtn}>
-          ←
-        </button>
-        <button
-          onClick={() => setPickerOpen(true)}
-          style={{ textAlign: "center", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-        >
-          <div
-            style={{
-              fontSize: 24,
-              fontWeight: 800,
-              color: "#f1f5f9",
-              letterSpacing: "-0.02em",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-            }}
-          >
-            {dateLabel}
-            <span style={{ fontSize: 13, color: "#3b82f6", fontWeight: 400 }}>▾</span>
-          </div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
-            {dayName}
-          </div>
-          {isToday && (
-            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
-              Live: {timeStr}
-            </div>
-          )}
-        </button>
-        <button onClick={onNext} aria-label="Next day" style={navBtn}>
-          →
-        </button>
-      </div>
-      </div>{/* end fixed top bar */}
-
-      {/* Spacer matching fixed bar height */}
-      <div style={{ height: barHeight }} />
-
-      {/* Stat cards */}
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        {isToday && statCard(hereCount, "Here Now", "#22c55e")}
-        {statCard(scheduledCount, "Scheduled", "#6366f1")}
-        {statCard(offCount, "Off", "#475569")}
-      </div>
-
-      {/* Alert */}
-      {alertConfig && !loading && (
+  // ── Desktop layout ──────────────────────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <div style={{ marginBottom: 24 }}>
         <div
           style={{
-            marginTop: 12,
-            padding: "10px 14px",
-            background: alertConfig.bg,
-            border: `1px solid ${alertConfig.border}`,
-            borderRadius: 10,
-            fontSize: 12,
-            color: alertConfig.text,
+            background: "#0a1628",
+            borderBottom: "1px solid #1e293b",
+            padding: "14px 24px",
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 24,
           }}
         >
+          {/* Brand */}
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em", flexShrink: 0 }}>
+            Shift
+            <span style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              View
+            </span>
+          </span>
+
+          {/* Date nav — centered */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            {dateNav}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {!isToday && (
+              <button onClick={onNow} style={actionBtn}>TODAY</button>
+            )}
+            {onSignOut && <button onClick={onSignOut} style={{ ...actionBtn, color: "#475569" }}>Sign Out</button>}
+            {onSignIn && <button onClick={onSignIn} style={{ ...actionBtn, color: "#3b82f6" }}>Sign In</button>}
+          </div>
+        </div>
+
+        {alertConfig && !loading && (
+          <div style={{ margin: "12px 24px 0", padding: "10px 14px", background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, borderRadius: 10, fontSize: 12, color: alertConfig.text, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>{alertConfig.icon}</span>
+            <span>{alertConfig.message}</span>
+          </div>
+        )}
+
+        <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
+      </div>
+    );
+  }
+
+  // ── Mobile layout ───────────────────────────────────────────────────────────
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div
+        ref={topBarRef}
+        style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, background: "#0a1628", borderBottom: "1px solid #1e293b", maxWidth: 480, margin: "0 auto", padding: "calc(env(safe-area-inset-top) + 12px) 16px 12px" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontSize: 24, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em" }}>
+            Shift
+            <span style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>View</span>
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {!isToday && (
+              <button onClick={onNow} style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9", background: "#334155", border: "none", borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>TODAY</button>
+            )}
+            {onSignOut && (
+              <button onClick={onSignOut} style={{ fontSize: 13, fontWeight: 700, color: "#475569", background: "transparent", border: "1px solid #1e293b", borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>Sign Out</button>
+            )}
+            {onSignIn && (
+              <button onClick={onSignIn} style={{ fontSize: 13, fontWeight: 700, color: "#3b82f6", background: "transparent", border: "1px solid #1e293b", borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>Sign In</button>
+            )}
+          </div>
+        </div>
+        <div style={{ marginBottom: 4 }}>{dateNav}</div>
+      </div>
+
+      <div style={{ height: barHeight }} />
+
+      {alertConfig && !loading && (
+        <div style={{ marginTop: 12, padding: "10px 14px", background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, borderRadius: 10, fontSize: 12, color: alertConfig.text, display: "flex", alignItems: "center", gap: 8 }}>
           <span>{alertConfig.icon}</span>
           <span>{alertConfig.message}</span>
         </div>
       )}
 
-      <DatePickerSheet
-        open={pickerOpen}
-        selected={date}
-        today={today}
-        onSelect={onDateSelect}
-        onClose={() => setPickerOpen(false)}
-      />
+      <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
     </div>
   );
 }
 
-const navBtn: React.CSSProperties = {
+const navBtn = (isDesktop: boolean): React.CSSProperties => ({
   width: 36,
   height: 36,
   borderRadius: "50%",
@@ -356,4 +210,16 @@ const navBtn: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  flexShrink: 0,
+});
+
+const actionBtn: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 700,
+  color: "#f1f5f9",
+  background: "#1e293b",
+  border: "1px solid #334155",
+  borderRadius: 10,
+  padding: "8px 14px",
+  cursor: "pointer",
 };

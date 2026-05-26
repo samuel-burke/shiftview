@@ -35,27 +35,28 @@ function makeQueryBuilder(result: { data: any; error: any }) {
 function makeServerClient({
   user = MOCK_USER as any,
   isManager = true,
-  insertData = MOCK_NEW_EMPLOYEE as any,
-  insertError = null as any,
 } = {}) {
   const managerRow = isManager && user ? { user_id: user.id } : null;
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
-    from: vi.fn()
-      .mockReturnValueOnce(makeQueryBuilder({ data: managerRow, error: null }))       // managers
-      .mockReturnValueOnce(makeQueryBuilder({ data: insertData, error: insertError })), // employees insert
+    from: vi.fn().mockReturnValue(makeQueryBuilder({ data: managerRow, error: null })),
   };
 }
 
-function makeAdminClient(inviteError: any = null) {
+function makeAdminClient({
+  inviteError = null as any,
+  insertData = MOCK_NEW_EMPLOYEE as any,
+  insertError = null as any,
+} = {}) {
   return {
     auth: {
       admin: {
         inviteUserByEmail: vi.fn().mockResolvedValue({ data: {}, error: inviteError }),
       },
     },
+    from: vi.fn().mockReturnValue(makeQueryBuilder({ data: insertData, error: insertError })),
   };
 }
 
@@ -69,14 +70,12 @@ function postReq(body: unknown) {
 
 beforeEach(() => {
   mockCreateAdminClient.mockReturnValue(makeAdminClient() as any);
+  mockCreateClient.mockResolvedValue(makeServerClient() as any);
 });
 
 // ── Validation ───────────────────────────────────────────────────────────────
 
 describe("POST /api/invites — validation", () => {
-  beforeEach(() => {
-    mockCreateClient.mockResolvedValue(makeServerClient() as any);
-  });
 
   it("returns 400 when name is missing", async () => {
     const res = await POST(postReq({ email: "alice@example.com" }));
@@ -112,7 +111,7 @@ describe("POST /api/invites — auth", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 for authenticated non-managers", async () => {
+  it("returns 403 for non-managers", async () => {
     mockCreateClient.mockResolvedValue(makeServerClient({ isManager: false }) as any);
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(403);
@@ -123,8 +122,8 @@ describe("POST /api/invites — auth", () => {
 
 describe("POST /api/invites — business logic", () => {
   it("returns 500 when the employee insert fails", async () => {
-    mockCreateClient.mockResolvedValue(
-      makeServerClient({ insertError: { message: "duplicate email" } }) as any
+    mockCreateAdminClient.mockReturnValue(
+      makeAdminClient({ insertError: { message: "duplicate email" } }) as any
     );
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(500);
@@ -132,9 +131,8 @@ describe("POST /api/invites — business logic", () => {
   });
 
   it("returns 500 when the Supabase invite call fails", async () => {
-    mockCreateClient.mockResolvedValue(makeServerClient() as any);
     mockCreateAdminClient.mockReturnValue(
-      makeAdminClient({ message: "User already registered" }) as any
+      makeAdminClient({ inviteError: { message: "User already registered" } }) as any
     );
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(500);
@@ -142,19 +140,18 @@ describe("POST /api/invites — business logic", () => {
   });
 
   it("returns 201 with employeeId on success", async () => {
-    mockCreateClient.mockResolvedValue(makeServerClient() as any);
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ok: true, employeeId: MOCK_NEW_EMPLOYEE.id });
   });
 
   it("trims whitespace from name before inserting", async () => {
-    const client = makeServerClient();
-    mockCreateClient.mockResolvedValue(client as any);
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
 
     await POST(postReq({ name: "  Alice Smith  ", email: "alice@example.com" }));
 
-    const insertBuilder = client.from.mock.results[1].value;
+    const insertBuilder = adminClient.from.mock.results[0].value;
     expect(insertBuilder.insert).toHaveBeenCalledWith({
       name: "Alice Smith",
       email: "alice@example.com",
@@ -162,7 +159,6 @@ describe("POST /api/invites — business logic", () => {
   });
 
   it("sends the invite to the provided email", async () => {
-    mockCreateClient.mockResolvedValue(makeServerClient() as any);
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
 

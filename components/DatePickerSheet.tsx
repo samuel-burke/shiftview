@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 
 type Props = {
   open: boolean;
@@ -32,6 +33,7 @@ function getCalendarDays(year: number, month: number): (Date | null)[] {
 }
 
 export default function DatePickerSheet({ open, selected, today, onSelect, onClose }: Props) {
+  const isDesktop = useIsDesktop();
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth());
 
@@ -78,7 +80,21 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
 
       {/* Sheet */}
       <div
-        style={{
+        style={isDesktop ? {
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)",
+          opacity: open ? 1 : 0,
+          transition: "opacity 0.2s, transform 0.2s",
+          pointerEvents: open ? "auto" : "none",
+          zIndex: 50,
+          background: "#0f172a",
+          border: "1px solid #1e293b",
+          borderRadius: 20,
+          width: 360,
+          padding: "24px 24px 28px",
+        } : {
           position: "fixed",
           bottom: 0,
           left: 0,
@@ -94,10 +110,12 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
           padding: "12px 24px 44px",
         }}
       >
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
-        </div>
+        {/* Drag handle (mobile only) */}
+        {!isDesktop && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155" }} />
+          </div>
+        )}
 
         {/* Month nav */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
