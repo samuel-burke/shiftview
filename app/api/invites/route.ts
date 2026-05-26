@@ -8,12 +8,10 @@ export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
-  const { employeeId, email } = await request.json();
+  const { name, email } = await request.json();
 
-  if (employeeId == null)
-    return NextResponse.json({ error: "employeeId required" }, { status: 400 });
-  if (!Number.isInteger(employeeId))
-    return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
+  if (!name || typeof name !== "string" || !name.trim())
+    return NextResponse.json({ error: "name required" }, { status: 400 });
   if (!email || typeof email !== "string")
     return NextResponse.json({ error: "email required" }, { status: 400 });
   if (!EMAIL_RE.test(email))
@@ -27,22 +25,14 @@ export async function POST(request: Request) {
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  const { data: employee } = await supabase
+  const { data: employee, error: insertError } = await supabase
     .from("employees")
+    .insert({ name: name.trim(), email })
     .select("id")
-    .eq("id", employeeId)
-    .maybeSingle();
+    .single();
 
-  if (!employee)
-    return NextResponse.json({ error: "Employee not found" }, { status: 404 });
-
-  const { error: updateError } = await supabase
-    .from("employees")
-    .update({ email })
-    .eq("id", employeeId);
-
-  if (updateError)
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (insertError)
+    return NextResponse.json({ error: insertError.message }, { status: 500 });
 
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email);
@@ -50,5 +40,5 @@ export async function POST(request: Request) {
   if (inviteError)
     return NextResponse.json({ error: inviteError.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true }, { status: 201 });
+  return NextResponse.json({ ok: true, employeeId: employee.id }, { status: 201 });
 }

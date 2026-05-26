@@ -26,6 +26,7 @@ import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
+import InviteSheet from "../components/InviteSheet";
 import { createClient } from "@/lib/supabase-browser";
 
 function toDateKey(d: Date) {
@@ -200,6 +201,7 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
+  const [showInvite, setShowInvite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -351,10 +353,30 @@ export default function Page() {
         </>
       )}
 
+      {isManager && !isDemo && (
+        <button
+          onClick={() => setShowInvite(true)}
+          style={{
+            width: "100%",
+            marginTop: 8,
+            padding: "14px 0",
+            borderRadius: 12,
+            background: "transparent",
+            border: "1px dashed #334155",
+            color: "#475569",
+            fontWeight: 600,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          + Add Employee
+        </button>
+      )}
+
       <div
         style={{
           textAlign: "center",
-          marginTop: 8,
+          marginTop: 16,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -365,6 +387,18 @@ export default function Page() {
           Last updated: {lastUpdated}
         </span>
       </div>
+
+      <InviteSheet
+        open={showInvite}
+        onClose={() => setShowInvite(false)}
+        onSuccess={() => {
+          setShowInvite(false);
+          fetch(`/api/employees?demo=${isDemo}`)
+            .then((r) => r.json())
+            .then(setEmployees)
+            .catch(() => {});
+        }}
+      />
 
       <EmployeeDrawer
         open={!!selected}
