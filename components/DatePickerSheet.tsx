@@ -11,7 +11,7 @@ type Props = {
   onClose: () => void;
 };
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const WEEKDAYS = ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"];
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -27,7 +27,7 @@ function sameDay(a: Date, b: Date) {
 function getCalendarDays(year: number, month: number): (Date | null)[] {
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days: (Date | null)[] = Array(firstDow).fill(null);
+  const days: (Date | null)[] = Array((firstDow + 1) % 7).fill(null);
   for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
   return days;
 }
@@ -105,7 +105,7 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
         {/* Weekday headers */}
         <div className="grid grid-cols-7 mb-2">
           {WEEKDAYS.map(d => (
-            <div key={d} className="text-center text-[11px] font-semibold text-slate-600 pb-1.5">
+            <div key={d} className="text-center text-[11px] font-semibold text-slate-400 pb-1.5">
               {d}
             </div>
           ))}

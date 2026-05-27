@@ -142,7 +142,7 @@ export default function CoverageTimeline({
 
   return (
     <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
-      <p className="text-[11px] font-bold tracking-[0.1em] text-slate-500 uppercase mb-3 pl-1.5">
+      <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase mb-3 pl-1.5">
         Coverage Timeline
       </p>
 
@@ -172,13 +172,13 @@ export default function CoverageTimeline({
             </defs>
             <XAxis
               dataKey="label"
-              tick={{ fill: "#475569", fontSize: 10 }}
+              tick={{ fill: "#94a3b8", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               ticks={ticks}
             />
             <YAxis
-              tick={{ fill: "#475569", fontSize: 10 }}
+              tick={{ fill: "#94a3b8", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}

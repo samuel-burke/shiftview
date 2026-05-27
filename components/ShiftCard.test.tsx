@@ -14,12 +14,15 @@ const scheduled: Schedule = {
   endMinutes: 960,   // 4pm
 };
 
+const STORE_HOURS = { open: 360, close: 1320 }; // 6am–10pm
+
 describe("ShiftCard", () => {
   it("renders without crashing", () => {
     render(
       <ShiftCard
         employee={employee}
         schedule={scheduled}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onClick={() => {}}
@@ -32,6 +35,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onClick={() => {}}
@@ -45,6 +49,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={false}
         onClick={() => {}}
@@ -59,6 +64,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled}
+        storeHours={STORE_HOURS}
         nowMinutes={600} // 10am — within 8am–4pm
         isToday={true}
         onClick={() => {}}
@@ -72,6 +78,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled}
+        storeHours={STORE_HOURS}
         nowMinutes={360} // 6am — before shift starts
         isToday={true}
         onClick={() => {}}
@@ -85,6 +92,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled} // starts at 8am (480)
+        storeHours={STORE_HOURS}
         nowMinutes={420}     // 7am — 60 min before
         isToday={true}
         onClick={() => {}}
@@ -99,6 +107,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onClick={onClick}
@@ -113,6 +122,7 @@ describe("ShiftCard", () => {
       <ShiftCard
         employee={employee}
         schedule={scheduled} // 8am–4pm = mid
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onClick={() => {}}

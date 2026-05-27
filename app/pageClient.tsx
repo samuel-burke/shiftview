@@ -27,8 +27,10 @@ import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import InviteSheet from "../components/InviteSheet";
+import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -66,6 +68,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isManager, setIsManager] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
@@ -145,7 +148,10 @@ export default function Page() {
       .catch(() => setError("Failed to load employees"));
     fetch("/api/me")
       .then((r) => r.json())
-      .then(({ isManager }) => setIsManager(isManager))
+      .then(({ isManager, employeeName }) => {
+        setIsManager(isManager);
+        setUserName(employeeName ?? null);
+      })
       .catch(() => {});
     fetch("/api/store-hours")
       .then((r) => r.json())
@@ -261,6 +267,7 @@ export default function Page() {
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
+    userName,
     onPrev: () => setDate((d) => offsetDate(d, -1)),
     onNext: () => setDate((d) => offsetDate(d, 1)),
     onNow: () => setDate(new Date()),
@@ -291,23 +298,27 @@ export default function Page() {
       ) : (
         <div className="text-[28px] font-extrabold leading-none" style={{ color }}>{value}</div>
       )}
-      <div className="text-[11px] text-slate-500 mt-1 font-medium">{label}</div>
+      <div className="text-[11px] text-slate-400 mt-1 font-medium">{label}</div>
     </div>
   );
 
   const statsRow = (
     <div className="flex gap-2 mb-3">
       {isToday && statCard(hereNow.length, "Here Now", "#22c55e")}
-      {statCard(scheduled.length, "Scheduled", "#6366f1")}
-      {statCard(off.length, "Off", "#475569")}
+      {statCard(scheduled.length, "Scheduled", "#818cf8")}
+      {statCard(off.length, "Off", "#94a3b8")}
     </div>
   );
 
   const legend = (
     <div className="flex gap-4 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl">
-      {[{ label: "Opener", color: "#f59e0b" }, { label: "Mid", color: "#6366f1" }, { label: "Closer", color: "#8b5cf6" }].map(({ label, color }) => (
+      {([
+        { label: "Opener", color: "#f59e0b", Icon: SunriseIcon },
+        { label: "Mid",    color: "#34d399", Icon: SunIcon },
+        { label: "Closer", color: "#a78bfa", Icon: MoonIcon },
+      ] as const).map(({ label, color, Icon }) => (
         <div key={label} className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full inline-block" style={{ background: color }} />
+          <Icon size={13} color={color} />
           <span className="text-xs text-slate-400">{label}</span>
         </div>
       ))}
@@ -318,10 +329,10 @@ export default function Page() {
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
       <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined} />
       {isManager && !isDemo && (
-        <button onClick={() => setShowInvite(true)} className="w-full mt-2 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 text-slate-600 font-semibold text-sm cursor-pointer">
+        <button onClick={() => setShowInvite(true)} className="w-full mt-2 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer">
           + Add Employee
         </button>
       )}
@@ -333,6 +344,7 @@ export default function Page() {
       open={!!selected}
       employee={selected?.emp ?? null}
       schedule={selected?.sch ?? null}
+      storeHours={storeHours}
       nowMinutes={nowMinutes}
       isToday={isToday}
       onClose={() => setSelected(null)}
@@ -360,14 +372,14 @@ export default function Page() {
       <main className="bg-bg min-h-screen">
         <CoverageHeader {...headerProps} />
         {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
-        <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
+        <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
             {statsRow}
             {timeline}
             {legend}
             <div className="text-center mt-2">
-              <span className="text-xs text-slate-700">Last updated: {lastUpdated}</span>
+              <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
             </div>
           </div>
           {/* Right: team list */}
@@ -377,12 +389,13 @@ export default function Page() {
         </div>
         {drawer}
         {inviteSheet}
+        <BottomNav active="team" />
       </main>
     );
   }
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 pb-20 bg-bg min-h-screen">
+    <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {statsRow}
@@ -390,10 +403,11 @@ export default function Page() {
       {legend}
       {teamSections}
       <div className="text-center mt-4">
-        <span className="text-xs text-slate-700">Last updated: {lastUpdated}</span>
+        <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
       </div>
       {drawer}
       {inviteSheet}
+      <BottomNav active="team" />
     </main>
   );
 }

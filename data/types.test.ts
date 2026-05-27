@@ -30,35 +30,39 @@ describe("getMonogram", () => {
   });
 });
 
+// Default store hours used across tests: 6am open, 10pm close
+const OPEN = 360;
+const CLOSE = 1320;
+
 describe("getShiftType", () => {
   it("returns null for negative startMinutes (off)", () => {
-    expect(getShiftType(-1, -1)).toBeNull();
+    expect(getShiftType(-1, -1, OPEN, CLOSE)).toBeNull();
   });
 
-  it("returns opener for clock-in at or before 7am (<= 420)", () => {
-    expect(getShiftType(0, 960)).toBe("opener");   // midnight
-    expect(getShiftType(360, 960)).toBe("opener"); // 6:00am
-    expect(getShiftType(420, 960)).toBe("opener"); // 7:00am
+  it("returns opener when clock-in is within 1hr of store open (open + 60 = 420)", () => {
+    expect(getShiftType(0, 960, OPEN, CLOSE)).toBe("opener");   // midnight
+    expect(getShiftType(360, 960, OPEN, CLOSE)).toBe("opener"); // at open
+    expect(getShiftType(420, 960, OPEN, CLOSE)).toBe("opener"); // open + 60
   });
 
-  it("does not return opener for clock-in after 7am", () => {
-    expect(getShiftType(421, 960)).toBe("mid"); // 7:01am
-    expect(getShiftType(480, 960)).toBe("mid"); // 8am
+  it("does not return opener for clock-in more than 1hr after store open", () => {
+    expect(getShiftType(421, 960, OPEN, CLOSE)).toBe("mid"); // open + 61
+    expect(getShiftType(480, 960, OPEN, CLOSE)).toBe("mid"); // 8am
   });
 
-  it("returns closer for clock-out at 9pm or later (>= 1260)", () => {
-    expect(getShiftType(720, 1260)).toBe("closer"); // noon in, 9pm out
-    expect(getShiftType(480, 1320)).toBe("closer"); // 8am in, 10pm out
+  it("returns closer when clock-out is within 1hr of store close (close - 60 = 1260)", () => {
+    expect(getShiftType(720, 1260, OPEN, CLOSE)).toBe("closer"); // noon in, close - 60
+    expect(getShiftType(480, 1320, OPEN, CLOSE)).toBe("closer"); // 8am in, at close
   });
 
   it("opener takes precedence over closer", () => {
-    expect(getShiftType(360, 1320)).toBe("opener"); // 6am in, 10pm out
+    expect(getShiftType(360, 1320, OPEN, CLOSE)).toBe("opener"); // 6am in, 10pm out
   });
 
   it("returns mid for everything else", () => {
-    expect(getShiftType(480, 960)).toBe("mid");  // 8am–4pm
-    expect(getShiftType(540, 1080)).toBe("mid"); // 9am–6pm
-    expect(getShiftType(720, 1259)).toBe("mid"); // noon–8:59pm
+    expect(getShiftType(480, 960, OPEN, CLOSE)).toBe("mid");  // 8am–4pm
+    expect(getShiftType(540, 1080, OPEN, CLOSE)).toBe("mid"); // 9am–6pm
+    expect(getShiftType(720, 1259, OPEN, CLOSE)).toBe("mid"); // noon–8:59pm
   });
 });
 
