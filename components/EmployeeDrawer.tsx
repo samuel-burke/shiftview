@@ -5,6 +5,7 @@ import { useIsDesktop } from "../hooks/useIsDesktop";
 import {
   Employee,
   Schedule,
+  StoreHours,
   getShiftType,
   getMonogram,
   isHere,
@@ -16,6 +17,7 @@ type Props = {
   open: boolean;
   employee: Employee | null;
   schedule: Schedule | null;
+  storeHours: StoreHours;
   nowMinutes: number;
   isToday: boolean;
   onClose: () => void;
@@ -40,6 +42,7 @@ export default function EmployeeDrawer({
   open,
   employee,
   schedule,
+  storeHours,
   nowMinutes,
   isToday,
   onClose,
@@ -74,11 +77,11 @@ export default function EmployeeDrawer({
 
   if (!employee) return null;
 
-  const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes) : null;
+  const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes);
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
   const statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
-  const statusColor = here ? "#22c55e" : "#64748b";
+  const statusColor = here ? "#22c55e" : "#94a3b8";
 
   async function handleSave() {
     if (!employee) return;
@@ -164,7 +167,7 @@ export default function EmployeeDrawer({
             </div>
             <button
               onClick={onClose}
-              className="size-8 rounded-full bg-slate-800 border-none text-slate-500 text-base cursor-pointer flex items-center justify-center"
+              className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
             >
               ✕
             </button>
@@ -177,7 +180,7 @@ export default function EmployeeDrawer({
                 { label: "End time",   val: endVal,   set: setEndVal   },
               ].map(({ label, val, set }) => (
                 <div key={label}>
-                  <div className="text-[11px] text-slate-600 uppercase tracking-[0.08em] mb-1.5">
+                  <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
                     {label}
                   </div>
                   <input
@@ -214,7 +217,7 @@ export default function EmployeeDrawer({
               <button
                 onClick={() => { setEditing(false); setError(null); }}
                 disabled={saving}
-                className="py-[14px] rounded-xl bg-transparent border-none text-slate-600 font-semibold text-sm cursor-pointer"
+                className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
               >
                 Cancel
               </button>
@@ -229,7 +232,7 @@ export default function EmployeeDrawer({
                   { label: "Status",     value: statusLabel },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-card rounded-xl px-[14px] py-3">
-                    <div className="text-[10px] text-slate-600 uppercase tracking-[0.08em] mb-1">{label}</div>
+                    <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1">{label}</div>
                     <div className="text-sm font-semibold text-slate-100">{value}</div>
                   </div>
                 ))}
@@ -265,7 +268,7 @@ export default function EmployeeDrawer({
                     }
                   }}
                   disabled={saving || inviteSent}
-                  className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-500"}`}
+                  className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400"}`}
                 >
                   {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
                 </button>

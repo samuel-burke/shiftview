@@ -16,6 +16,7 @@ const schedule: Schedule = {
 
 const baseProps = {
   open: true as const,
+  storeHours: { open: 360, close: 1320 },
   nowMinutes: 600,
   isToday: true as const,
   onClose: vi.fn(),

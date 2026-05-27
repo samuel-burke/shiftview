@@ -89,13 +89,15 @@ describe("CoverageHeader", () => {
     expect(screen.queryByText(/Coverage/)).not.toBeInTheDocument();
   });
 
-  it("renders Sign In button when onSignIn is provided", () => {
+  it("shows Sign In in the user menu dropdown when onSignIn is provided", async () => {
     render(<CoverageHeader {...baseProps} onSignIn={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "User menu" }));
     expect(screen.getByText("Sign In")).toBeInTheDocument();
   });
 
-  it("renders Sign Out button when onSignOut is provided", () => {
+  it("shows Sign Out in the user menu dropdown when onSignOut is provided", async () => {
     render(<CoverageHeader {...baseProps} onSignOut={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "User menu" }));
     expect(screen.getByText("Sign Out")).toBeInTheDocument();
   });
 });

@@ -4,7 +4,7 @@ export const MOCK_USER = { id: "user-123", email: "manager@test.com" };
 
 function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "update", "delete", "eq", "order"]) {
+  for (const m of ["select", "insert", "update", "delete", "eq", "gte", "lte", "order"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);

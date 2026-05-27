@@ -87,7 +87,7 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
           <div className="text-lg font-bold text-slate-100">Add Employee</div>
           <button
             onClick={onClose}
-            className="size-8 rounded-full bg-slate-800 border-none text-slate-500 text-base cursor-pointer flex items-center justify-center"
+            className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
           >
             ✕
           </button>
@@ -97,7 +97,7 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
           <div className="text-center py-6">
             <div className="text-[32px] mb-3">✉️</div>
             <div className="text-base font-semibold text-slate-100 mb-2">Invite sent!</div>
-            <div className="text-[13px] text-slate-500 mb-6">
+            <div className="text-[13px] text-slate-400 mb-6">
               {name} will receive an email to set up their account.
             </div>
             <button
@@ -114,7 +114,7 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
               { label: "Email",     val: email, set: setEmail, type: "email", placeholder: "alice@example.com" },
             ].map(({ label, val, set, type, placeholder }) => (
               <div key={label}>
-                <div className="text-[11px] text-slate-600 uppercase tracking-[0.08em] mb-1.5">
+                <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
                   {label}
                 </div>
                 <input
@@ -142,7 +142,7 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
             <button
               onClick={onClose}
               disabled={saving}
-              className="py-[14px] rounded-xl bg-transparent border-none text-slate-600 font-semibold text-sm cursor-pointer"
+              className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
             >
               Cancel
             </button>

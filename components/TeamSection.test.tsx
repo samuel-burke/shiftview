@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import TeamSection from "./TeamSection";
 import type { Employee, Schedule } from "../data/types";
 
+const STORE_HOURS = { open: 360, close: 1320 };
+
 const employees: Employee[] = [
   { id: 1, name: "Alice S." },
   { id: 2, name: "Bob J." },
@@ -21,6 +23,7 @@ describe("TeamSection", () => {
         count={0}
         schedules={[]}
         employees={employees}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onSelect={vi.fn()}
@@ -36,6 +39,7 @@ describe("TeamSection", () => {
         count={2}
         schedules={schedules}
         employees={employees}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onSelect={vi.fn()}
@@ -51,6 +55,7 @@ describe("TeamSection", () => {
         count={2}
         schedules={schedules}
         employees={employees}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onSelect={vi.fn()}
@@ -66,6 +71,7 @@ describe("TeamSection", () => {
         count={2}
         schedules={schedules}
         employees={employees}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onSelect={vi.fn()}
@@ -86,6 +92,7 @@ describe("TeamSection", () => {
         count={2}
         schedules={unsorted}
         employees={employees}
+        storeHours={STORE_HOURS}
         nowMinutes={600}
         isToday={true}
         onSelect={vi.fn()}

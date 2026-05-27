@@ -3,6 +3,7 @@
 import {
   Employee,
   Schedule,
+  StoreHours,
   getShiftType,
   getMonogram,
   formatDisplayName,
@@ -14,6 +15,7 @@ import {
 type Props = {
   employee: Employee;
   schedule: Schedule;
+  storeHours: StoreHours;
   nowMinutes: number;
   isToday: boolean;
   onClick: () => void;
@@ -22,13 +24,14 @@ type Props = {
 export default function ShiftCard({
   employee,
   schedule,
+  storeHours,
   nowMinutes,
   isToday,
   onClick,
 }: Props) {
-  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes);
+  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close);
   const here = isToday && isHere(schedule, nowMinutes);
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#475569";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
 
   let arrivalText: string | null = null;
   if (isToday && !here && schedule.startMinutes > nowMinutes) {
@@ -58,7 +61,7 @@ export default function ShiftCard({
 
       {/* Name + shift type */}
       <div className="flex-1 min-w-0">
-        <div className={`font-semibold text-sm truncate ${here ? "text-slate-100" : "text-slate-500"}`}>
+        <div className={`font-semibold text-sm truncate ${here ? "text-slate-100" : "text-slate-400"}`}>
           {formatDisplayName(employee.name)}
         </div>
         {shiftType && (
@@ -70,7 +73,7 @@ export default function ShiftCard({
 
       {/* Right side */}
       <div className="text-right shrink-0">
-        <div className="text-[11px] text-slate-500 whitespace-nowrap">
+        <div className="text-[11px] text-slate-400 whitespace-nowrap">
           {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
         </div>
         <div className="mt-[5px] flex justify-end items-center gap-1.5">

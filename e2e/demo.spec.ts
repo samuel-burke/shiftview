@@ -63,7 +63,8 @@ test.describe("Demo mode — schedule view", () => {
     await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
   });
 
-  test("shows a Sign In button in demo mode (not Sign Out)", async ({ page }) => {
+  test("shows a Sign In option in the user menu in demo mode (not Sign Out)", async ({ page }) => {
+    await page.getByRole("button", { name: "User menu" }).click();
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /sign out/i })).not.toBeVisible();
   });

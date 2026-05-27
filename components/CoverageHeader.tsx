@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
+import UserMenu from "./UserMenu";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
   coverageStatus: CoverageStatus;
   isDemo: boolean;
   loading?: boolean;
+  userName?: string | null;
 };
 
 function fmtTime(m: number): string {
@@ -47,6 +49,7 @@ export default function CoverageHeader({
   coverageStatus,
   isDemo,
   loading = false,
+  userName = null,
 }: Props) {
   const isDesktop = useIsDesktop();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -96,12 +99,12 @@ export default function CoverageHeader({
           {dateLabel}
           <span className="text-[13px] text-blue-500 font-normal">▾</span>
         </div>
-        <div className="text-[13px] text-slate-500 mt-0.5">
+        <div className="text-[13px] text-slate-400 mt-0.5">
           {dayName}
-          {isToday && isDesktop && <span className="ml-2 text-slate-600">· {timeStr}</span>}
+          {isToday && isDesktop && <span className="ml-2 text-slate-400">· {timeStr}</span>}
         </div>
         {isToday && !isDesktop && (
-          <div className="text-[11px] text-slate-600 mt-0.5">Live: {timeStr}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
         )}
       </button>
       <button onClick={onNext} aria-label="Next day" className={navBtn}>→</button>
@@ -131,8 +134,7 @@ export default function CoverageHeader({
             {!isToday && (
               <button onClick={onNow} className={actionBtn}>TODAY</button>
             )}
-            {onSignOut && <button onClick={onSignOut} className={`${actionBtn} text-slate-600`}>Sign Out</button>}
-            {onSignIn && <button onClick={onSignIn} className={`${actionBtn} text-blue-500`}>Sign In</button>}
+            <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
 
@@ -168,12 +170,7 @@ export default function CoverageHeader({
             {!isToday && (
               <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2 cursor-pointer">TODAY</button>
             )}
-            {onSignOut && (
-              <button onClick={onSignOut} className="text-[13px] font-bold text-slate-600 bg-transparent border border-slate-800 rounded-[10px] px-4 py-2 cursor-pointer">Sign Out</button>
-            )}
-            {onSignIn && (
-              <button onClick={onSignIn} className="text-[13px] font-bold text-blue-500 bg-transparent border border-slate-800 rounded-[10px] px-4 py-2 cursor-pointer">Sign In</button>
-            )}
+            <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
         <div className="mb-1">{dateNav}</div>

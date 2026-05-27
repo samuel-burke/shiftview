@@ -1,6 +1,6 @@
 "use client";
 
-import { Employee, Schedule, getMonogram, formatDisplayName } from "../data/types";
+import { Employee, Schedule, StoreHours, getMonogram, formatDisplayName } from "../data/types";
 import ShiftCard from "./ShiftCard";
 
 type Props = {
@@ -8,6 +8,7 @@ type Props = {
   count: number;
   employees: Employee[];
   schedules?: Schedule[];
+  storeHours?: StoreHours;
   nowMinutes: number;
   isToday: boolean;
   onSelect?: (emp: Employee, sch: Schedule) => void;
@@ -19,6 +20,7 @@ export default function TeamSection({
   count,
   employees,
   schedules,
+  storeHours,
   nowMinutes,
   isToday,
   onSelect,
@@ -27,7 +29,7 @@ export default function TeamSection({
   if (count === 0) return null;
 
   const sectionHeader = (
-    <div className="flex items-center gap-2 mb-[10px] text-xs font-bold text-slate-500 uppercase tracking-[0.08em]">
+    <div className="flex items-center gap-2 mb-[10px] text-xs font-bold text-slate-400 uppercase tracking-[0.08em]">
       {label}
       <span className="bg-slate-800 border border-slate-700 rounded-full px-2 py-px text-[11px] text-slate-400">
         {count}
@@ -54,6 +56,7 @@ export default function TeamSection({
               key={sch.id}
               employee={emp}
               schedule={sch}
+              storeHours={storeHours ?? { open: 360, close: 1320 }}
               nowMinutes={nowMinutes}
               isToday={isToday}
               onClick={() => onSelect?.(emp, sch)}
@@ -73,15 +76,15 @@ export default function TeamSection({
           onClick={() => onSelectOff?.(emp)}
           className={`flex items-center gap-3 w-full bg-gray-900 border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2 ${onSelectOff ? "cursor-pointer" : "cursor-default"}`}
         >
-          <div className="size-[38px] rounded-full bg-slate-800 border-[1.5px] border-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
+          <div className="size-[38px] rounded-full bg-slate-800 border-[1.5px] border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 shrink-0">
             {getMonogram(emp.name)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm text-slate-500 truncate">
+            <div className="font-semibold text-sm text-slate-400 truncate">
               {formatDisplayName(emp.name)}
             </div>
           </div>
-          <div className="text-[11px] text-slate-700">Off</div>
+          <div className="text-[11px] text-slate-400">Off</div>
         </div>
       ))}
     </div>

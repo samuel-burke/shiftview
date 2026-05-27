@@ -29,11 +29,11 @@ export type Schedule = {
   endMinutes: number;
 };
 
-// Derived — computed from clock-in/out times, not stored
-export function getShiftType(startMinutes: number, endMinutes: number): ShiftType | null {
+// Derived — computed from clock-in/out times and store hours
+export function getShiftType(startMinutes: number, endMinutes: number, openMinutes: number, closeMinutes: number): ShiftType | null {
   if (startMinutes < 0) return null;
-  if (startMinutes <= 420) return "opener"; // clock-in at or before 7am
-  if (endMinutes >= 1260) return "closer";                        // 9pm+ clock-out
+  if (startMinutes <= openMinutes + 60) return "opener";
+  if (endMinutes >= closeMinutes - 60) return "closer";
   return "mid";
 }
 
@@ -43,8 +43,8 @@ export function isHere(s: Schedule, nowMinutes: number): boolean {
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
   opener: "#f59e0b",
-  mid:    "#6366f1",
-  closer: "#8b5cf6",
+  mid:    "#34d399",
+  closer: "#a78bfa",
 };
 
 export const OPTIMAL_COVERAGE = 3;
