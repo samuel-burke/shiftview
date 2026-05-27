@@ -38,9 +38,9 @@ function offsetDays(d: Date, n: number): Date {
   return result;
 }
 
-function getWeekStart(d: Date): Date {
+function getWeekStart(d: Date, firstDay: number): Date {
   const result = new Date(d);
-  result.setDate(d.getDate() - (d.getDay() + 1) % 7);
+  result.setDate(d.getDate() - (d.getDay() - firstDay + 7) % 7);
   return result;
 }
 
@@ -66,7 +66,9 @@ export default function SchedulePageClient() {
   const [navDate, setNavDate] = useState(today);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [isManager, setIsManager] = useState(false);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
+  const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -79,18 +81,25 @@ export default function SchedulePageClient() {
   useEffect(() => {
     fetch("/api/me")
       .then((r) => r.json())
-      .then(({ employeeName }) => setEmployeeName(employeeName ?? null))
+      .then(({ employeeName, isManager }) => {
+        setEmployeeName(employeeName ?? null);
+        setIsManager(!!isManager);
+      })
       .catch(() => {});
     fetch("/api/store-hours")
       .then((r) => r.json())
       .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+      .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then(({ firstDayOfWeek }) => { if (firstDayOfWeek != null) setFirstDayOfWeek(firstDayOfWeek); })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     let from: Date, to: Date;
     if (view === "week") {
-      const ws = getWeekStart(navDate);
+      const ws = getWeekStart(navDate, firstDayOfWeek);
       from = ws;
       to = offsetDays(ws, 6);
     } else {
@@ -152,7 +161,7 @@ export default function SchedulePageClient() {
     setNavDate(d);
   }
 
-  const weekStart = useMemo(() => getWeekStart(navDate), [navDate]);
+  const weekStart = useMemo(() => getWeekStart(navDate, firstDayOfWeek), [navDate, firstDayOfWeek]);
   const weekEnd = useMemo(() => offsetDays(weekStart, 6), [weekStart]);
 
   const todayKey = toDateKey(today);
@@ -223,7 +232,7 @@ export default function SchedulePageClient() {
         </span>
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-400">{todayStr}</span>
-          <UserMenu name={employeeName} onSignOut={handleSignOut} />
+          <UserMenu name={employeeName} isManager={isManager} onSignOut={handleSignOut} />
         </div>
       </div>
 
@@ -303,6 +312,7 @@ export default function SchedulePageClient() {
           <WeekView
             schedules={schedules}
             weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
             selectedDate={selectedDate}
             weekStart={weekStart}
             onSelectDate={setSelectedDate}
@@ -312,6 +322,7 @@ export default function SchedulePageClient() {
           <MonthView
             schedules={schedules}
             weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
             selectedDate={selectedDate}
             navDate={navDate}
             onSelectDate={setSelectedDate}
@@ -371,6 +382,7 @@ export default function SchedulePageClient() {
         open={pickerOpen}
         selected={selectedDate}
         today={today}
+        firstDayOfWeek={firstDayOfWeek}
         onSelect={handlePickerSelect}
         onClose={() => setPickerOpen(false)}
       />

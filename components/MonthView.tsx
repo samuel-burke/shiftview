@@ -6,13 +6,14 @@ import { SunriseIcon, SunIcon, MoonIcon } from "./ShiftIcons";
 type Props = {
   schedules: Schedule[];
   weeklyHours: Record<number, StoreHours>;
+  firstDayOfWeek?: number;
   selectedDate: Date;
   navDate: Date;
   onSelectDate: (d: Date) => void;
   today: Date;
 };
 
-const DAY_LABELS = ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"];
+const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 const LEGEND = [
   { label: "Early",   color: SHIFT_COLORS.opener, Icon: SunriseIcon },
@@ -25,18 +26,20 @@ function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
-export default function MonthView({ schedules, weeklyHours, selectedDate, navDate, onSelectDate, today }: Props) {
+export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, navDate, onSelectDate, today }: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
+  const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
 
   const year = navDate.getFullYear();
   const month = navDate.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (firstDow - firstDayOfWeek + 7) % 7;
 
   // Build flat cell array: null for leading padding, then each date
   const cells: (Date | null)[] = [
-    ...Array.from({ length: (firstDow + 1) % 7 }, () => null),
+    ...Array.from({ length: startOffset }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
   ];
   while (cells.length % 7 !== 0) cells.push(null);

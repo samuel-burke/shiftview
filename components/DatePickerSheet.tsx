@@ -7,11 +7,12 @@ type Props = {
   open: boolean;
   selected: Date;
   today: Date;
+  firstDayOfWeek?: number;
   onSelect: (date: Date) => void;
   onClose: () => void;
 };
 
-const WEEKDAYS = ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"];
+const ALL_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -24,15 +25,16 @@ function sameDay(a: Date, b: Date) {
     a.getDate() === b.getDate();
 }
 
-function getCalendarDays(year: number, month: number): (Date | null)[] {
+function getCalendarDays(year: number, month: number, firstDayOfWeek: number): (Date | null)[] {
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days: (Date | null)[] = Array((firstDow + 1) % 7).fill(null);
+  const offset = (firstDow - firstDayOfWeek + 7) % 7;
+  const days: (Date | null)[] = Array(offset).fill(null);
   for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
   return days;
 }
 
-export default function DatePickerSheet({ open, selected, today, onSelect, onClose }: Props) {
+export default function DatePickerSheet({ open, selected, today, firstDayOfWeek = 6, onSelect, onClose }: Props) {
   const isDesktop = useIsDesktop();
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth());
@@ -59,7 +61,8 @@ export default function DatePickerSheet({ open, selected, today, onSelect, onClo
     else setViewMonth(m => m + 1);
   }
 
-  const days = getCalendarDays(viewYear, viewMonth);
+  const WEEKDAYS = Array.from({ length: 7 }, (_, i) => ALL_WEEKDAYS[(firstDayOfWeek + i) % 7]);
+  const days = getCalendarDays(viewYear, viewMonth, firstDayOfWeek);
 
   return (
     <>

@@ -70,6 +70,8 @@ export default function Page() {
   const [isManager, setIsManager] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
+  const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
+  const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -156,7 +158,14 @@ export default function Page() {
     fetch("/api/store-hours")
       .then((r) => r.json())
       .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-      .catch(() => {}); // fall back to DEFAULT_HOURS on error
+      .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then(({ optimalCoverage, minCoverage }) => {
+        if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
+        if (minCoverage != null) setMinCoverage(minCoverage);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch schedules whenever date changes
@@ -215,8 +224,8 @@ export default function Page() {
   const coverageStatus = useMemo((): CoverageStatus => {
     if (!isToday) return "closed";
     if (!isStoreOpen) return "closed";
-    if (hereNow.length < MINIMUM_COVERAGE) return "critical";
-    if (hereNow.length < OPTIMAL_COVERAGE) return "low";
+    if (hereNow.length < minCoverage) return "critical";
+    if (hereNow.length < optimalCoverage) return "low";
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
@@ -267,7 +276,7 @@ export default function Page() {
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
-    userName,
+    userName, isManager,
     onPrev: () => setDate((d) => offsetDate(d, -1)),
     onNext: () => setDate((d) => offsetDate(d, 1)),
     onNow: () => setDate(new Date()),

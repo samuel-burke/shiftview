@@ -48,3 +48,25 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: Request) {
+  const { id } = await request.json();
+
+  if (id == null)
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!Number.isInteger(id))
+    return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
+
+  const supabase = await createClient();
+  const { error: authError } = await requireManager(supabase);
+  if (authError)
+    return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
+
+  // Delete schedules first so FK constraint doesn't block employee removal
+  await supabase.from("schedules").delete().eq("employee_id", id);
+
+  const { error } = await supabase.from("employees").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}

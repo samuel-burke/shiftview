@@ -6,13 +6,14 @@ import { ShiftIcon } from "./ShiftIcons";
 type Props = {
   schedules: Schedule[];
   weeklyHours: Record<number, StoreHours>;
+  firstDayOfWeek?: number;
   selectedDate: Date;
   weekStart: Date;
   onSelectDate: (d: Date) => void;
   today: Date;
 };
 
-const DAY_LABELS = ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"];
+const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 const SHIFT_LABELS: Record<string, string> = {
   opener: "EARLY",
@@ -33,9 +34,10 @@ function shortTime(minutes: number): string {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, "0")}${suffix}`;
 }
 
-export default function WeekView({ schedules, weeklyHours, selectedDate, weekStart, onSelectDate, today }: Props) {
+export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, weekStart, onSelectDate, today }: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
+  const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
