@@ -26,7 +26,6 @@ import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
-import InviteSheet from "../components/InviteSheet";
 import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
 import { useIsDesktop } from "../hooks/useIsDesktop";
@@ -230,7 +229,6 @@ export default function Page() {
   }, [isToday, isStoreOpen, hereNow.length]);
 
   const isDesktop = useIsDesktop();
-  const [showInvite, setShowInvite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -340,11 +338,6 @@ export default function Page() {
     <>
       <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
       <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined} />
-      {isManager && !isDemo && (
-        <button onClick={() => setShowInvite(true)} className="w-full mt-2 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer">
-          + Add Employee
-        </button>
-      )}
     </>
   );
 
@@ -362,17 +355,6 @@ export default function Page() {
       onMarkOff={handleMarkOff}
       onResendInvite={handleResendInvite}
       isManager={isManager}
-    />
-  );
-
-  const inviteSheet = (
-    <InviteSheet
-      open={showInvite}
-      onClose={() => setShowInvite(false)}
-      onSuccess={() => {
-        setShowInvite(false);
-        fetch(`/api/employees?demo=${isDemo}`).then((r) => r.json()).then(setEmployees).catch(() => {});
-      }}
     />
   );
 
@@ -397,7 +379,6 @@ export default function Page() {
           </div>
         </div>
         {drawer}
-        {inviteSheet}
         <BottomNav active="team" />
       </main>
     );
@@ -415,7 +396,6 @@ export default function Page() {
         <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
       </div>
       {drawer}
-      {inviteSheet}
       <BottomNav active="team" />
     </main>
   );

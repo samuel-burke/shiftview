@@ -114,7 +114,7 @@ export default function SchedulePageClient() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [view, navDate]);
+  }, [view, navDate, firstDayOfWeek]);
 
   function goToPrev() {
     if (view === "week") {

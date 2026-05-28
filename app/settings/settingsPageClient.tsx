@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
+import InviteSheet from "../../components/InviteSheet";
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -34,7 +35,7 @@ function timeToMinutes(t: string): number {
   return h * 60 + (m || 0);
 }
 
-type Employee = { id: number; name: string; email: string | null };
+type Employee = { id: number; name: string; email: string | null; user_id: string | null };
 
 export default function SettingsPageClient() {
   const router = useRouter();
@@ -43,18 +44,29 @@ export default function SettingsPageClient() {
   const [storeHours, setStoreHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_HOURS);
   const [hoursSaving, setHoursSaving] = useState<Record<number, boolean>>({});
   const [hoursSaved, setHoursSaved] = useState<Record<number, boolean>>({});
+  const [hoursError, setHoursError] = useState<Record<number, boolean>>({});
 
   const [optimalCoverage, setOptimalCoverage] = useState(3);
   const [minCoverage, setMinCoverage] = useState(2);
   const [coverageSaving, setCoverageSaving] = useState(false);
   const [coverageSaved, setCoverageSaved] = useState(false);
+  const [coverageError, setCoverageError] = useState<string | null>(null);
 
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [firstDaySaving, setFirstDaySaving] = useState(false);
   const [firstDaySaved, setFirstDaySaved] = useState(false);
+  const [firstDayError, setFirstDayError] = useState<string | null>(null);
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [showInvite, setShowInvite] = useState(false);
+  const [confirmDeleteEmployee, setConfirmDeleteEmployee] = useState<Employee | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteErrorId, setDeleteErrorId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -63,6 +75,7 @@ export default function SettingsPageClient() {
   }
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
     fetch("/api/store-hours")
       .then((r) => r.json())
       .then((data) => setStoreHours((prev) => ({ ...prev, ...data })))
@@ -76,7 +89,7 @@ export default function SettingsPageClient() {
       })
       .catch(() => {});
     fetch("/api/employees")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : Promise.reject())
       .then(setEmployees)
       .catch(() => {});
   }, []);
@@ -84,49 +97,95 @@ export default function SettingsPageClient() {
   async function saveStoreHours(day: number) {
     setHoursSaving((prev) => ({ ...prev, [day]: true }));
     const { open, close } = storeHours[day];
-    await fetch("/api/store-hours", {
+    const res = await fetch("/api/store-hours", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dayOfWeek: day, openMinutes: open, closeMinutes: close }),
     });
     setHoursSaving((prev) => ({ ...prev, [day]: false }));
-    setHoursSaved((prev) => ({ ...prev, [day]: true }));
-    setTimeout(() => setHoursSaved((prev) => ({ ...prev, [day]: false })), 2000);
+    if (res.ok) {
+      setHoursSaved((prev) => ({ ...prev, [day]: true }));
+      setTimeout(() => setHoursSaved((prev) => ({ ...prev, [day]: false })), 2000);
+    } else {
+      setHoursError((prev) => ({ ...prev, [day]: true }));
+      setTimeout(() => setHoursError((prev) => ({ ...prev, [day]: false })), 3000);
+    }
   }
 
   async function saveCoverage() {
     setCoverageSaving(true);
-    await fetch("/api/settings", {
+    const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ optimalCoverage, minCoverage }),
     });
     setCoverageSaving(false);
-    setCoverageSaved(true);
-    setTimeout(() => setCoverageSaved(false), 2000);
+    if (res.ok) {
+      setCoverageSaved(true);
+      setTimeout(() => setCoverageSaved(false), 2000);
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setCoverageError(json.error ?? "Failed to save");
+      setTimeout(() => setCoverageError(null), 4000);
+    }
   }
 
   async function saveFirstDay() {
     setFirstDaySaving(true);
-    await fetch("/api/settings", {
+    const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ firstDayOfWeek }),
     });
     setFirstDaySaving(false);
-    setFirstDaySaved(true);
-    setTimeout(() => setFirstDaySaved(false), 2000);
+    if (res.ok) {
+      setFirstDaySaved(true);
+      setTimeout(() => setFirstDaySaved(false), 2000);
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setFirstDayError(json.error ?? "Failed to save");
+      setTimeout(() => setFirstDayError(null), 4000);
+    }
+  }
+
+  async function saveEditName(id: number) {
+    const trimmed = editingName.trim();
+    if (!trimmed) { setEditError("Name cannot be empty"); return; }
+    setEditSaving(true);
+    setEditError(null);
+    const res = await fetch("/api/employees", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name: trimmed }),
+    });
+    setEditSaving(false);
+    if (res.ok) {
+      setEmployees((prev) =>
+        prev.map((e) => e.id === id ? { ...e, name: trimmed } : e)
+      );
+      setEditingId(null);
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setEditError(json.error ?? "Failed to save");
+    }
   }
 
   async function deleteEmployee(id: number) {
+    setConfirmDeleteEmployee(null);
     setDeletingId(id);
-    await fetch("/api/employees", {
+    setDeleteErrorId(null);
+    const res = await fetch("/api/employees", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    setEmployees((prev) => prev.filter((e) => e.id !== id));
     setDeletingId(null);
+    if (res.ok) {
+      setEmployees((prev) => prev.filter((e) => e.id !== id));
+    } else {
+      setDeleteErrorId(id);
+      setTimeout(() => setDeleteErrorId(null), 3000);
+    }
   }
 
   return (
@@ -188,12 +247,14 @@ export default function SettingsPageClient() {
                     onClick={() => saveStoreHours(day)}
                     disabled={hoursSaving[day]}
                     className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
-                      hoursSaved[day]
+                      hoursError[day]
+                        ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                        : hoursSaved[day]
                         ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                         : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
                     }`}
                   >
-                    {hoursSaved[day] ? "Saved" : hoursSaving[day] ? "…" : "Save"}
+                    {hoursError[day] ? "Error" : hoursSaved[day] ? "Saved" : hoursSaving[day] ? "…" : "Save"}
                   </button>
                 </div>
               );
@@ -259,13 +320,18 @@ export default function SettingsPageClient() {
               onClick={saveCoverage}
               disabled={coverageSaving}
               className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-                coverageSaved
+                coverageError
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                  : coverageSaved
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                   : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
               }`}
             >
-              {coverageSaved ? "Saved" : coverageSaving ? "Saving…" : "Save Coverage"}
+              {coverageError ? "Error" : coverageSaved ? "Saved" : coverageSaving ? "Saving…" : "Save Coverage"}
             </button>
+            {coverageError && (
+              <div className="text-xs text-red-400 text-center -mt-2">{coverageError}</div>
+            )}
           </div>
         </section>
 
@@ -294,13 +360,18 @@ export default function SettingsPageClient() {
               onClick={saveFirstDay}
               disabled={firstDaySaving}
               className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-                firstDaySaved
+                firstDayError
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                  : firstDaySaved
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                   : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
               }`}
             >
-              {firstDaySaved ? "Saved" : firstDaySaving ? "Saving…" : "Save"}
+              {firstDayError ? "Error" : firstDaySaved ? "Saved" : firstDaySaving ? "Saving…" : "Save"}
             </button>
+            {firstDayError && (
+              <div className="text-xs text-red-400 text-center -mt-2">{firstDayError}</div>
+            )}
           </div>
         </section>
 
@@ -309,6 +380,12 @@ export default function SettingsPageClient() {
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Employees
           </div>
+          <button
+            onClick={() => setShowInvite(true)}
+            className="w-full mb-2 py-3 rounded-2xl bg-transparent border border-dashed border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:border-slate-600 hover:text-slate-300 transition-colors"
+          >
+            + Add Employee
+          </button>
           <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
             {employees.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
@@ -318,23 +395,68 @@ export default function SettingsPageClient() {
                   <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
                     {emp.name.charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
-                    {emp.email && (
-                      <div className="text-xs text-slate-500 truncate">{emp.email}</div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Remove ${emp.name}? This will also delete their shifts.`)) {
-                        deleteEmployee(emp.id);
-                      }
-                    }}
-                    disabled={deletingId === emp.id}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors cursor-pointer shrink-0"
-                  >
-                    {deletingId === emp.id ? "…" : "Remove"}
-                  </button>
+                  {editingId === emp.id ? (
+                    <div className="flex-1 flex flex-col gap-1 min-w-0">
+                      <input
+                        autoFocus
+                        value={editingName}
+                        onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
+                      />
+                      {editError && <div className="text-xs text-red-400">{editError}</div>}
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
+                      {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                    </div>
+                  )}
+                  {editingId === emp.id ? (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => saveEditName(emp.id)}
+                        disabled={editSaving}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                      >
+                        {editSaving ? "…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
+                        className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                        aria-label="Edit name"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                      {emp.user_id === currentUserId ? (
+                        <span className="text-xs text-slate-600 px-3 py-1.5">You</span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteEmployee(emp)}
+                          disabled={deletingId === emp.id}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            deleteErrorId === emp.id
+                              ? "bg-red-500/20 text-red-300 border-red-500/40"
+                              : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                          }`}
+                        >
+                          {deletingId === emp.id ? "…" : deleteErrorId === emp.id ? "Error" : "Remove"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -353,6 +475,58 @@ export default function SettingsPageClient() {
       </div>
 
       <BottomNav active="team" />
+
+      <InviteSheet
+        open={showInvite}
+        onClose={() => setShowInvite(false)}
+        onSuccess={() => {
+          setShowInvite(false);
+          fetch("/api/employees")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(setEmployees)
+            .catch(() => {});
+        }}
+      />
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteEmployee && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => setConfirmDeleteEmployee(null)}
+        >
+          <div
+            className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl">
+                ⚠️
+              </div>
+              <div>
+                <div className="text-base font-bold text-slate-100">Delete {confirmDeleteEmployee.name}?</div>
+                <div className="text-sm text-slate-400 mt-1">
+                  This will permanently delete their account and all of their shifts. This cannot be undone.
+                </div>
+              </div>
+            </div>
+            <div className="flex border-t border-slate-800">
+              <button
+                onClick={() => setConfirmDeleteEmployee(null)}
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteEmployee(confirmDeleteEmployee.id)}
+                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
