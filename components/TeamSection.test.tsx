@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import TeamSection from "./TeamSection";
 import type { Employee, Schedule } from "../data/types";
 
@@ -116,5 +117,51 @@ describe("TeamSection", () => {
     );
     expect(screen.getByText("Alice S.")).toBeInTheDocument();
     expect(screen.getByText("Bob J.")).toBeInTheDocument();
+  });
+
+  // ── Keyboard accessibility ─────────────────────────────────────────────────
+
+  it("renders off-employee cards as buttons when onSelectOff is provided", () => {
+    render(
+      <TeamSection
+        label="Off Today"
+        count={2}
+        employees={employees}
+        nowMinutes={600}
+        isToday={true}
+        onSelectOff={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("button", { name: /view alice/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view bob/i })).toBeInTheDocument();
+  });
+
+  it("does not render off-employee cards as buttons when onSelectOff is absent", () => {
+    render(
+      <TeamSection
+        label="Off Today"
+        count={2}
+        employees={employees}
+        nowMinutes={600}
+        isToday={true}
+      />
+    );
+    expect(screen.queryByRole("button", { name: /view alice/i })).not.toBeInTheDocument();
+  });
+
+  it("calls onSelectOff when an off-employee button is clicked", async () => {
+    const onSelectOff = vi.fn();
+    render(
+      <TeamSection
+        label="Off Today"
+        count={1}
+        employees={[employees[0]]}
+        nowMinutes={600}
+        isToday={true}
+        onSelectOff={onSelectOff}
+      />
+    );
+    await userEvent.click(screen.getByRole("button", { name: /view alice/i }));
+    expect(onSelectOff).toHaveBeenCalledWith(employees[0]);
   });
 });
