@@ -19,11 +19,12 @@ vi.mock("next/server", () => ({
 const mockCreateClient = vi.mocked(createClient);
 const mockCreateAdminClient = vi.mocked(createAdminClient);
 
-function makeAdminClient() {
+function makeAdminClient(result: { data?: any[]; error?: { message: string } | null } = {}) {
+  const { data = [{ user_id: "target-user-abc" }], error = null } = result;
   const builder: any = {};
-  for (const m of ["upsert", "delete", "eq"]) builder[m] = vi.fn().mockReturnValue(builder);
+  for (const m of ["upsert", "delete", "eq", "select"]) builder[m] = vi.fn().mockReturnValue(builder);
   builder.then = (resolve: any, reject: any) =>
-    Promise.resolve({ error: null }).then(resolve, reject);
+    Promise.resolve({ data, error }).then(resolve, reject);
   return { from: vi.fn().mockReturnValue(builder) };
 }
 
@@ -110,6 +111,18 @@ describe("PUT /api/managers/:userId", () => {
     expect(adminClient.from).toHaveBeenCalledWith("managers");
   });
 
+  it("returns 500 when promote is silently blocked (0 rows returned)", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    mockCreateAdminClient.mockReturnValue(makeAdminClient({ data: [] }) as any);
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "promote" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("Promote failed") });
+  });
+
   // ── Demote ─────────────────────────────────────────────────────────────────
 
   it("demotes a different user and returns 200", async () => {
@@ -125,17 +138,43 @@ describe("PUT /api/managers/:userId", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  it("returns 500 when demote is silently blocked (0 rows deleted)", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    mockCreateAdminClient.mockReturnValue(makeAdminClient({ data: [] }) as any);
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "demote" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("Demote failed") });
+  });
+
+  // ── Missing service role key ───────────────────────────────────────────────
+
+  it("returns 500 when SUPABASE_SERVICE_ROLE_KEY is not configured", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    mockCreateAdminClient.mockImplementation(() => {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
+    });
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "promote" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("SUPABASE_SERVICE_ROLE_KEY") });
+  });
+
   // ── DB error ────────────────────────────────────────────────────────────────
 
   it("returns 500 on database error during promote", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
     );
-    const builder: any = {};
-    for (const m of ["upsert", "delete", "eq"]) builder[m] = vi.fn().mockReturnValue(builder);
-    builder.then = (resolve: any, reject: any) =>
-      Promise.resolve({ error: { message: "db error" } }).then(resolve, reject);
-    mockCreateAdminClient.mockReturnValue({ from: vi.fn().mockReturnValue(builder) } as any);
+    mockCreateAdminClient.mockReturnValue(
+      makeAdminClient({ data: undefined, error: { message: "db error" } }) as any
+    );
 
     const [req, ctx] = putReq(TARGET_USER, { action: "promote" });
     const res = await PUT(req, ctx);

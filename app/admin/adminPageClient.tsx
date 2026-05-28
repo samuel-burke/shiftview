@@ -66,11 +66,26 @@ export default function AdminPageClient({
       return;
     }
 
-    const res = await fetch(`/api/managers/${emp.user_id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`/api/managers/${emp.user_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+    } catch {
+      setTogglingId(null);
+      setManagerUserIds((prev) => {
+        const next = new Set(prev);
+        if (isMgr) next.add(emp.user_id!);
+        else next.delete(emp.user_id!);
+        return next;
+      });
+      setErrorId(emp.id);
+      setErrorMsg("Network error — could not reach the server.");
+      setTimeout(() => { setErrorId(null); setErrorMsg(null); }, 5000);
+      return;
+    }
 
     setTogglingId(null);
 
