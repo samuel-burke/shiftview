@@ -5,29 +5,31 @@ import { requireManager } from "@/lib/require-manager";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const table = user ? "employees" : "employees_demo";
-
-  const fields = user ? "id, name, email, user_id" : "id, name";
-  const { data, error } = await supabase.from(table).select(fields);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const sorted = [...(data ?? [])].sort((a, b) => {
-    const parts = (name: string) => {
-      const p = name.trim().split(/\s+/);
+function sortByName<T extends { name: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const parts = (n: string) => {
+      const p = n.trim().split(/\s+/);
       return { last: p.length > 1 ? p[p.length - 1] : p[0], first: p[0] };
     };
     const pa = parts(a.name);
     const pb = parts(b.name);
     return pa.last.localeCompare(pb.last) || pa.first.localeCompare(pb.first);
   });
+}
 
-  return NextResponse.json(sorted);
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    const { data, error } = await supabase.from("employees_demo").select("id, name");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(sortByName(data ?? []));
+  }
+
+  const { data, error } = await supabase.from("employees").select("id, name, email, user_id");
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(sortByName(data ?? []));
 }
 
 export async function PATCH(request: Request) {
