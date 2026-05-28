@@ -30,6 +30,12 @@ describe("LoginPage — OTP input", () => {
     await screen.findByPlaceholderText("000000");
   }
 
+  it("renders the OTP input with caret-transparent class to hide the cursor", async () => {
+    await advanceToCodeStep();
+    const otpInput = screen.getByPlaceholderText("000000");
+    expect(otpInput.className).toContain("caret-transparent");
+  });
+
   it("renders OTP input with inputMode numeric for native digit picker", async () => {
     await advanceToCodeStep();
     const otpInput = screen.getByPlaceholderText("000000");
