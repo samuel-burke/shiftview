@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
+import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    const { data, error } = await supabase.from("employees_demo").select("id, name");
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(sortByName(data ?? []));
+    return NextResponse.json(sortByName(DEMO_EMPLOYEES));
   }
 
   const { data, error } = await supabase.from("employees").select("id, name, email, user_id");
