@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
+import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,13 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const table = user ? "schedules" : "schedules_demo";
+
+  if (!user) {
+    return NextResponse.json(getDemoSchedulesForDate(date));
+  }
 
   const { data, error } = await supabase
-    .from(table)
+    .from("schedules")
     .select("*")
     .eq("date", date)
     .order("start_minutes");

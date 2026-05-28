@@ -96,15 +96,15 @@ lib/
 
 ## Database Schema
 
-The app uses two sets of tables — live tables used when signed in, and read-only demo tables used in demo mode.
-
 | Table | Columns |
 |---|---|
-| `employees` / `employees_demo` | `id`, `name` |
-| `schedules` / `schedules_demo` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
+| `employees` | `id`, `name`, `email`, `user_id` |
+| `schedules` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
 | `store_hours` | `day_of_week` (0–6), `open_minutes`, `close_minutes` |
 | `managers` | `user_id` |
 
 Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
+
+> Demo mode (`?demo=true`) does not connect to Supabase at all — it uses static in-app fixtures from `data/demo-fixtures.ts`.
 
 Row Level Security is enabled on all live tables. Managers can insert, update, and delete schedules; all authenticated users can read.
