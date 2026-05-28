@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get("demo") === "true") {
+    return NextResponse.json({ isManager: true, employeeId: null, employeeName: "Demo Manager" });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

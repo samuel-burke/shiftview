@@ -7,9 +7,10 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onSubmit?: (name: string, email: string) => Promise<void>;
 };
 
-export default function InviteSheet({ open, onClose, onSuccess }: Props) {
+export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Props) {
   const isDesktop = useIsDesktop();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -37,13 +38,17 @@ export default function InviteSheet({ open, onClose, onSuccess }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setError(json.error ?? "Failed to send invite"); return; }
+      if (onSubmit) {
+        await onSubmit(name.trim(), email.trim());
+      } else {
+        const res = await fetch("/api/invites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+        });
+        const json = await res.json();
+        if (!res.ok) { setError(json.error ?? "Failed to send invite"); return; }
+      }
       setSent(true);
       onSuccess();
     } catch {

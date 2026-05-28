@@ -19,11 +19,23 @@ const mockCreateClient = vi.mocked(createClient);
 const MOCK_EMPLOYEE = { id: 3, name: "Carol White" };
 
 describe("GET /api/me", () => {
+  // ── Demo mode ─────────────────────────────────────────────────────────────
+
+  it("returns isManager: true and Demo Manager name when demo=true", async () => {
+    const res = await GET(new Request("http://localhost/api/me?demo=true"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      isManager: true,
+      employeeId: null,
+      employeeName: "Demo Manager",
+    });
+  });
+
   // ── Unauthenticated ───────────────────────────────────────────────────────
 
   it("returns isManager: false and no employee link for unauthenticated users", async () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: null }) as any);
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: false,
@@ -38,7 +50,7 @@ describe("GET /api/me", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({ user: MOCK_USER, isManager: false, linkedEmployee: null }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: false,
@@ -57,7 +69,7 @@ describe("GET /api/me", () => {
         linkedEmployee: MOCK_EMPLOYEE,
       }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: false,
@@ -72,7 +84,7 @@ describe("GET /api/me", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: null }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: true,
@@ -91,7 +103,7 @@ describe("GET /api/me", () => {
         linkedEmployee: MOCK_EMPLOYEE,
       }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: true,
