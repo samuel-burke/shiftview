@@ -52,9 +52,11 @@ export default function CoverageTimeline({
 }: Props) {
   const range = closeMinutes - openMinutes;
 
+  const STEP = 15;
+
   const points = useMemo(() => {
     const pts = [];
-    for (let m = openMinutes; m <= closeMinutes; m += 1) {
+    for (let m = openMinutes; m <= closeMinutes; m += STEP) {
       pts.push({ label: fmtMinutes(m), m });
     }
     return pts;
@@ -86,7 +88,10 @@ export default function CoverageTimeline({
 
   const nowDataPoint = useMemo(() => {
     if (!isToday) return null;
-    const snappedM = Math.min(Math.max(Math.round(nowMinutes), openMinutes), closeMinutes);
+    const snappedM = Math.min(
+      Math.max(Math.round(nowMinutes / STEP) * STEP, openMinutes),
+      closeMinutes,
+    );
     const label = fmtMinutes(snappedM);
     const staff = schedules.filter(
       (s) => snappedM >= s.startMinutes && snappedM < s.endMinutes,
