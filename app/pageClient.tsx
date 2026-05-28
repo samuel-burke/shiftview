@@ -246,6 +246,34 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+
+  async function handleCopyLastWeek() {
+    setCopying(true);
+    setCopyStatus(null);
+    const toDate = toDateKey(date);
+    const fromDate = toDateKey(offsetDate(date, -7));
+    try {
+      const res = await fetch("/api/schedules/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromDate, toDate }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to copy");
+      // Refresh schedules
+      const fresh = await fetch(`/api/schedules?date=${toDate}${isDemo ? `&demo=${isDemo}` : ""}`).then(r => r.json());
+      setSchedules(Array.isArray(fresh) ? fresh : []);
+      setCopyStatus(data.copied === 0 ? "Nothing to copy" : `${data.copied} shift${data.copied !== 1 ? "s" : ""} copied`);
+      setTimeout(() => setCopyStatus(null), 4000);
+    } catch (e) {
+      setCopyStatus(e instanceof Error ? e.message : "Failed to copy");
+    } finally {
+      setCopying(false);
+    }
+  }
+
   const isDesktop = useIsDesktop();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -382,6 +410,23 @@ export default function Page() {
     </div>
   ) : null;
 
+  const copyLastWeekBar = (
+    <>
+      {isManager && !isDemo && (
+        <button
+          onClick={handleCopyLastWeek}
+          disabled={copying}
+          className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50 print:hidden"
+        >
+          {copying ? "Copying…" : "Copy Last Week"}
+        </button>
+      )}
+      {copyStatus && (
+        <span className="text-xs text-slate-400">{copyStatus}</span>
+      )}
+    </>
+  );
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
@@ -392,6 +437,11 @@ export default function Page() {
           {/* Left: stats + timeline + legend */}
           <div>
             {statsRow}
+            {(isManager && !isDemo || copyStatus) && (
+              <div className="flex items-center gap-3 mb-3 print:hidden">
+                {copyLastWeekBar}
+              </div>
+            )}
             {timeline}
             {legend}
             <div className="text-center mt-2">
@@ -415,6 +465,11 @@ export default function Page() {
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
       {statsRow}
+      {(isManager && !isDemo || copyStatus) && (
+        <div className="flex items-center gap-3 mb-3 print:hidden">
+          {copyLastWeekBar}
+        </div>
+      )}
       {timeline}
       {legend}
       {teamSections}
