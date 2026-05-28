@@ -105,7 +105,7 @@ export default function LoginPage() {
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] outline-none [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] outline-none [color-scheme:dark] caret-transparent"
               />
               {error && <div className="text-xs text-red-400 text-center">{error}</div>}
               <button
