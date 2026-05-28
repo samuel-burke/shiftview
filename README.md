@@ -108,3 +108,28 @@ The app uses two sets of tables — live tables used when signed in, and read-on
 Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
 
 Row Level Security is enabled on all live tables. Managers can insert, update, and delete schedules; all authenticated users can read.
+
+## Row Level Security
+
+RLS is enabled on all live tables. The following policies are in effect:
+
+| Table | Operation | Allowed |
+|---|---|---|
+| `employees` | SELECT | Authenticated users |
+| `employees` | INSERT | Denied for all (managed via service role) |
+| `employees` | UPDATE / DELETE | Users with a row in `managers` |
+| `schedules` | SELECT | Authenticated users |
+| `schedules` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
+| `managers` | SELECT | Authenticated users |
+| `managers` | INSERT / UPDATE / DELETE | Denied for all (managed via service role) |
+| `store_hours` | SELECT | All users (including unauthenticated) |
+| `store_hours` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
+| `app_settings` | SELECT | All users (including unauthenticated) |
+| `app_settings` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
+
+> Demo mode (`?demo=true`) does not connect to Supabase at all — no RLS policies apply.
+
+**Notes**
+
+- The `managers` table is intentionally write-protected via RLS. The application uses a service-role admin client (bypassing RLS) for all `managers` mutations after verifying manager status at the API layer.
+- The `employees` INSERT path similarly uses the service-role admin client so the invite flow can create the employee row and send an auth invite atomically.
