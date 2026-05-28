@@ -28,6 +28,7 @@ import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
+import { createApiFetch } from "@/lib/api-fetch";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 
@@ -74,6 +75,7 @@ export default function Page() {
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
+  const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -88,7 +90,7 @@ export default function Page() {
       );
       return;
     }
-    const res = await fetch("/api/schedules", {
+    const res = await apiFetch("/api/schedules", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: scheduleId, startMinutes, endMinutes }),
@@ -98,7 +100,7 @@ export default function Page() {
       throw new Error(error ?? "Failed to save shift");
     }
     const dateKey = toDateKey(date);
-    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
   }
 
@@ -111,7 +113,7 @@ export default function Page() {
       return;
     }
     const dateKey = toDateKey(date);
-    const res = await fetch("/api/schedules", {
+    const res = await apiFetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes }),
@@ -120,13 +122,13 @@ export default function Page() {
       const { error } = await res.json();
       throw new Error(error ?? "Failed to add shift");
     }
-    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
   }
 
   async function handleResendInvite(email: string) {
     if (isDemo) return;
-    const res = await fetch("/api/invites", {
+    const res = await apiFetch("/api/invites", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -142,7 +144,7 @@ export default function Page() {
       setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
       return;
     }
-    const res = await fetch("/api/schedules", {
+    const res = await apiFetch("/api/schedules", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: scheduleId }),
@@ -153,6 +155,15 @@ export default function Page() {
     }
     setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
   }
+  // Redirect to /login when Supabase session expires
+  useEffect(() => {
+    if (isDemo) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") router.push("/login");
+    });
+    return () => subscription.unsubscribe();
+  }, [isDemo]);
+
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
@@ -161,22 +172,22 @@ export default function Page() {
 
   // Fetch employees, manager status, and store hours once on mount
   useEffect(() => {
-    fetch(`/api/employees?demo=${isDemo}`)
+    apiFetch(`/api/employees?demo=${isDemo}`)
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => setError("Failed to load employees"));
-    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
+    apiFetch(`/api/me${isDemo ? "?demo=true" : ""}`)
       .then((r) => r.json())
       .then(({ isManager, employeeName }) => {
         setIsManager(isManager);
         setUserName(employeeName ?? null);
       })
       .catch(() => {});
-    fetch("/api/store-hours")
+    apiFetch("/api/store-hours")
       .then((r) => r.json())
       .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
       .catch(() => {});
-    fetch("/api/settings")
+    apiFetch("/api/settings")
       .then((r) => r.json())
       .then(({ optimalCoverage, minCoverage }) => {
         if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
@@ -190,7 +201,7 @@ export default function Page() {
     const dateKey = toDateKey(date);
     setLoading(true);
     setError(null);
-    fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
+    apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
       .then((r) => r.json())
       .then((data) => {
         setSchedules(data);
@@ -268,10 +279,10 @@ export default function Page() {
         setRefreshing(true);
         const dateKey = toDateKey(date);
         await Promise.all([
-          fetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
+          apiFetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
             .then((r) => r.json())
             .then(setEmployees),
-          fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
+          apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
             cache: "no-store",
           })
             .then((r) => r.json())
