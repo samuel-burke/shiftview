@@ -111,7 +111,7 @@ export default function SchedulePageClient() {
     }
     setLoading(true);
     setScheduleError(null);
-    fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}`)
+    fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}${isDemo ? "&demo=true" : ""}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         setSchedules(data.schedules ?? []);
