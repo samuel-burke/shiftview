@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatDisplayName,
   getMonogram,
   getShiftType,
   isHere,
@@ -7,6 +8,28 @@ import {
   getDayCoverageStatus,
 } from "./types";
 import type { Schedule } from "./types";
+
+describe("formatDisplayName", () => {
+  it("returns first name and last initial for a two-word name", () => {
+    expect(formatDisplayName("Alice Smith")).toBe("Alice S.");
+  });
+
+  it("uses the last word as the last name for multi-word names", () => {
+    expect(formatDisplayName("Mary Jane Watson")).toBe("Mary W.");
+  });
+
+  it("returns the full name when only one word is given", () => {
+    expect(formatDisplayName("Prince")).toBe("Prince");
+  });
+
+  it("trims leading and trailing whitespace", () => {
+    expect(formatDisplayName("  Bob Jones  ")).toBe("Bob J.");
+  });
+
+  it("always uppercases the last initial regardless of input casing", () => {
+    expect(formatDisplayName("alice smith")).toBe("alice S.");
+  });
+});
 
 describe("getMonogram", () => {
   it("returns first and last initial for a two-word name", () => {
@@ -104,6 +127,10 @@ describe("fmtMinutes", () => {
   it("handles midnight edge (0 minutes)", () => {
     expect(fmtMinutes(0)).toBe("12:00 AM");
   });
+
+  it("handles end-of-day 1440 minutes as 12:00 AM", () => {
+    expect(fmtMinutes(1440)).toBe("12:00 AM");
+  });
 });
 
 describe("getDayCoverageStatus", () => {
@@ -139,6 +166,14 @@ describe("getDayCoverageStatus", () => {
 
   it("returns critical when min coverage drops to 1", () => {
     const schedules = [makeSchedule(360, 1320, 1)];
+    expect(getDayCoverageStatus(schedules, weekdayHours)).toBe("critical");
+  });
+
+  it("returns critical when coverage drops to zero at a shift handoff", () => {
+    const schedules = [
+      makeSchedule(360, 840, 1),  // 6am–2pm
+      makeSchedule(840, 1320, 2), // 2pm–10pm
+    ];
     expect(getDayCoverageStatus(schedules, weekdayHours)).toBe("critical");
   });
 

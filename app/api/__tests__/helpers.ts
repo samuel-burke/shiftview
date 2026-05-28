@@ -4,7 +4,7 @@ export const MOCK_USER = { id: "user-123", email: "manager@test.com" };
 
 function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "update", "delete", "eq", "gte", "lte", "order"]) {
+  for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -18,7 +18,7 @@ export function makeSupabaseClient({
   isManager = false,
   // When explicitly set (even to null), used for `from("employees")` lookups.
   // When omitted (undefined), `from("employees")` falls through to queryData/queryError.
-  linkedEmployee = undefined as { id: number; name: string } | null | undefined,
+  linkedEmployee = undefined as Record<string, unknown> | null | undefined,
   queryData = null as any,
   queryError = null as any,
 } = {}) {
