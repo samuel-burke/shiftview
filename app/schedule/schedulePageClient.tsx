@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
   StoreHours,
@@ -59,6 +59,8 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 export default function SchedulePageClient() {
   const today = new Date();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
 
   const [view, setView] = useState<View>("week");
@@ -80,7 +82,7 @@ export default function SchedulePageClient() {
   }
 
   useEffect(() => {
-    fetch("/api/me")
+    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
       .then((r) => r.json())
       .then(({ employeeName, isManager }) => {
         setEmployeeName(employeeName ?? null);
@@ -109,7 +111,7 @@ export default function SchedulePageClient() {
     }
     setLoading(true);
     setScheduleError(null);
-    fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}`)
+    fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}${isDemo ? "&demo=true" : ""}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         setSchedules(data.schedules ?? []);
@@ -234,7 +236,12 @@ export default function SchedulePageClient() {
         </span>
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-400">{todayStr}</span>
-          <UserMenu name={employeeName} isManager={isManager} onSignOut={handleSignOut} />
+          <UserMenu
+            name={employeeName}
+            isManager={isManager}
+            onSignOut={isDemo ? undefined : handleSignOut}
+            onSignIn={isDemo ? () => router.push("/login") : undefined}
+          />
         </div>
       </div>
 

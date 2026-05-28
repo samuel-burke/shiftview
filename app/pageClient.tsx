@@ -82,6 +82,12 @@ export default function Page() {
   }
 
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number) {
+    if (isDemo) {
+      setSchedules((prev) =>
+        prev.map((s) => s.id === scheduleId ? { ...s, startMinutes, endMinutes } : s)
+      );
+      return;
+    }
     const res = await fetch("/api/schedules", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -97,6 +103,13 @@ export default function Page() {
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number) {
+    if (isDemo) {
+      setSchedules((prev) => [
+        ...prev,
+        { id: Date.now(), employeeId, date: toDateKey(date), startMinutes, endMinutes },
+      ]);
+      return;
+    }
     const dateKey = toDateKey(date);
     const res = await fetch("/api/schedules", {
       method: "POST",
@@ -112,6 +125,7 @@ export default function Page() {
   }
 
   async function handleResendInvite(email: string) {
+    if (isDemo) return;
     const res = await fetch("/api/invites", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -124,6 +138,10 @@ export default function Page() {
   }
 
   async function handleMarkOff(scheduleId: number) {
+    if (isDemo) {
+      setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
+      return;
+    }
     const res = await fetch("/api/schedules", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -147,7 +165,7 @@ export default function Page() {
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => setError("Failed to load employees"));
-    fetch("/api/me")
+    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
       .then((r) => r.json())
       .then(({ isManager, employeeName }) => {
         setIsManager(isManager);

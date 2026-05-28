@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Props = {
@@ -7,6 +8,8 @@ type Props = {
 };
 
 export default function BottomNav({ active }: Props) {
+  const searchParams = useSearchParams();
+  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800 max-w-[480px] mx-auto"
@@ -14,7 +17,7 @@ export default function BottomNav({ active }: Props) {
     >
       <div className="flex">
         <Link
-          href="/"
+          href={`/${demo}`}
           className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 ${active === "team" ? "text-slate-100" : "text-slate-400"}`}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -26,7 +29,7 @@ export default function BottomNav({ active }: Props) {
           <div className={`h-[2px] w-5 rounded-full mt-0.5 ${active === "team" ? "bg-indigo-500" : "bg-transparent"}`} />
         </Link>
         <Link
-          href="/schedule"
+          href={`/schedule${demo}`}
           className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 ${active === "schedule" ? "text-slate-100" : "text-slate-400"}`}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>

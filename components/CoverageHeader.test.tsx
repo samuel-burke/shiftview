@@ -3,6 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CoverageHeader from "./CoverageHeader";
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 // Use local date constructor to avoid UTC-offset shifting the date in jsdom
 const today = new Date(2026, 4, 25); // May 25, 2026
 
