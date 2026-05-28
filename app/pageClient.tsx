@@ -11,6 +11,7 @@ import {
   MINIMUM_COVERAGE,
   CoverageStatus,
 } from "../data/types";
+import PrintableWeekGrid from "../components/PrintableWeekGrid";
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
   0: { open: 480, close: 1200 },
@@ -71,9 +72,43 @@ export default function Page() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printSchedules, setPrintSchedules] = useState<Schedule[]>([]);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
+
+  // Compute Mon–Sun week dates for the week containing `date`
+  const weekDatesForPrint = useMemo((): string[] => {
+    // Find Monday of the current week
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
+    const diff = day === 0 ? -6 : 1 - day; // shift Sunday to end
+    d.setDate(d.getDate() + diff);
+    return Array.from({ length: 7 }, (_, i) => toDateKey(offsetDate(d, i)));
+  }, [date]);
+
+  const weekLabelForPrint = useMemo((): string => {
+    const first = new Date(weekDatesForPrint[0] + "T12:00:00Z");
+    const last = new Date(weekDatesForPrint[6] + "T12:00:00Z");
+    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", timeZone: "UTC" };
+    const firstStr = first.toLocaleDateString("en-US", opts);
+    const lastStr = last.toLocaleDateString("en-US", { ...opts, year: "numeric" });
+    return `${firstStr} – ${lastStr}`;
+  }, [weekDatesForPrint]);
+
+  async function handlePrint() {
+    setPrintLoading(true);
+    const results = await Promise.allSettled(
+      weekDatesForPrint.map(d =>
+        fetch(`/api/schedules?date=${d}&demo=${isDemo}`).then(r => r.json())
+      )
+    );
+    const all = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+    setPrintSchedules(all);
+    setPrintLoading(false);
+    window.print();
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -382,6 +417,25 @@ export default function Page() {
     </div>
   ) : null;
 
+  const printButton = isManager ? (
+    <button
+      onClick={handlePrint}
+      disabled={printLoading}
+      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50 print:hidden"
+    >
+      {printLoading ? "Loading…" : "Print Schedule"}
+    </button>
+  ) : null;
+
+  const printGrid = (
+    <PrintableWeekGrid
+      employees={employees}
+      schedules={printSchedules}
+      weekDates={weekDatesForPrint}
+      weekLabel={weekLabelForPrint}
+    />
+  );
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
@@ -394,8 +448,9 @@ export default function Page() {
             {statsRow}
             {timeline}
             {legend}
-            <div className="text-center mt-2">
+            <div className="flex items-center justify-between mt-2">
               <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
+              {printButton}
             </div>
           </div>
           {/* Right: team list */}
@@ -404,6 +459,7 @@ export default function Page() {
           </div>
         </div>
         {drawer}
+        {printGrid}
         <BottomNav active="team" />
       </main>
     );
@@ -418,10 +474,12 @@ export default function Page() {
       {timeline}
       {legend}
       {teamSections}
-      <div className="text-center mt-4">
+      <div className="flex items-center justify-between mt-4">
         <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
+        {printButton}
       </div>
       {drawer}
+      {printGrid}
       <BottomNav active="team" />
     </main>
   );
