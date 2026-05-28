@@ -103,7 +103,7 @@ export default function AdminPageClient({ currentUserId }: { currentUserId: stri
                       {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                      <span className={`text-xs font-semibold py-0.5 rounded-md w-[72px] text-center ${
                         isMgr
                           ? "bg-violet-500/15 text-violet-300 border border-violet-500/25"
                           : "bg-slate-700/60 text-slate-400 border border-slate-700"
