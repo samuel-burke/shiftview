@@ -22,6 +22,7 @@ type Props = {
   isDemo: boolean;
   loading?: boolean;
   userName?: string | null;
+  isManager?: boolean;
 };
 
 function fmtTime(m: number): string {
@@ -50,6 +51,7 @@ export default function CoverageHeader({
   isDemo,
   loading = false,
   userName = null,
+  isManager = false,
 }: Props) {
   const isDesktop = useIsDesktop();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -134,7 +136,7 @@ export default function CoverageHeader({
             {!isToday && (
               <button onClick={onNow} className={actionBtn}>TODAY</button>
             )}
-            <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
+            <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
 
@@ -170,7 +172,7 @@ export default function CoverageHeader({
             {!isToday && (
               <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2 cursor-pointer">TODAY</button>
             )}
-            <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
+            <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
         <div className="mb-1">{dateNav}</div>

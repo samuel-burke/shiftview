@@ -21,6 +21,11 @@ const MOCK_EMPLOYEES = [
   { id: 2, name: "Bob Jones" },
 ];
 
+const MOCK_EMPLOYEES_SORTED = [
+  { id: 2, name: "Bob Jones" },
+  { id: 1, name: "Alice Smith" },
+];
+
 // ── GET ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/employees", () => {
@@ -40,11 +45,11 @@ describe("GET /api/employees", () => {
     expect(client.from).toHaveBeenCalledWith("employees");
   });
 
-  it("returns the employee list", async () => {
+  it("returns the employee list sorted by last name", async () => {
     const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
-    expect(await res.json()).toEqual(MOCK_EMPLOYEES);
+    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED);
   });
 
   it("returns 500 on database error", async () => {

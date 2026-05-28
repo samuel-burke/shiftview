@@ -26,7 +26,6 @@ import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
-import InviteSheet from "../components/InviteSheet";
 import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
 import { useIsDesktop } from "../hooks/useIsDesktop";
@@ -70,6 +69,8 @@ export default function Page() {
   const [isManager, setIsManager] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
+  const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
+  const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -156,7 +157,14 @@ export default function Page() {
     fetch("/api/store-hours")
       .then((r) => r.json())
       .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-      .catch(() => {}); // fall back to DEFAULT_HOURS on error
+      .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then(({ optimalCoverage, minCoverage }) => {
+        if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
+        if (minCoverage != null) setMinCoverage(minCoverage);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch schedules whenever date changes
@@ -215,13 +223,12 @@ export default function Page() {
   const coverageStatus = useMemo((): CoverageStatus => {
     if (!isToday) return "closed";
     if (!isStoreOpen) return "closed";
-    if (hereNow.length < MINIMUM_COVERAGE) return "critical";
-    if (hereNow.length < OPTIMAL_COVERAGE) return "low";
+    if (hereNow.length < minCoverage) return "critical";
+    if (hereNow.length < optimalCoverage) return "low";
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
   const isDesktop = useIsDesktop();
-  const [showInvite, setShowInvite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -267,7 +274,7 @@ export default function Page() {
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
-    userName,
+    userName, isManager,
     onPrev: () => setDate((d) => offsetDate(d, -1)),
     onNext: () => setDate((d) => offsetDate(d, 1)),
     onNow: () => setDate(new Date()),
@@ -331,11 +338,6 @@ export default function Page() {
     <>
       <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
       <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined} />
-      {isManager && !isDemo && (
-        <button onClick={() => setShowInvite(true)} className="w-full mt-2 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer">
-          + Add Employee
-        </button>
-      )}
     </>
   );
 
@@ -353,17 +355,6 @@ export default function Page() {
       onMarkOff={handleMarkOff}
       onResendInvite={handleResendInvite}
       isManager={isManager}
-    />
-  );
-
-  const inviteSheet = (
-    <InviteSheet
-      open={showInvite}
-      onClose={() => setShowInvite(false)}
-      onSuccess={() => {
-        setShowInvite(false);
-        fetch(`/api/employees?demo=${isDemo}`).then((r) => r.json()).then(setEmployees).catch(() => {});
-      }}
     />
   );
 
@@ -388,7 +379,6 @@ export default function Page() {
           </div>
         </div>
         {drawer}
-        {inviteSheet}
         <BottomNav active="team" />
       </main>
     );
@@ -406,7 +396,6 @@ export default function Page() {
         <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
       </div>
       {drawer}
-      {inviteSheet}
       <BottomNav active="team" />
     </main>
   );
