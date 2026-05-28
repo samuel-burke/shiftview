@@ -159,30 +159,33 @@ export default function Page() {
     return () => clearInterval(t);
   }, []);
 
-  // Fetch employees, manager status, and store hours once on mount
+  // Fetch employees, manager status, store hours, and settings in parallel on mount
   useEffect(() => {
-    fetch(`/api/employees?demo=${isDemo}`)
-      .then((r) => r.json())
-      .then(setEmployees)
-      .catch(() => setError("Failed to load employees"));
-    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
-      .then((r) => r.json())
-      .then(({ isManager, employeeName }) => {
+    Promise.allSettled([
+      fetch(`/api/employees?demo=${isDemo}`).then((r) => r.json()),
+      fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then((r) => r.json()),
+      fetch("/api/store-hours").then((r) => r.json()),
+      fetch("/api/settings").then((r) => r.json()),
+    ]).then(([empsResult, meResult, hoursResult, settingsResult]) => {
+      if (empsResult.status === "fulfilled") {
+        setEmployees(empsResult.value);
+      } else {
+        setError("Failed to load employees");
+      }
+      if (meResult.status === "fulfilled") {
+        const { isManager, employeeName } = meResult.value;
         setIsManager(isManager);
         setUserName(employeeName ?? null);
-      })
-      .catch(() => {});
-    fetch("/api/store-hours")
-      .then((r) => r.json())
-      .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-      .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then(({ optimalCoverage, minCoverage }) => {
+      }
+      if (hoursResult.status === "fulfilled") {
+        setWeeklyHours((prev) => ({ ...prev, ...hoursResult.value }));
+      }
+      if (settingsResult.status === "fulfilled") {
+        const { optimalCoverage, minCoverage } = settingsResult.value;
         if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
         if (minCoverage != null) setMinCoverage(minCoverage);
-      })
-      .catch(() => {});
+      }
+    });
   }, []);
 
   // Fetch schedules whenever date changes
