@@ -25,9 +25,19 @@ const MOCK_DB_SETTINGS = [
 // ── GET /api/settings ─────────────────────────────────────────────────────────
 
 describe("GET /api/settings", () => {
-  it("returns parsed settings from the database", async () => {
+  it("returns demo settings for unauthenticated users without querying the DB", async () => {
+    const client = makeSupabaseClient({ user: null });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ optimalCoverage: 3, minCoverage: 2, firstDayOfWeek: 1 });
+    expect(client.from).not.toHaveBeenCalledWith("app_settings");
+  });
+
+  it("returns parsed settings from the database for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ queryData: MOCK_DB_SETTINGS }) as any
+      makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_SETTINGS }) as any
     );
     const res = await GET();
     expect(res.status).toBe(200);
@@ -38,8 +48,8 @@ describe("GET /api/settings", () => {
     });
   });
 
-  it("returns default values when the table is empty", async () => {
-    mockCreateClient.mockResolvedValue(makeSupabaseClient({ queryData: [] }) as any);
+  it("returns default values when the table is empty for authenticated users", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, queryData: [] }) as any);
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
@@ -49,9 +59,9 @@ describe("GET /api/settings", () => {
     });
   });
 
-  it("returns 500 on database error", async () => {
+  it("returns 500 on database error for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ queryError: { message: "db error" } }) as any
+      makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } }) as any
     );
     const res = await GET();
     expect(res.status).toBe(500);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { DEMO_STORE_HOURS } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,11 @@ export async function PUT(request: Request) {
 
 export async function GET() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(DEMO_STORE_HOURS);
+  }
 
   const { data, error } = await supabase
     .from("store_hours")
