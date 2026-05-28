@@ -59,6 +59,7 @@ export default function EmployeeDrawer({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
+  const [confirmingMarkOff, setConfirmingMarkOff] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -72,6 +73,7 @@ export default function EmployeeDrawer({
       setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
       setError(null);
       setInviteSent(false);
+      setConfirmingMarkOff(false);
     }
   }, [open, schedule]);
 
@@ -206,7 +208,7 @@ export default function EmployeeDrawer({
 
               {schedule && (
                 <button
-                  onClick={handleMarkOff}
+                  onClick={() => setConfirmingMarkOff(true)}
                   disabled={saving}
                   className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
                 >
@@ -277,6 +279,43 @@ export default function EmployeeDrawer({
           )}
         </div>
       </div>
+
+      {/* Mark as Off confirmation */}
+      {confirmingMarkOff && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+        >
+          <div className="w-full max-w-[380px] bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl">
+                ⚠️
+              </div>
+              <div>
+                <div className="text-base font-bold text-slate-100">Remove {employee.name} from schedule?</div>
+                <div className="text-sm text-slate-400 mt-1">
+                  This will remove their shift. You can add them back later.
+                </div>
+              </div>
+            </div>
+            <div className="flex border-t border-slate-800">
+              <button
+                onClick={() => setConfirmingMarkOff(false)}
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmingMarkOff(false); handleMarkOff(); }}
+                disabled={saving}
+                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              >
+                Mark as Off
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
