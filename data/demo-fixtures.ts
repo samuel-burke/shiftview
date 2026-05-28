@@ -13,6 +13,13 @@ const EMPLOYEE_PATTERNS: Record<number, Array<[number, number] | null>> = {
   3: [[720, 1200], null, [720, 1200], [720, 1200],  [720, 1200], [720, 1200], [720, 1200]], // Sun/Tue–Sat 12pm–8pm
 };
 
+export const DEMO_SETTINGS = {
+  optimalCoverage: 3,
+  minCoverage: 2,
+  firstDayOfWeek: 1,
+  timezone: "America/New_York",
+};
+
 export function getDemoSchedulesForDate(date: string): Schedule[] {
   const dow = new Date(date + "T12:00:00Z").getUTCDay();
   const results: Schedule[] = [];

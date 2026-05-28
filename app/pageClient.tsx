@@ -31,14 +31,14 @@ import { createClient } from "@/lib/supabase-browser";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+function toDateKey(d: Date, tz = "America/New_York") {
+  return d.toLocaleDateString("en-CA", { timeZone: tz });
 }
 
-function getNowMinutes() {
+function getNowMinutes(tz = "America/New_York") {
   const now = new Date();
   const parts = now.toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
+    timeZone: tz,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -71,6 +71,7 @@ export default function Page() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
+  const [timezone, setTimezone] = useState("America/New_York");
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -97,7 +98,7 @@ export default function Page() {
       const { error } = await res.json();
       throw new Error(error ?? "Failed to save shift");
     }
-    const dateKey = toDateKey(date);
+    const dateKey = toDateKey(date, timezone);
     const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
   }
@@ -106,11 +107,11 @@ export default function Page() {
     if (isDemo) {
       setSchedules((prev) => [
         ...prev,
-        { id: Date.now(), employeeId, date: toDateKey(date), startMinutes, endMinutes },
+        { id: Date.now(), employeeId, date: toDateKey(date, timezone), startMinutes, endMinutes },
       ]);
       return;
     }
-    const dateKey = toDateKey(date);
+    const dateKey = toDateKey(date, timezone);
     const res = await fetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -120,8 +121,8 @@ export default function Page() {
       const { error } = await res.json();
       throw new Error(error ?? "Failed to add shift");
     }
-    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
-    setSchedules(data);
+    const data2 = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    setSchedules(data2);
   }
 
   async function handleResendInvite(email: string) {
@@ -155,9 +156,9 @@ export default function Page() {
   }
   // Live clock
   useEffect(() => {
-    const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
+    const t = setInterval(() => setNowMinutes(getNowMinutes(timezone)), 60000);
     return () => clearInterval(t);
-  }, []);
+  }, [timezone]);
 
   // Fetch employees, manager status, and store hours once on mount
   useEffect(() => {
@@ -178,16 +179,20 @@ export default function Page() {
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ optimalCoverage, minCoverage }) => {
+      .then(({ optimalCoverage, minCoverage, timezone: tz }) => {
         if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
         if (minCoverage != null) setMinCoverage(minCoverage);
+        if (tz) {
+          setTimezone(tz);
+          setNowMinutes(getNowMinutes(tz));
+        }
       })
       .catch(() => {});
   }, []);
 
   // Fetch schedules whenever date changes
   useEffect(() => {
-    const dateKey = toDateKey(date);
+    const dateKey = toDateKey(date, timezone);
     setLoading(true);
     setError(null);
     fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
@@ -200,10 +205,10 @@ export default function Page() {
         setError("Failed to load schedules");
         setLoading(false);
       });
-  }, [date]);
+  }, [date, timezone]);
 
-  const isToday = toDateKey(date) === toDateKey(today);
-  const dateKey = toDateKey(date);
+  const isToday = toDateKey(date, timezone) === toDateKey(today, timezone);
+  const dateKey = toDateKey(date, timezone);
 
   const daySchedules = useMemo(
     () => schedules.filter((s) => s.date.slice(0, 10) === dateKey),
@@ -266,7 +271,7 @@ export default function Page() {
       // Pull to refresh — only when at top of page and pulling down
       if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
         setRefreshing(true);
-        const dateKey = toDateKey(date);
+        const dateKey = toDateKey(date, timezone);
         await Promise.all([
           fetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
             .then((r) => r.json())

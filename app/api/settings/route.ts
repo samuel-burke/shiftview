@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(DEMO_SETTINGS);
+  }
+
   const { data, error } = await supabase
     .from("app_settings")
     .select("key, value");
@@ -17,6 +24,7 @@ export async function GET() {
     firstDayOfWeek:  parseInt(map.first_day_of_week  ?? "6"),
     optimalCoverage: parseInt(map.optimal_coverage   ?? "3"),
     minCoverage:     parseInt(map.minimum_coverage   ?? "2"),
+    timezone:        map.timezone ?? "America/New_York",
   });
 }
 
@@ -49,6 +57,12 @@ export async function PUT(request: Request) {
     if (!Number.isInteger(v) || v < 0)
       return NextResponse.json({ error: "minCoverage must be ≥ 0" }, { status: 400 });
     rows.push({ key: "minimum_coverage", value: String(v) });
+  }
+
+  if (body.timezone !== undefined) {
+    if (typeof body.timezone !== "string" || !body.timezone.trim())
+      return NextResponse.json({ error: "timezone must be a non-empty string" }, { status: 400 });
+    rows.push({ key: "timezone", value: body.timezone.trim() });
   }
 
   if (rows.length === 0)
