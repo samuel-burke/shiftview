@@ -38,7 +38,7 @@ function timeToMinutes(t: string): number {
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
 
-export default function SettingsPageClient() {
+export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -97,6 +97,13 @@ export default function SettingsPageClient() {
 
   async function saveStoreHours(day: number) {
     setHoursSaving((prev) => ({ ...prev, [day]: true }));
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setHoursSaving((prev) => ({ ...prev, [day]: false }));
+      setHoursSaved((prev) => ({ ...prev, [day]: true }));
+      setTimeout(() => setHoursSaved((prev) => ({ ...prev, [day]: false })), 2000);
+      return;
+    }
     const { open, close } = storeHours[day];
     const res = await fetch("/api/store-hours", {
       method: "PUT",
@@ -115,6 +122,13 @@ export default function SettingsPageClient() {
 
   async function saveCoverage() {
     setCoverageSaving(true);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setCoverageSaving(false);
+      setCoverageSaved(true);
+      setTimeout(() => setCoverageSaved(false), 2000);
+      return;
+    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -133,6 +147,13 @@ export default function SettingsPageClient() {
 
   async function saveFirstDay() {
     setFirstDaySaving(true);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setFirstDaySaving(false);
+      setFirstDaySaved(true);
+      setTimeout(() => setFirstDaySaved(false), 2000);
+      return;
+    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -154,6 +175,13 @@ export default function SettingsPageClient() {
     if (!trimmed) { setEditError("Name cannot be empty"); return; }
     setEditSaving(true);
     setEditError(null);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setEmployees((prev) => prev.map((e) => e.id === id ? { ...e, name: trimmed } : e));
+      setEditSaving(false);
+      setEditingId(null);
+      return;
+    }
     const res = await fetch("/api/employees", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -175,6 +203,12 @@ export default function SettingsPageClient() {
     setConfirmDeleteEmployee(null);
     setDeletingId(id);
     setDeleteErrorId(null);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setDeletingId(null);
+      setEmployees((prev) => prev.filter((e) => e.id !== id));
+      return;
+    }
     const res = await fetch("/api/employees", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -464,14 +498,23 @@ export default function SettingsPageClient() {
           </div>
         </section>
 
-        {/* Sign out */}
+        {/* Sign out / Sign in */}
         <section className="pb-2">
-          <button
-            onClick={handleSignOut}
-            className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-          >
-            Sign Out
-          </button>
+          {isDemo ? (
+            <button
+              onClick={() => router.push("/login")}
+              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+            >
+              Sign In
+            </button>
+          ) : (
+            <button
+              onClick={handleSignOut}
+              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+            >
+              Sign Out
+            </button>
+          )}
         </section>
       </div>
 
@@ -482,11 +525,22 @@ export default function SettingsPageClient() {
         onClose={() => setShowInvite(false)}
         onSuccess={() => {
           setShowInvite(false);
-          fetch("/api/employees")
-            .then((r) => r.ok ? r.json() : Promise.reject())
-            .then(setEmployees)
-            .catch(() => {});
+          if (!isDemo) {
+            fetch("/api/employees")
+              .then((r) => r.ok ? r.json() : Promise.reject())
+              .then(setEmployees)
+              .catch(() => {});
+          }
         }}
+        onSubmit={isDemo
+          ? async (name, email) => {
+              setEmployees((prev) => [
+                ...prev,
+                { id: Date.now(), name, email, user_id: null },
+              ]);
+            }
+          : undefined
+        }
       />
 
       {/* Delete confirmation modal */}

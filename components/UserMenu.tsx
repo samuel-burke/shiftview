@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getMonogram } from "../data/types";
 
@@ -14,6 +15,9 @@ type Props = {
 export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+  const settingsHref = isDemo ? "/settings?demo=true" : "/settings";
 
   useEffect(() => {
     if (!open) return;
@@ -47,7 +51,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
         <div className="absolute right-0 top-11 w-40 bg-[#1e2a3a] border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
           {isManager && (
             <Link
-              href="/settings"
+              href={settingsHref}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
             >
