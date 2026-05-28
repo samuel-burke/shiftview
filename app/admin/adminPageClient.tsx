@@ -1,0 +1,150 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getMonogram } from "../../data/types";
+import BottomNav from "../../components/BottomNav";
+
+type Employee = { id: number; name: string; email: string | null; user_id: string | null };
+
+export default function AdminPageClient({ currentUserId }: { currentUserId: string }) {
+  const router = useRouter();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [errorId, setErrorId] = useState<number | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/employees").then((r) => r.ok ? r.json() : Promise.reject()),
+      fetch("/api/managers").then((r) => r.ok ? r.json() : Promise.reject()),
+    ])
+      .then(([emps, { managerUserIds: ids }]) => {
+        setEmployees(emps);
+        setManagerUserIds(new Set(ids));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleRole(emp: Employee) {
+    if (!emp.user_id) return;
+    const isMgr = managerUserIds.has(emp.user_id);
+    const action = isMgr ? "demote" : "promote";
+
+    // optimistic update
+    setTogglingId(emp.id);
+    setErrorId(null);
+    setManagerUserIds((prev) => {
+      const next = new Set(prev);
+      if (isMgr) next.delete(emp.user_id!);
+      else next.add(emp.user_id!);
+      return next;
+    });
+
+    const res = await fetch(`/api/managers/${emp.user_id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+
+    setTogglingId(null);
+
+    if (!res.ok) {
+      // revert on error
+      setManagerUserIds((prev) => {
+        const next = new Set(prev);
+        if (isMgr) next.add(emp.user_id!);
+        else next.delete(emp.user_id!);
+        return next;
+      });
+      setErrorId(emp.id);
+      setTimeout(() => setErrorId(null), 3000);
+    }
+  }
+
+  return (
+    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
+      <div
+        className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      >
+        <button
+          onClick={() => router.back()}
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+          aria-label="Back"
+        >
+          ‹
+        </button>
+        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Admin</span>
+      </div>
+
+      <div className="px-4 pt-5 flex flex-col gap-5">
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Roles
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+            {employees.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
+            ) : (
+              employees.map((emp) => {
+                const isSelf = emp.user_id === currentUserId;
+                const isMgr = emp.user_id ? managerUserIds.has(emp.user_id) : false;
+                const isToggling = togglingId === emp.id;
+                const hasError = errorId === emp.id;
+
+                return (
+                  <div key={emp.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
+                      {getMonogram(emp.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
+                      {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                        isMgr
+                          ? "bg-violet-500/15 text-violet-300 border border-violet-500/25"
+                          : "bg-slate-700/60 text-slate-400 border border-slate-700"
+                      }`}>
+                        {isMgr ? "Manager" : "Employee"}
+                      </span>
+                      {!emp.user_id ? (
+                        <span className="text-xs text-slate-600 w-16 text-center">No account</span>
+                      ) : isSelf ? (
+                        <span
+                          className="text-xs text-slate-600 w-16 text-center"
+                          title="You cannot change your own role"
+                        >
+                          You
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => toggleRole(emp)}
+                          disabled={isToggling}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer w-16 text-center ${
+                            hasError
+                              ? "bg-red-500/20 text-red-400 border-red-500/30"
+                              : isMgr
+                              ? "bg-amber-500/15 text-amber-400 border-amber-500/25 hover:bg-amber-500/25"
+                              : "bg-indigo-500/15 text-indigo-400 border-indigo-500/25 hover:bg-indigo-500/25"
+                          }`}
+                          aria-label={isMgr ? `Demote ${emp.name}` : `Promote ${emp.name}`}
+                        >
+                          {hasError ? "Error" : isToggling ? "…" : isMgr ? "Demote" : "Promote"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+      </div>
+
+      <BottomNav active="team" />
+    </main>
+  );
+}
