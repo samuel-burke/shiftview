@@ -25,6 +25,7 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
+import FillDaySheet from "../components/FillDaySheet";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
@@ -246,6 +247,23 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
+  const [fillDayOpen, setFillDayOpen] = useState(false);
+
+  async function handleFillDay(employeeIds: number[], startMinutes: number, endMinutes: number) {
+    const dateKey = toDateKey(date);
+    await Promise.all(
+      employeeIds.map((employeeId) =>
+        fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes }),
+        })
+      )
+    );
+    const data = await fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
+    setSchedules(data);
+  }
+
   const isDesktop = useIsDesktop();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -382,6 +400,30 @@ export default function Page() {
     </div>
   ) : null;
 
+  const fillDayBar = isManager && !isDemo ? (
+    <div className="flex items-center gap-3 mb-3 print:hidden">
+      <button
+        onClick={() => setFillDayOpen(true)}
+        className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer"
+      >
+        Fill Day
+      </button>
+    </div>
+  ) : null;
+
+  const fillDaySheet = (
+    <FillDaySheet
+      open={fillDayOpen}
+      onClose={() => setFillDayOpen(false)}
+      employees={employees}
+      scheduledEmployeeIds={new Set(daySchedules.map((s) => s.employeeId))}
+      defaultStart={storeHours.open}
+      defaultEnd={storeHours.close}
+      dateLabel={date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+      onSubmit={handleFillDay}
+    />
+  );
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
@@ -391,6 +433,7 @@ export default function Page() {
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
+            {fillDayBar}
             {statsRow}
             {timeline}
             {legend}
@@ -404,6 +447,7 @@ export default function Page() {
           </div>
         </div>
         {drawer}
+        {fillDaySheet}
         <BottomNav active="team" />
       </main>
     );
@@ -414,6 +458,7 @@ export default function Page() {
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
+      {fillDayBar}
       {statsRow}
       {timeline}
       {legend}
@@ -422,6 +467,7 @@ export default function Page() {
         <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
       </div>
       {drawer}
+      {fillDaySheet}
       <BottomNav active="team" />
     </main>
   );
