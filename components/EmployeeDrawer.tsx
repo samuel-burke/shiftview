@@ -247,11 +247,14 @@ export default function EmployeeDrawer({
                     Edit Shift
                   </button>
                 )}
-                <button
-                  className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
-                >
-                  Message
-                </button>
+                {employee.email && (
+                  <a
+                    href={`mailto:${employee.email}`}
+                    className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer text-center"
+                  >
+                    Message
+                  </a>
+                )}
               </div>
 
               {isManager && onResendInvite && !employee.user_id && employee.email && (

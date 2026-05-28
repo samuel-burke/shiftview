@@ -98,11 +98,26 @@ describe("EmployeeDrawer", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("renders Edit Shift and Message action buttons", () => {
+  it("renders Edit Shift button for managers", () => {
     render(
       <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />
     );
     expect(screen.getByText("Edit Shift")).toBeInTheDocument();
-    expect(screen.getByText("Message")).toBeInTheDocument();
+  });
+
+  it("shows a mailto Message link when employee has an email", () => {
+    const empWithEmail = { ...employee, email: "alice@example.com" };
+    render(
+      <EmployeeDrawer {...baseProps} employee={empWithEmail} schedule={schedule} />
+    );
+    const link = screen.getByRole("link", { name: "Message" });
+    expect(link).toHaveAttribute("href", "mailto:alice@example.com");
+  });
+
+  it("hides the Message link when employee has no email", () => {
+    render(
+      <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />
+    );
+    expect(screen.queryByRole("link", { name: "Message" })).not.toBeInTheDocument();
   });
 });
