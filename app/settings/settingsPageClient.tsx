@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
 import InviteSheet from "../../components/InviteSheet";
+import { getMonogram } from "../../data/types";
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -393,7 +394,7 @@ export default function SettingsPageClient() {
               employees.map((emp) => (
                 <div key={emp.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
-                    {emp.name.charAt(0).toUpperCase()}
+                    {getMonogram(emp.name)}
                   </div>
                   {editingId === emp.id ? (
                     <div className="flex-1 flex flex-col gap-1 min-w-0">
