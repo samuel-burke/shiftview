@@ -128,6 +128,18 @@ describe("POST /api/schedules", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 409 when the employee is already scheduled on that date", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: { id: 99 } }) as any
+    );
+    const res = await POST(new Request("http://localhost/api/schedules", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+    }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("already scheduled") });
+  });
+
   it("returns 201 on success", async () => {
     const res = await POST(new Request("http://localhost/api/schedules", {
       method: "POST",
