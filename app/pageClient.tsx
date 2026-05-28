@@ -69,6 +69,10 @@ export default function Page() {
   const [isManager, setIsManager] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
   const searchParams = useSearchParams();
@@ -153,6 +157,31 @@ export default function Page() {
     }
     setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
   }
+  async function handleSaveAsTemplate() {
+    if (!templateName.trim()) return;
+    setTemplateSaving(true);
+    // Build rows from current week's schedules
+    const rows = schedules.map((s) => {
+      const d = new Date(s.date + "T12:00:00Z");
+      return {
+        employeeId: s.employeeId,
+        dayOfWeek: d.getUTCDay(),
+        startMinutes: s.startMinutes,
+        endMinutes: s.endMinutes,
+      };
+    });
+    await fetch("/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: templateName.trim(), rows }),
+    });
+    setTemplateSaving(false);
+    setTemplateSaved(true);
+    setTemplateName("");
+    setSaveTemplateOpen(false);
+    setTimeout(() => setTemplateSaved(false), 3000);
+  }
+
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
@@ -382,6 +411,38 @@ export default function Page() {
     </div>
   ) : null;
 
+  const saveTemplateBar = isManager && !isDemo ? (
+    <div className="flex items-center gap-2 mb-2">
+      {saveTemplateOpen ? (
+        <>
+          <input
+            autoFocus
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSaveAsTemplate(); if (e.key === "Escape") setSaveTemplateOpen(false); }}
+            placeholder="Template name"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
+          />
+          <button
+            onClick={handleSaveAsTemplate}
+            disabled={templateSaving || !templateName.trim()}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer disabled:opacity-50"
+          >
+            {templateSaving ? "…" : "Save"}
+          </button>
+          <button onClick={() => setSaveTemplateOpen(false)} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer">Cancel</button>
+        </>
+      ) : (
+        <button
+          onClick={() => setSaveTemplateOpen(true)}
+          className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer"
+        >
+          {templateSaved ? "Saved!" : "Save as Template"}
+        </button>
+      )}
+    </div>
+  ) : null;
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
@@ -391,6 +452,7 @@ export default function Page() {
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
+            {saveTemplateBar}
             {statsRow}
             {timeline}
             {legend}
@@ -414,6 +476,7 @@ export default function Page() {
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
+      {saveTemplateBar}
       {statsRow}
       {timeline}
       {legend}

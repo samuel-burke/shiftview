@@ -69,6 +69,13 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  const [isManager, setIsManager] = useState(false);
+  type Template = { id: number; name: string; rowCount: number };
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [applyingId, setApplyingId] = useState<number | null>(null);
+  const [applyDateInput, setApplyDateInput] = useState<Record<number, string>>({});
+  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/login");
@@ -92,6 +99,18 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     fetch("/api/employees")
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then(setEmployees)
+      .catch(() => {});
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(({ isManager: mgr }) => {
+        if (mgr) setIsManager(mgr);
+        if (mgr) {
+          fetch("/api/templates")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(({ templates: t }) => setTemplates(t ?? []))
+            .catch(() => {});
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -497,6 +516,77 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             )}
           </div>
         </section>
+
+        {/* Templates — manager only */}
+        {isManager && (
+          <section>
+            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+              Schedule Templates
+            </div>
+            <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+              {templates.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-slate-500">No templates yet</div>
+              ) : (
+                templates.map((tpl) => (
+                  <div key={tpl.id} className="flex flex-col px-4 py-3 gap-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-200">{tpl.name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{tpl.rowCount} row{tpl.rowCount !== 1 ? "s" : ""}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : new Date().toISOString().slice(0, 10) }))}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                        >
+                          Apply
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setDeletingTemplateId(tpl.id);
+                            await fetch(`/api/templates/${tpl.id}`, { method: "DELETE" });
+                            setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
+                            setDeletingTemplateId(null);
+                          }}
+                          disabled={deletingTemplateId === tpl.id}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50"
+                        >
+                          {deletingTemplateId === tpl.id ? "…" : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                    {applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "" && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={applyDateInput[tpl.id]}
+                          onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark]"
+                        />
+                        <button
+                          disabled={applyingId === tpl.id}
+                          onClick={async () => {
+                            setApplyingId(tpl.id);
+                            await fetch(`/api/templates/${tpl.id}/apply`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ weekStartDate: applyDateInput[tpl.id] }),
+                            });
+                            setApplyingId(null);
+                            setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
+                          }}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer disabled:opacity-50"
+                        >
+                          {applyingId === tpl.id ? "Applying…" : "Confirm"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Admin */}
         <section>
