@@ -13,6 +13,8 @@ import {
   fmtMinutes,
 } from "../data/types";
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 type Props = {
   open: boolean;
   employee: Employee | null;
@@ -26,6 +28,8 @@ type Props = {
   onMarkOff: (scheduleId: number) => Promise<void>;
   onResendInvite?: (email: string) => Promise<void>;
   isManager: boolean;
+  date?: string;
+  unavailableDays?: number[];
 };
 
 function minutesToTime(m: number): string {
@@ -51,6 +55,8 @@ export default function EmployeeDrawer({
   onMarkOff,
   onResendInvite,
   isManager,
+  date,
+  unavailableDays,
 }: Props) {
   const isDesktop = useIsDesktop();
   const [editing, setEditing] = useState(false);
@@ -76,6 +82,10 @@ export default function EmployeeDrawer({
   }, [open, schedule]);
 
   if (!employee) return null;
+
+  const dayOfWeek = date
+    ? new Date(date + "T12:00:00").getDay()
+    : new Date().getDay();
 
   const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes);
@@ -224,6 +234,11 @@ export default function EmployeeDrawer({
             </div>
           ) : (
             <>
+              {unavailableDays?.includes(dayOfWeek) && (
+                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 mb-3 text-xs text-amber-400">
+                  ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2.5 mb-6">
                 {[
                   { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },

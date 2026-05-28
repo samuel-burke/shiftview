@@ -8,6 +8,7 @@ import InviteSheet from "../../components/InviteSheet";
 import { getMonogram } from "../../data/types";
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 
 const FIRST_DAY_OPTIONS = [
   { label: "Sunday", value: 0 },
@@ -69,6 +70,9 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  const [availability, setAvailability] = useState<Record<number, Set<number>>>({});
+  const [isManager, setIsManager] = useState(false);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/login");
@@ -91,7 +95,29 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       .catch(() => {});
     fetch("/api/employees")
       .then((r) => r.ok ? r.json() : Promise.reject())
-      .then(setEmployees)
+      .then((emps: Employee[]) => {
+        setEmployees(emps);
+        // Fetch availability for all employees
+        Promise.allSettled(
+          emps.map((emp) =>
+            fetch(`/api/availability?employeeId=${emp.id}`)
+              .then((r) => r.json())
+              .then(({ unavailableDays }: { unavailableDays: number[] }) => ({ id: emp.id, days: unavailableDays }))
+          )
+        ).then((results) => {
+          const map: Record<number, Set<number>> = {};
+          for (const result of results) {
+            if (result.status === "fulfilled") {
+              map[result.value.id] = new Set(result.value.days);
+            }
+          }
+          setAvailability(map);
+        });
+      })
+      .catch(() => {});
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(({ isManager: mgr }) => { if (mgr != null) setIsManager(mgr); })
       .catch(() => {});
   }, []);
 
@@ -220,6 +246,44 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     } else {
       setDeleteErrorId(id);
       setTimeout(() => setDeleteErrorId(null), 3000);
+    }
+  }
+
+  async function toggleAvailability(employeeId: number, dow: number) {
+    const current = availability[employeeId] ?? new Set<number>();
+    const isUnavailable = current.has(dow);
+    const method = isUnavailable ? "DELETE" : "POST";
+
+    // Optimistically update UI
+    setAvailability((prev) => {
+      const next = new Set(prev[employeeId] ?? []);
+      if (isUnavailable) {
+        next.delete(dow);
+      } else {
+        next.add(dow);
+      }
+      return { ...prev, [employeeId]: next };
+    });
+
+    if (isDemo) return;
+
+    const res = await fetch("/api/availability", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId, dayOfWeek: dow }),
+    });
+
+    if (!res.ok) {
+      // Revert on error
+      setAvailability((prev) => {
+        const next = new Set(prev[employeeId] ?? []);
+        if (isUnavailable) {
+          next.add(dow);
+        } else {
+          next.delete(dow);
+        }
+        return { ...prev, [employeeId]: next };
+      });
     }
   }
 
@@ -426,70 +490,97 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
             ) : (
               employees.map((emp) => (
-                <div key={emp.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
-                    {getMonogram(emp.name)}
-                  </div>
-                  {editingId === emp.id ? (
-                    <div className="flex-1 flex flex-col gap-1 min-w-0">
-                      <input
-                        autoFocus
-                        value={editingName}
-                        onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
-                        onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
-                      />
-                      {editError && <div className="text-xs text-red-400">{editError}</div>}
+                <div key={emp.id} className="flex flex-col">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
+                      {getMonogram(emp.name)}
                     </div>
-                  ) : (
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
-                      {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
-                    </div>
-                  )}
-                  {editingId === emp.id ? (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => saveEditName(emp.id)}
-                        disabled={editSaving}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
-                      >
-                        {editSaving ? "…" : "Save"}
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
-                        className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
-                        aria-label="Edit name"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
-                      {emp.user_id === currentUserId ? (
-                        <span className="text-xs text-slate-600 px-3 py-1.5">You</span>
-                      ) : (
+                    {editingId === emp.id ? (
+                      <div className="flex-1 flex flex-col gap-1 min-w-0">
+                        <input
+                          autoFocus
+                          value={editingName}
+                          onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
+                        />
+                        {editError && <div className="text-xs text-red-400">{editError}</div>}
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
+                        {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                      </div>
+                    )}
+                    {editingId === emp.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
-                          onClick={() => setConfirmDeleteEmployee(emp)}
-                          disabled={deletingId === emp.id}
-                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            deleteErrorId === emp.id
-                              ? "bg-red-500/20 text-red-300 border-red-500/40"
-                              : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-                          }`}
+                          onClick={() => saveEditName(emp.id)}
+                          disabled={editSaving}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
                         >
-                          {deletingId === emp.id ? "…" : deleteErrorId === emp.id ? "Error" : "Remove"}
+                          {editSaving ? "…" : "Save"}
                         </button>
-                      )}
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
+                          className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                          aria-label="Edit name"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                        {emp.user_id === currentUserId ? (
+                          <span className="text-xs text-slate-600 px-3 py-1.5">You</span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteEmployee(emp)}
+                            disabled={deletingId === emp.id}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              deleteErrorId === emp.id
+                                ? "bg-red-500/20 text-red-300 border-red-500/40"
+                                : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                            }`}
+                          >
+                            {deletingId === emp.id ? "…" : deleteErrorId === emp.id ? "Error" : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {isManager && (
+                    <div className="flex items-center gap-2 px-4 pb-3">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider w-[68px] shrink-0">Unavailable</span>
+                      <div className="flex gap-1">
+                        {DAY_LETTER.map((letter, dow) => {
+                          const unavailable = (availability[emp.id] ?? new Set()).has(dow);
+                          return (
+                            <button
+                              key={dow}
+                              onClick={() => toggleAvailability(emp.id, dow)}
+                              aria-label={`Toggle ${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][dow]} unavailability`}
+                              aria-pressed={unavailable}
+                              className={`size-7 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
+                                unavailable
+                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                                  : "bg-slate-800 text-slate-500 border border-slate-700"
+                              }`}
+                            >
+                              {letter}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
