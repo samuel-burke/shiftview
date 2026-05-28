@@ -103,18 +103,18 @@ export default function AdminPageClient({ currentUserId }: { currentUserId: stri
                       {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs font-semibold py-0.5 rounded-md w-[72px] text-center ${
+                      <span className={`text-xs font-semibold py-1.5 rounded-lg w-20 text-center border ${
                         isMgr
-                          ? "bg-violet-500/15 text-violet-300 border border-violet-500/25"
-                          : "bg-slate-700/60 text-slate-400 border border-slate-700"
+                          ? "bg-violet-500/15 text-violet-300 border-violet-500/25"
+                          : "bg-slate-700/60 text-slate-400 border-slate-700"
                       }`}>
                         {isMgr ? "Manager" : "Employee"}
                       </span>
                       {!emp.user_id ? (
-                        <span className="text-xs text-slate-600 w-16 text-center">No account</span>
+                        <span className="text-xs text-slate-600 w-20 py-1.5 text-center">No account</span>
                       ) : isSelf ? (
                         <span
-                          className="text-xs text-slate-600 w-16 text-center"
+                          className="text-xs text-slate-600 w-20 py-1.5 text-center"
                           title="You cannot change your own role"
                         >
                           You
@@ -123,7 +123,7 @@ export default function AdminPageClient({ currentUserId }: { currentUserId: stri
                         <button
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
-                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer w-16 text-center ${
+                          className={`text-xs font-semibold py-1.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr
