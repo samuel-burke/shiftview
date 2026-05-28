@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "./route";
+import { POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -158,12 +158,90 @@ describe("POST /api/invites — business logic", () => {
     });
   });
 
+  it("rolls back the employee row when the invite call fails", async () => {
+    const adminClient = makeAdminClient({ inviteError: { message: "already registered" } });
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+
+    const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
+
+    expect(res.status).toBe(500);
+    const deleteBuilder = adminClient.from.mock.results.find(
+      (r: any) => adminClient.from.mock.calls[adminClient.from.mock.results.indexOf(r)]?.[0] === "employees"
+    )?.value;
+    expect(deleteBuilder?.delete).toHaveBeenCalled();
+  });
+
   it("sends the invite to the provided email", async () => {
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
 
     await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
 
+    expect(adminClient.auth.admin.inviteUserByEmail).toHaveBeenCalledWith(
+      "alice@example.com",
+      expect.objectContaining({ redirectTo: expect.stringContaining("/auth/callback") })
+    );
+  });
+});
+
+// ── PUT /api/invites (resend invite) ─────────────────────────────────────────
+
+function putReq(body: unknown) {
+  return new Request("http://localhost/api/invites", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("PUT /api/invites — validation", () => {
+  it("returns 400 when email is missing", async () => {
+    const res = await PUT(putReq({}));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("email") });
+  });
+
+  it("returns 400 when email format is invalid", async () => {
+    const res = await PUT(putReq({ email: "not-an-email" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("email") });
+  });
+});
+
+describe("PUT /api/invites — auth", () => {
+  it("returns 401 for unauthenticated requests", async () => {
+    mockCreateClient.mockResolvedValue(makeServerClient({ user: null }) as any);
+    const res = await PUT(putReq({ email: "alice@example.com" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for non-managers", async () => {
+    mockCreateClient.mockResolvedValue(makeServerClient({ isManager: false }) as any);
+    const res = await PUT(putReq({ email: "alice@example.com" }));
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("PUT /api/invites — business logic", () => {
+  it("returns 500 when the Supabase invite call fails", async () => {
+    mockCreateAdminClient.mockReturnValue(
+      makeAdminClient({ inviteError: { message: "rate limit exceeded" } }) as any
+    );
+    const res = await PUT(putReq({ email: "alice@example.com" }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: "rate limit exceeded" });
+  });
+
+  it("returns 200 on success", async () => {
+    const res = await PUT(putReq({ email: "alice@example.com" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("sends the invite to the provided email", async () => {
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    await PUT(putReq({ email: "alice@example.com" }));
     expect(adminClient.auth.admin.inviteUserByEmail).toHaveBeenCalledWith(
       "alice@example.com",
       expect.objectContaining({ redirectTo: expect.stringContaining("/auth/callback") })

@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
-import { GET, PATCH } from "./route";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: any, init?: { status?: number }) =>
@@ -15,6 +17,18 @@ vi.mock("next/server", () => ({
 }));
 
 const mockCreateClient = vi.mocked(createClient);
+const mockCreateAdminClient = vi.mocked(createAdminClient);
+
+function makeAdminClient() {
+  const builder: any = {};
+  for (const m of ["delete", "eq"]) builder[m] = vi.fn().mockReturnValue(builder);
+  builder.then = (resolve: any, reject: any) =>
+    Promise.resolve({ error: null }).then(resolve, reject);
+  return {
+    from: vi.fn().mockReturnValue(builder),
+    auth: { admin: { deleteUser: vi.fn().mockResolvedValue({ error: null }) } },
+  };
+}
 
 const MOCK_EMPLOYEES = [
   { id: 1, name: "Alice Smith" },
@@ -129,6 +143,35 @@ describe("PATCH /api/employees", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  // ── Name update ─────────────────────────────────────────────────────────────
+
+  it("returns 400 when name is an empty string", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, name: "" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("name") });
+  });
+
+  it("returns 400 when name is only whitespace", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, name: "   " }));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when neither name nor userId is provided", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1 }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("No fields") });
+  });
+
+  it("returns 200 when updating name only", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, name: "Alice Johnson" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
   // ── DB error ────────────────────────────────────────────────────────────────
 
   it("returns 500 on database error", async () => {
@@ -139,6 +182,132 @@ describe("PATCH /api/employees", () => {
     });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await PATCH(patchReq({ id: 1, userId: "user-abc" }));
+    expect(res.status).toBe(500);
+  });
+});
+
+// ── DELETE ───────────────────────────────────────────────────────────────────
+
+describe("DELETE /api/employees", () => {
+  function deleteReq(body: unknown) {
+    return new Request("http://localhost/api/employees", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  beforeEach(() => {
+    mockCreateAdminClient.mockReturnValue(makeAdminClient() as any);
+  });
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+
+  it("returns 400 when id is missing", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await DELETE(deleteReq({}));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("id") });
+  });
+
+  it("returns 400 when id is not an integer", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await DELETE(deleteReq({ id: "abc" }));
+    expect(res.status).toBe(400);
+  });
+
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
+  it("returns 401 for unauthenticated requests", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: null }) as any);
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for authenticated non-managers", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: false }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(403);
+  });
+
+  // ── Business logic ──────────────────────────────────────────────────────────
+
+  it("returns 404 when the employee does not exist", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: null }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 99 }));
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 403 when a manager tries to delete their own account", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: MOCK_USER.id },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 200 on success for an unlinked employee", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: null },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("deletes the auth account when the employee has a linked user", async () => {
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: "other-user-456" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(200);
+    expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledWith("other-user-456");
+  });
+
+  it("does not call the admin client when employee has no linked user", async () => {
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: null },
+      }) as any
+    );
+    await DELETE(deleteReq({ id: 1 }));
+    expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
+  });
+
+  // ── DB error ────────────────────────────────────────────────────────────────
+
+  it("returns 500 on database error during deletion", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: null },
+        queryError: { message: "db error" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(500);
   });
 });

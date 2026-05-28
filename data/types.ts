@@ -77,7 +77,7 @@ export function fmtMinutes(m: number): string {
   if (m < 0) return "";
   const h = Math.floor(m / 60);
   const min = m % 60;
-  const ampm = h >= 12 ? "PM" : "AM";
+  const ampm = h >= 12 && h < 24 ? "PM" : "AM";
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return min === 0
     ? `${h12}:00 ${ampm}`

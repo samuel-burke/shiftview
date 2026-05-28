@@ -70,6 +70,7 @@ export default function SchedulePageClient() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [loading, setLoading] = useState(true);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   async function handleSignOut() {
@@ -107,13 +108,14 @@ export default function SchedulePageClient() {
       to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
     }
     setLoading(true);
+    setScheduleError(null);
     fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}`)
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         setSchedules(data.schedules ?? []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setScheduleError("Failed to load schedule"); setLoading(false); });
   }, [view, navDate, firstDayOfWeek]);
 
   function goToPrev() {
@@ -307,6 +309,10 @@ export default function SchedulePageClient() {
         {loading ? (
           <div className="h-[120px] flex items-center justify-center">
             <div className="spinner" />
+          </div>
+        ) : scheduleError ? (
+          <div className="h-[120px] flex items-center justify-center">
+            <div className="text-sm text-red-400 text-center">{scheduleError}</div>
           </div>
         ) : view === "week" ? (
           <WeekView

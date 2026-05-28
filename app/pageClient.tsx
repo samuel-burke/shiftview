@@ -358,11 +358,18 @@ export default function Page() {
     />
   );
 
+  const errorBanner = error ? (
+    <div className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+      {error}
+    </div>
+  ) : null;
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
         <CoverageHeader {...headerProps} />
         {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+        {errorBanner}
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
@@ -388,6 +395,7 @@ export default function Page() {
     <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+      {errorBanner}
       {statsRow}
       {timeline}
       {legend}
