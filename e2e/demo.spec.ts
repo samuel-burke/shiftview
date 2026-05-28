@@ -7,7 +7,7 @@ const MOCK_EMPLOYEES = [
   { id: 3, name: "Carol White" },
 ];
 
-const TODAY_KEY = new Date().toLocaleDateString("en-CA");
+const TODAY_KEY = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 
 const MOCK_SCHEDULES = [
   { id: 1, employeeId: 1, date: TODAY_KEY, startMinutes: 360, endMinutes: 840 },
