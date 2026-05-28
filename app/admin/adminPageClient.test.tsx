@@ -37,9 +37,37 @@ describe("AdminPageClient", () => {
   async function renderAndWait(props = { currentUserId: CURRENT_USER_ID }) {
     mockFetch();
     render(<AdminPageClient {...props} />);
-    // Wait for both fetches to complete and employees to appear
     await screen.findByText("Alice Smith");
   }
+
+  // ── Demo mode ──────────────────────────────────────────────────────────────
+
+  it("renders demo employees without hitting the API", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch");
+    render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
+    await screen.findByText("Alice Smith");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows Manager badge for demo managers", async () => {
+    render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
+    await screen.findByText("Alice Smith");
+    const managerBadges = screen.getAllByText("Manager");
+    expect(managerBadges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("optimistically toggles in demo mode without making an API call", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch");
+    render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
+    await screen.findByText("Bob Jones");
+
+    await userEvent.click(screen.getByRole("button", { name: /demote bob/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /promote bob/i })).toBeInTheDocument();
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 
   // ── Rendering ──────────────────────────────────────────────────────────────
 
@@ -81,7 +109,6 @@ describe("AdminPageClient", () => {
 
   it("does not show a Demote button for the current user", async () => {
     await renderAndWait();
-    // Bob is also a manager and should have a Demote button; Alice (self) should not
     const demoteButtons = screen.queryAllByRole("button", { name: /demote alice/i });
     expect(demoteButtons).toHaveLength(0);
   });
@@ -113,7 +140,6 @@ describe("AdminPageClient", () => {
         return { ok: true, json: async () => MOCK_EMPLOYEES } as Response;
       if (url.includes("/api/managers") && (!init || init.method !== "PUT"))
         return { ok: true, json: async () => MOCK_MANAGER_IDS } as Response;
-      // PUT succeeds
       return { ok: true, json: async () => ({ ok: true }) } as Response;
     });
 
@@ -122,21 +148,19 @@ describe("AdminPageClient", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /demote bob/i }));
 
-    // After optimistic update, Bob's badge should flip to Employee
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /promote bob/i })).toBeInTheDocument();
     });
   });
 
-  it("reverts the toggle when the API returns an error", async () => {
+  it("reverts the toggle and shows an error message when the API returns an error", async () => {
     vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
       const url = input.toString();
       if (url.includes("/api/employees"))
         return { ok: true, json: async () => MOCK_EMPLOYEES } as Response;
       if (url.includes("/api/managers") && (!init || init.method !== "PUT"))
         return { ok: true, json: async () => MOCK_MANAGER_IDS } as Response;
-      // PUT fails
-      return { ok: false, json: async () => ({ error: "forbidden" }) } as Response;
+      return { ok: false, json: async () => ({ error: "Manager access required" }) } as Response;
     });
 
     render(<AdminPageClient currentUserId={CURRENT_USER_ID} />);
@@ -144,10 +168,10 @@ describe("AdminPageClient", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /demote bob/i }));
 
-    // Should revert back to Demote after the API error
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /demote bob/i })).toBeInTheDocument();
     });
+    expect(screen.getByText("Manager access required")).toBeInTheDocument();
   });
 
   it("shows empty state when there are no employees", async () => {

@@ -28,14 +28,14 @@ export default async function AdminPage({
 
     return (
       <Suspense>
-        <AdminPageClient currentUserId={user.id} />
+        <AdminPageClient currentUserId={user.id} isDemo={false} />
       </Suspense>
     );
   }
 
   return (
     <Suspense>
-      <AdminPageClient currentUserId={DEMO_USER_ID} />
+      <AdminPageClient currentUserId={DEMO_USER_ID} isDemo={true} />
     </Suspense>
   );
 }

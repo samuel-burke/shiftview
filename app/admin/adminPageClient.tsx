@@ -7,14 +7,33 @@ import BottomNav from "../../components/BottomNav";
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
 
-export default function AdminPageClient({ currentUserId }: { currentUserId: string }) {
+const DEMO_EMPLOYEES: Employee[] = [
+  { id: 1, name: "Alice Smith",  email: "alice@example.com", user_id: "demo-manager" },
+  { id: 2, name: "Bob Jones",    email: "bob@example.com",   user_id: "demo-bob" },
+  { id: 3, name: "Carol White",  email: "carol@example.com", user_id: null },
+];
+const DEMO_MANAGER_IDS = new Set(["demo-manager", "demo-bob"]);
+
+export default function AdminPageClient({
+  currentUserId,
+  isDemo = false,
+}: {
+  currentUserId: string;
+  isDemo?: boolean;
+}) {
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [errorId, setErrorId] = useState<number | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setEmployees(DEMO_EMPLOYEES);
+      setManagerUserIds(new Set(DEMO_MANAGER_IDS));
+      return;
+    }
     Promise.all([
       fetch("/api/employees").then((r) => r.ok ? r.json() : Promise.reject()),
       fetch("/api/managers").then((r) => r.ok ? r.json() : Promise.reject()),
@@ -24,22 +43,28 @@ export default function AdminPageClient({ currentUserId }: { currentUserId: stri
         setManagerUserIds(new Set(ids));
       })
       .catch(() => {});
-  }, []);
+  }, [isDemo]);
 
   async function toggleRole(emp: Employee) {
     if (!emp.user_id) return;
     const isMgr = managerUserIds.has(emp.user_id);
     const action = isMgr ? "demote" : "promote";
 
-    // optimistic update
     setTogglingId(emp.id);
     setErrorId(null);
+    setErrorMsg(null);
     setManagerUserIds((prev) => {
       const next = new Set(prev);
       if (isMgr) next.delete(emp.user_id!);
       else next.add(emp.user_id!);
       return next;
     });
+
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 400));
+      setTogglingId(null);
+      return;
+    }
 
     const res = await fetch(`/api/managers/${emp.user_id}`, {
       method: "PUT",
@@ -50,15 +75,17 @@ export default function AdminPageClient({ currentUserId }: { currentUserId: stri
     setTogglingId(null);
 
     if (!res.ok) {
-      // revert on error
       setManagerUserIds((prev) => {
         const next = new Set(prev);
         if (isMgr) next.add(emp.user_id!);
         else next.delete(emp.user_id!);
         return next;
       });
+      const json = await res.json().catch(() => ({}));
+      const msg = json.error ?? "Something went wrong. Please try again.";
       setErrorId(emp.id);
-      setTimeout(() => setErrorId(null), 3000);
+      setErrorMsg(msg);
+      setTimeout(() => { setErrorId(null); setErrorMsg(null); }, 5000);
     }
   }
 
@@ -83,6 +110,13 @@ export default function AdminPageClient({ currentUserId }: { currentUserId: stri
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Roles
           </div>
+
+          {errorMsg && (
+            <div className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
+              {errorMsg}
+            </div>
+          )}
+
           <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
             {employees.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
