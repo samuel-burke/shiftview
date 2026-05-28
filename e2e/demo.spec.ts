@@ -7,7 +7,7 @@ const MOCK_EMPLOYEES = [
   { id: 3, name: "Carol White" },
 ];
 
-const TODAY_KEY = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+const TODAY_KEY = new Date().toLocaleDateString("en-CA");
 
 const MOCK_SCHEDULES = [
   { id: 1, employeeId: 1, date: TODAY_KEY, startMinutes: 360, endMinutes: 840 },
@@ -70,11 +70,7 @@ test.describe("Demo mode — schedule view", () => {
   });
 
   test("shows today's date in the header", async ({ page }) => {
-    const today = new Date();
-    const dayName = today.toLocaleDateString("en-US", {
-      weekday: "long",
-      timeZone: "America/New_York",
-    });
+    const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
     await expect(page.getByText(new RegExp(dayName, "i"))).toBeVisible();
   });
 });
@@ -88,10 +84,7 @@ test.describe("Demo mode — date navigation", () => {
   test("navigates to the previous day with the back button", async ({ page }) => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const prevDay = yesterday.toLocaleDateString("en-US", {
-      weekday: "long",
-      timeZone: "America/New_York",
-    });
+    const prevDay = yesterday.toLocaleDateString("en-US", { weekday: "long" });
     await page.getByRole("button", { name: "Previous day" }).click();
     await expect(page.getByText(new RegExp(prevDay, "i"))).toBeVisible();
   });
@@ -99,20 +92,13 @@ test.describe("Demo mode — date navigation", () => {
   test("navigates to the next day with the forward button", async ({ page }) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const nextDay = tomorrow.toLocaleDateString("en-US", {
-      weekday: "long",
-      timeZone: "America/New_York",
-    });
+    const nextDay = tomorrow.toLocaleDateString("en-US", { weekday: "long" });
     await page.getByRole("button", { name: "Next day" }).click();
     await expect(page.getByText(new RegExp(nextDay, "i"))).toBeVisible();
   });
 
   test("returns to today when Today button is clicked", async ({ page }) => {
-    const today = new Date();
-    const dayName = today.toLocaleDateString("en-US", {
-      weekday: "long",
-      timeZone: "America/New_York",
-    });
+    const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
     // Navigate away then back
     await page.getByRole("button", { name: "Previous day" }).click();
     await page.getByRole("button", { name: /today/i }).click();
