@@ -3,10 +3,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginPage from "./page";
 
-// Mock next/navigation
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
-// Mock supabase-browser
 const mockSignInWithOtp = vi.fn().mockResolvedValue({ error: null });
 const mockVerifyOtp = vi.fn().mockResolvedValue({ error: null });
 
@@ -29,7 +27,6 @@ describe("LoginPage — OTP input", () => {
     const emailInput = screen.getByPlaceholderText("Email");
     await userEvent.type(emailInput, "user@example.com");
     await userEvent.click(screen.getByRole("button", { name: /send code/i }));
-    // Wait for OTP step
     await screen.findByPlaceholderText("000000");
   }
 
@@ -39,10 +36,22 @@ describe("LoginPage — OTP input", () => {
     expect(otpInput.className).toContain("caret-transparent");
   });
 
-  it("renders the OTP input with inputMode numeric", async () => {
+  it("renders OTP input with inputMode numeric for native digit picker", async () => {
     await advanceToCodeStep();
     const otpInput = screen.getByPlaceholderText("000000");
     expect(otpInput).toHaveAttribute("inputMode", "numeric");
+  });
+
+  it("renders OTP input with pattern [0-9]* to reinforce numeric input on iOS", async () => {
+    await advanceToCodeStep();
+    const otpInput = screen.getByPlaceholderText("000000");
+    expect(otpInput).toHaveAttribute("pattern", "[0-9]*");
+  });
+
+  it("renders OTP input with autoComplete one-time-code for SMS autofill", async () => {
+    await advanceToCodeStep();
+    const otpInput = screen.getByPlaceholderText("000000");
+    expect(otpInput).toHaveAttribute("autoComplete", "one-time-code");
   });
 
   it("only accepts digit characters in the OTP field", async () => {

@@ -99,6 +99,8 @@ export default function LoginPage() {
               <input
                 type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
                 placeholder="000000"
                 value={code}
                 maxLength={6}
