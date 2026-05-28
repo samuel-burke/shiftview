@@ -498,6 +498,19 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           </div>
         </section>
 
+        {/* Admin */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Admin
+          </div>
+          <button
+            onClick={() => router.push(isDemo ? "/admin?demo=true" : "/admin")}
+            className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
+          >
+            Manage Roles
+          </button>
+        </section>
+
         {/* Sign out / Sign in */}
         <section className="pb-2">
           {isDemo ? (
