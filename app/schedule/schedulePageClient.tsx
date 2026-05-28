@@ -68,12 +68,15 @@ export default function SchedulePageClient() {
   const [navDate, setNavDate] = useState(today);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [isManager, setIsManager] = useState(false);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [loading, setLoading] = useState(true);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [timeOffError, setTimeOffError] = useState<string | null>(null);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -84,9 +87,10 @@ export default function SchedulePageClient() {
   useEffect(() => {
     fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
       .then((r) => r.json())
-      .then(({ employeeName, isManager }) => {
+      .then(({ employeeName, isManager, employeeId }) => {
         setEmployeeName(employeeName ?? null);
         setIsManager(!!isManager);
+        setEmployeeId(employeeId ?? null);
       })
       .catch(() => {});
     fetch("/api/store-hours")
@@ -119,6 +123,35 @@ export default function SchedulePageClient() {
       })
       .catch(() => { setScheduleError("Failed to load schedule"); setLoading(false); });
   }, [view, navDate, firstDayOfWeek]);
+
+  // Reset time-off request status when selected date changes
+  useEffect(() => {
+    setTimeOffStatus("idle");
+    setTimeOffError(null);
+  }, [selectedDate]);
+
+  async function handleRequestDayOff() {
+    if (!employeeId || isDemo) return;
+    setTimeOffStatus("loading");
+    setTimeOffError(null);
+    try {
+      const res = await fetch("/api/time-off", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, date: selectedDateKey }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setTimeOffError(json.error ?? "Failed to submit request");
+        setTimeOffStatus("error");
+      } else {
+        setTimeOffStatus("success");
+      }
+    } catch {
+      setTimeOffError("Failed to submit request");
+      setTimeOffStatus("error");
+    }
+  }
 
   function goToPrev() {
     if (view === "week") {
@@ -197,6 +230,13 @@ export default function SchedulePageClient() {
   const selectedDayLabel = isSelectedToday
     ? "Today"
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+
+  // Show "Request Day Off" when: no shift scheduled, date is strictly in the future, and user has an employeeId
+  const canRequestDayOff =
+    !selectedSchedule &&
+    selectedDateKey > todayKey &&
+    employeeId !== null &&
+    !isDemo;
 
   // Stats
   const totalShifts = schedules.length;
@@ -367,6 +407,28 @@ export default function SchedulePageClient() {
             </>
           ) : (
             <div className="text-2xl font-bold text-slate-400 mt-1">Day Off</div>
+          )}
+
+          {/* Request Day Off button */}
+          {canRequestDayOff && (
+            <div className="mt-3">
+              {timeOffStatus === "success" ? (
+                <div className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleRequestDayOff}
+                    disabled={timeOffStatus === "loading"}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
+                  </button>
+                  {timeOffStatus === "error" && timeOffError && (
+                    <div className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
 

@@ -25,6 +25,7 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
+import TimeOffRequestsDrawer from "../components/TimeOffRequestsDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
@@ -74,6 +75,17 @@ export default function Page() {
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
+
+  type TimeOffRequest = {
+    id: number;
+    employeeId: number;
+    employeeName: string;
+    date: string;
+    note?: string;
+    status: string;
+  };
+  const [pendingTimeOff, setPendingTimeOff] = useState<TimeOffRequest[]>([]);
+  const [timeOffDrawerOpen, setTimeOffDrawerOpen] = useState(false);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -153,6 +165,39 @@ export default function Page() {
     }
     setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
   }
+
+  async function handleApproveTimeOff(id: number) {
+    const res = await fetch(`/api/time-off/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to approve request");
+    }
+    setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
+    // Refresh schedules for current date after approval
+    const dateKey = toDateKey(date);
+    fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
+      .then((r) => r.json())
+      .then(setSchedules)
+      .catch(() => {});
+  }
+
+  async function handleDenyTimeOff(id: number) {
+    const res = await fetch(`/api/time-off/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "denied" }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to deny request");
+    }
+    setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
+
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
@@ -167,9 +212,15 @@ export default function Page() {
       .catch(() => setError("Failed to load employees"));
     fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
       .then((r) => r.json())
-      .then(({ isManager, employeeName }) => {
-        setIsManager(isManager);
+      .then(({ isManager: mgr, employeeName }) => {
+        setIsManager(mgr);
         setUserName(employeeName ?? null);
+        if (mgr && !isDemo) {
+          fetch("/api/time-off")
+            .then((r) => r.json())
+            .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
+            .catch(() => {});
+        }
       })
       .catch(() => {});
     fetch("/api/store-hours")
@@ -376,6 +427,25 @@ export default function Page() {
     />
   );
 
+  const timeOffDrawer = isManager && !isDemo ? (
+    <TimeOffRequestsDrawer
+      open={timeOffDrawerOpen}
+      onClose={() => setTimeOffDrawerOpen(false)}
+      requests={pendingTimeOff}
+      onApprove={handleApproveTimeOff}
+      onDeny={handleDenyTimeOff}
+    />
+  ) : null;
+
+  const pendingBadge = isManager && !isDemo && pendingTimeOff.length > 0 ? (
+    <button
+      onClick={() => setTimeOffDrawerOpen(true)}
+      className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5 cursor-pointer"
+    >
+      📋 {pendingTimeOff.length}
+    </button>
+  ) : null;
+
   const errorBanner = error ? (
     <div className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
       {error}
@@ -391,6 +461,9 @@ export default function Page() {
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
+            {pendingBadge && (
+              <div className="flex justify-end mb-3">{pendingBadge}</div>
+            )}
             {statsRow}
             {timeline}
             {legend}
@@ -404,6 +477,7 @@ export default function Page() {
           </div>
         </div>
         {drawer}
+        {timeOffDrawer}
         <BottomNav active="team" />
       </main>
     );
@@ -414,6 +488,9 @@ export default function Page() {
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
+      {pendingBadge && (
+        <div className="flex justify-end mb-3 mt-2">{pendingBadge}</div>
+      )}
       {statsRow}
       {timeline}
       {legend}
@@ -422,6 +499,7 @@ export default function Page() {
         <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
       </div>
       {drawer}
+      {timeOffDrawer}
       <BottomNav active="team" />
     </main>
   );
