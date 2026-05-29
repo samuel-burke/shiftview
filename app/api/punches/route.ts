@@ -125,6 +125,7 @@ export async function POST(request: Request) {
           .eq("id", sched.employee_id)
           .maybeSingle();
         notifyManagers(
+          supabase,
           "late_clock_in",
           "Late Clock-In",
           `${empData?.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,

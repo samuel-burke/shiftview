@@ -113,7 +113,7 @@ export async function PUT(
       .eq("id", swapFull.requester_id)
       .maybeSingle();
     if (requesterEmp?.user_id) {
-      notify({
+      notify(supabase, {
         userId: requesterEmp.user_id,
         type: status === "approved" ? "swap_approved" : "swap_denied",
         title: status === "approved" ? "Swap Request Approved" : "Swap Request Denied",

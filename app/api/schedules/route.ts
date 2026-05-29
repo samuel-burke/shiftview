@@ -73,7 +73,7 @@ export async function PUT(request: Request) {
       .eq("id", existing.employee_id)
       .maybeSingle();
     if (emp?.user_id) {
-      notify({
+      notify(supabase, {
         userId: emp.user_id,
         type: "shift_change",
         title: "Shift Updated",
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     .eq("id", employeeId)
     .maybeSingle();
   if (emp?.user_id) {
-    notify({
+    notify(supabase, {
       userId: emp.user_id,
       type: "shift_change",
       title: "New Shift Scheduled",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { notify } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 
@@ -15,7 +15,9 @@ export async function GET(request: Request) {
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   const date = tomorrow.toISOString().slice(0, 10);
 
-  const supabase = await createClient();
+  // Cron has no authenticated user session — use admin client to read schedules/employees,
+  // then use the same client to call SECURITY DEFINER notify RPCs.
+  const supabase = createAdminClient();
 
   const { data: schedules, error: schedErr } = await supabase
     .from("schedules")
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
     const startTime = fmtMinutes(schedule.start_minutes);
     const endTime = fmtMinutes(schedule.end_minutes);
 
-    await notify({
+    await notify(supabase, {
       userId: employee.user_id,
       type: "shift_reminder",
       title: "Shift Reminder",

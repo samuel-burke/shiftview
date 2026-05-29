@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase-admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPush, type PushPayload } from "./webpush";
 
 export type NotificationType =
@@ -12,7 +12,6 @@ export type NotificationType =
   | "schedule_published";
 
 export type NotifyOptions = {
-  // Target user UUID (null = broadcast to all managers)
   userId: string | null;
   type: NotificationType;
   title: string;
@@ -20,74 +19,85 @@ export type NotifyOptions = {
   data?: Record<string, unknown>;
 };
 
-// Insert a notification into the DB and fire a push to all subscriptions for that user.
-export async function notify(options: NotifyOptions): Promise<void> {
-  const supabase = createAdminClient();
-
-  // Insert into notifications table
-  await supabase.from("notifications").insert({
-    user_id: options.userId,
-    type:    options.type,
-    title:   options.title,
-    body:    options.body,
-    data:    options.data ?? null,
+// Insert a notification and fire push to all subscriptions for that user.
+// Caller supplies their own supabase client (RLS applies; SECURITY DEFINER
+// functions narrow the blast radius to the minimum required operations).
+export async function notify(
+  supabase: SupabaseClient,
+  options: NotifyOptions
+): Promise<void> {
+  await supabase.rpc("notify_insert", {
+    p_user_id: options.userId,
+    p_type:    options.type,
+    p_title:   options.title,
+    p_body:    options.body,
+    p_data:    options.data ?? null,
   });
 
-  if (!options.userId) return; // Broadcast notifications don't push (only in-app)
+  if (!options.userId) return;
 
-  // Fetch push subscriptions for this user
-  const { data: subs } = await supabase
-    .from("push_subscriptions")
-    .select("endpoint, p256dh, auth_key")
-    .eq("user_id", options.userId);
-
-  if (!subs?.length) return;
-
-  const payload: PushPayload = {
+  await sendPushToUser(supabase, options.userId, {
     title: options.title,
     body:  options.body,
     data:  options.data,
     tag:   options.type,
-  };
-
-  // Send push to each subscription; remove expired/gone ones
-  const stale: string[] = [];
-  await Promise.all(
-    subs.map(async (sub) => {
-      const result = await sendPush(sub, payload);
-      if (result === "gone") stale.push(sub.endpoint);
-    })
-  );
-
-  if (stale.length > 0) {
-    await supabase
-      .from("push_subscriptions")
-      .delete()
-      .in("endpoint", stale)
-      .eq("user_id", options.userId);
-  }
+  });
 }
 
-// Helper: notify all managers
+// Helper: notify all managers.
+// Inserts one broadcast notification (user_id = null) for the in-app feed,
+// then sends a push to each manager's devices individually.
 export async function notifyManagers(
+  supabase: SupabaseClient,
   type: NotificationType,
   title: string,
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  const supabase = createAdminClient();
+  await supabase.rpc("notify_insert", {
+    p_user_id: null,
+    p_type:    type,
+    p_title:   title,
+    p_body:    body,
+    p_data:    data ?? null,
+  });
 
-  // Insert one broadcast notification (user_id = null) for the in-app feed
-  await supabase.from("notifications").insert({ user_id: null, type, title, body, data: data ?? null });
-
-  // Also push individually to each manager's subscriptions
-  const { data: managers } = await supabase.from("managers").select("user_id");
+  const { data: managers } = await supabase.rpc("notify_get_manager_ids");
   if (!managers?.length) return;
 
+  const payload: PushPayload = { title, body, data, tag: type };
+
   await Promise.all(
-    managers.map((m) =>
-      notify({ userId: m.user_id, type, title, body, data })
-        .catch(() => {})
+    (managers as { user_id: string }[]).map((m) =>
+      sendPushToUser(supabase, m.user_id, payload).catch(() => {})
     )
   );
+}
+
+async function sendPushToUser(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: PushPayload
+): Promise<void> {
+  const { data: subs } = await supabase.rpc("notify_get_push_subs", {
+    p_user_id: userId,
+  });
+  if (!subs?.length) return;
+
+  const stale: string[] = [];
+  await Promise.all(
+    (subs as { endpoint: string; p256dh: string; auth_key: string }[]).map(
+      async (sub) => {
+        const result = await sendPush(sub, payload);
+        if (result === "gone") stale.push(sub.endpoint);
+      }
+    )
+  );
+
+  if (stale.length > 0) {
+    await supabase.rpc("notify_delete_subs", {
+      p_user_id:   userId,
+      p_endpoints: stale,
+    });
+  }
 }
