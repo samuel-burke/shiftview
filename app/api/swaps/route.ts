@@ -72,12 +72,18 @@ export async function GET() {
       .or(`requester_id.eq.${employeeRow.id},target_id.eq.${employeeRow.id}`)
       .order("created_at", { ascending: false });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+    console.error("[api/swaps]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
     return NextResponse.json(data ?? []);
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/swaps]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   return NextResponse.json(data ?? []);
 }
 

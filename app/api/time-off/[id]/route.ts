@@ -41,7 +41,10 @@ export async function PUT(
     .update({ status })
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/time-off/[id]]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   // Notify the employee of the decision
   if (pto?.employee_id) {

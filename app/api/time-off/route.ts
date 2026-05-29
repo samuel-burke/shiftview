@@ -26,7 +26,10 @@ export async function GET() {
       .eq("status", "pending")
       .order("date", { ascending: true });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+    console.error("[api/time-off]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
     // Fetch employee names separately
     const employeeIds = [...new Set((requests ?? []).map((r) => r.employee_id))];
@@ -75,7 +78,10 @@ export async function GET() {
     .lte("date", ninetyDaysOut)
     .order("date", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/time-off]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const result = (requests ?? []).map((r) => ({
     id: r.id,
@@ -131,7 +137,10 @@ export async function POST(request: Request) {
     .select("id")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/time-off]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({ id: data.id, ok: true }, { status: 201 });
 }

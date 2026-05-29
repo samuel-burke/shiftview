@@ -25,6 +25,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "from and to params required" }, { status: 400 });
   if (!DATE_RE.test(from) || !DATE_RE.test(to))
     return NextResponse.json({ error: "dates must be YYYY-MM-DD" }, { status: 400 });
+  if (from > to)
+    return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
+
+  const daysDiff = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000;
+  if (daysDiff > 366)
+    return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -45,7 +51,8 @@ export async function GET(request: Request) {
     .gte("punched_at", rangeStart)
     .lte("punched_at", rangeEnd)
     .order("employee_id")
-    .order("punched_at");
+    .order("punched_at")
+    .limit(10_000);
 
   if (!managerRow) {
     const { data: emp } = await supabase
@@ -61,7 +68,10 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/punches/export GET]", error);
+    return NextResponse.json({ error: "Failed to fetch punch records" }, { status: 500 });
+  }
 
   const rows = data ?? [];
 

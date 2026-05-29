@@ -29,25 +29,48 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/notifications]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   return NextResponse.json(data ?? []);
 }
 
 // PATCH /api/notifications — mark notification(s) as read
 export async function PATCH(request: Request) {
-  const { ids } = await request.json();
+  const body = await request.json().catch(() => ({}));
+  const { ids } = body;
   if (!Array.isArray(ids) || ids.length === 0)
     return NextResponse.json({ error: "ids array required" }, { status: 400 });
+
+  // Validate all IDs are positive integers
+  if (!ids.every((id) => Number.isInteger(id) && id > 0))
+    return NextResponse.json({ error: "ids must be positive integers" }, { status: 400 });
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { error } = await supabase
+  const { data: managerRow } = await supabase
+    .from("managers").select("user_id").eq("user_id", user.id).maybeSingle();
+
+  // Explicit ownership filter — defense-in-depth on top of RLS.
+  // Regular users may only mark their own rows; managers also include broadcasts (user_id IS NULL).
+  let query = supabase
     .from("notifications")
     .update({ read: true })
     .in("id", ids);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (managerRow) {
+    query = query.or(`user_id.eq.${user.id},user_id.is.null`);
+  } else {
+    query = query.eq("user_id", user.id);
+  }
+
+  const { error } = await query;
+  if (error) {
+    console.error("[api/notifications PATCH]", error);
+    return NextResponse.json({ error: "Failed to update notifications" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

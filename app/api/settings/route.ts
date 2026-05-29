@@ -10,7 +10,10 @@ export async function GET() {
     .from("app_settings")
     .select("key, value");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/settings]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   return NextResponse.json({
@@ -58,6 +61,9 @@ export async function PUT(request: Request) {
     .from("app_settings")
     .upsert(rows);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/settings]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

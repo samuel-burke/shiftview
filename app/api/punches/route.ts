@@ -63,7 +63,10 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/punches]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json((data ?? []).map(mapRow));
 }
@@ -105,7 +108,10 @@ export async function POST(request: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/punches]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   // Check for late clock-in and alert managers
   if (punchType === "clock_in" && scheduleId) {
@@ -152,6 +158,14 @@ export async function PUT(request: Request) {
   if (!punchedAt)
     return NextResponse.json({ error: "punchedAt required" }, { status: 400 });
 
+  const ts = new Date(punchedAt);
+  if (isNaN(ts.getTime()))
+    return NextResponse.json({ error: "punchedAt must be a valid ISO timestamp" }, { status: 400 });
+  const now = Date.now();
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  if (ts.getTime() > now || ts.getTime() < now - thirtyDaysMs)
+    return NextResponse.json({ error: "punchedAt must be within the last 30 days and not in the future" }, { status: 400 });
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -184,7 +198,10 @@ export async function PUT(request: Request) {
       .update({ punch_type: punchType, punched_at: punchedAt, note: note ?? null, is_manual: true })
       .eq("id", id)
       .eq("employee_id", targetEmployeeId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[api/punches]", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
   } else {
     // Insert a new manual punch
     const { error } = await supabase
@@ -197,7 +214,10 @@ export async function PUT(request: Request) {
         is_manual:   true,
         note:        note ?? null,
       });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[api/punches]", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

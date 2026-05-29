@@ -26,7 +26,10 @@ export async function GET(request: Request) {
     .eq("date", date)
     .order("start_minutes");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const mapped = data.map((s) => ({
     id:           s.id,
@@ -63,7 +66,10 @@ export async function PUT(request: Request) {
     .update({ start_minutes: startMinutes, end_minutes: endMinutes })
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   // Notify the affected employee of their shift change
   if (existing) {
@@ -105,7 +111,10 @@ export async function POST(request: Request) {
     .from("schedules")
     .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   // Notify the employee of their new shift
   const { data: emp } = await supabase
@@ -143,7 +152,10 @@ export async function DELETE(request: Request) {
     .delete()
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
