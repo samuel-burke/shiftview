@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { notifyManagers } from "@/lib/notify";
+import { fmtMinutes } from "@/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +106,33 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Check for late clock-in and alert managers
+  if (punchType === "clock_in" && scheduleId) {
+    const { data: sched } = await supabase
+      .from("schedules")
+      .select("start_minutes, date, employee_id")
+      .eq("id", scheduleId)
+      .maybeSingle();
+    if (sched) {
+      const punchedAt = new Date(data.punched_at);
+      const clockInMinutes = punchedAt.getHours() * 60 + punchedAt.getMinutes();
+      const lateMinutes = clockInMinutes - sched.start_minutes;
+      if (lateMinutes > 5) {
+        const { data: empData } = await supabase
+          .from("employees")
+          .select("name")
+          .eq("id", sched.employee_id)
+          .maybeSingle();
+        notifyManagers(
+          "late_clock_in",
+          "Late Clock-In",
+          `${empData?.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
+          { employeeId: sched.employee_id, scheduleId, lateMinutes }
+        ).catch(() => {});
+      }
+    }
+  }
 
   return NextResponse.json(mapRow(data), { status: 201 });
 }

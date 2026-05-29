@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
+import { notify } from "@/lib/notify";
+import { fmtMinutes } from "@/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -50,12 +52,36 @@ export async function PUT(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("employee_id, date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("schedules")
     .update({ start_minutes: startMinutes, end_minutes: endMinutes })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Notify the affected employee of their shift change
+  if (existing) {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("user_id, name")
+      .eq("id", existing.employee_id)
+      .maybeSingle();
+    if (emp?.user_id) {
+      notify({
+        userId: emp.user_id,
+        type: "shift_change",
+        title: "Shift Updated",
+        body: `Your shift on ${existing.date} has been updated to ${fmtMinutes(startMinutes)} – ${fmtMinutes(endMinutes)}`,
+        data: { scheduleId: id, date: existing.date },
+      }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -80,6 +106,22 @@ export async function POST(request: Request) {
     .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Notify the employee of their new shift
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("user_id, name")
+    .eq("id", employeeId)
+    .maybeSingle();
+  if (emp?.user_id) {
+    notify({
+      userId: emp.user_id,
+      type: "shift_change",
+      title: "New Shift Scheduled",
+      body: `You have a new shift on ${date}: ${fmtMinutes(startMinutes)} – ${fmtMinutes(endMinutes)}`,
+      data: { date, employeeId },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

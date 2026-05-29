@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
+import NotificationBell from "./NotificationBell";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
 type Props = {
@@ -136,6 +137,7 @@ export default function CoverageHeader({
             {!isToday && (
               <button onClick={onNow} className={actionBtn}>TODAY</button>
             )}
+            {!isDemo && <NotificationBell />}
             <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
@@ -172,6 +174,7 @@ export default function CoverageHeader({
             {!isToday && (
               <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2 cursor-pointer">TODAY</button>
             )}
+            {!isDemo && <NotificationBell />}
             <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>

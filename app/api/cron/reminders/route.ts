@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   const { data: employees, error: empErr } = await supabase
     .from("employees")
-    .select("id, name, email")
+    .select("id, name, user_id")
     .in("id", employeeIds);
 
   if (empErr) {
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
   for (const schedule of schedules) {
     const employee = empMap.get(schedule.employee_id);
-    if (!employee?.email) {
+    if (!employee?.user_id) {
       skipped++;
       continue;
     }
@@ -65,14 +65,13 @@ export async function GET(request: Request) {
     const startTime = fmtMinutes(schedule.start_minutes);
     const endTime = fmtMinutes(schedule.end_minutes);
 
-    await sendEmail({
-      to: employee.email,
-      subject: `Shift reminder: ${formattedDate}`,
-      html: `<p>Hi ${employee.name},</p>
-<p>You're scheduled tomorrow, <strong>${formattedDate}</strong>:</p>
-<p style="font-size:20px; font-weight:bold">${startTime} – ${endTime}</p>
-<p>— ShiftView</p>`,
-    });
+    await notify({
+      userId: employee.user_id,
+      type: "shift_reminder",
+      title: "Shift Reminder",
+      body: `You're scheduled tomorrow, ${formattedDate}: ${startTime} – ${endTime}`,
+      data: { date, scheduleId: schedule.id },
+    }).catch(() => {});
 
     sent++;
   }

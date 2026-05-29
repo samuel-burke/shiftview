@@ -16,6 +16,7 @@ import {
   SHIFT_COLORS,
 } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import NotificationBell from "../../components/NotificationBell";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -316,8 +317,11 @@ export default function ClockPageClient() {
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
           <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">{firstName}</div>
         </div>
-        <div className="text-sm text-slate-400">
-          {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-400">
+            {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+          </span>
+          {!isDemo && <NotificationBell />}
         </div>
       </div>
 

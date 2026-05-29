@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { notify } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,31 @@ export async function PUT(
 
   if (statusError) {
     return NextResponse.json({ error: statusError.message }, { status: 500 });
+  }
+
+  // Notify the requester of the outcome
+  const { data: swapFull } = await supabase
+    .from("shift_swaps")
+    .select("requester_id")
+    .eq("id", swapId)
+    .maybeSingle();
+  if (swapFull?.requester_id) {
+    const { data: requesterEmp } = await supabase
+      .from("employees")
+      .select("user_id")
+      .eq("id", swapFull.requester_id)
+      .maybeSingle();
+    if (requesterEmp?.user_id) {
+      notify({
+        userId: requesterEmp.user_id,
+        type: status === "approved" ? "swap_approved" : "swap_denied",
+        title: status === "approved" ? "Swap Request Approved" : "Swap Request Denied",
+        body: status === "approved"
+          ? "Your shift swap request has been approved."
+          : "Your shift swap request was denied.",
+        data: { swapId },
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ ok: true });
