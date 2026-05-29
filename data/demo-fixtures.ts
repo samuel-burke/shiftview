@@ -26,6 +26,23 @@ export function getDemoSchedulesForDate(date: string): Schedule[] {
   return results;
 }
 
+// Mon–Fri 9 AM–9 PM (540–1260), Sat–Sun 10 AM–6 PM (600–1080)
+export const DEMO_STORE_HOURS: Record<number, { open: number; close: number }> = {
+  0: { open: 600, close: 1080 },
+  1: { open: 540, close: 1260 },
+  2: { open: 540, close: 1260 },
+  3: { open: 540, close: 1260 },
+  4: { open: 540, close: 1260 },
+  5: { open: 540, close: 1260 },
+  6: { open: 600, close: 1080 },
+};
+
+export const DEMO_SETTINGS = {
+  optimalCoverage: 3,
+  minCoverage: 2,
+  firstDayOfWeek: 1,
+};
+
 export function getDemoSchedulesForEmployee(employeeId: number, from: string, to: string): Schedule[] {
   const results: Schedule[] = [];
   let id = 9000;

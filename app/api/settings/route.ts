@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(DEMO_SETTINGS);
+  }
+
   const { data, error } = await supabase
     .from("app_settings")
     .select("key, value");

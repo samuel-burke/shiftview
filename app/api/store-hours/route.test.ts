@@ -27,9 +27,20 @@ const EXPECTED_MAPPED = {
 };
 
 describe("GET /api/store-hours", () => {
-  it("returns store hours keyed by day of week", async () => {
+  it("returns demo store hours for unauthenticated users without querying the DB", async () => {
+    const client = makeSupabaseClient({ user: null });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body[1]).toHaveProperty("open");
+    expect(body[1]).toHaveProperty("close");
+    expect(client.from).not.toHaveBeenCalledWith("store_hours");
+  });
+
+  it("returns store hours keyed by day of week for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ queryData: MOCK_DB_ROWS }) as any
+      makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_ROWS }) as any
     );
     const res = await GET();
     expect(res.status).toBe(200);
@@ -38,7 +49,7 @@ describe("GET /api/store-hours", () => {
 
   it("maps snake_case DB fields to open/close", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ queryData: MOCK_DB_ROWS }) as any
+      makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_ROWS }) as any
     );
     const res = await GET();
     const body = await res.json();
@@ -46,9 +57,9 @@ describe("GET /api/store-hours", () => {
     expect(body[0]).toHaveProperty("close", 1200);
   });
 
-  it("returns 500 on database error", async () => {
+  it("returns 500 on database error for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ queryError: { message: "db error" } }) as any
+      makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } }) as any
     );
     const res = await GET();
     expect(res.status).toBe(500);
