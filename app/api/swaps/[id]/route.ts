@@ -7,9 +7,10 @@ export const dynamic = "force-dynamic";
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const swapId = Number(params.id);
+  const { id: idParam } = await params;
+  const swapId = Number(idParam);
   if (!Number.isInteger(swapId) || swapId <= 0) {
     return NextResponse.json({ error: "Invalid swap id" }, { status: 400 });
   }

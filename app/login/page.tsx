@@ -1,14 +1,19 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
 type Step = "email" | "code";
 
+function getSupabase() {
+  return createClient();
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -19,6 +24,7 @@ export default function LoginPage() {
     if (!email.trim()) { setError("Email is required."); return; }
     setLoading(true);
     setError(null);
+    const supabase = getSupabase();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { shouldCreateUser: false },
@@ -35,6 +41,7 @@ export default function LoginPage() {
     if (!code.trim()) { setError("Enter the code from your email."); return; }
     setLoading(true);
     setError(null);
+    const supabase = getSupabase();
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: code.trim(),
