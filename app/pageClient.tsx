@@ -5,11 +5,14 @@ import { useSearchParams } from "next/navigation";
 import {
   Employee,
   Schedule,
+  PunchRecord,
+  AttendanceStatus,
   StoreHours,
   isHere,
   OPTIMAL_COVERAGE,
   MINIMUM_COVERAGE,
   CoverageStatus,
+  getAttendanceStatus,
 } from "../data/types";
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
@@ -71,6 +74,7 @@ export default function Page() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
+  const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -185,17 +189,29 @@ export default function Page() {
       .catch(() => {});
   }, []);
 
-  // Fetch schedules whenever date changes
+  // Fetch schedules (and punch records for today) whenever date changes
   useEffect(() => {
     const dateKey = toDateKey(date);
     setLoading(true);
     setError(null);
-    fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setSchedules(data);
-        setLoading(false);
-      })
+    const isViewingToday = dateKey === toDateKey(today);
+    const fetches: Promise<void>[] = [
+      fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
+        .then((r) => r.json())
+        .then((data) => setSchedules(data)),
+    ];
+    if (isViewingToday && !isDemo) {
+      fetches.push(
+        fetch(`/api/punches?date=${dateKey}`)
+          .then((r) => r.json())
+          .then((data) => setPunchRecords(Array.isArray(data) ? data : []))
+          .catch(() => setPunchRecords([]))
+      );
+    } else {
+      setPunchRecords([]);
+    }
+    Promise.all(fetches)
+      .then(() => setLoading(false))
       .catch(() => {
         setError("Failed to load schedules");
         setLoading(false);
@@ -222,6 +238,18 @@ export default function Page() {
     () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
     [scheduled],
   );
+
+  // Build a map from employeeId → AttendanceStatus using real punch records
+  const attendanceMap = useMemo((): Record<number, AttendanceStatus> => {
+    const map: Record<number, AttendanceStatus> = {};
+    for (const sch of scheduled) {
+      const empPunches = punchRecords.filter((p) => p.employeeId === sch.employeeId);
+      if (empPunches.length > 0) {
+        map[sch.employeeId] = getAttendanceStatus(empPunches);
+      }
+    }
+    return map;
+  }, [punchRecords, scheduled]);
 
   const lastUpdated = (() => {
     const h = Math.floor(nowMinutes / 60);
@@ -267,15 +295,20 @@ export default function Page() {
       if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
         setRefreshing(true);
         const dateKey = toDateKey(date);
+        const isViewingToday = dateKey === toDateKey(today);
         await Promise.all([
           fetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
             .then((r) => r.json())
             .then(setEmployees),
-          fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
-            cache: "no-store",
-          })
+          fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, { cache: "no-store" })
             .then((r) => r.json())
             .then(setSchedules),
+          ...(isViewingToday && !isDemo
+            ? [fetch(`/api/punches?date=${dateKey}`, { cache: "no-store" })
+                .then((r) => r.json())
+                .then((d) => setPunchRecords(Array.isArray(d) ? d : []))
+                .catch(() => {})]
+            : []),
         ]);
         setRefreshing(false);
       }
@@ -354,7 +387,7 @@ export default function Page() {
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => setSelected({ emp, sch })} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday ? attendanceMap : undefined} onSelect={(emp, sch) => setSelected({ emp, sch })} />
       <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => setSelected({ emp, sch: null }) : undefined} />
     </>
   );

@@ -4,6 +4,7 @@ import {
   Employee,
   Schedule,
   StoreHours,
+  AttendanceStatus,
   getShiftType,
   getMonogram,
   formatDisplayName,
@@ -18,7 +19,15 @@ type Props = {
   storeHours: StoreHours;
   nowMinutes: number;
   isToday: boolean;
+  attendanceStatus?: AttendanceStatus;
   onClick: () => void;
+};
+
+const ATTENDANCE_BADGES: Record<AttendanceStatus, { label: string; className: string }> = {
+  clocked_in:    { label: "Clocked In",    className: "bg-green-500/15 text-green-500" },
+  on_break:      { label: "On Break",      className: "bg-amber-500/15 text-amber-400" },
+  clocked_out:   { label: "Clocked Out",   className: "bg-slate-700/50 text-slate-400" },
+  not_clocked_in:{ label: "Not Here Yet",  className: "bg-red-500/15 text-red-400" },
 };
 
 export default function ShiftCard({
@@ -27,6 +36,7 @@ export default function ShiftCard({
   storeHours,
   nowMinutes,
   isToday,
+  attendanceStatus,
   onClick,
 }: Props) {
   const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close);
@@ -40,6 +50,22 @@ export default function ShiftCard({
     const m = diff % 60;
     arrivalText = h > 0 ? (m > 0 ? `In ${h}h ${m}m` : `In ${h}h`) : `In ${m}m`;
   }
+
+  // Resolve badge: prefer attendance status when shift is in progress today
+  let badge: { label: string; className: string } | null = null;
+  if (isToday && here) {
+    if (attendanceStatus && attendanceStatus !== "clocked_out") {
+      badge = ATTENDANCE_BADGES[attendanceStatus];
+    } else if (!attendanceStatus) {
+      // Fall back to time-based "Here" if no punch data
+      badge = { label: "Here", className: "bg-green-500/15 text-green-500" };
+    }
+  } else if (isToday && !here && schedule.startMinutes <= nowMinutes && attendanceStatus === "not_clocked_in") {
+    // Shift started but no clock-in
+    badge = ATTENDANCE_BADGES.not_clocked_in;
+  }
+
+  const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
 
   return (
     <button
@@ -61,7 +87,7 @@ export default function ShiftCard({
 
       {/* Name + shift type */}
       <div className="flex-1 min-w-0">
-        <div className={`font-semibold text-sm truncate ${here ? "text-slate-100" : "text-slate-400"}`}>
+        <div className={`font-semibold text-sm truncate ${isActive ? "text-slate-100" : "text-slate-400"}`}>
           {formatDisplayName(employee.name)}
         </div>
         {shiftType && (
@@ -77,12 +103,12 @@ export default function ShiftCard({
           {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
         </div>
         <div className="mt-[5px] flex justify-end items-center gap-1.5">
-          {arrivalText && (
+          {arrivalText && !badge && (
             <span className="text-[10px] text-slate-400">{arrivalText}</span>
           )}
-          {here && (
-            <span className="text-[11px] font-bold px-[9px] py-0.5 rounded-md bg-green-500/15 text-green-500">
-              Here
+          {badge && (
+            <span className={`text-[11px] font-bold px-[9px] py-0.5 rounded-md ${badge.className}`}>
+              {badge.label}
             </span>
           )}
         </div>
