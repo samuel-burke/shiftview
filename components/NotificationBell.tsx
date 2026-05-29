@@ -42,11 +42,16 @@ export default function NotificationBell() {
   const [pushSupported, setPushSupported] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  // Lazily initialised on the client only — never called during SSR / test renders
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  function getSupabase() {
+    if (!supabaseRef.current) supabaseRef.current = createClient();
+    return supabaseRef.current;
+  }
 
   // Get current user ID
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getSupabase().auth.getUser().then(({ data: { user } }) => {
       setUserId(user?.id ?? null);
     });
   }, []);
@@ -68,7 +73,8 @@ export default function NotificationBell() {
     if (!userId) return;
     fetchNotifications();
 
-    const channel = supabase
+    const sb = getSupabase();
+    const channel = sb
       .channel("notifications")
       .on(
         "postgres_changes",
@@ -81,7 +87,7 @@ export default function NotificationBell() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { sb.removeChannel(channel); };
   }, [userId]);
 
   // Check push subscription state
