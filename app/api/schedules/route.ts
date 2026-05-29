@@ -79,6 +79,16 @@ export async function POST(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("id")
+    .eq("employee_id", employeeId)
+    .eq("date", date)
+    .maybeSingle();
+
+  if (existing)
+    return NextResponse.json({ error: "Employee is already scheduled on this date" }, { status: 409 });
+
   const { error } = await supabase
     .from("schedules")
     .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
