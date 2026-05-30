@@ -539,10 +539,10 @@ export default function SchedulePageClient() {
       </div>
 
       {/* Availability Section */}
-      {employeeId !== null && !loading && (
+      {(employeeId !== null || isDemo) && !loading && (
         <div className="px-4 mt-2">
           <AvailabilitySection
-            employeeId={employeeId}
+            employeeId={employeeId ?? 0}
             weeklyHours={weeklyHours}
             firstDayOfWeek={firstDayOfWeek}
             isDemo={isDemo}
