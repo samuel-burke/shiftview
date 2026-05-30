@@ -175,6 +175,53 @@ export default function EmployeeDrawer({
 
   return (
     <>
+      {/* Conflict override modal */}
+      {conflict && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => setConflict(null)}
+        >
+          <div
+            className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl">
+                ⚠️
+              </div>
+              <div>
+                <div className="text-base font-bold text-slate-100">
+                  {conflict.type === "time_off" ? "Time Off Conflict" : "Availability Conflict"}
+                </div>
+                <div className="text-sm text-slate-400 mt-1.5">{conflict.message}</div>
+                {conflict.type === "availability" && conflict.window && (
+                  <div className="mt-2 text-sm font-semibold text-amber-400">
+                    Available: {fmtMinutes(conflict.window.startMinutes)} – {fmtMinutes(conflict.window.endMinutes)}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex border-t border-slate-800">
+              <button
+                onClick={() => setConflict(null)}
+                disabled={saving}
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOverride}
+                disabled={saving}
+                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer bg-transparent border-none"
+              >
+                {saving ? "Saving…" : "Override & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         onClick={onClose}
         className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
@@ -263,28 +310,6 @@ export default function EmployeeDrawer({
 
               {error && (
                 <div className="text-xs text-red-400 text-center">{error}</div>
-              )}
-
-              {/* Conflict banner */}
-              {conflict && (
-                <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
-                  <div className="font-semibold mb-1">
-                    {conflict.type === "time_off" ? "⚠ Time Off Conflict" : "⚠ Availability Conflict"}
-                  </div>
-                  <div>{conflict.message}</div>
-                  {conflict.type === "availability" && conflict.window && (
-                    <div className="mt-1 text-amber-300/80">
-                      Available: {fmtMinutes(conflict.window.startMinutes)} – {fmtMinutes(conflict.window.endMinutes)}
-                    </div>
-                  )}
-                  <button
-                    onClick={handleOverride}
-                    disabled={saving}
-                    className="mt-2 px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold text-xs cursor-pointer"
-                  >
-                    Override & Save Anyway
-                  </button>
-                </div>
               )}
 
               <button

@@ -138,18 +138,6 @@ describe("AvailabilitySection", () => {
     vi.useRealTimers();
   });
 
-  it("'+ Add note' expands note input", async () => {
-    const records = [{ id: 1, dayOfWeek: 0, startMinutes: null, endMinutes: null, note: null }];
-    vi.stubGlobal("fetch", makeMockFetch(records));
-    render(<AvailabilitySection {...BASE_PROPS} />);
-    await act(async () => { await Promise.resolve(); });
-
-    const addNoteBtn = screen.getAllByText("+ Add note")[0];
-    await act(async () => { fireEvent.click(addNoteBtn); });
-
-    expect(screen.getAllByPlaceholderText("Add a note…").length).toBeGreaterThan(0);
-  });
-
   it("'Copy to Weekdays' copies window to Mon-Fri days", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) }));

@@ -229,10 +229,10 @@ describe("EmployeeDrawer", () => {
     await userEvent.click(screen.getByText("Save Shift"));
 
     await waitFor(() => {
-      expect(screen.getByText("Override & Save Anyway")).toBeInTheDocument();
+      expect(screen.getByText("Override & Save")).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText("Override & Save Anyway"));
+    await userEvent.click(screen.getByText("Override & Save"));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledTimes(2);
