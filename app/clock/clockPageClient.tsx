@@ -17,6 +17,8 @@ import {
 } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
 import NotificationBell from "../../components/NotificationBell";
+import UserMenu from "../../components/UserMenu";
+import { createClient } from "@/lib/supabase-browser";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -69,6 +71,13 @@ export default function ClockPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
+  const supabase = createClient();
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [punches, setPunches] = useState<PunchRecord[]>([]);
@@ -326,6 +335,12 @@ export default function ClockPageClient() {
             {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           </span>
           {!isDemo && <NotificationBell />}
+          <UserMenu
+            name={employeeName}
+            isManager={isManager}
+            onSignOut={isDemo ? undefined : handleSignOut}
+            onSignIn={isDemo ? () => router.push("/login") : undefined}
+          />
         </div>
       </div>
 
