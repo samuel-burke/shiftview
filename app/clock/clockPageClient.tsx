@@ -302,7 +302,7 @@ export default function ClockPageClient() {
     return (
       <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
         <div
-          className="px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+          className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
@@ -323,7 +323,7 @@ export default function ClockPageClient() {
     <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
       {/* Header */}
       <div
-        className="px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+        className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <div>
