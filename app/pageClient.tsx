@@ -75,6 +75,11 @@ export default function Page() {
   const [isManager, setIsManager] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
+  const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
@@ -271,6 +276,37 @@ export default function Page() {
       throw new Error(error ?? "Failed to deny request");
     }
     setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function handleSaveAsTemplate() {
+    if (!templateName.trim()) return;
+    setTemplateSaving(true);
+    setTemplateSaveError(null);
+    // Build rows from current week's schedules
+    const rows = schedules.map((s) => {
+      const d = new Date(s.date + "T12:00:00Z");
+      return {
+        employeeId: s.employeeId,
+        dayOfWeek: d.getUTCDay(),
+        startMinutes: s.startMinutes,
+        endMinutes: s.endMinutes,
+      };
+    });
+    const res = await fetch("/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: templateName.trim(), rows }),
+    });
+    setTemplateSaving(false);
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({}));
+      setTemplateSaveError(error ?? "Failed to apply template");
+      return;
+    }
+    setTemplateSaved(true);
+    setTemplateName("");
+    setSaveTemplateOpen(false);
+    setTimeout(() => setTemplateSaved(false), 3000);
   }
 
   // Live clock
@@ -681,6 +717,43 @@ export default function Page() {
     />
   );
 
+  const saveTemplateBar = isManager && !isDemo ? (
+    <div className="flex flex-col gap-1 mb-2">
+      <div className="flex items-center gap-2">
+        {saveTemplateOpen ? (
+          <>
+            <input
+              autoFocus
+              value={templateName}
+              onChange={(e) => { setTemplateName(e.target.value); setTemplateSaveError(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveAsTemplate(); if (e.key === "Escape") setSaveTemplateOpen(false); }}
+              placeholder="Template name"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
+            />
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={templateSaving || !templateName.trim()}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer disabled:opacity-50"
+            >
+              {templateSaving ? "…" : "Save"}
+            </button>
+            <button onClick={() => { setSaveTemplateOpen(false); setTemplateSaveError(null); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer">Cancel</button>
+          </>
+        ) : (
+          <button
+            onClick={() => setSaveTemplateOpen(true)}
+            className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer"
+          >
+            {templateSaved ? "Saved!" : "Save as Template"}
+          </button>
+        )}
+      </div>
+      {templateSaveError && (
+        <div className="text-xs text-red-400 px-1">{templateSaveError}</div>
+      )}
+    </div>
+  ) : null;
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
@@ -694,6 +767,7 @@ export default function Page() {
               <div className="flex justify-end mb-3">{pendingBadge}</div>
             )}
             {fillDayBar}
+            {saveTemplateBar}
             {statsRow}
             {(isManager && !isDemo || copyStatus) && (
               <div className="flex items-center gap-3 mb-3 print:hidden">
@@ -730,6 +804,7 @@ export default function Page() {
         <div className="flex justify-end mb-3 mt-2">{pendingBadge}</div>
       )}
       {fillDayBar}
+      {saveTemplateBar}
       {statsRow}
       {(isManager && !isDemo || copyStatus) && (
         <div className="flex items-center gap-3 mb-3 print:hidden">
