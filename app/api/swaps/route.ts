@@ -89,6 +89,10 @@ export async function POST(request: Request) {
   if (!scheduleA || !scheduleB)
     return NextResponse.json({ error: "One or both schedules not found" }, { status: 400 });
 
+  if (scheduleA.employee_id !== emp.id) {
+    return NextResponse.json({ error: "You can only request swaps for your own shifts" }, { status: 403 });
+  }
+
   if (scheduleA.employee_id === scheduleB.employee_id)
     return NextResponse.json({ error: "Cannot swap with yourself" }, { status: 400 });
 

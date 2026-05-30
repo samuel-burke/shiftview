@@ -259,6 +259,32 @@ describe("POST /api/swaps", () => {
     expect(body).toMatchObject({ ok: true, id: 42 });
   });
 
+
+  it("returns 403 when the requester does not own scheduleA", async () => {
+    // scheduleA belongs to employee 99 (not the requester, employee 5)
+    let scheduleCallCount = 0;
+    const client = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "managers")
+          return makeSwapsQueryBuilder({ data: null, error: null });
+        if (table === "employees")
+          return makeSwapsQueryBuilder({ data: { id: 5 }, error: null });
+        if (table === "schedules") {
+          // scheduleA belongs to employee 99 (not the requester 5), scheduleB to 10
+          const empId = scheduleCallCount++ === 0 ? 99 : 10;
+          return makeSwapsQueryBuilder({ data: { id: scheduleCallCount, employee_id: empId }, error: null });
+        }
+        return makeSwapsQueryBuilder({ data: null, error: null });
+      }),
+    };
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ scheduleAId: 1, scheduleBId: 2 }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("own shifts") });
+  });
   it("returns 500 on database insert error", async () => {
     let scheduleCallCount = 0;
     const client = {

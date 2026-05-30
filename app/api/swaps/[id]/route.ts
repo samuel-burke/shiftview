@@ -41,12 +41,16 @@ export async function PUT(
   // approved: swap employee_id on both schedules
   const { data: swap, error: fetchError } = await supabase
     .from("shift_swaps")
-    .select("schedule_a_id, schedule_b_id")
+    .select("schedule_a_id, schedule_b_id, status")
     .eq("id", swapId)
     .maybeSingle();
 
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
   if (!swap) return NextResponse.json({ error: "Swap not found" }, { status: 404 });
+
+  if (swap.status !== "pending") {
+    return NextResponse.json({ error: "Swap is already resolved" }, { status: 409 });
+  }
 
   // Fetch both schedules to get their current employee_ids
   const { data: scheduleA, error: errA } = await supabase
@@ -79,10 +83,11 @@ export async function PUT(
 
   if (updateB) {
     // Attempt revert of first update
-    await supabase
+    const { error: revertError } = await supabase
       .from("schedules")
       .update({ employee_id: scheduleA.employee_id })
       .eq("id", scheduleA.id);
+    if (revertError) console.error("[swaps PUT] Failed to revert scheduleA update", revertError);
     return NextResponse.json({ error: updateB.message }, { status: 500 });
   }
 
