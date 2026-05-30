@@ -161,31 +161,70 @@ export default function Page() {
 
   // Fetch employees, manager status, store hours, and settings in parallel on mount
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
     Promise.allSettled([
-      fetch(`/api/employees?demo=${isDemo}`).then((r) => r.json()),
-      fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then((r) => r.json()),
-      fetch("/api/store-hours").then((r) => r.json()),
-      fetch("/api/settings").then((r) => r.json()),
+      fetch(`/api/employees?demo=${isDemo}`, { signal }),
+      fetch(`/api/me${isDemo ? "?demo=true" : ""}`, { signal }),
+      fetch("/api/store-hours", { signal }),
+      fetch("/api/settings", { signal }),
     ]).then(([empsResult, meResult, hoursResult, settingsResult]) => {
       if (empsResult.status === "fulfilled") {
-        setEmployees(empsResult.value);
+        if (!empsResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/employees returned", empsResult.value.status);
+          setError("Failed to load employees");
+        } else {
+          empsResult.value.json().then(setEmployees);
+        }
       } else {
-        setError("Failed to load employees");
+        if (empsResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", empsResult.reason);
+          setError("Failed to load employees");
+        }
       }
       if (meResult.status === "fulfilled") {
-        const { isManager, employeeName } = meResult.value;
-        setIsManager(isManager);
-        setUserName(employeeName ?? null);
+        if (!meResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/me returned", meResult.value.status);
+        } else {
+          meResult.value.json().then(({ isManager, employeeName }) => {
+            setIsManager(isManager);
+            setUserName(employeeName ?? null);
+          });
+        }
+      } else {
+        if (meResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", meResult.reason);
+        }
       }
       if (hoursResult.status === "fulfilled") {
-        setWeeklyHours((prev) => ({ ...prev, ...hoursResult.value }));
+        if (!hoursResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/store-hours returned", hoursResult.value.status);
+        } else {
+          hoursResult.value.json().then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })));
+        }
+      } else {
+        if (hoursResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", hoursResult.reason);
+        }
       }
       if (settingsResult.status === "fulfilled") {
-        const { optimalCoverage, minCoverage } = settingsResult.value;
-        if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
-        if (minCoverage != null) setMinCoverage(minCoverage);
+        if (!settingsResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/settings returned", settingsResult.value.status);
+        } else {
+          settingsResult.value.json().then(({ optimalCoverage, minCoverage }) => {
+            if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
+            if (minCoverage != null) setMinCoverage(minCoverage);
+          });
+        }
+      } else {
+        if (settingsResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", settingsResult.reason);
+        }
       }
     });
+
+    return () => controller.abort();
   }, []);
 
   // Fetch schedules whenever date changes
