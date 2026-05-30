@@ -192,7 +192,7 @@ export default function ReportsPageClient() {
     <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
       {/* Top bar */}
       <div
-        className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
