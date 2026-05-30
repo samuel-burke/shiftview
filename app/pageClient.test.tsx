@@ -12,8 +12,14 @@ vi.mock("@/lib/supabase-browser", () => ({
   createClient: () => ({
     auth: {
       signOut: vi.fn(),
+      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     },
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    })),
+    removeChannel: vi.fn(),
   }),
 }));
 
@@ -69,7 +75,7 @@ describe("pageClient mount fetches", () => {
     });
     render(<Page />);
     await waitFor(() => {
-      expect(screen.getByText("Bob")).toBeInTheDocument();
+      expect(screen.getAllByText("Bob").length).toBeGreaterThan(0);
     });
   });
 

@@ -44,12 +44,13 @@ const MOCK_EMPLOYEES_SORTED = [
 // ── GET ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/employees", () => {
-  it("returns demo fixture employees for unauthenticated users without querying Supabase", async () => {
-    const client = makeSupabaseClient({ user: null });
+  it("returns demo employees for unauthenticated users from employees_demo table", async () => {
+    const demoRows = DEMO_EMPLOYEES.map((e) => ({ id: e.id, name: e.name }));
+    const client = makeSupabaseClient({ user: null, queryData: demoRows });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(200);
-    expect(client.from).not.toHaveBeenCalledWith("employees_demo");
+    expect(client.from).toHaveBeenCalledWith("employees_demo");
     const body = await res.json();
     expect(body.map((e: { name: string }) => e.name)).toEqual(
       expect.arrayContaining(DEMO_EMPLOYEES.map((e) => e.name))

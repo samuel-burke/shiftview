@@ -121,7 +121,9 @@ describe("PUT /api/swaps/:id", () => {
   // ── Denied path ───────────────────────────────────────────────────────────────
 
   it("returns 200 when manager denies a swap", async () => {
-    mockCreateClient.mockResolvedValue(makeClient() as any);
+    mockCreateClient.mockResolvedValue(
+      makeClient({ swapData: { id: 1, status: "pending", schedule_a_id: 1, schedule_b_id: 2 } }) as any
+    );
     const [req, ctx] = putReq("1", { status: "denied" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(200);

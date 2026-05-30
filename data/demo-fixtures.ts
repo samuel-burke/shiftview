@@ -44,12 +44,6 @@ export const DEMO_STORE_HOURS: Record<number, { open: number; close: number }> =
   6: { open: 600, close: 1080 },
 };
 
-export const DEMO_SETTINGS = {
-  optimalCoverage: 3,
-  minCoverage: 2,
-  firstDayOfWeek: 1,
-};
-
 export function getDemoSchedulesForEmployee(employeeId: number, from: string, to: string): Schedule[] {
   const results: Schedule[] = [];
   let id = 9000;

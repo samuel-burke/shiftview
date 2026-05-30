@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSupabaseClient, MOCK_USER } from "../../__tests__/helpers";
 
-vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("@/lib/notify", () => ({ notify: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: any, init?: any) =>
@@ -11,22 +11,41 @@ vi.mock("next/server", () => ({
       }),
   },
 }));
-vi.mock("@/lib/email", () => ({ sendEmail: vi.fn().mockResolvedValue(undefined) }));
 
-import { createClient } from "@/lib/supabase-server";
-import { sendEmail } from "@/lib/email";
+import { createAdminClient } from "@/lib/supabase-admin";
+import { notify } from "@/lib/notify";
 
-async function callRoute(headers: Record<string, string> = {}) {
-  const { GET } = await import("./route");
-  const req = new Request("http://localhost/api/cron/reminders", { headers });
-  return GET(req);
+function makeAdminClient({
+  schedules = [] as any[],
+  schedErr = null as any,
+  employees = [] as any[],
+  empErr = null as any,
+} = {}) {
+  let callCount = 0;
+  return {
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "schedules") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ data: schedules, error: schedErr }),
+        };
+      }
+      if (table === "employees") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: employees, error: empErr }),
+        };
+      }
+      return {};
+    }),
+  };
 }
 
 describe("GET /api/cron/reminders", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("CRON_SECRET", "test-secret");
-    vi.mocked(sendEmail).mockResolvedValue(undefined);
+    vi.mocked(notify).mockResolvedValue(undefined as any);
   });
 
   it("returns 401 when x-cron-secret header missing", async () => {
@@ -49,21 +68,8 @@ describe("GET /api/cron/reminders", () => {
     expect(body.error).toBe("Unauthorized");
   });
 
-  it("returns reason: notifications disabled when email_notifications toggle is off", async () => {
-    const supabase = {
-      from: vi.fn().mockImplementation((table: string) => {
-        if (table === "app_settings") {
-          return {
-            select: vi.fn().mockResolvedValue({
-              data: [{ key: "email_notifications", value: "false" }],
-              error: null,
-            }),
-          };
-        }
-        return {};
-      }),
-    };
-    vi.mocked(createClient).mockResolvedValue(supabase as any);
+  it("returns { sent: 0, skipped: 0 } when no schedules tomorrow", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules: [] }) as any);
 
     const { GET } = await import("./route");
     const req = new Request("http://localhost/api/cron/reminders", {
@@ -72,48 +78,20 @@ describe("GET /api/cron/reminders", () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.reason).toBe("notifications disabled");
     expect(body.sent).toBe(0);
     expect(body.skipped).toBe(0);
-    expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it("returns { sent, skipped, failed } on success", async () => {
+  it("sends notifications to employees with user_id", async () => {
     const schedules = [
-      { employee_id: 1, start_minutes: 480, end_minutes: 960 },
-      { employee_id: 2, start_minutes: 540, end_minutes: 1020 },
+      { id: 1, employee_id: 1, date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+      { id: 2, employee_id: 2, date: "2026-01-02", start_minutes: 540, end_minutes: 1020 },
     ];
     const employees = [
-      { id: 1, name: "Alice", email: "alice@example.com" },
-      { id: 2, name: "Bob", email: "bob@example.com" },
+      { id: 1, name: "Alice", user_id: "user-1" },
+      { id: 2, name: "Bob", user_id: "user-2" },
     ];
-
-    const supabase = {
-      from: vi.fn().mockImplementation((table: string) => {
-        if (table === "app_settings") {
-          return {
-            select: vi.fn().mockResolvedValue({
-              data: [{ key: "email_notifications", value: "true" }],
-              error: null,
-            }),
-          };
-        }
-        if (table === "schedules") {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockResolvedValue({ data: schedules, error: null }),
-          };
-        }
-        if (table === "employees") {
-          return {
-            select: vi.fn().mockReturnThis(),
-            in: vi.fn().mockResolvedValue({ data: employees, error: null }),
-          };
-        }
-        return {};
-      }),
-    };
-    vi.mocked(createClient).mockResolvedValue(supabase as any);
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules, employees }) as any);
 
     const { GET } = await import("./route");
     const req = new Request("http://localhost/api/cron/reminders", {
@@ -124,46 +102,19 @@ describe("GET /api/cron/reminders", () => {
     const body = await res.json();
     expect(body.sent).toBe(2);
     expect(body.skipped).toBe(0);
-    expect(body.failed).toBe(0);
-    expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(notify).toHaveBeenCalledTimes(2);
   });
 
-  it("skips employees without email", async () => {
+  it("skips employees without user_id", async () => {
     const schedules = [
-      { employee_id: 1, start_minutes: 480, end_minutes: 960 },
-      { employee_id: 2, start_minutes: 540, end_minutes: 1020 },
+      { id: 1, employee_id: 1, date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+      { id: 2, employee_id: 2, date: "2026-01-02", start_minutes: 540, end_minutes: 1020 },
     ];
     const employees = [
-      { id: 1, name: "Alice", email: null },
-      { id: 2, name: "Bob", email: "bob@example.com" },
+      { id: 1, name: "Alice", user_id: null },
+      { id: 2, name: "Bob", user_id: "user-2" },
     ];
-
-    const supabase = {
-      from: vi.fn().mockImplementation((table: string) => {
-        if (table === "app_settings") {
-          return {
-            select: vi.fn().mockResolvedValue({
-              data: [{ key: "email_notifications", value: "true" }],
-              error: null,
-            }),
-          };
-        }
-        if (table === "schedules") {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockResolvedValue({ data: schedules, error: null }),
-          };
-        }
-        if (table === "employees") {
-          return {
-            select: vi.fn().mockReturnThis(),
-            in: vi.fn().mockResolvedValue({ data: employees, error: null }),
-          };
-        }
-        return {};
-      }),
-    };
-    vi.mocked(createClient).mockResolvedValue(supabase as any);
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules, employees }) as any);
 
     const { GET } = await import("./route");
     const req = new Request("http://localhost/api/cron/reminders", {
