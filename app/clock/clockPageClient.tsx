@@ -148,7 +148,11 @@ export default function ClockPageClient() {
       setSchedule(emp ? (scheds.find((s) => s.employeeId === emp) ?? null) : null);
 
       const punchData: PunchRecord[] = await punchRes.json();
-      setPunches(Array.isArray(punchData) ? punchData : []);
+      const empId = me.employeeId;
+      const myPunches = Array.isArray(punchData)
+        ? empId ? punchData.filter((p) => p.employeeId === empId) : []
+        : [];
+      setPunches(myPunches);
 
       const hours = await hoursRes.json();
       setWeeklyHours((prev) => ({ ...prev, ...hours }));
