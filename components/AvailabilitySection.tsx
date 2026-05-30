@@ -348,7 +348,7 @@ export default function AvailabilitySection({
 
               {/* Window time inputs */}
               {sheetDay?.state === "window" && (
-                <div className="flex flex-col gap-4 w-full overflow-hidden">
+                <div className="flex flex-col gap-4 w-full">
                   <div className="text-xs text-slate-500">
                     Store open: {fmtMinutes(sheetStoreHours.open)} – {fmtMinutes(sheetStoreHours.close)}
                   </div>
@@ -369,7 +369,7 @@ export default function AvailabilitySection({
                           value={val}
                           onChange={(e) => onChange(e.target.value)}
                           onBlur={() => handleTimeBlur(activeDow)}
-                          className="w-full max-w-full box-border bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-slate-100 text-base [color-scheme:dark]"
+                          className="block w-full min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-slate-100 text-base [color-scheme:dark]"
                           aria-label={ariaLabel}
                         />
                       </div>
