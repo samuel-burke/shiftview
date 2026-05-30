@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -17,6 +17,14 @@ import DatePickerSheet from "../../components/DatePickerSheet";
 import { createClient } from "@/lib/supabase-browser";
 
 type View = "week" | "month";
+
+export function isShiftUpcoming(
+  shift: { date: string; endMinutes: number; startMinutes: number },
+  todayKey: string,
+  nowMinutes: number,
+): boolean {
+  return shift.date > todayKey || (shift.date === todayKey && shift.endMinutes > nowMinutes);
+}
 
 export function formatNextShiftDate(dateStr: string, todayKey: string): string {
   if (dateStr === todayKey) return "Today";
@@ -72,7 +80,7 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SchedulePageClient() {
-  const today = new Date();
+  const [today] = useState(() => new Date());
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
@@ -90,6 +98,7 @@ export default function SchedulePageClient() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
+  const supplementalFetchedRef = useRef(false);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -137,26 +146,32 @@ export default function SchedulePageClient() {
   }, [view, navDate, firstDayOfWeek]);
 
   useEffect(() => {
+    let cancelled = false;
     const todayKey = toDateKey(today);
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
     const upcoming = schedules
-      .filter(s => s.date >= todayKey)
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .filter(s => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
     if (upcoming.length > 0) {
       setNextShift(upcoming[0]);
     } else if (!loading) {
+      if (supplementalFetchedRef.current) return;
+      supplementalFetchedRef.current = true;
       // Do a supplemental fetch for next 30 days
       const to = new Date(today); to.setDate(today.getDate() + 30);
       const toKey = toDateKey(to);
       fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
         .then(r => r.json())
         .then(data => {
+          if (cancelled) return;
           const upcoming = (data.schedules ?? [])
-            .filter((s: Schedule) => s.date >= todayKey)
-            .sort((a: Schedule, b: Schedule) => a.date.localeCompare(b.date));
+            .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+            .sort((a: Schedule, b: Schedule) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
           setNextShift(upcoming[0] ?? null);
         })
-        .catch(() => setNextShift(null));
+        .catch(() => { if (!cancelled) setNextShift(null); });
     }
+    return () => { cancelled = true; };
   }, [schedules, loading]);
 
   function goToPrev() {
