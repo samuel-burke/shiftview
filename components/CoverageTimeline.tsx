@@ -137,8 +137,13 @@ export default function CoverageTimeline({
     };
   }, []);
 
-  const nowClamped = Math.min(Math.max(nowMinutes, openMinutes), closeMinutes);
-  const nowPct = (nowClamped - openMinutes) / range; // 0–1
+  if (range === 0) return null;
+
+  const nowSnapped = Math.min(
+    Math.max(Math.round(nowMinutes / STEP) * STEP, openMinutes),
+    closeMinutes,
+  );
+  const nowPct = (nowSnapped - openMinutes) / range; // 0–1
   const timeStr = fmtMinutes(nowMinutes);
 
   // Pixel position of the badge within the container

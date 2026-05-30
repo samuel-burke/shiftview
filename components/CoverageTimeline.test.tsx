@@ -40,7 +40,7 @@ describe("CoverageTimeline 15-minute sampling", () => {
   });
 
   it("renders without crashing when nowMinutes is between 15-min marks", () => {
-    // nowMinutes=607 should snap to 615 (nearest 15-min boundary)
+    // nowMinutes=607 should snap to 600 (nearest 15-min boundary)
     const { container } = render(
       <CoverageTimeline {...baseProps} nowMinutes={607} />
     );
