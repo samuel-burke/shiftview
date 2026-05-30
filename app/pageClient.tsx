@@ -174,34 +174,76 @@ export default function Page() {
     return () => clearInterval(t);
   }, [timezone]);
 
-  // Fetch employees, manager status, and store hours once on mount
+  // Fetch employees, manager status, store hours, and settings in parallel on mount
   useEffect(() => {
-    apiFetch(`/api/employees?demo=${isDemo}`)
-      .then((r) => r.json())
-      .then(setEmployees)
-      .catch(() => setError("Failed to load employees"));
-    apiFetch(`/api/me${isDemo ? "?demo=true" : ""}`)
-      .then((r) => r.json())
-      .then(({ isManager, employeeName }) => {
-        setIsManager(isManager);
-        setUserName(employeeName ?? null);
-      })
-      .catch(() => {});
-    apiFetch("/api/store-hours")
-      .then((r) => r.json())
-      .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-      .catch(() => {});
-    apiFetch("/api/settings")
-      .then((r) => r.json())
-      .then(({ optimalCoverage, minCoverage, timezone: tz }) => {
-        if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
-        if (minCoverage != null) setMinCoverage(minCoverage);
-        if (tz) {
-          setTimezone(tz);
-          setNowMinutes(getNowMinutes(tz));
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    Promise.allSettled([
+      apiFetch(`/api/employees?demo=${isDemo}`, { signal }),
+      apiFetch(`/api/me${isDemo ? "?demo=true" : ""}`, { signal }),
+      apiFetch("/api/store-hours", { signal }),
+      apiFetch("/api/settings", { signal }),
+    ]).then(([empsResult, meResult, hoursResult, settingsResult]) => {
+      if (empsResult.status === "fulfilled") {
+        if (!empsResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/employees returned", empsResult.value.status);
+          setError("Failed to load employees");
+        } else {
+          empsResult.value.json().then(setEmployees);
         }
-      })
-      .catch(() => {});
+      } else {
+        if (empsResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", empsResult.reason);
+          setError("Failed to load employees");
+        }
+      }
+      if (meResult.status === "fulfilled") {
+        if (!meResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/me returned", meResult.value.status);
+        } else {
+          meResult.value.json().then(({ isManager, employeeName }) => {
+            setIsManager(isManager);
+            setUserName(employeeName ?? null);
+          });
+        }
+      } else {
+        if (meResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", meResult.reason);
+        }
+      }
+      if (hoursResult.status === "fulfilled") {
+        if (!hoursResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/store-hours returned", hoursResult.value.status);
+        } else {
+          hoursResult.value.json().then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })));
+        }
+      } else {
+        if (hoursResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", hoursResult.reason);
+        }
+      }
+      if (settingsResult.status === "fulfilled") {
+        if (!settingsResult.value.ok) {
+          console.error("[pageClient] fetch failed: /api/settings returned", settingsResult.value.status);
+        } else {
+          settingsResult.value.json().then(({ optimalCoverage, minCoverage, timezone: tz }) => {
+            if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
+            if (minCoverage != null) setMinCoverage(minCoverage);
+            if (tz) {
+              setTimezone(tz);
+              setNowMinutes(getNowMinutes(tz));
+            }
+          });
+        }
+      } else {
+        if (settingsResult.reason?.name !== "AbortError") {
+          console.error("[pageClient] fetch failed:", settingsResult.reason);
+        }
+      }
+    });
+
+    return () => controller.abort();
   }, []);
 
   // Fetch schedules whenever date changes
