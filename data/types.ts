@@ -83,3 +83,59 @@ export function fmtMinutes(m: number): string {
     ? `${h12}:00 ${ampm}`
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
+
+export type PunchType = "clock_in" | "clock_out" | "break_start" | "break_end";
+export type AttendanceStatus = "clocked_in" | "on_break" | "clocked_out" | "not_clocked_in";
+
+export type PunchRecord = {
+  id: number;
+  employeeId: number;
+  scheduleId: number | null;
+  punchType: PunchType;
+  punchedAt: string; // ISO timestamptz
+  lat: number | null;
+  lng: number | null;
+  isManual: boolean;
+  note: string | null;
+};
+
+export function getAttendanceStatus(punches: PunchRecord[]): AttendanceStatus {
+  if (!punches.length) return "not_clocked_in";
+  const sorted = [...punches].sort(
+    (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()
+  );
+  const latest = sorted[sorted.length - 1];
+  switch (latest.punchType) {
+    case "clock_in":    return "clocked_in";
+    case "clock_out":   return "clocked_out";
+    case "break_start": return "on_break";
+    case "break_end":   return "clocked_in";
+  }
+}
+
+export function getTotalClockedSeconds(punches: PunchRecord[], now = Date.now()): number {
+  const sorted = [...punches].sort(
+    (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()
+  );
+  let total = 0;
+  let segStart: number | null = null;
+  for (const p of sorted) {
+    const t = new Date(p.punchedAt).getTime();
+    if (p.punchType === "clock_in" || p.punchType === "break_end") {
+      segStart = t;
+    } else if ((p.punchType === "clock_out" || p.punchType === "break_start") && segStart !== null) {
+      total += t - segStart;
+      segStart = null;
+    }
+  }
+  if (segStart !== null) total += now - segStart;
+  return Math.floor(total / 1000);
+}
+
+export function fmtElapsed(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+  return `${m}m ${String(s).padStart(2, "0")}s`;
+}

@@ -21,12 +21,8 @@ type Props = {
 
 function formatDate(dateStr: string): string {
   try {
-    const d = new Date(dateStr + "T12:00:00Z");
-    return d.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   } catch {
     return dateStr;
   }
@@ -59,7 +55,7 @@ export default function SwapRequestsDrawer({
             ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${
                 open ? "translate-x-0" : "translate-x-full"
               }`
-            : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80vh] overflow-y-auto ${
+            : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto ${
                 open ? "translate-y-0" : "translate-y-full"
               }`
         }`}
@@ -70,15 +66,13 @@ export default function SwapRequestsDrawer({
           </div>
         )}
 
-        <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
+        <div className={isDesktop ? "p-7" : "px-5 pt-2 pb-11"}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <div>
               <div className="text-lg font-bold text-slate-100">Swap Requests</div>
               <div className="text-xs text-slate-400 mt-0.5">
-                {swaps.length === 0
-                  ? "No pending requests"
-                  : `${swaps.length} pending`}
+                {swaps.length} pending
               </div>
             </div>
             <button
@@ -90,7 +84,7 @@ export default function SwapRequestsDrawer({
           </div>
 
           {swaps.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">
+            <div className="text-center py-10 text-slate-400 text-sm">
               No pending swap requests
             </div>
           ) : (
@@ -120,37 +114,29 @@ function SwapCard({
   onApprove: (id: number) => Promise<void>;
   onDeny: (id: number) => Promise<void>;
 }) {
-  const dateLabel = formatDate(swap.date);
-
-  async function handleApprove() {
-    await onApprove(swap.id);
-  }
-
-  async function handleDeny() {
-    await onDeny(swap.id);
-  }
-
   return (
     <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4">
-      <div className="text-sm text-slate-100 font-medium mb-1">
-        <span className="text-blue-400">{swap.requesterName}</span>
-        {" wants to swap with "}
-        <span className="text-violet-400">{swap.targetName}</span>
+      <div className="text-sm font-semibold text-slate-100 mb-1">
+        {swap.requesterName} wants to swap with {swap.targetName}
       </div>
-      <div className="text-xs text-slate-400 mb-1">{dateLabel}</div>
-      <div className="text-xs text-slate-500 mb-4">
-        {swap.scheduleATime} ↔ {swap.scheduleBTime}
+      <div className="text-xs text-slate-400 mb-1">
+        {formatDate(swap.date)}
+      </div>
+      <div className="flex gap-2 text-xs text-slate-400 mb-3">
+        <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.requesterName}: {swap.scheduleATime}</span>
+        <span className="text-slate-600">⇄</span>
+        <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.targetName}: {swap.scheduleBTime}</span>
       </div>
       <div className="flex gap-2">
         <button
-          onClick={handleApprove}
-          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer"
+          onClick={() => onApprove(swap.id)}
+          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none"
         >
           Approve
         </button>
         <button
-          onClick={handleDeny}
-          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer"
+          onClick={() => onDeny(swap.id)}
+          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer"
         >
           Deny
         </button>

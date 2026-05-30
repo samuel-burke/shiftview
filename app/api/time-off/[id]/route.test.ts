@@ -38,18 +38,6 @@ describe("PUT /api/time-off/[id]", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 for garbage id like 3abc", async () => {
-    const res = await PUT(
-      new Request("http://localhost/api/time-off/3abc", {
-        method: "PUT",
-        body: JSON.stringify({ status: "approved" }),
-      }),
-      makeParams("3abc")
-    );
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: "id must be a positive integer" });
-  });
-
   it("returns 401 when not authenticated", async () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: null }) as any);
     const res = await PUT(

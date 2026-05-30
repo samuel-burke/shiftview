@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Props = {
-  active: "team" | "schedule";
+  active: "team" | "schedule" | "clock";
 };
 
 export default function BottomNav({ active }: Props) {
@@ -39,6 +39,17 @@ export default function BottomNav({ active }: Props) {
           </svg>
           <span className="text-[10px] font-semibold tracking-wider uppercase">Schedule</span>
           <div className={`h-[2px] w-5 rounded-full mt-0.5 ${active === "schedule" ? "bg-indigo-500" : "bg-transparent"}`} />
+        </Link>
+        <Link
+          href={`/clock${demo}`}
+          className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 ${active === "clock" ? "text-slate-100" : "text-slate-400"}`}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[10px] font-semibold tracking-wider uppercase">Clock</span>
+          <div className={`h-[2px] w-5 rounded-full mt-0.5 ${active === "clock" ? "bg-indigo-500" : "bg-transparent"}`} />
         </Link>
       </div>
     </nav>

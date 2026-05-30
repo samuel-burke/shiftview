@@ -1,4 +1,5 @@
 import "./globals.css";
+import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
 
 export const metadata = {
   title: "ShiftView",
@@ -27,7 +28,10 @@ export default function RootLayout({
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorkerRegistrar />
+      </body>
     </html>
   );
 }
