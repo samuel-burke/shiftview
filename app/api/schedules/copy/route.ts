@@ -19,10 +19,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   // Fetch existing schedules for toDate (to avoid duplicates)
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from("schedules")
     .select("employee_id")
     .eq("date", toDate);
+  if (existingErr) return NextResponse.json({ error: existingErr.message }, { status: 500 });
   const existingIds = new Set((existing ?? []).map((s: { employee_id: number }) => s.employee_id));
 
   // Fetch schedules from fromDate
@@ -36,8 +37,10 @@ export async function POST(request: Request) {
     (s: { employee_id: number }) => !existingIds.has(s.employee_id)
   );
 
+  const skipped = (source ?? []).length - toCopy.length;
+
   if (toCopy.length === 0)
-    return NextResponse.json({ copied: 0, skipped: (source ?? []).length });
+    return NextResponse.json({ copied: 0, skipped });
 
   const { error: insertErr } = await supabase.from("schedules").insert(
     toCopy.map((s: { employee_id: number; start_minutes: number; end_minutes: number }) => ({
@@ -49,5 +52,5 @@ export async function POST(request: Request) {
   );
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
 
-  return NextResponse.json({ copied: toCopy.length, skipped: existingIds.size });
+  return NextResponse.json({ copied: toCopy.length, skipped });
 }

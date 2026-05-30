@@ -18,7 +18,7 @@ function req(body: any) {
   });
 }
 
-function makeCopyClient({ user, isManager, existingSchedules = [], sourceSchedules = [], insertError = null }: any) {
+function makeCopyClient({ user, isManager, existingSchedules = [], existingError = null, sourceSchedules = [], insertError = null }: any) {
   const managerRow = isManager && user ? { user_id: user.id } : null;
   let scheduleCallCount = 0;
   return {
@@ -37,7 +37,7 @@ function makeCopyClient({ user, isManager, existingSchedules = [], sourceSchedul
         scheduleCallCount++;
         if (scheduleCallCount === 1) {
           // existing schedules for toDate
-          b.then = (res: any) => Promise.resolve({ data: existingSchedules, error: null }).then(res);
+          b.then = (res: any) => Promise.resolve({ data: existingError ? null : existingSchedules, error: existingError }).then(res);
         } else if (scheduleCallCount === 2) {
           // source schedules from fromDate
           b.then = (res: any) => Promise.resolve({ data: sourceSchedules, error: null }).then(res);
@@ -134,6 +134,15 @@ describe("POST /api/schedules/copy", () => {
     const res = await POST(req({ fromDate: "2026-05-21", toDate: "2026-05-28" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ copied: 0, skipped: 2 });
+  });
+
+  it("returns 500 when existing-schedule fetch fails", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeCopyClient({ user: MOCK_USER, isManager: true, existingError: { message: "existing fetch error" } }) as any
+    );
+    const res = await POST(req({ fromDate: "2026-05-21", toDate: "2026-05-28" }));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: "existing fetch error" });
   });
 
   it("returns 500 on DB fetch error", async () => {
