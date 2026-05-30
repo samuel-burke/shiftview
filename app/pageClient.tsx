@@ -72,6 +72,7 @@ export default function Page() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -102,6 +103,7 @@ export default function Page() {
     const dateKey = toDateKey(date);
     const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
+    setLastFetchedAt(new Date());
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number) {
@@ -124,6 +126,7 @@ export default function Page() {
     }
     const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
+    setLastFetchedAt(new Date());
   }
 
   async function handleResendInvite(email: string) {
@@ -205,6 +208,7 @@ export default function Page() {
       .then((r) => r.json())
       .then((data) => {
         setSchedules(data);
+        setLastFetchedAt(new Date());
         setLoading(false);
       })
       .catch(() => {
@@ -234,13 +238,9 @@ export default function Page() {
     [scheduled],
   );
 
-  const lastUpdated = (() => {
-    const h = Math.floor(nowMinutes / 60);
-    const m = nowMinutes % 60;
-    const ampm = h >= 12 ? "PM" : "AM";
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-  })();
+  const lastUpdated = lastFetchedAt
+    ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
+    : null;
 
   const storeHours = weeklyHours[date.getDay()];
 
@@ -278,17 +278,21 @@ export default function Page() {
       if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
         setRefreshing(true);
         const dateKey = toDateKey(date);
-        await Promise.all([
-          apiFetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
-            .then((r) => r.json())
-            .then(setEmployees),
-          apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
-            cache: "no-store",
-          })
-            .then((r) => r.json())
-            .then(setSchedules),
-        ]);
-        setRefreshing(false);
+        try {
+          await Promise.all([
+            apiFetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
+              .then((r) => r.json())
+              .then(setEmployees),
+            apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
+              cache: "no-store",
+            })
+              .then((r) => r.json())
+              .then(setSchedules),
+          ]);
+          setLastFetchedAt(new Date());
+        } finally {
+          setRefreshing(false);
+        }
       }
     }
 
@@ -304,8 +308,8 @@ export default function Page() {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
     userName, isManager,
-    onPrev: () => setDate((d) => offsetDate(d, -1)),
-    onNext: () => setDate((d) => offsetDate(d, 1)),
+    onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
+    onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
     onNow: () => setDate(new Date()),
     onDateSelect: (d: Date) => setDate(d),
     onSignOut: isDemo ? undefined : handleSignOut,
@@ -406,7 +410,7 @@ export default function Page() {
             {timeline}
             {legend}
             <div className="text-center mt-2">
-              <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
+              <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
             </div>
           </div>
           {/* Right: team list */}
@@ -430,7 +434,7 @@ export default function Page() {
       {legend}
       {teamSections}
       <div className="text-center mt-4">
-        <span className="text-xs text-slate-400">Last updated: {lastUpdated}</span>
+        <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
       </div>
       {drawer}
       <BottomNav active="team" />
