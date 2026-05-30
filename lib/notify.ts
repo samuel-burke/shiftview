@@ -9,7 +9,8 @@ export type NotificationType =
   | "pto_approved"
   | "pto_denied"
   | "late_clock_in"
-  | "schedule_published";
+  | "schedule_published"
+  | "message";
 
 export type NotifyOptions = {
   userId: string | null;
