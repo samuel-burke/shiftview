@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -17,6 +17,29 @@ import DatePickerSheet from "../../components/DatePickerSheet";
 import { createClient } from "@/lib/supabase-browser";
 
 type View = "week" | "month";
+
+export function isShiftUpcoming(
+  shift: { date: string; endMinutes: number; startMinutes: number },
+  todayKey: string,
+  nowMinutes: number,
+): boolean {
+  return shift.date > todayKey || (shift.date === todayKey && shift.endMinutes > nowMinutes);
+}
+
+export function formatNextShiftDate(dateStr: string, todayKey: string): string {
+  if (dateStr === todayKey) return "Today";
+  const d = new Date(todayKey + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  const tomorrowKey = d.toISOString().slice(0, 10);
+  if (dateStr === tomorrowKey) return "Tomorrow";
+  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
+export function getDaysUntil(dateStr: string, todayKey: string): number {
+  const a = new Date(dateStr + "T12:00:00Z").getTime();
+  const b = new Date(todayKey + "T12:00:00Z").getTime();
+  return Math.round((a - b) / 86400000);
+}
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
   0: { open: 480, close: 1200 },
@@ -57,7 +80,7 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SchedulePageClient() {
-  const today = new Date();
+  const [today] = useState(() => new Date());
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
@@ -78,6 +101,8 @@ export default function SchedulePageClient() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
+  const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
+  const supplementalFetchedRef = useRef(false);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -156,6 +181,35 @@ export default function SchedulePageClient() {
       setTimeOffStatus("error");
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    const todayKey = toDateKey(today);
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
+    const upcoming = schedules
+      .filter(s => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
+    if (upcoming.length > 0) {
+      setNextShift(upcoming[0]);
+    } else if (!loading) {
+      if (supplementalFetchedRef.current) return;
+      supplementalFetchedRef.current = true;
+      // Do a supplemental fetch for next 30 days
+      const to = new Date(today); to.setDate(today.getDate() + 30);
+      const toKey = toDateKey(to);
+      fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return;
+          const upcoming = (data.schedules ?? [])
+            .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+            .sort((a: Schedule, b: Schedule) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
+          setNextShift(upcoming[0] ?? null);
+        })
+        .catch(() => { if (!cancelled) setNextShift(null); });
+    }
+    return () => { cancelled = true; };
+  }, [schedules, loading]);
 
   function goToPrev() {
     if (view === "week") {
@@ -290,6 +344,30 @@ export default function SchedulePageClient() {
       </div>
 
       <div className="px-4 pt-4">
+        {/* Next Shift card */}
+        <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
+          <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
+          {nextShift === undefined ? (
+            <div className="h-8 bg-slate-800 rounded animate-pulse" />
+          ) : nextShift ? (
+            <>
+              <div className="text-slate-300 font-semibold text-sm">
+                {formatNextShiftDate(nextShift.date, toDateKey(today))}
+              </div>
+              <div className="text-2xl font-extrabold text-slate-100 mt-1">
+                {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
+              </div>
+              {getDaysUntil(nextShift.date, toDateKey(today)) > 1 && (
+                <div className="text-xs text-slate-400 mt-1">
+                  in {getDaysUntil(nextShift.date, toDateKey(today))} days
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+          )}
+        </div>
+
         {/* MY SCHEDULE label + Week/Month toggle */}
         <div className="flex items-start justify-between mb-1">
           <div>
