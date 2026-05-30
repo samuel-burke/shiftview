@@ -82,6 +82,17 @@ export default function NotificationBell() {
           event: "INSERT",
           schema: "public",
           table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => { fetchNotifications(); }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: "user_id=is.null",
         },
         () => { fetchNotifications(); }
       )

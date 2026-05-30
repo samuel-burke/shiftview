@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     .eq("date", date);
 
   if (schedErr) {
-    return NextResponse.json({ error: schedErr.message }, { status: 500 });
+    console.error("[cron/reminders] schedules fetch failed:", schedErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   if (!schedules || schedules.length === 0) {
@@ -40,7 +41,8 @@ export async function GET(request: Request) {
     .in("id", employeeIds);
 
   if (empErr) {
-    return NextResponse.json({ error: empErr.message }, { status: 500 });
+    console.error("[cron/reminders] employees fetch failed:", empErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   const empMap = new Map(

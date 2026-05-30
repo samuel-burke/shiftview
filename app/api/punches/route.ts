@@ -96,6 +96,43 @@ export async function POST(request: Request) {
   if (!emp)
     return NextResponse.json({ error: "No employee record linked to this account" }, { status: 403 });
 
+  // State-machine guard: fetch today's most recent punch for this employee
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setUTCHours(23, 59, 59, 999);
+
+  const { data: lastPunch, error: lastPunchError } = await supabase
+    .from("punch_records")
+    .select("punch_type")
+    .eq("employee_id", emp.id)
+    .gte("punched_at", todayStart.toISOString())
+    .lte("punched_at", todayEnd.toISOString())
+    .order("punched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastPunchError) {
+    console.error("[api/punches]", lastPunchError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  const lastType = lastPunch?.punch_type ?? null;
+
+  const VALID_TRANSITIONS: Record<string, (string | null)[]> = {
+    clock_in:    [null, "clock_out", "break_end"],
+    clock_out:   ["clock_in", "break_end"],
+    break_start: ["clock_in", "break_end"],
+    break_end:   ["break_start"],
+  };
+
+  if (!VALID_TRANSITIONS[punchType].includes(lastType)) {
+    const msg = lastType
+      ? `Cannot ${punchType}: current state is ${lastType}`
+      : `Cannot ${punchType}: no active clock-in`;
+    return NextResponse.json({ error: msg }, { status: 409 });
+  }
+
   const { data, error } = await supabase
     .from("punch_records")
     .insert({

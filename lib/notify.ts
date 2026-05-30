@@ -26,13 +26,14 @@ export async function notify(
   supabase: SupabaseClient,
   options: NotifyOptions
 ): Promise<void> {
-  await supabase.rpc("notify_insert", {
+  const { error: insertError } = await supabase.rpc("notify_insert", {
     p_user_id: options.userId,
     p_type:    options.type,
     p_title:   options.title,
     p_body:    options.body,
     p_data:    options.data ?? null,
   });
+  if (insertError) console.error("[notify] notify_insert failed:", insertError);
 
   if (!options.userId) return;
 
@@ -54,15 +55,17 @@ export async function notifyManagers(
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  await supabase.rpc("notify_insert", {
+  const { error: mgrInsertError } = await supabase.rpc("notify_insert", {
     p_user_id: null,
     p_type:    type,
     p_title:   title,
     p_body:    body,
     p_data:    data ?? null,
   });
+  if (mgrInsertError) console.error("[notify] notify_insert failed:", mgrInsertError);
 
-  const { data: managers } = await supabase.rpc("notify_get_manager_ids");
+  const { data: managers, error: mgrIdsError } = await supabase.rpc("notify_get_manager_ids");
+  if (mgrIdsError) console.error("[notify] notify_get_manager_ids failed:", mgrIdsError);
   if (!managers?.length) return;
 
   const payload: PushPayload = { title, body, data, tag: type };
@@ -79,9 +82,10 @@ async function sendPushToUser(
   userId: string,
   payload: PushPayload
 ): Promise<void> {
-  const { data: subs } = await supabase.rpc("notify_get_push_subs", {
+  const { data: subs, error: subsError } = await supabase.rpc("notify_get_push_subs", {
     p_user_id: userId,
   });
+  if (subsError) console.error("[notify] notify_get_push_subs failed:", subsError);
   if (!subs?.length) return;
 
   const stale: string[] = [];
@@ -95,9 +99,10 @@ async function sendPushToUser(
   );
 
   if (stale.length > 0) {
-    await supabase.rpc("notify_delete_subs", {
+    const { error: deleteSubsError } = await supabase.rpc("notify_delete_subs", {
       p_user_id:   userId,
       p_endpoints: stale,
     });
+    if (deleteSubsError) console.error("[notify] notify_delete_subs failed:", deleteSubsError);
   }
 }

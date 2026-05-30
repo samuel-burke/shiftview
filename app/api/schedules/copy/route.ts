@@ -28,8 +28,10 @@ export async function POST(request: Request) {
     .from("schedules")
     .select("employee_id")
     .eq("date", toDate);
-  if (existingError)
-    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  if (existingError) {
+    console.error("[schedules/copy] existing schedules fetch failed:", existingError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const alreadyScheduled = new Set((existing ?? []).map((s: { employee_id: number }) => s.employee_id));
 
@@ -38,8 +40,10 @@ export async function POST(request: Request) {
     .from("schedules")
     .select("employee_id, start_minutes, end_minutes")
     .eq("date", fromDate);
-  if (fromError)
-    return NextResponse.json({ error: fromError.message }, { status: 500 });
+  if (fromError) {
+    console.error("[schedules/copy] fromDate schedules fetch failed:", fromError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const toInsert = (fromSchedules ?? []).filter(
     (s: { employee_id: number }) => !alreadyScheduled.has(s.employee_id)
@@ -57,8 +61,10 @@ export async function POST(request: Request) {
   }));
 
   const { error: insertError } = await supabase.from("schedules").insert(rows);
-  if (insertError)
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError) {
+    console.error("[schedules/copy] schedules insert failed:", insertError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({ copied: toInsert.length, skipped });
 }
