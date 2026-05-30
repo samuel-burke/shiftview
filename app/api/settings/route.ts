@@ -62,6 +62,11 @@ export async function PUT(request: Request) {
   if (body.timezone !== undefined) {
     if (typeof body.timezone !== "string" || !body.timezone.trim())
       return NextResponse.json({ error: "timezone must be a non-empty string" }, { status: 400 });
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: body.timezone.trim() });
+    } catch {
+      return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
+    }
     rows.push({ key: "timezone", value: body.timezone.trim() });
   }
 

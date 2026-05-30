@@ -292,7 +292,7 @@ export default function Page() {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [date, isDemo]);
+  }, [date, isDemo, timezone]);
 
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,

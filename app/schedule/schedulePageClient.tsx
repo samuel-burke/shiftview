@@ -28,8 +28,8 @@ const DEFAULT_HOURS: Record<number, StoreHours> = {
   6: { open: 360, close: 1320 },
 };
 
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+function toDateKey(d: Date, tz: string) {
+  return d.toLocaleDateString("en-CA", { timeZone: tz });
 }
 
 function offsetDays(d: Date, n: number): Date {
@@ -71,6 +71,7 @@ export default function SchedulePageClient() {
   const [isManager, setIsManager] = useState(false);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
+  const [timezone, setTimezone] = useState("America/New_York");
   const [loading, setLoading] = useState(true);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -95,7 +96,10 @@ export default function SchedulePageClient() {
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ firstDayOfWeek }) => { if (firstDayOfWeek != null) setFirstDayOfWeek(firstDayOfWeek); })
+      .then(({ firstDayOfWeek, timezone: tz }) => {
+        if (firstDayOfWeek != null) setFirstDayOfWeek(firstDayOfWeek);
+        if (tz) setTimezone(tz);
+      })
       .catch(() => {});
   }, []);
 
@@ -111,14 +115,14 @@ export default function SchedulePageClient() {
     }
     setLoading(true);
     setScheduleError(null);
-    fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}${isDemo ? "&demo=true" : ""}`)
+    fetch(`/api/my-schedule?from=${toDateKey(from, timezone)}&to=${toDateKey(to, timezone)}${isDemo ? "&demo=true" : ""}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         setSchedules(data.schedules ?? []);
         setLoading(false);
       })
       .catch(() => { setScheduleError("Failed to load schedule"); setLoading(false); });
-  }, [view, navDate, firstDayOfWeek]);
+  }, [view, navDate, firstDayOfWeek, timezone]);
 
   function goToPrev() {
     if (view === "week") {
@@ -168,10 +172,10 @@ export default function SchedulePageClient() {
   const weekStart = useMemo(() => getWeekStart(navDate, firstDayOfWeek), [navDate, firstDayOfWeek]);
   const weekEnd = useMemo(() => offsetDays(weekStart, 6), [weekStart]);
 
-  const todayKey = toDateKey(today);
+  const todayKey = toDateKey(today, timezone);
   const isAtToday =
     view === "week"
-      ? todayKey >= toDateKey(weekStart) && todayKey <= toDateKey(weekEnd)
+      ? todayKey >= toDateKey(weekStart, timezone) && todayKey <= toDateKey(weekEnd, timezone)
       : navDate.getFullYear() === today.getFullYear() && navDate.getMonth() === today.getMonth();
 
   const rangeLabel =
@@ -179,7 +183,7 @@ export default function SchedulePageClient() {
       ? formatWeekRange(weekStart, weekEnd)
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const selectedDateKey = toDateKey(selectedDate);
+  const selectedDateKey = toDateKey(selectedDate, timezone);
   const selectedSchedule =
     schedules.find((s) => s.date.slice(0, 10) === selectedDateKey) ?? null;
 
@@ -193,7 +197,7 @@ export default function SchedulePageClient() {
     ? (selectedSchedule.endMinutes - selectedSchedule.startMinutes) / 60
     : null;
 
-  const isSelectedToday = selectedDateKey === toDateKey(today);
+  const isSelectedToday = selectedDateKey === toDateKey(today, timezone);
   const selectedDayLabel = isSelectedToday
     ? "Today"
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });

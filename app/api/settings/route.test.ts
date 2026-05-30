@@ -196,6 +196,12 @@ describe("PUT /api/settings", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 422 when timezone is not a valid IANA identifier", async () => {
+    const res = await PUT(putReq({ timezone: "Not/Real" }));
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/IANA|valid/i) });
+  });
+
   // ── DB error ─────────────────────────────────────────────────────────────────
 
   it("returns 500 on database error", async () => {
