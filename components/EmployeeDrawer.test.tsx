@@ -34,12 +34,14 @@ describe("EmployeeDrawer", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("opens in edit mode when schedule is null", () => {
+  it("opens in view mode when schedule is null, showing Add Shift and Message", () => {
     render(
       <EmployeeDrawer {...baseProps} employee={employee} schedule={null} />
     );
     expect(screen.getByText("Alice Smith")).toBeInTheDocument();
-    expect(screen.getByText("Save Shift")).toBeInTheDocument();
+    expect(screen.getByText("Add Shift")).toBeInTheDocument();
+    expect(screen.getByText("Message")).toBeInTheDocument();
+    expect(screen.queryByText("Save Shift")).not.toBeInTheDocument();
   });
 
   it("renders employee name when open", () => {
