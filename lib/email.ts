@@ -3,7 +3,7 @@ const FROM = "ShiftView <noreply@shiftview.app>";
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
   if (!RESEND_API_KEY) {
-    console.warn("[email] RESEND_API_KEY not set — skipping email to", to);
+    console.warn("[email] RESEND_API_KEY not set — skipping email");
     return;
   }
   const res = await fetch("https://api.resend.com/emails", {

@@ -49,7 +49,36 @@ describe("GET /api/cron/reminders", () => {
     expect(body.error).toBe("Unauthorized");
   });
 
-  it("returns { sent, skipped } on success", async () => {
+  it("returns reason: notifications disabled when email_notifications toggle is off", async () => {
+    const supabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "app_settings") {
+          return {
+            select: vi.fn().mockResolvedValue({
+              data: [{ key: "email_notifications", value: "false" }],
+              error: null,
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+    vi.mocked(createClient).mockResolvedValue(supabase as any);
+
+    const { GET } = await import("./route");
+    const req = new Request("http://localhost/api/cron/reminders", {
+      headers: { "x-cron-secret": "test-secret" },
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reason).toBe("notifications disabled");
+    expect(body.sent).toBe(0);
+    expect(body.skipped).toBe(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns { sent, skipped, failed } on success", async () => {
     const schedules = [
       { employee_id: 1, start_minutes: 480, end_minutes: 960 },
       { employee_id: 2, start_minutes: 540, end_minutes: 1020 },
@@ -61,6 +90,14 @@ describe("GET /api/cron/reminders", () => {
 
     const supabase = {
       from: vi.fn().mockImplementation((table: string) => {
+        if (table === "app_settings") {
+          return {
+            select: vi.fn().mockResolvedValue({
+              data: [{ key: "email_notifications", value: "true" }],
+              error: null,
+            }),
+          };
+        }
         if (table === "schedules") {
           return {
             select: vi.fn().mockReturnThis(),
@@ -87,6 +124,7 @@ describe("GET /api/cron/reminders", () => {
     const body = await res.json();
     expect(body.sent).toBe(2);
     expect(body.skipped).toBe(0);
+    expect(body.failed).toBe(0);
     expect(sendEmail).toHaveBeenCalledTimes(2);
   });
 
@@ -102,6 +140,14 @@ describe("GET /api/cron/reminders", () => {
 
     const supabase = {
       from: vi.fn().mockImplementation((table: string) => {
+        if (table === "app_settings") {
+          return {
+            select: vi.fn().mockResolvedValue({
+              data: [{ key: "email_notifications", value: "true" }],
+              error: null,
+            }),
+          };
+        }
         if (table === "schedules") {
           return {
             select: vi.fn().mockReturnThis(),
