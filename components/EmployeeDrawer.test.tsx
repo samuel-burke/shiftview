@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import EmployeeDrawer from "./EmployeeDrawer";
 import type { Employee, Schedule } from "../data/types";
 
-const employee: Employee = { id: 1, name: "Alice Smith" };
+const employee: Employee = { id: 1, name: "Alice Smith", user_id: "user-abc-123" };
 
 const schedule: Schedule = {
   id: 1,
@@ -98,52 +98,28 @@ describe("EmployeeDrawer", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("renders Edit Shift button for managers", () => {
-    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />);
+  it("renders Edit Shift and Message action buttons", () => {
+    render(
+      <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />
+    );
     expect(screen.getByText("Edit Shift")).toBeInTheDocument();
+    expect(screen.getByText("Message")).toBeInTheDocument();
   });
 
-  // ── Mark as Off confirmation ───────────────────────────────────────────────
-
-  it("shows confirmation dialog when Mark as Off is clicked", async () => {
-    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />);
-    await userEvent.click(screen.getByRole("button", { name: "Edit Shift" }));
-    await userEvent.click(screen.getByRole("button", { name: "Mark as Off" }));
-    expect(screen.getByText(/remove alice smith from schedule/i)).toBeInTheDocument();
+  it("shows compose area when Message button is clicked", async () => {
+    render(
+      <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />
+    );
+    await userEvent.click(screen.getByText("Message"));
+    expect(screen.getByPlaceholderText("Write a message…")).toBeInTheDocument();
+    expect(screen.getByText("Send")).toBeInTheDocument();
   });
 
-  it("does not call onMarkOff when Cancel is clicked in confirmation", async () => {
-    const onMarkOff = vi.fn().mockResolvedValue(undefined);
-    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onMarkOff={onMarkOff} />);
-    await userEvent.click(screen.getByRole("button", { name: "Edit Shift" }));
-    await userEvent.click(screen.getByRole("button", { name: "Mark as Off" }));
-    const cancelBtns = screen.getAllByRole("button", { name: "Cancel" });
-    await userEvent.click(cancelBtns[cancelBtns.length - 1]);
-    expect(onMarkOff).not.toHaveBeenCalled();
-    expect(screen.queryByText(/remove alice smith from schedule/i)).not.toBeInTheDocument();
-  });
-
-  it("calls onMarkOff when confirmed in dialog", async () => {
-    const onMarkOff = vi.fn().mockResolvedValue(undefined);
-    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onMarkOff={onMarkOff} />);
-    await userEvent.click(screen.getByRole("button", { name: "Edit Shift" }));
-    await userEvent.click(screen.getByRole("button", { name: "Mark as Off" }));
-    const markOffBtns = screen.getAllByRole("button", { name: "Mark as Off" });
-    await userEvent.click(markOffBtns[markOffBtns.length - 1]);
-    expect(onMarkOff).toHaveBeenCalledWith(schedule.id);
-  });
-
-  // ── Message button ─────────────────────────────────────────────────────────
-
-  it("shows a mailto Message link when employee has an email", () => {
-    const empWithEmail = { ...employee, email: "alice@example.com" };
-    render(<EmployeeDrawer {...baseProps} employee={empWithEmail} schedule={schedule} />);
-    const link = screen.getByRole("link", { name: "Message" });
-    expect(link).toHaveAttribute("href", "mailto:alice@example.com");
-  });
-
-  it("hides the Message link when employee has no email", () => {
-    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />);
-    expect(screen.queryByRole("link", { name: "Message" })).not.toBeInTheDocument();
+  it("hides Message button when employee has no user_id", () => {
+    const employeeNoAccount: Employee = { id: 2, name: "Bob Jones" };
+    render(
+      <EmployeeDrawer {...baseProps} employee={employeeNoAccount} schedule={schedule} />
+    );
+    expect(screen.queryByText("Message")).not.toBeInTheDocument();
   });
 });
