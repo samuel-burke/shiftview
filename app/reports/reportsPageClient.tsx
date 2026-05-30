@@ -157,7 +157,7 @@ export default function ReportsPageClient() {
     const map: Record<number, Record<string, number>> = {};
     for (const s of weekSchedules) {
       if (!map[s.employeeId]) map[s.employeeId] = {};
-      map[s.employeeId][s.date.slice(0, 10)] = (s.endMinutes - s.startMinutes) / 60;
+      map[s.employeeId][s.date.slice(0, 10)] = (map[s.employeeId][s.date.slice(0, 10)] ?? 0) + (s.endMinutes - s.startMinutes) / 60;
     }
     return map;
   }, [weekSchedules, weekDates]);

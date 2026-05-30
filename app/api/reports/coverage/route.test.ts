@@ -19,6 +19,16 @@ async function callRoute(url: string) {
   return GET(new Request(url));
 }
 
+function makeSchedulesBuilder(result: { data: any; error: any }) {
+  const b: any = {
+    select: vi.fn().mockReturnThis(),
+    gte: vi.fn().mockReturnThis(),
+    lte: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue(result),
+  };
+  return b;
+}
+
 describe("GET /api/reports/coverage", () => {
   beforeEach(() => { vi.resetModules(); });
 
@@ -46,6 +56,26 @@ describe("GET /api/reports/coverage", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 400 when from is after to", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    const res = await callRoute("http://localhost/api/reports/coverage?from=2026-06-07&to=2026-06-01");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/from must not be after to/i);
+  });
+
+  it("returns 400 when range exceeds 90 days", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    const res = await callRoute("http://localhost/api/reports/coverage?from=2026-01-01&to=2026-04-10");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/90 days/i);
+  });
+
   it("returns days with counts and fills missing dates with 0", async () => {
     const scheduleData = [
       { date: "2026-06-02", employee_id: 1 },
@@ -53,11 +83,7 @@ describe("GET /api/reports/coverage", () => {
       { date: "2026-06-04", employee_id: 1 },
     ];
 
-    const schedulesBuilder: any = {
-      select: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockReturnThis(),
-      lte: vi.fn().mockResolvedValue({ data: scheduleData, error: null }),
-    };
+    const schedulesBuilder = makeSchedulesBuilder({ data: scheduleData, error: null });
 
     const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
     const supabase = {
@@ -82,11 +108,8 @@ describe("GET /api/reports/coverage", () => {
   });
 
   it("returns 500 on DB error", async () => {
-    const schedulesBuilder: any = {
-      select: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockReturnThis(),
-      lte: vi.fn().mockResolvedValue({ data: null, error: { message: "DB error" } }),
-    };
+    const schedulesBuilder = makeSchedulesBuilder({ data: null, error: { message: "DB error" } });
+
     const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
     const supabase = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },

@@ -33,11 +33,20 @@ export async function GET(request: Request) {
   if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
     return NextResponse.json({ error: "from and to params are required (YYYY-MM-DD)" }, { status: 400 });
 
+  if (from > to)
+    return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
+
+  const rangeMs = new Date(to + "T12:00:00Z").getTime() - new Date(from + "T12:00:00Z").getTime();
+  const rangeDays = Math.round(rangeMs / (1000 * 60 * 60 * 24));
+  if (rangeDays > 90)
+    return NextResponse.json({ error: "Date range must not exceed 90 days" }, { status: 400 });
+
   const { data, error } = await supabase
     .from("schedules")
     .select("date, employee_id")
     .gte("date", from)
-    .lte("date", to);
+    .lte("date", to)
+    .limit(10000);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
