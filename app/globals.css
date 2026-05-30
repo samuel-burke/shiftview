@@ -46,3 +46,7 @@ body {
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 6px;
 }
+
+@media print {
+  @page { size: landscape; margin: 1cm; }
+}

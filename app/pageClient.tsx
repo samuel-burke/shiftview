@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -11,6 +12,7 @@ import {
   MINIMUM_COVERAGE,
   CoverageStatus,
 } from "../data/types";
+import PrintableWeekGrid from "../components/PrintableWeekGrid";
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
   0: { open: 480, close: 1200 },
@@ -75,10 +77,67 @@ export default function Page() {
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [timezone, setTimezone] = useState("America/New_York");
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printSchedules, setPrintSchedules] = useState<Schedule[]>([]);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
   const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
+
+  // Compute Mon–Sun week dates for the week containing `date`
+  const weekDatesForPrint = useMemo((): string[] => {
+    // Find Monday of the current week
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
+    const diff = day === 0 ? -6 : 1 - day; // shift Sunday to end
+    d.setDate(d.getDate() + diff);
+    return Array.from({ length: 7 }, (_, i) => toDateKey(offsetDate(d, i)));
+  }, [date]);
+
+  const weekLabelForPrint = useMemo((): string => {
+    const first = new Date(weekDatesForPrint[0] + "T12:00:00Z");
+    const last = new Date(weekDatesForPrint[6] + "T12:00:00Z");
+    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", timeZone: "UTC" };
+    const firstStr = first.toLocaleDateString("en-US", opts);
+    const lastStr = last.toLocaleDateString("en-US", { ...opts, year: "numeric" });
+    return `${firstStr} – ${lastStr}`;
+  }, [weekDatesForPrint]);
+
+  async function handlePrint() {
+    // Bug 2 fix: capture week dates before any awaits so that mid-fetch date
+    // navigation cannot corrupt the print output (reference-stable via useMemo).
+    const capturedDates = weekDatesForPrint;
+
+    setPrintLoading(true);
+    const results = await Promise.allSettled(
+      capturedDates.map(d =>
+        fetch(`/api/schedules?date=${d}&demo=${isDemo}`).then(r => r.json())
+      )
+    );
+
+    // Bug 3 fix: if any fetch failed, surface the error and abort printing.
+    const rejected = results.filter(r => r.status === "rejected");
+    if (rejected.length > 0) {
+      setError("Failed to load schedule data for printing. Please try again.");
+      setPrintLoading(false);
+      return;
+    }
+
+    // Bug 2 fix (continued): if the user navigated away during the fetches,
+    // the captured dates no longer match the current week — abort.
+    if (capturedDates !== weekDatesForPrint) {
+      setPrintLoading(false);
+      return;
+    }
+
+    const allSchedules = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+
+    // Bug 1 fix: use flushSync so React commits the DOM update before
+    // window.print() opens the print dialog (React 19 batches updates).
+    flushSync(() => setPrintSchedules(allSchedules));
+    setPrintLoading(false);
+    window.print();
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -492,6 +551,25 @@ export default function Page() {
     </>
   );
 
+  const printButton = isManager ? (
+    <button
+      onClick={handlePrint}
+      disabled={printLoading}
+      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50 print:hidden"
+    >
+      {printLoading ? "Loading…" : "Print Schedule"}
+    </button>
+  ) : null;
+
+  const printGrid = (
+    <PrintableWeekGrid
+      employees={employees}
+      schedules={printSchedules}
+      weekDates={weekDatesForPrint}
+      weekLabel={weekLabelForPrint}
+    />
+  );
+
   if (isDesktop) {
     return (
       <main className="bg-bg min-h-screen">
@@ -509,8 +587,9 @@ export default function Page() {
             )}
             {timeline}
             {legend}
-            <div className="text-center mt-2">
+            <div className="flex items-center justify-between mt-2">
               <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
+              {printButton}
             </div>
           </div>
           {/* Right: team list */}
@@ -519,6 +598,7 @@ export default function Page() {
           </div>
         </div>
         {drawer}
+        {printGrid}
         <BottomNav active="team" />
       </main>
     );
@@ -538,10 +618,12 @@ export default function Page() {
       {timeline}
       {legend}
       {teamSections}
-      <div className="text-center mt-4">
+      <div className="flex items-center justify-between mt-4">
         <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
+        {printButton}
       </div>
       {drawer}
+      {printGrid}
       <BottomNav active="team" />
     </main>
   );
