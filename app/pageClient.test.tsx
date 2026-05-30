@@ -52,6 +52,42 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("pageClient attendance", () => {
+  it("fetches punch records when manager is viewing today", async () => {
+    render(<Page />);
+    await waitFor(() => {
+      const urls = mockFetch.mock.calls.map(([url]: [string]) => url);
+      expect(urls.some((u) => u.includes("/api/punches"))).toBe(true);
+    });
+  });
+
+  it("shows Clocked In badge for a scheduled employee when manager sees punch data", async () => {
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/employees")) return makeJsonResponse([{ id: 1, name: "Alice Smith" }]);
+      if (url.includes("/api/me")) return makeJsonResponse({ isManager: true, employeeName: "Manager" });
+      if (url.includes("/api/store-hours")) return makeJsonResponse({});
+      if (url.includes("/api/settings")) return makeJsonResponse({ optimalCoverage: 3, minCoverage: 2, firstDayOfWeek: 1 });
+      if (url.includes("/api/schedules")) {
+        // Return a shift that is currently in progress (0–1440 covers all day)
+        return makeJsonResponse([{ id: 1, employeeId: 1, date: todayKey, startMinutes: 0, endMinutes: 1440 }]);
+      }
+      if (url.includes("/api/punches")) {
+        return makeJsonResponse([{
+          id: 1, employeeId: 1, scheduleId: 1,
+          punchType: "clock_in", punchedAt: new Date().toISOString(),
+          lat: null, lng: null, isManual: false, note: null,
+        }]);
+      }
+      return makeJsonResponse({});
+    });
+    render(<Page />);
+    await waitFor(() => {
+      expect(screen.getByText("Clocked In")).toBeInTheDocument();
+    });
+  });
+});
+
 describe("pageClient mount fetches", () => {
   it("fires all four initial fetches in parallel on mount", async () => {
     render(<Page />);
