@@ -117,7 +117,6 @@ describe("EmployeeDrawer", () => {
     render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onMarkOff={onMarkOff} />);
     await userEvent.click(screen.getByRole("button", { name: "Edit Shift" }));
     await userEvent.click(screen.getByRole("button", { name: "Mark as Off" }));
-    // Two Cancel buttons exist (edit form + dialog); click the one inside the dialog
     const cancelBtns = screen.getAllByRole("button", { name: "Cancel" });
     await userEvent.click(cancelBtns[cancelBtns.length - 1]);
     expect(onMarkOff).not.toHaveBeenCalled();
@@ -129,9 +128,22 @@ describe("EmployeeDrawer", () => {
     render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onMarkOff={onMarkOff} />);
     await userEvent.click(screen.getByRole("button", { name: "Edit Shift" }));
     await userEvent.click(screen.getByRole("button", { name: "Mark as Off" }));
-    // Dialog appears; there are now two "Mark as Off" buttons — click the second (dialog confirm)
     const markOffBtns = screen.getAllByRole("button", { name: "Mark as Off" });
     await userEvent.click(markOffBtns[markOffBtns.length - 1]);
     expect(onMarkOff).toHaveBeenCalledWith(schedule.id);
+  });
+
+  // ── Message button ─────────────────────────────────────────────────────────
+
+  it("shows a mailto Message link when employee has an email", () => {
+    const empWithEmail = { ...employee, email: "alice@example.com" };
+    render(<EmployeeDrawer {...baseProps} employee={empWithEmail} schedule={schedule} />);
+    const link = screen.getByRole("link", { name: "Message" });
+    expect(link).toHaveAttribute("href", "mailto:alice@example.com");
+  });
+
+  it("hides the Message link when employee has no email", () => {
+    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />);
+    expect(screen.queryByRole("link", { name: "Message" })).not.toBeInTheDocument();
   });
 });
