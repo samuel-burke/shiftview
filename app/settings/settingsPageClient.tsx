@@ -91,6 +91,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editingName, setEditingName] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [isManager, setIsManager] = useState(false);
 
   const [availability, setAvailability] = useState<Record<number, Set<number>>>({});
   const [isManager, setIsManager] = useState(false);
@@ -160,6 +161,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             .catch(() => {});
         }
       })
+      .catch(() => {});
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(({ isManager: mgr }) => { if (mgr != null) setIsManager(mgr); })
       .catch(() => {});
   }, []);
 
@@ -836,12 +841,22 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Admin
           </div>
-          <button
-            onClick={() => router.push(isDemo ? "/admin?demo=true" : "/admin")}
-            className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
-          >
-            Manage Roles
-          </button>
+          <div className="flex flex-col gap-2">
+            {isManager && (
+              <button
+                onClick={() => router.push(isDemo ? "/reports?demo=true" : "/reports")}
+                className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+              >
+                View Reports
+              </button>
+            )}
+            <button
+              onClick={() => router.push(isDemo ? "/admin?demo=true" : "/admin")}
+              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
+            >
+              Manage Roles
+            </button>
+          </div>
         </section>
 
         {/* Sign out / Sign in */}
