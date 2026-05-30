@@ -131,3 +131,77 @@ describe("ShiftCard", () => {
     expect(screen.getByText("mid")).toBeInTheDocument();
   });
 });
+
+describe("ShiftCard attendance badges", () => {
+  // Shift: 8am–4pm (480–960). Tests run with nowMinutes=600 (10am) = mid-shift.
+  const DURING_SHIFT = 600; // 10am
+  const BEFORE_SHIFT = 420; // 7am — before 8am start
+  const AFTER_SHIFT  = 990; // 4:30pm — after 4pm end
+
+  function renderCard(attendanceStatus?: import("../data/types").AttendanceStatus, nowMinutes = DURING_SHIFT) {
+    render(
+      <ShiftCard
+        employee={employee}
+        schedule={scheduled}
+        storeHours={STORE_HOURS}
+        nowMinutes={nowMinutes}
+        isToday={true}
+        attendanceStatus={attendanceStatus}
+        onClick={() => {}}
+      />
+    );
+  }
+
+  it("shows 'Clocked In' badge when clocked in during shift", () => {
+    renderCard("clocked_in");
+    expect(screen.getByText("Clocked In")).toBeInTheDocument();
+    expect(screen.queryByText("Here")).not.toBeInTheDocument();
+  });
+
+  it("shows 'On Break' badge when on break during shift", () => {
+    renderCard("on_break");
+    expect(screen.getByText("On Break")).toBeInTheDocument();
+  });
+
+  it("shows 'Clocked Out' badge when clocked out during the shift window", () => {
+    // Employee clocked out early — shift is 8am–4pm but it's 10am and they're already out
+    renderCard("clocked_out", DURING_SHIFT);
+    expect(screen.getByText("Clocked Out")).toBeInTheDocument();
+  });
+
+  it("shows 'Not Here Yet' badge when shift has started but no clock-in", () => {
+    renderCard("not_clocked_in", DURING_SHIFT);
+    expect(screen.getByText("Not Here Yet")).toBeInTheDocument();
+  });
+
+  it("does NOT show 'Not Here Yet' when shift has not started yet", () => {
+    renderCard("not_clocked_in", BEFORE_SHIFT);
+    expect(screen.queryByText("Not Here Yet")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Not Here Yet' badge when shift is over and employee never clocked in", () => {
+    renderCard("not_clocked_in", AFTER_SHIFT);
+    expect(screen.getByText("Not Here Yet")).toBeInTheDocument();
+  });
+
+  it("falls back to 'Here' when no punch data during shift (demo / loading)", () => {
+    renderCard(undefined, DURING_SHIFT);
+    expect(screen.getByText("Here")).toBeInTheDocument();
+  });
+
+  it("shows no attendance badge on non-today shifts regardless of status", () => {
+    render(
+      <ShiftCard
+        employee={employee}
+        schedule={scheduled}
+        storeHours={STORE_HOURS}
+        nowMinutes={DURING_SHIFT}
+        isToday={false}
+        attendanceStatus="clocked_in"
+        onClick={() => {}}
+      />
+    );
+    expect(screen.queryByText("Clocked In")).not.toBeInTheDocument();
+    expect(screen.queryByText("Here")).not.toBeInTheDocument();
+  });
+});

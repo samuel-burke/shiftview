@@ -82,6 +82,7 @@ export default function Page() {
   const [timezone, setTimezone] = useState("America/New_York");
   const [exportLoading, setExportLoading] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
+  const [punchesLoaded, setPunchesLoaded] = useState(false);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
@@ -282,6 +283,20 @@ export default function Page() {
     return () => clearInterval(t);
   }, [timezone]);
 
+  // Auto-refresh punch records every 60 seconds when viewing today (manager only)
+  useEffect(() => {
+    const viewingToday = toDateKey(date, timezone) === toDateKey(new Date(), timezone);
+    if (!viewingToday || isDemo || !isManager) return;
+    const t = setInterval(() => {
+      const dateKey = toDateKey(date, timezone);
+      apiFetch(`/api/punches?date=${dateKey}`)
+        .then((r) => r.json())
+        .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
+        .catch(() => {});
+    }, 60000);
+    return () => clearInterval(t);
+  }, [isDemo, isManager, date, timezone]);
+
   // Fetch employees, manager status, store hours, and settings in parallel on mount
   useEffect(() => {
     const controller = new AbortController();
@@ -366,6 +381,7 @@ export default function Page() {
     setLoading(true);
     setError(null);
     const isViewingToday = dateKey === toDateKey(today, timezone);
+    setPunchesLoaded(false);
     const fetches: Promise<void>[] = [
       apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
         .then((r) => r.json())
@@ -378,11 +394,15 @@ export default function Page() {
       fetches.push(
         apiFetch(`/api/punches?date=${dateKey}`)
           .then((r) => r.json())
-          .then((data) => setPunchRecords(Array.isArray(data) ? data : []))
-          .catch(() => setPunchRecords([]))
+          .then((data) => {
+            setPunchRecords(Array.isArray(data) ? data : []);
+            setPunchesLoaded(true);
+          })
+          .catch(() => { setPunchRecords([]); setPunchesLoaded(true); })
       );
     } else {
       setPunchRecords([]);
+      setPunchesLoaded(false);
     }
     Promise.all(fetches)
       .then(() => setLoading(false))
@@ -413,17 +433,18 @@ export default function Page() {
     [scheduled],
   );
 
-  // Build a map from employeeId → AttendanceStatus using real punch records
+  // Build a map from employeeId → AttendanceStatus using real punch records.
+  // Only populated once punch data has loaded so we don't flash "Not Here Yet"
+  // before the fetch completes.
   const attendanceMap = useMemo((): Record<number, AttendanceStatus> => {
+    if (!punchesLoaded) return {};
     const map: Record<number, AttendanceStatus> = {};
     for (const sch of scheduled) {
       const empPunches = punchRecords.filter((p) => p.employeeId === sch.employeeId);
-      if (empPunches.length > 0) {
-        map[sch.employeeId] = getAttendanceStatus(empPunches);
-      }
+      map[sch.employeeId] = getAttendanceStatus(empPunches);
     }
     return map;
-  }, [punchRecords, scheduled]);
+  }, [punchRecords, scheduled, punchesLoaded]);
 
   const lastUpdated = lastFetchedAt
     ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
@@ -477,7 +498,7 @@ export default function Page() {
             ...(isViewingToday && !isDemo
               ? [apiFetch(`/api/punches?date=${dateKey}`, { cache: "no-store" })
                   .then((r) => r.json())
-                  .then((d) => setPunchRecords(Array.isArray(d) ? d : []))
+                  .then((d) => { setPunchRecords(Array.isArray(d) ? d : []); setPunchesLoaded(true); })
                   .catch(() => {})]
               : []),
           ]);
@@ -561,7 +582,7 @@ export default function Page() {
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday ? attendanceMap : undefined} onSelect={(emp, sch) => { setSelected({ emp, sch }); setUnavailableDays([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); }} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday && isManager ? attendanceMap : undefined} onSelect={(emp, sch) => { setSelected({ emp, sch }); setUnavailableDays([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); }} />
       <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={(emp) => { setSelected({ emp, sch: null }); setUnavailableDays([]); if (isManager) { fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); } }} canSelectOff={(emp) => isManager || !!emp.user_id} />
     </>
   );

@@ -51,18 +51,22 @@ export default function ShiftCard({
     arrivalText = h > 0 ? (m > 0 ? `In ${h}h ${m}m` : `In ${h}h`) : `In ${m}m`;
   }
 
-  // Resolve badge: prefer attendance status when shift is in progress today
+  // Resolve badge: prefer attendance status when we have real punch data
   let badge: { label: string; className: string } | null = null;
-  if (isToday && here) {
-    if (attendanceStatus && attendanceStatus !== "clocked_out") {
-      badge = ATTENDANCE_BADGES[attendanceStatus];
-    } else if (!attendanceStatus) {
-      // Fall back to time-based "Here" if no punch data
+  if (isToday) {
+    if (attendanceStatus) {
+      if (attendanceStatus === "not_clocked_in") {
+        // Only show "Not Here Yet" after the shift has started
+        if (schedule.startMinutes <= nowMinutes) {
+          badge = ATTENDANCE_BADGES.not_clocked_in;
+        }
+      } else {
+        badge = ATTENDANCE_BADGES[attendanceStatus];
+      }
+    } else if (here) {
+      // No punch data (demo mode or still loading) — time-based fallback
       badge = { label: "Here", className: "bg-green-500/15 text-green-500" };
     }
-  } else if (isToday && !here && schedule.startMinutes <= nowMinutes && attendanceStatus === "not_clocked_in") {
-    // Shift started but no clock-in
-    badge = ATTENDANCE_BADGES.not_clocked_in;
   }
 
   const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
