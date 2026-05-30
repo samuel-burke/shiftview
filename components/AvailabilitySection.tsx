@@ -352,7 +352,7 @@ export default function AvailabilitySection({
                     Store open: {fmtMinutes(sheetStoreHours.open)} – {fmtMinutes(sheetStoreHours.close)}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-3">
                     {[
                       { label: "From", val: sheetDay.startVal, ariaLabel: `${DAY_FULL[activeDow]} start time`,
                         onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], startVal: v } })) },
