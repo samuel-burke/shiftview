@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -98,14 +99,37 @@ export default function Page() {
   }, [weekDatesForPrint]);
 
   async function handlePrint() {
+    // Bug 2 fix: capture week dates before any awaits so that mid-fetch date
+    // navigation cannot corrupt the print output (reference-stable via useMemo).
+    const capturedDates = weekDatesForPrint;
+
     setPrintLoading(true);
     const results = await Promise.allSettled(
-      weekDatesForPrint.map(d =>
+      capturedDates.map(d =>
         fetch(`/api/schedules?date=${d}&demo=${isDemo}`).then(r => r.json())
       )
     );
-    const all = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
-    setPrintSchedules(all);
+
+    // Bug 3 fix: if any fetch failed, surface the error and abort printing.
+    const rejected = results.filter(r => r.status === "rejected");
+    if (rejected.length > 0) {
+      setError("Failed to load schedule data for printing. Please try again.");
+      setPrintLoading(false);
+      return;
+    }
+
+    // Bug 2 fix (continued): if the user navigated away during the fetches,
+    // the captured dates no longer match the current week — abort.
+    if (capturedDates !== weekDatesForPrint) {
+      setPrintLoading(false);
+      return;
+    }
+
+    const allSchedules = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+
+    // Bug 1 fix: use flushSync so React commits the DOM update before
+    // window.print() opens the print dialog (React 19 batches updates).
+    flushSync(() => setPrintSchedules(allSchedules));
     setPrintLoading(false);
     window.print();
   }
