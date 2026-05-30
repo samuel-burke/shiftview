@@ -91,7 +91,6 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editingName, setEditingName] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [isManager, setIsManager] = useState(false);
 
   const [availability, setAvailability] = useState<Record<number, Set<number>>>({});
   const [isManager, setIsManager] = useState(false);
@@ -148,12 +147,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       .catch(() => {});
     fetch("/api/me")
       .then((r) => r.json())
-      .then(({ isManager: mgr }) => { if (mgr != null) setIsManager(mgr); })
-      .catch(() => {});
-    fetch("/api/me")
-      .then((r) => r.json())
       .then(({ isManager: mgr }) => {
-        if (mgr) setIsManager(mgr);
+        if (mgr != null) setIsManager(mgr);
         if (mgr) {
           fetch("/api/templates")
             .then((r) => r.ok ? r.json() : Promise.reject())
@@ -161,10 +156,6 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             .catch(() => {});
         }
       })
-      .catch(() => {});
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then(({ isManager: mgr }) => { if (mgr != null) setIsManager(mgr); })
       .catch(() => {});
   }, []);
 
