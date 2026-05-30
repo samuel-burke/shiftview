@@ -17,6 +17,9 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
   const { data, error } = await supabase
     .from("availability")
     .select("day_of_week")

@@ -39,6 +39,15 @@ describe("GET /api/availability", () => {
     expect(await res.json()).toEqual({ unavailableDays: [] });
   });
 
+  it("returns 401 when unauthenticated", async () => {
+    const client = makeSupabaseClient({ user: null });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/availability?employeeId=1"));
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toMatchObject({ error: expect.stringContaining("authenticated") });
+  });
+
   it("returns 400 if employeeId is missing", async () => {
     const client = makeSupabaseClient({ user: MOCK_USER });
     mockCreateClient.mockResolvedValue(client as any);

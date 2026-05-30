@@ -183,6 +183,12 @@ export default function EmployeeDrawer({
             </button>
           </div>
 
+          {unavailableDays?.includes(dayOfWeek) && (
+            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 mb-3 text-xs text-amber-400">
+              ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+            </div>
+          )}
+
           {editing ? (
             <div className="flex flex-col gap-3">
               {[
@@ -234,11 +240,6 @@ export default function EmployeeDrawer({
             </div>
           ) : (
             <>
-              {unavailableDays?.includes(dayOfWeek) && (
-                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 mb-3 text-xs text-amber-400">
-                  ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
-                </div>
-              )}
               <div className="grid grid-cols-2 gap-2.5 mb-6">
                 {[
                   { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },

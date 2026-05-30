@@ -355,8 +355,8 @@ export default function Page() {
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => { setSelected({ emp, sch }); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); }} />
-      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => { setSelected({ emp, sch: null }); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); } : undefined} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} onSelect={(emp, sch) => { setSelected({ emp, sch }); setUnavailableDays([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); }} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={isManager ? (emp) => { setSelected({ emp, sch: null }); setUnavailableDays([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); } : undefined} />
     </>
   );
 
