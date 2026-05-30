@@ -151,7 +151,8 @@ export default function AvailabilitySection({
           setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], saveStatus: "error" } }));
         }
       } else {
-        setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], saveStatus: "idle" } }));
+        // No record to delete — still confirm the state is now clear
+        setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], saveStatus: "saved" } }));
       }
       return;
     }
@@ -422,7 +423,7 @@ export default function AvailabilitySection({
                 {sheetDay?.saveStatus === "saving" && (
                   <span className="text-sm text-slate-400">Saving…</span>
                 )}
-                {sheetDay?.saveStatus === "saved" && sheetDay.state !== "any" && (
+                {sheetDay?.saveStatus === "saved" && (
                   <span className="text-sm text-emerald-400">Saved ✓</span>
                 )}
                 {sheetDay?.saveStatus === "error" && (
