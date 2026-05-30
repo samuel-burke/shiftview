@@ -246,6 +246,26 @@ describe("AvailabilitySection", () => {
     vi.useRealTimers();
   });
 
+  it("copy button shows '✓ Weekdays updated' confirmation for 2s then reverts", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) }));
+    render(<AvailabilitySection {...BASE_PROPS} />);
+    await act(async () => { await Promise.resolve(); });
+
+    await openSheet(0);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Window" })); });
+
+    // Click Weekdays
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Weekdays" })); });
+    expect(screen.getByText("✓ Weekdays updated")).toBeInTheDocument();
+
+    // After 2s timer fires, label reverts
+    await act(async () => { vi.advanceTimersByTime(2100); });
+    expect(screen.queryByText("✓ Weekdays updated")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Weekdays" })).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it("shows visual availability bar in sheet for a saved window record", async () => {
     const records = [{ id: 2, dayOfWeek: 1, startMinutes: 720, endMinutes: 1320, note: null }];
     vi.stubGlobal("fetch", makeMockFetch(records));

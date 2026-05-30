@@ -199,7 +199,10 @@ export default function AvailabilitySection({
     scheduleSave(dow, (cfg) => cfg);
   }
 
-  function copyToTarget(sourceDow: number, targets: number[]) {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function copyToTarget(sourceDow: number, targets: number[], key: string) {
     const src = days[sourceDow];
     for (const target of targets) {
       if (target === sourceDow) continue;
@@ -207,6 +210,9 @@ export default function AvailabilitySection({
         ...cfg, state: "window", startVal: src.startVal, endVal: src.endVal,
       }));
     }
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    setCopiedKey(key);
+    copiedTimerRef.current = setTimeout(() => setCopiedKey(null), 2000);
   }
 
   const allAny = orderedDays.every((d) => days[d].state === "any");
@@ -346,43 +352,27 @@ export default function AvailabilitySection({
                     Store open: {fmtMinutes(sheetStoreHours.open)} – {fmtMinutes(sheetStoreHours.close)}
                   </div>
 
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                        From
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "From", val: sheetDay.startVal, ariaLabel: `${DAY_FULL[activeDow]} start time`,
+                        onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], startVal: v } })) },
+                      { label: "To",   val: sheetDay.endVal,   ariaLabel: `${DAY_FULL[activeDow]} end time`,
+                        onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], endVal: v } })) },
+                    ].map(({ label, val, ariaLabel, onChange }) => (
+                      <div key={label}>
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                          {label}
+                        </div>
+                        <input
+                          type="time"
+                          value={val}
+                          onChange={(e) => onChange(e.target.value)}
+                          onBlur={() => handleTimeBlur(activeDow)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-slate-100 text-base [color-scheme:dark]"
+                          aria-label={ariaLabel}
+                        />
                       </div>
-                      <input
-                        type="time"
-                        value={sheetDay.startVal}
-                        onChange={(e) =>
-                          setDays((prev) => ({
-                            ...prev,
-                            [activeDow]: { ...prev[activeDow], startVal: e.target.value },
-                          }))
-                        }
-                        onBlur={() => handleTimeBlur(activeDow)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-slate-100 text-base [color-scheme:dark]"
-                        aria-label={`${DAY_FULL[activeDow]} start time`}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                        To
-                      </div>
-                      <input
-                        type="time"
-                        value={sheetDay.endVal}
-                        onChange={(e) =>
-                          setDays((prev) => ({
-                            ...prev,
-                            [activeDow]: { ...prev[activeDow], endVal: e.target.value },
-                          }))
-                        }
-                        onBlur={() => handleTimeBlur(activeDow)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-slate-100 text-base [color-scheme:dark]"
-                        aria-label={`${DAY_FULL[activeDow]} end time`}
-                      />
-                    </div>
+                    ))}
                   </div>
 
                   {sheetInvalid && (
@@ -399,21 +389,30 @@ export default function AvailabilitySection({
                   )}
 
                   {/* Copy to */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-slate-500">Copy to:</span>
-                    {[
-                      { label: "Weekdays", targets: WEEKDAYS },
-                      { label: "Weekends", targets: WEEKENDS },
-                      { label: "All days", targets: [0, 1, 2, 3, 4, 5, 6] },
-                    ].map(({ label, targets }) => (
-                      <button
-                        key={label}
-                        onClick={() => copyToTarget(activeDow, targets)}
-                        className="text-xs text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer"
-                      >
-                        {label}
-                      </button>
-                    ))}
+                  <div>
+                    <div className="text-xs text-slate-500 mb-2">Apply this window to:</div>
+                    <div className="flex flex-col gap-2">
+                      {[
+                        { key: "weekdays", label: "Weekdays", targets: WEEKDAYS },
+                        { key: "weekends", label: "Weekends", targets: WEEKENDS },
+                        { key: "all",      label: "All days", targets: [0, 1, 2, 3, 4, 5, 6] },
+                      ].map(({ key, label, targets }) => {
+                        const copied = copiedKey === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => copyToTarget(activeDow, targets, key)}
+                            className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
+                              copied
+                                ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
+                                : "bg-slate-800 border-slate-700 text-slate-300"
+                            }`}
+                          >
+                            {copied ? `✓ ${label} updated` : label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
