@@ -228,7 +228,7 @@ export default function Page() {
   );
 
   const lastUpdated = lastFetchedAt
-    ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+    ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
     : null;
 
   const storeHours = weeklyHours[date.getDay()];
@@ -267,18 +267,21 @@ export default function Page() {
       if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
         setRefreshing(true);
         const dateKey = toDateKey(date);
-        await Promise.all([
-          fetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
-            .then((r) => r.json())
-            .then(setEmployees),
-          fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
-            cache: "no-store",
-          })
-            .then((r) => r.json())
-            .then(setSchedules),
-        ]);
-        setLastFetchedAt(new Date());
-        setRefreshing(false);
+        try {
+          await Promise.all([
+            fetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
+              .then((r) => r.json())
+              .then(setEmployees),
+            fetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, {
+              cache: "no-store",
+            })
+              .then((r) => r.json())
+              .then(setSchedules),
+          ]);
+          setLastFetchedAt(new Date());
+        } finally {
+          setRefreshing(false);
+        }
       }
     }
 
@@ -294,8 +297,8 @@ export default function Page() {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
     userName, isManager,
-    onPrev: () => setDate((d) => offsetDate(d, -1)),
-    onNext: () => setDate((d) => offsetDate(d, 1)),
+    onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
+    onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
     onNow: () => setDate(new Date()),
     onDateSelect: (d: Date) => setDate(d),
     onSignOut: isDemo ? undefined : handleSignOut,
