@@ -4,6 +4,7 @@ import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
 import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 import { notify } from "@/lib/notify";
+import { sendEmail } from "@/lib/email";
 import { fmtMinutes } from "@/data/types";
 
 export const dynamic = "force-dynamic";

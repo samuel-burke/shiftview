@@ -52,7 +52,7 @@ const DEFAULT_HOURS: Record<number, StoreHours> = {
   6: { open: 360, close: 1320 },
 };
 
-function toDateKey(d: Date, tz: string) {
+function toDateKey(d: Date, tz = "America/New_York") {
   return d.toLocaleDateString("en-CA", { timeZone: tz });
 }
 
