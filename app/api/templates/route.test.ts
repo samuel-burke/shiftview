@@ -160,6 +160,22 @@ describe("DELETE /api/templates/[id]", () => {
 describe("POST /api/templates/[id]/apply", () => {
   beforeEach(() => { vi.resetModules(); });
 
+  it("returns 422 when weekStartDate is not a Monday", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    const { POST } = await import("./[id]/apply/route");
+    const req = new Request("http://localhost/api/templates/1/apply", {
+      method: "POST",
+      body: JSON.stringify({ weekStartDate: "2026-06-02" }), // Tuesday
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req, { params: { id: "1" } });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toMatch(/Monday/i);
+  });
+
   it("returns { created, skipped } correctly", async () => {
     const templateRows = [
       { employee_id: 1, day_of_week: 0, start_minutes: 480, end_minutes: 960 },

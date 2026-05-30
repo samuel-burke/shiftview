@@ -74,6 +74,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [templates, setTemplates] = useState<Template[]>([]);
   const [applyingId, setApplyingId] = useState<number | null>(null);
   const [applyDateInput, setApplyDateInput] = useState<Record<number, string>>({});
+  const [applyError, setApplyError] = useState<Record<number, string | null>>({});
   const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
 
   async function handleSignOut() {
@@ -567,12 +568,18 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                           disabled={applyingId === tpl.id}
                           onClick={async () => {
                             setApplyingId(tpl.id);
-                            await fetch(`/api/templates/${tpl.id}/apply`, {
+                            setApplyError((prev) => ({ ...prev, [tpl.id]: null }));
+                            const res = await fetch(`/api/templates/${tpl.id}/apply`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ weekStartDate: applyDateInput[tpl.id] }),
                             });
                             setApplyingId(null);
+                            if (!res.ok) {
+                              const { error } = await res.json().catch(() => ({}));
+                              setApplyError((prev) => ({ ...prev, [tpl.id]: error ?? "Failed to apply template" }));
+                              return;
+                            }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer disabled:opacity-50"
@@ -580,6 +587,9 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                           {applyingId === tpl.id ? "Applying…" : "Confirm"}
                         </button>
                       </div>
+                    )}
+                    {applyError[tpl.id] && (
+                      <div className="text-xs text-red-400">{applyError[tpl.id]}</div>
                     )}
                   </div>
                 ))

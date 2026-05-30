@@ -28,6 +28,10 @@ export async function POST(
   if (!weekStartDate || !/^\d{4}-\d{2}-\d{2}$/.test(weekStartDate))
     return NextResponse.json({ error: "weekStartDate must be YYYY-MM-DD" }, { status: 400 });
 
+  const d = new Date(weekStartDate + "T00:00:00Z");
+  if (isNaN(d.getTime())) return NextResponse.json({ error: "Invalid weekStartDate" }, { status: 400 });
+  if (d.getUTCDay() !== 1) return NextResponse.json({ error: "weekStartDate must be a Monday" }, { status: 422 });
+
   // Fetch template rows
   const { data: rows, error: rowErr } = await supabase
     .from("schedule_template_rows")
