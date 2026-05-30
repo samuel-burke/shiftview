@@ -57,9 +57,9 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const supabase = createClient();
 
   const [storeHours, setStoreHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_HOURS);
-  const [hoursSaving, setHoursSaving] = useState<Record<number, boolean>>({});
-  const [hoursSaved, setHoursSaved] = useState<Record<number, boolean>>({});
-  const [hoursError, setHoursError] = useState<Record<number, boolean>>({});
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [hoursSaved, setHoursSaved] = useState(false);
+  const [hoursError, setHoursError] = useState(false);
 
   const [optimalCoverage, setOptimalCoverage] = useState(3);
   const [minCoverage, setMinCoverage] = useState(2);
@@ -159,28 +159,32 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       .catch(() => {});
   }, []);
 
-  async function saveStoreHours(day: number) {
-    setHoursSaving((prev) => ({ ...prev, [day]: true }));
+  async function saveAllStoreHours() {
+    setHoursSaving(true);
     if (isDemo) {
       await new Promise((r) => setTimeout(r, 250));
-      setHoursSaving((prev) => ({ ...prev, [day]: false }));
-      setHoursSaved((prev) => ({ ...prev, [day]: true }));
-      setTimeout(() => setHoursSaved((prev) => ({ ...prev, [day]: false })), 2000);
+      setHoursSaving(false);
+      setHoursSaved(true);
+      setTimeout(() => setHoursSaved(false), 2000);
       return;
     }
-    const { open, close } = storeHours[day];
-    const res = await fetch("/api/store-hours", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dayOfWeek: day, openMinutes: open, closeMinutes: close }),
-    });
-    setHoursSaving((prev) => ({ ...prev, [day]: false }));
-    if (res.ok) {
-      setHoursSaved((prev) => ({ ...prev, [day]: true }));
-      setTimeout(() => setHoursSaved((prev) => ({ ...prev, [day]: false })), 2000);
+    const results = await Promise.all(
+      Array.from({ length: 7 }, (_, day) => {
+        const { open, close } = storeHours[day] ?? DEFAULT_HOURS[day];
+        return fetch("/api/store-hours", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dayOfWeek: day, openMinutes: open, closeMinutes: close }),
+        });
+      })
+    );
+    setHoursSaving(false);
+    if (results.every((r) => r.ok)) {
+      setHoursSaved(true);
+      setTimeout(() => setHoursSaved(false), 2000);
     } else {
-      setHoursError((prev) => ({ ...prev, [day]: true }));
-      setTimeout(() => setHoursError((prev) => ({ ...prev, [day]: false })), 3000);
+      setHoursError(true);
+      setTimeout(() => setHoursError(false), 3000);
     }
   }
 
@@ -426,23 +430,23 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                     }
                     className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 min-w-0"
                   />
-                  <button
-                    onClick={() => saveStoreHours(day)}
-                    disabled={hoursSaving[day]}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
-                      hoursError[day]
-                        ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                        : hoursSaved[day]
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                        : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
-                    }`}
-                  >
-                    {hoursError[day] ? "Error" : hoursSaved[day] ? "Saved" : hoursSaving[day] ? "…" : "Save"}
-                  </button>
                 </div>
               );
             })}
           </div>
+          <button
+            onClick={saveAllStoreHours}
+            disabled={hoursSaving}
+            className={`mt-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+              hoursError
+                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                : hoursSaved
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
+            }`}
+          >
+            {hoursError ? "Error saving" : hoursSaved ? "Saved ✓" : hoursSaving ? "Saving…" : "Save Store Hours"}
+          </button>
         </section>
 
         {/* Coverage thresholds */}
