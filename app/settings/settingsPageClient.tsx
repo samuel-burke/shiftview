@@ -77,6 +77,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [timezoneSaved, setTimezoneSaved] = useState(false);
   const [timezoneError, setTimezoneError] = useState<string | null>(null);
 
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [emailNotifSaving, setEmailNotifSaving] = useState(false);
+  const [emailNotifSaved, setEmailNotifSaved] = useState(false);
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showInvite, setShowInvite] = useState(false);
@@ -105,11 +109,12 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz }) => {
+      .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en }) => {
         if (fdw != null) setFirstDayOfWeek(fdw);
         if (oc != null) setOptimalCoverage(oc);
         if (mc != null) setMinCoverage(mc);
         if (tz) setTimezone(tz);
+        if (en != null) setEmailNotifications(en);
       })
       .catch(() => {});
     fetch("/api/employees")
@@ -237,6 +242,27 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       const json = await res.json().catch(() => ({}));
       setTimezoneError(json.error ?? "Failed to save");
       setTimeout(() => setTimezoneError(null), 4000);
+    }
+  }
+
+  async function saveEmailNotif(newValue: boolean) {
+    setEmailNotifSaving(true);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setEmailNotifSaving(false);
+      setEmailNotifSaved(true);
+      setTimeout(() => setEmailNotifSaved(false), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emailNotifications: newValue }),
+    });
+    setEmailNotifSaving(false);
+    if (res.ok) {
+      setEmailNotifSaved(true);
+      setTimeout(() => setEmailNotifSaved(false), 2000);
     }
   }
 
@@ -474,6 +500,43 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             </button>
             {coverageError && (
               <div className="text-xs text-red-400 text-center -mt-2">{coverageError}</div>
+            )}
+          </div>
+        </section>
+
+        {/* Email Notifications */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Notifications
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Email Notifications</div>
+                <div className="text-xs text-slate-500 mt-0.5">Send nightly shift reminders to employees</div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={emailNotifications}
+                disabled={emailNotifSaving}
+                onClick={() => {
+                  const newVal = !emailNotifications;
+                  setEmailNotifications(newVal);
+                  saveEmailNotif(newVal);
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                  emailNotifications ? "bg-indigo-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                    emailNotifications ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            {emailNotifSaved && (
+              <div className="text-xs text-emerald-400 mt-2 text-right">Saved</div>
             )}
           </div>
         </section>

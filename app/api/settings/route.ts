@@ -21,10 +21,11 @@ export async function GET() {
 
   const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   return NextResponse.json({
-    firstDayOfWeek:  parseInt(map.first_day_of_week  ?? "6"),
-    optimalCoverage: parseInt(map.optimal_coverage   ?? "3"),
-    minCoverage:     parseInt(map.minimum_coverage   ?? "2"),
-    timezone:        map.timezone ?? "America/New_York",
+    firstDayOfWeek:     parseInt(map.first_day_of_week  ?? "6"),
+    optimalCoverage:    parseInt(map.optimal_coverage   ?? "3"),
+    minCoverage:        parseInt(map.minimum_coverage   ?? "2"),
+    timezone:           map.timezone ?? "America/New_York",
+    emailNotifications: map.email_notifications === "true",
   });
 }
 
@@ -68,6 +69,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
     }
     rows.push({ key: "timezone", value: body.timezone.trim() });
+  }
+
+  if (body.emailNotifications !== undefined) {
+    if (typeof body.emailNotifications !== "boolean")
+      return NextResponse.json({ error: "emailNotifications must be a boolean" }, { status: 400 });
+    rows.push({ key: "email_notifications", value: String(body.emailNotifications) });
   }
 
   if (rows.length === 0)
