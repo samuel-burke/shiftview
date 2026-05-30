@@ -14,6 +14,7 @@ type Props = {
   attendanceMap?: Record<number, AttendanceStatus>; // keyed by employeeId
   onSelect?: (emp: Employee, sch: Schedule) => void;
   onSelectOff?: (emp: Employee) => void;
+  canSelectOff?: (emp: Employee) => boolean;
 };
 
 export default function TeamSection({
@@ -27,6 +28,7 @@ export default function TeamSection({
   attendanceMap,
   onSelect,
   onSelectOff,
+  canSelectOff,
 }: Props) {
   if (count === 0) return null;
 
@@ -88,7 +90,8 @@ export default function TeamSection({
           </>
         );
         const baseClass = "flex items-center gap-3 w-full bg-gray-900 border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2";
-        return onSelectOff ? (
+        const selectable = onSelectOff && (!canSelectOff || canSelectOff(emp));
+        return selectable ? (
           <button
             key={emp.id}
             onClick={() => onSelectOff(emp)}
