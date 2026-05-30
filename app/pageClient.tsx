@@ -1,7 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
-import { flushSync } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -14,8 +13,8 @@ import {
   MINIMUM_COVERAGE,
   CoverageStatus,
   getAttendanceStatus,
+  fmtMinutes,
 } from "../data/types";
-import PrintableWeekGrid from "../components/PrintableWeekGrid";
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
   0: { open: 480, close: 1200 },
@@ -81,8 +80,7 @@ export default function Page() {
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [timezone, setTimezone] = useState("America/New_York");
-  const [printLoading, setPrintLoading] = useState(false);
-  const [printSchedules, setPrintSchedules] = useState<Schedule[]>([]);
+  const [exportLoading, setExportLoading] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
@@ -90,7 +88,7 @@ export default function Page() {
   const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
 
   // Compute Mon–Sun week dates for the week containing `date`
-  const weekDatesForPrint = useMemo((): string[] => {
+  const weekDatesForExport = useMemo((): string[] => {
     // Find Monday of the current week
     const d = new Date(date);
     const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
@@ -99,49 +97,51 @@ export default function Page() {
     return Array.from({ length: 7 }, (_, i) => toDateKey(offsetDate(d, i)));
   }, [date]);
 
-  const weekLabelForPrint = useMemo((): string => {
-    const first = new Date(weekDatesForPrint[0] + "T12:00:00Z");
-    const last = new Date(weekDatesForPrint[6] + "T12:00:00Z");
-    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", timeZone: "UTC" };
-    const firstStr = first.toLocaleDateString("en-US", opts);
-    const lastStr = last.toLocaleDateString("en-US", { ...opts, year: "numeric" });
-    return `${firstStr} – ${lastStr}`;
-  }, [weekDatesForPrint]);
+  async function handleExportCSV() {
+    const capturedDates = weekDatesForExport;
+    setExportLoading(true);
 
-  async function handlePrint() {
-    // Bug 2 fix: capture week dates before any awaits so that mid-fetch date
-    // navigation cannot corrupt the print output (reference-stable via useMemo).
-    const capturedDates = weekDatesForPrint;
-
-    setPrintLoading(true);
     const results = await Promise.allSettled(
       capturedDates.map(d =>
         fetch(`/api/schedules?date=${d}&demo=${isDemo}`).then(r => r.json())
       )
     );
 
-    // Bug 3 fix: if any fetch failed, surface the error and abort printing.
-    const rejected = results.filter(r => r.status === "rejected");
-    if (rejected.length > 0) {
-      setError("Failed to load schedule data for printing. Please try again.");
-      setPrintLoading(false);
+    if (results.some(r => r.status === "rejected")) {
+      setError("Failed to load schedule data for export. Please try again.");
+      setExportLoading(false);
       return;
     }
 
-    // Bug 2 fix (continued): if the user navigated away during the fetches,
-    // the captured dates no longer match the current week — abort.
-    if (capturedDates !== weekDatesForPrint) {
-      setPrintLoading(false);
-      return;
-    }
+    const allSchedules = results.flatMap(r => r.status === "fulfilled" ? r.value as Schedule[] : []);
 
-    const allSchedules = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+    // Build header row: Employee, Mon DATE, Tue DATE, ...
+    const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const headerCols = capturedDates.map((d, i) => `${DAY_LABELS[i]} ${d}`);
+    const header = ["Employee", ...headerCols].join(",");
 
-    // Bug 1 fix: use flushSync so React commits the DOM update before
-    // window.print() opens the print dialog (React 19 batches updates).
-    flushSync(() => setPrintSchedules(allSchedules));
-    setPrintLoading(false);
-    window.print();
+    // Build one row per employee
+    const rows = employees.map(emp => {
+      const cols = capturedDates.map(d => {
+        const sch = allSchedules.find(s => s.employeeId === emp.id && s.date.slice(0, 10) === d);
+        if (!sch) return "";
+        return `${fmtMinutes(sch.startMinutes)} – ${fmtMinutes(sch.endMinutes)}`;
+      });
+      const safeName = emp.name.includes(",") ? `"${emp.name}"` : emp.name;
+      return [safeName, ...cols].join(",");
+    });
+
+    const csvContent = [header, ...rows].join("\n");
+    const weekStartDate = capturedDates[0];
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `schedule-${weekStartDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    setExportLoading(false);
   }
 
   type TimeOffRequest = {
@@ -610,24 +610,15 @@ export default function Page() {
     </div>
   ) : null;
 
-  const printButton = isManager ? (
+  const exportButton = isManager ? (
     <button
-      onClick={handlePrint}
-      disabled={printLoading}
-      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50 print:hidden"
+      onClick={handleExportCSV}
+      disabled={exportLoading}
+      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50"
     >
-      {printLoading ? "Loading…" : "Print Schedule"}
+      {exportLoading ? "Loading…" : "Export CSV"}
     </button>
   ) : null;
-
-  const printGrid = (
-    <PrintableWeekGrid
-      employees={employees}
-      schedules={printSchedules}
-      weekDates={weekDatesForPrint}
-      weekLabel={weekLabelForPrint}
-    />
-  );
 
   if (isDesktop) {
     return (
@@ -646,7 +637,7 @@ export default function Page() {
             {legend}
             <div className="flex items-center justify-between mt-2">
               <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-              {printButton}
+              {exportButton}
             </div>
           </div>
           {/* Right: team list */}
@@ -655,7 +646,6 @@ export default function Page() {
           </div>
         </div>
         {drawer}
-        {printGrid}
         {timeOffDrawer}
         <BottomNav active="team" />
       </main>
@@ -676,10 +666,9 @@ export default function Page() {
       {teamSections}
       <div className="flex items-center justify-between mt-4">
         <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-        {printButton}
+        {exportButton}
       </div>
       {drawer}
-      {printGrid}
       {timeOffDrawer}
       <BottomNav active="team" />
     </main>
