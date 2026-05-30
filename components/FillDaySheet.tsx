@@ -29,6 +29,13 @@ export default function FillDaySheet({ open, onClose, employees, scheduledEmploy
   const [endVal, setEndVal] = useState(minutesToTime(defaultEnd));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [employeeErrors, setEmployeeErrors] = useState<Record<number, string>>({});
+
+  // Bug 4 fix: block close while submission is in-flight
+  function handleClose() {
+    if (submitting) return;
+    onClose();
+  }
 
   function toggle(id: number) {
     setSelected(prev => {
@@ -40,27 +47,67 @@ export default function FillDaySheet({ open, onClose, employees, scheduledEmploy
 
   async function handleSubmit() {
     if (selected.size === 0) { setError("Select at least one employee"); return; }
+
+    // Bug 3 fix: guard against empty or NaN time values
+    const startMinutes = timeToMinutes(startVal);
+    const endMinutes = timeToMinutes(endVal);
+    if (!startVal || !endVal || isNaN(startMinutes) || isNaN(endMinutes)) {
+      setError("Start and end times are required");
+      return;
+    }
+
+    // Bug 2 fix: validate start < end
+    if (startMinutes >= endMinutes) {
+      setError("Start time must be before end time");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
-    try {
-      await onSubmit(Array.from(selected), timeToMinutes(startVal), timeToMinutes(endVal));
+    setEmployeeErrors({});
+
+    // Bug 1 fix: use Promise.allSettled so partial failures don't abort the batch
+    const ids = Array.from(selected);
+    const results = await Promise.allSettled(
+      ids.map(id => onSubmit([id], startMinutes, endMinutes))
+    );
+
+    const newEmployeeErrors: Record<number, string> = {};
+    let anySucceeded = false;
+
+    results.forEach((result, idx) => {
+      if (result.status === "fulfilled") {
+        anySucceeded = true;
+      } else {
+        const id = ids[idx];
+        newEmployeeErrors[id] = result.reason instanceof Error ? result.reason.message : "Failed";
+      }
+    });
+
+    setSubmitting(false);
+
+    if (Object.keys(newEmployeeErrors).length > 0) {
+      setEmployeeErrors(newEmployeeErrors);
+      if (anySucceeded) {
+        setError("Some employees could not be scheduled (see below)");
+      } else {
+        setError("Failed to schedule employees");
+      }
+    } else {
+      // All succeeded
       onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-    } finally {
-      setSubmitting(false);
     }
   }
 
   return (
     <>
-      <div onClick={onClose} className={`fixed inset-0 bg-black/60 z-40 transition-opacity ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} />
+      <div onClick={handleClose} className={`fixed inset-0 bg-black/60 z-40 transition-opacity ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} />
       <div className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ${open ? "translate-y-0" : "translate-y-full"}`}>
         <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-slate-700" /></div>
         <div className="px-6 pt-2 pb-8">
           <div className="flex items-center justify-between mb-4">
             <span className="text-base font-bold text-slate-100">Fill Day · {dateLabel}</span>
-            <button onClick={onClose} className="size-8 rounded-full bg-slate-800 text-slate-400 cursor-pointer flex items-center justify-center">✕</button>
+            <button onClick={handleClose} className="size-8 rounded-full bg-slate-800 text-slate-400 cursor-pointer flex items-center justify-center">✕</button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -76,12 +123,14 @@ export default function FillDaySheet({ open, onClose, employees, scheduledEmploy
           <div className="flex flex-col gap-1 mb-4 max-h-48 overflow-y-auto">
             {employees.map(emp => {
               const already = scheduledEmployeeIds.has(emp.id);
+              const empError = employeeErrors[emp.id];
               return (
                 <label key={emp.id} className={`flex items-center gap-3 px-2 py-2 rounded-xl cursor-pointer ${already ? "opacity-40" : "hover:bg-slate-800"}`}>
                   <input type="checkbox" checked={already || selected.has(emp.id)} disabled={already} onChange={() => !already && toggle(emp.id)}
                     className="size-4 rounded accent-blue-500" />
                   <span className="text-sm text-slate-100">{emp.name}</span>
                   {already && <span className="text-xs text-slate-500 ml-auto">Already scheduled</span>}
+                  {empError && <span className="text-xs text-red-400 ml-auto">{empError}</span>}
                 </label>
               );
             })}
