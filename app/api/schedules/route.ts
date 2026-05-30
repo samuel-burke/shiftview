@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
 import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
+import { notify } from "@/lib/notify";
+import { sendEmail } from "@/lib/email";
+import { fmtMinutes } from "@/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +31,10 @@ export async function GET(request: Request) {
     .eq("date", date)
     .order("start_minutes");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const mapped = data.map((s) => ({
     id:           s.id,
@@ -54,12 +60,39 @@ export async function PUT(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("employee_id, date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("schedules")
     .update({ start_minutes: startMinutes, end_minutes: endMinutes })
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Notify the affected employee of their shift change
+  if (existing) {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("user_id, name")
+      .eq("id", existing.employee_id)
+      .maybeSingle();
+    if (emp?.user_id) {
+      notify(supabase, {
+        userId: emp.user_id,
+        type: "shift_change",
+        title: "Shift Updated",
+        body: `Your shift on ${existing.date} has been updated to ${fmtMinutes(startMinutes)} – ${fmtMinutes(endMinutes)}`,
+        data: { scheduleId: id, date: existing.date },
+      }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -93,7 +126,26 @@ export async function POST(request: Request) {
     .from("schedules")
     .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Notify the employee of their new shift
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("user_id, name")
+    .eq("id", employeeId)
+    .maybeSingle();
+  if (emp?.user_id) {
+    notify(supabase, {
+      userId: emp.user_id,
+      type: "shift_change",
+      title: "New Shift Scheduled",
+      body: `You have a new shift on ${date}: ${fmtMinutes(startMinutes)} – ${fmtMinutes(endMinutes)}`,
+      data: { date, employeeId },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }
@@ -110,12 +162,66 @@ export async function DELETE(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  // Fetch the schedule before deletion to get its date
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("id, date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("schedules")
     .delete()
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Check if coverage dropped below minimum and alert managers
+  if (existing?.date) {
+    const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+    const settingsMap = Object.fromEntries((settingsData ?? []).map((r) => [r.key, r.value]));
+
+    if (settingsMap.email_notifications === "true") {
+      const minCoverage = parseInt(settingsMap.minimum_coverage ?? "2");
+
+      const { data: remaining } = await supabase
+        .from("schedules")
+        .select("id")
+        .eq("date", existing.date);
+
+      const remainingCount = (remaining ?? []).length;
+
+      if (remainingCount < minCoverage) {
+        // Fetch manager user_ids, then their employee emails
+        const { data: managerRows } = await supabase.from("managers").select("user_id");
+        const managerUserIds = (managerRows ?? []).map((r: { user_id: string }) => r.user_id);
+
+        if (managerUserIds.length > 0) {
+          const { data: managerEmployees } = await supabase
+            .from("employees")
+            .select("email")
+            .in("user_id", managerUserIds);
+
+          const managerEmails = (managerEmployees ?? [])
+            .map((e: { email: string | null }) => e.email)
+            .filter((e): e is string => Boolean(e));
+
+          await Promise.allSettled(
+            managerEmails.map((email) =>
+              sendEmail({
+                to: email,
+                subject: `Low coverage alert — ${existing.date}`,
+                html: `<p>Coverage for <strong>${existing.date}</strong> has dropped to <strong>${remainingCount}</strong> (minimum: ${minCoverage}). Please review the schedule.</p><p>— ShiftView</p>`,
+              })
+            )
+          );
+        }
+      }
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

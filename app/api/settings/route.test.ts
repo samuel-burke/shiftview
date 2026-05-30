@@ -20,6 +20,7 @@ const MOCK_DB_SETTINGS = [
   { key: "first_day_of_week", value: "1" },
   { key: "optimal_coverage",  value: "4" },
   { key: "minimum_coverage",  value: "3" },
+  { key: "timezone",          value: "America/Chicago" },
 ];
 
 // ── GET /api/settings ─────────────────────────────────────────────────────────
@@ -31,31 +32,46 @@ describe("GET /api/settings", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ optimalCoverage: 3, minCoverage: 2, firstDayOfWeek: 1 });
+    expect(body).toMatchObject({ optimalCoverage: 3, minCoverage: 2, firstDayOfWeek: 1, timezone: "America/New_York" });
     expect(client.from).not.toHaveBeenCalledWith("app_settings");
   });
 
-  it("returns parsed settings from the database for authenticated users", async () => {
+  it("returns parsed settings including timezone from the database for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_SETTINGS }) as any
     );
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      emailNotifications: false,
       firstDayOfWeek: 1,
       optimalCoverage: 4,
       minCoverage: 3,
+      timezone: "America/Chicago",
     });
   });
+
+  it("returns default timezone when not set in database", async () => {
+    const noTz = MOCK_DB_SETTINGS.filter((r) => r.key !== "timezone");
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, queryData: noTz }) as any
+    );
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect((await res.json()).timezone).toBe("America/New_York");
+  });
+
 
   it("returns default values when the table is empty for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, queryData: [] }) as any);
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      emailNotifications: false,
       firstDayOfWeek: 6,
       optimalCoverage: 3,
       minCoverage: 2,
+      timezone: "America/New_York",
     });
   });
 
@@ -164,6 +180,29 @@ describe("PUT /api/settings", () => {
     const res = await PUT(putReq({ firstDayOfWeek: 1, optimalCoverage: 4, minCoverage: 2 }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 200 when updating timezone", async () => {
+    const res = await PUT(putReq({ timezone: "America/Los_Angeles" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 400 when timezone is an empty string", async () => {
+    const res = await PUT(putReq({ timezone: "" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("timezone") });
+  });
+
+  it("returns 400 when timezone is not a string", async () => {
+    const res = await PUT(putReq({ timezone: 42 }));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 422 when timezone is not a valid IANA identifier", async () => {
+    const res = await PUT(putReq({ timezone: "Not/Real" }));
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/IANA|valid/i) });
   });
 
   // ── DB error ─────────────────────────────────────────────────────────────────

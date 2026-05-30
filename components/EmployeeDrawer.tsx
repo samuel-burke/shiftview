@@ -13,6 +13,8 @@ import {
   fmtMinutes,
 } from "../data/types";
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 type Props = {
   open: boolean;
   employee: Employee | null;
@@ -20,6 +22,8 @@ type Props = {
   storeHours: StoreHours;
   nowMinutes: number;
   isToday: boolean;
+  date?: string;
+  unavailableDays?: number[];
   onClose: () => void;
   onSave: (scheduleId: number, startMinutes: number, endMinutes: number) => Promise<void>;
   onCreate: (employeeId: number, startMinutes: number, endMinutes: number) => Promise<void>;
@@ -45,6 +49,8 @@ export default function EmployeeDrawer({
   storeHours,
   nowMinutes,
   isToday,
+  date,
+  unavailableDays,
   onClose,
   onSave,
   onCreate,
@@ -59,7 +65,10 @@ export default function EmployeeDrawer({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
-  const [confirmingMarkOff, setConfirmingMarkOff] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [messageSent, setMessageSent] = useState(false);
+  const [messageSending, setMessageSending] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -73,12 +82,15 @@ export default function EmployeeDrawer({
       setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
       setError(null);
       setInviteSent(false);
-      setConfirmingMarkOff(false);
+      setComposing(false);
+      setMessageText("");
+      setMessageSent(false);
     }
   }, [open, schedule]);
 
   if (!employee) return null;
 
+  const dayOfWeek = date ? new Date(date + "T12:00:00").getDay() : new Date().getDay();
   const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
@@ -120,6 +132,23 @@ export default function EmployeeDrawer({
       setError(e instanceof Error ? e.message : "Failed to mark as off");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSend() {
+    if (!employee || !messageText.trim()) return;
+    setMessageSending(true);
+    try {
+      await fetch("/api/notify-employee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: employee.id, message: messageText.trim() }),
+      });
+      setMessageSent(true);
+      setMessageText("");
+      setComposing(false);
+    } finally {
+      setMessageSending(false);
     }
   }
 
@@ -175,6 +204,12 @@ export default function EmployeeDrawer({
             </button>
           </div>
 
+          {unavailableDays?.includes(dayOfWeek) && (
+            <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+              ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+            </div>
+          )}
+
           {editing ? (
             <div className="flex flex-col gap-3">
               {[
@@ -208,7 +243,7 @@ export default function EmployeeDrawer({
 
               {schedule && (
                 <button
-                  onClick={() => setConfirmingMarkOff(true)}
+                  onClick={handleMarkOff}
                   disabled={saving}
                   className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
                 >
@@ -249,12 +284,38 @@ export default function EmployeeDrawer({
                     Edit Shift
                   </button>
                 )}
-                <button
-                  className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
-                >
-                  Message
-                </button>
+                {employee.user_id && (
+                  <button
+                    onClick={() => { setComposing((c) => !c); setMessageSent(false); }}
+                    className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
+                  >
+                    Message
+                  </button>
+                )}
               </div>
+
+              {employee.user_id && composing && (
+                <div className="mt-3 flex flex-col gap-2">
+                  <textarea
+                    placeholder="Write a message…"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm resize-none"
+                    rows={3}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={messageSending || !messageText.trim()}
+                    className={`py-[12px] rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${messageSending ? "opacity-70" : "opacity-100"}`}
+                  >
+                    {messageSending ? "Sending…" : "Send"}
+                  </button>
+                </div>
+              )}
+
+              {messageSent && !composing && (
+                <div className="mt-2 text-sm text-green-400 text-center">Sent ✓</div>
+              )}
 
               {isManager && onResendInvite && !employee.user_id && employee.email && (
                 <button
@@ -279,43 +340,6 @@ export default function EmployeeDrawer({
           )}
         </div>
       </div>
-
-      {/* Mark as Off confirmation */}
-      {confirmingMarkOff && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-        >
-          <div className="w-full max-w-[380px] bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl">
-                ⚠️
-              </div>
-              <div>
-                <div className="text-base font-bold text-slate-100">Remove {employee.name} from schedule?</div>
-                <div className="text-sm text-slate-400 mt-1">
-                  This will remove their shift. You can add them back later.
-                </div>
-              </div>
-            </div>
-            <div className="flex border-t border-slate-800">
-              <button
-                onClick={() => setConfirmingMarkOff(false)}
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { setConfirmingMarkOff(false); handleMarkOff(); }}
-                disabled={saving}
-                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-              >
-                Mark as Off
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

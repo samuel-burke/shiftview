@@ -1,6 +1,6 @@
 "use client";
 
-import { Employee, Schedule, StoreHours, getMonogram, formatDisplayName } from "../data/types";
+import { Employee, Schedule, StoreHours, AttendanceStatus, getMonogram, formatDisplayName } from "../data/types";
 import ShiftCard from "./ShiftCard";
 
 type Props = {
@@ -11,6 +11,7 @@ type Props = {
   storeHours?: StoreHours;
   nowMinutes: number;
   isToday: boolean;
+  attendanceMap?: Record<number, AttendanceStatus>; // keyed by employeeId
   onSelect?: (emp: Employee, sch: Schedule) => void;
   onSelectOff?: (emp: Employee) => void;
 };
@@ -23,6 +24,7 @@ export default function TeamSection({
   storeHours,
   nowMinutes,
   isToday,
+  attendanceMap,
   onSelect,
   onSelectOff,
 }: Props) {
@@ -59,6 +61,7 @@ export default function TeamSection({
               storeHours={storeHours ?? { open: 360, close: 1320 }}
               nowMinutes={nowMinutes}
               isToday={isToday}
+              attendanceStatus={attendanceMap?.[emp.id]}
               onClick={() => onSelect?.(emp, sch)}
             />
           );
