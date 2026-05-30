@@ -9,6 +9,19 @@ import { getMonogram } from "../../data/types";
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const TIMEZONE_OPTIONS = [
+  { label: "Eastern (ET)",   value: "America/New_York" },
+  { label: "Central (CT)",   value: "America/Chicago" },
+  { label: "Mountain (MT)",  value: "America/Denver" },
+  { label: "Pacific (PT)",   value: "America/Los_Angeles" },
+  { label: "Alaska (AKT)",   value: "America/Anchorage" },
+  { label: "Hawaii (HST)",   value: "Pacific/Honolulu" },
+  { label: "London (GMT)",   value: "Europe/London" },
+  { label: "Paris (CET)",    value: "Europe/Paris" },
+  { label: "Tokyo (JST)",    value: "Asia/Tokyo" },
+  { label: "Sydney (AEDT)",  value: "Australia/Sydney" },
+];
+
 const FIRST_DAY_OPTIONS = [
   { label: "Sunday", value: 0 },
   { label: "Monday", value: 1 },
@@ -58,6 +71,11 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [firstDaySaved, setFirstDaySaved] = useState(false);
   const [firstDayError, setFirstDayError] = useState<string | null>(null);
 
+  const [timezone, setTimezone] = useState("America/New_York");
+  const [timezoneSaving, setTimezoneSaving] = useState(false);
+  const [timezoneSaved, setTimezoneSaved] = useState(false);
+  const [timezoneError, setTimezoneError] = useState<string | null>(null);
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showInvite, setShowInvite] = useState(false);
@@ -83,10 +101,11 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc }) => {
+      .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz }) => {
         if (fdw != null) setFirstDayOfWeek(fdw);
         if (oc != null) setOptimalCoverage(oc);
         if (mc != null) setMinCoverage(mc);
+        if (tz) setTimezone(tz);
       })
       .catch(() => {});
     fetch("/api/employees")
@@ -167,6 +186,31 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       const json = await res.json().catch(() => ({}));
       setFirstDayError(json.error ?? "Failed to save");
       setTimeout(() => setFirstDayError(null), 4000);
+    }
+  }
+
+  async function saveTimezone() {
+    setTimezoneSaving(true);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setTimezoneSaving(false);
+      setTimezoneSaved(true);
+      setTimeout(() => setTimezoneSaved(false), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezone }),
+    });
+    setTimezoneSaving(false);
+    if (res.ok) {
+      setTimezoneSaved(true);
+      setTimeout(() => setTimezoneSaved(false), 2000);
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setTimezoneError(json.error ?? "Failed to save");
+      setTimeout(() => setTimezoneError(null), 4000);
     }
   }
 
@@ -406,6 +450,43 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             </button>
             {firstDayError && (
               <div className="text-xs text-red-400 text-center -mt-2">{firstDayError}</div>
+            )}
+          </div>
+        </section>
+
+        {/* Timezone */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Timezone
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-4">
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer"
+            >
+              {TIMEZONE_OPTIONS.map(({ label, value }) => (
+                <option key={value} value={value}>{label} — {value}</option>
+              ))}
+              {!TIMEZONE_OPTIONS.some((o) => o.value === timezone) && (
+                <option value={timezone}>{timezone}</option>
+              )}
+            </select>
+            <button
+              onClick={saveTimezone}
+              disabled={timezoneSaving}
+              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                timezoneError
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                  : timezoneSaved
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
+              }`}
+            >
+              {timezoneError ? "Error" : timezoneSaved ? "Saved" : timezoneSaving ? "Saving…" : "Save Timezone"}
+            </button>
+            {timezoneError && (
+              <div className="text-xs text-red-400 text-center -mt-2">{timezoneError}</div>
             )}
           </div>
         </section>
