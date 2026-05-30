@@ -84,6 +84,14 @@ export function fmtMinutes(m: number): string {
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
 
+export type AvailabilityRecord = {
+  id: number;
+  dayOfWeek: number;
+  startMinutes: number | null; // null = unavailable all day
+  endMinutes: number | null;
+  note: string | null;
+};
+
 export type PunchType = "clock_in" | "clock_out" | "break_start" | "break_end";
 export type AttendanceStatus = "clocked_in" | "on_break" | "clocked_out" | "not_clocked_in";
 

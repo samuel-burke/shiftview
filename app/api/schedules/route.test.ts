@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST, PUT, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+// Silence notify/email side-effects in tests
+vi.mock("@/lib/notify", () => ({ notify: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/email", () => ({ sendEmail: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -269,5 +272,120 @@ describe("DELETE /api/schedules", () => {
     }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+});
+
+// ── POST conflict detection ──────────────────────────────────────────────────
+// Date "2026-05-25" is a Monday = day 1
+
+describe("POST /api/schedules — conflict detection", () => {
+  const conflictDate = "2026-05-25"; // Monday = dayOfWeek 1
+
+  function postReq(body: unknown) {
+    return new Request("http://localhost/api/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("returns 409 { conflict: 'time_off' } when approved time-off exists", async () => {
+    // schedules.maybeSingle = null (no duplicate), time_off_requests = approved record
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        // no duplicate schedule
+        schedules: { data: null, error: null },
+        // approved time-off
+        time_off_requests: { data: { id: 10, status: "approved" }, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ employeeId: 1, date: conflictDate, startMinutes: 480, endMinutes: 960 }));
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json).toMatchObject({ conflict: "time_off" });
+  });
+
+  it("returns 409 { conflict: 'availability', window: null } when fully unavailable", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        schedules: { data: null, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: { id: 3, start_minutes: null, end_minutes: null }, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ employeeId: 1, date: conflictDate, startMinutes: 480, endMinutes: 960 }));
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json).toMatchObject({ conflict: "availability", window: null });
+  });
+
+  it("returns 409 { conflict: 'availability', window: {...} } when shift starts before window (480-960 vs 720-1320)", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        schedules: { data: null, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: { id: 3, start_minutes: 720, end_minutes: 1320 }, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ employeeId: 1, date: conflictDate, startMinutes: 480, endMinutes: 960 }));
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json).toMatchObject({ conflict: "availability", window: { startMinutes: 720, endMinutes: 1320 } });
+  });
+
+  it("returns 409 { conflict: 'availability', window: {...} } when shift ends after window (480-960 vs 360-720)", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        schedules: { data: null, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: { id: 3, start_minutes: 360, end_minutes: 720 }, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ employeeId: 1, date: conflictDate, startMinutes: 480, endMinutes: 960 }));
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json).toMatchObject({ conflict: "availability", window: { startMinutes: 360, endMinutes: 720 } });
+  });
+
+  it("returns 201 when shift fits inside window (720-900 vs 720-1320)", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        schedules: { data: null, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: { id: 3, start_minutes: 720, end_minutes: 1320 }, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ employeeId: 1, date: conflictDate, startMinutes: 720, endMinutes: 900 }));
+    expect(res.status).toBe(201);
+  });
+
+  it("returns 201 when override:true bypasses availability conflict", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        schedules: { data: null, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: { id: 3, start_minutes: null, end_minutes: null }, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ employeeId: 1, date: conflictDate, startMinutes: 480, endMinutes: 960, override: true }));
+    expect(res.status).toBe(201);
   });
 });
