@@ -98,8 +98,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
 
   const today = new Date().toISOString().slice(0, 10);
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
+  if (date <= today)
+    return NextResponse.json({ error: "date must be in the future" }, { status: 400 });
 
   const supabase = await createClient();
   const {

@@ -10,15 +10,8 @@ export async function PUT(
 ) {
   const { id: idParam } = await params;
   const id = parseInt(idParam, 10);
-  if (!Number.isInteger(id) || isNaN(id))
-    return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
-
-  const { status } = await request.json();
-  if (status !== "approved" && status !== "denied")
-    return NextResponse.json(
-      { error: 'status must be "approved" or "denied"' },
-      { status: 400 }
-    );
+  if (!/^\d+$/.test(idParam) || isNaN(id))
+    return NextResponse.json({ error: "id must be a positive integer" }, { status: 400 });
 
   const supabase = await createClient();
   const { error: authError } = await requireManager(supabase);
@@ -26,6 +19,13 @@ export async function PUT(
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
+    );
+
+  const { status } = await request.json();
+  if (status !== "approved" && status !== "denied")
+    return NextResponse.json(
+      { error: 'status must be "approved" or "denied"' },
+      { status: 400 }
     );
 
   const { error } = await supabase

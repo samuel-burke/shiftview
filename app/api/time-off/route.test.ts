@@ -166,6 +166,18 @@ describe("POST /api/time-off", () => {
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("future") });
   });
 
+  it("returns 400 for same-day date", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const res = await POST(
+      new Request("http://localhost/api/time-off", {
+        method: "POST",
+        body: JSON.stringify({ employeeId: 5, date: today }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("future") });
+  });
+
   it("returns 401 for unauthenticated request", async () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: null }) as any);
     const res = await POST(
