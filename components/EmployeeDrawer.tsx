@@ -77,7 +77,7 @@ export default function EmployeeDrawer({
 
   useEffect(() => {
     if (open) {
-      setEditing(!schedule);
+      setEditing(false);
       setStartVal(schedule ? minutesToTime(schedule.startMinutes) : "09:00");
       setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
       setError(null);
@@ -281,7 +281,7 @@ export default function EmployeeDrawer({
                     onClick={() => setEditing(true)}
                     className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
                   >
-                    Edit Shift
+                    {schedule ? "Edit Shift" : "Add Shift"}
                   </button>
                 )}
                 {employee.user_id && (
