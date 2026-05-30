@@ -8,6 +8,7 @@ import {
   PunchRecord,
   AttendanceStatus,
   StoreHours,
+  AvailabilityRecord,
   isHere,
   OPTIMAL_COVERAGE,
   MINIMUM_COVERAGE,
@@ -67,7 +68,7 @@ export default function Page() {
     emp: Employee;
     sch: Schedule | null;
   } | null>(null);
-  const [unavailableDays, setUnavailableDays] = useState<number[]>([]);
+  const [availabilityRecords, setAvailabilityRecords] = useState<AvailabilityRecord[]>([]);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -162,7 +163,7 @@ export default function Page() {
     router.refresh();
   }
 
-  async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number) {
+  async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
     if (isDemo) {
       setSchedules((prev) =>
         prev.map((s) => s.id === scheduleId ? { ...s, startMinutes, endMinutes } : s)
@@ -172,11 +173,18 @@ export default function Page() {
     const res = await apiFetch("/api/schedules", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: scheduleId, startMinutes, endMinutes }),
+      body: JSON.stringify({ id: scheduleId, startMinutes, endMinutes, override }),
     });
     if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to save shift");
+      const body = await res.json();
+      if (body.conflict) {
+        const err = Object.assign(new Error(body.message ?? "Conflict"), {
+          conflict: body.conflict,
+          window: body.window ?? null,
+        });
+        throw err;
+      }
+      throw new Error(body.error ?? "Failed to save shift");
     }
     const dateKey = toDateKey(date, timezone);
     const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
@@ -184,7 +192,7 @@ export default function Page() {
     setLastFetchedAt(new Date());
   }
 
-  async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number) {
+  async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
     if (isDemo) {
       setSchedules((prev) => [
         ...prev,
@@ -196,11 +204,18 @@ export default function Page() {
     const res = await apiFetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes }),
+      body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes, override }),
     });
     if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to add shift");
+      const body = await res.json();
+      if (body.conflict) {
+        const err = Object.assign(new Error(body.message ?? "Conflict"), {
+          conflict: body.conflict,
+          window: body.window ?? null,
+        });
+        throw err;
+      }
+      throw new Error(body.error ?? "Failed to add shift");
     }
     const data2 = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data2);
@@ -582,8 +597,8 @@ export default function Page() {
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday && isManager ? attendanceMap : undefined} onSelect={(emp, sch) => { setSelected({ emp, sch }); setUnavailableDays([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); }} />
-      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={(emp) => { setSelected({ emp, sch: null }); setUnavailableDays([]); if (isManager) { fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then(({ unavailableDays: days }) => setUnavailableDays(days ?? [])).catch(() => setUnavailableDays([])); } }} canSelectOff={(emp) => isManager || !!emp.user_id} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday && isManager ? attendanceMap : undefined} onSelect={(emp, sch) => { setSelected({ emp, sch }); setAvailabilityRecords([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : [])).catch(() => setAvailabilityRecords([])); }} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={(emp) => { setSelected({ emp, sch: null }); setAvailabilityRecords([]); if (isManager) { fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : [])).catch(() => setAvailabilityRecords([])); } }} canSelectOff={(emp) => isManager || !!emp.user_id} />
     </>
   );
 
@@ -602,7 +617,7 @@ export default function Page() {
       onResendInvite={handleResendInvite}
       isManager={isManager}
       date={toDateKey(date)}
-      unavailableDays={unavailableDays}
+      availabilityRecords={availabilityRecords}
     />
   );
 

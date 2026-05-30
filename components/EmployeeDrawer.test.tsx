@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EmployeeDrawer from "./EmployeeDrawer";
-import type { Employee, Schedule } from "../data/types";
+import type { Employee, Schedule, AvailabilityRecord } from "../data/types";
 
 const employee: Employee = { id: 1, name: "Alice Smith", user_id: "user-abc-123" };
 
@@ -123,5 +123,120 @@ describe("EmployeeDrawer", () => {
       <EmployeeDrawer {...baseProps} employee={employeeNoAccount} schedule={schedule} />
     );
     expect(screen.queryByText("Message")).not.toBeInTheDocument();
+  });
+
+  // ── Availability record tests ──────────────────────────────────────────────
+
+  it("shows full-day unavailability banner 'Usually unavailable on...' when record has null times", () => {
+    // date = "2026-05-25" is a Monday (day 1)
+    const records: AvailabilityRecord[] = [
+      { id: 1, dayOfWeek: 1, startMinutes: null, endMinutes: null, note: null },
+    ];
+    render(
+      <EmployeeDrawer
+        {...baseProps}
+        employee={employee}
+        schedule={schedule}
+        date="2026-05-25"
+        availabilityRecords={records}
+      />
+    );
+    expect(screen.getByText(/Usually unavailable on Monday/)).toBeInTheDocument();
+  });
+
+  it("shows windowed availability banner 'Available X – Y only' when record has times", () => {
+    // date = "2026-05-25" is a Monday (day 1)
+    const records: AvailabilityRecord[] = [
+      { id: 2, dayOfWeek: 1, startMinutes: 720, endMinutes: 1320, note: null },
+    ];
+    render(
+      <EmployeeDrawer
+        {...baseProps}
+        employee={employee}
+        schedule={schedule}
+        date="2026-05-25"
+        availabilityRecords={records}
+      />
+    );
+    // fmtMinutes(720) = "12:00 PM", fmtMinutes(1320) = "10:00 PM"
+    expect(screen.getByText(/Available Monday 12:00 PM – 10:00 PM only/)).toBeInTheDocument();
+  });
+
+  it("shows no banner when no matching availability record", () => {
+    const records: AvailabilityRecord[] = [
+      { id: 1, dayOfWeek: 3, startMinutes: null, endMinutes: null, note: null }, // Wednesday, not Monday
+    ];
+    render(
+      <EmployeeDrawer
+        {...baseProps}
+        employee={employee}
+        schedule={schedule}
+        date="2026-05-25" // Monday
+        availabilityRecords={records}
+      />
+    );
+    expect(screen.queryByText(/Usually unavailable/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Available .* only/)).not.toBeInTheDocument();
+  });
+
+  // ── Conflict UI tests ──────────────────────────────────────────────────────
+
+  it("shows conflict banner when onSave throws with conflict", async () => {
+    const conflictError = Object.assign(
+      new Error("Shift falls outside availability window (12:00 PM – 10:00 PM)"),
+      { conflict: "availability", window: { startMinutes: 720, endMinutes: 1320 } }
+    );
+    const onSave = vi.fn().mockRejectedValue(conflictError);
+
+    render(
+      <EmployeeDrawer
+        {...baseProps}
+        employee={employee}
+        schedule={schedule}
+        onSave={onSave}
+      />
+    );
+
+    // Enter edit mode
+    await userEvent.click(screen.getByText("Edit Shift"));
+    // Submit the form
+    await userEvent.click(screen.getByText("Save Shift"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Availability Conflict/)).toBeInTheDocument();
+    });
+  });
+
+  it("Override button calls onSave with override=true", async () => {
+    const conflictError = Object.assign(
+      new Error("Shift outside availability window"),
+      { conflict: "availability", window: null }
+    );
+    const onSave = vi.fn()
+      .mockRejectedValueOnce(conflictError)
+      .mockResolvedValueOnce(undefined);
+
+    render(
+      <EmployeeDrawer
+        {...baseProps}
+        employee={employee}
+        schedule={schedule}
+        onSave={onSave}
+      />
+    );
+
+    await userEvent.click(screen.getByText("Edit Shift"));
+    await userEvent.click(screen.getByText("Save Shift"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Override & Save Anyway")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText("Override & Save Anyway"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(2);
+      expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true);
+    });
   });
 });

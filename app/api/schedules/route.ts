@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const { id, startMinutes, endMinutes } = await request.json();
+  const { id, startMinutes, endMinutes, override = false } = await request.json();
 
   if (id == null || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "id, startMinutes, endMinutes required" }, { status: 400 });
@@ -65,6 +65,54 @@ export async function PUT(request: Request) {
     .select("employee_id, date")
     .eq("id", id)
     .maybeSingle();
+
+  // Conflict checks (skip if override)
+  if (!override && existing) {
+    const dateStr = existing.date;
+    const empId = existing.employee_id;
+    const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
+
+    // Check time-off conflict
+    const { data: timeOff } = await supabase
+      .from("time_off_requests")
+      .select("id, status")
+      .eq("employee_id", empId)
+      .eq("date", dateStr)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (timeOff) {
+      return NextResponse.json({
+        conflict: "time_off",
+        message: `Employee has approved time off on ${dateStr}`,
+      }, { status: 409 });
+    }
+
+    // Check availability conflict
+    const { data: availRecord } = await supabase
+      .from("availability")
+      .select("id, start_minutes, end_minutes")
+      .eq("employee_id", empId)
+      .eq("day_of_week", dayOfWeek)
+      .maybeSingle();
+
+    if (availRecord) {
+      if (availRecord.start_minutes === null || availRecord.end_minutes === null) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: null,
+          message: `Employee is unavailable on ${new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+        }, { status: 409 });
+      }
+      if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: { startMinutes: availRecord.start_minutes, endMinutes: availRecord.end_minutes },
+          message: `Shift falls outside employee's availability window (${fmtMinutes(availRecord.start_minutes)} – ${fmtMinutes(availRecord.end_minutes)})`,
+        }, { status: 409 });
+      }
+    }
+  }
 
   const { error } = await supabase
     .from("schedules")
@@ -98,7 +146,7 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { employeeId, date, startMinutes, endMinutes } = await request.json();
+  const { employeeId, date, startMinutes, endMinutes, override = false } = await request.json();
 
   if (employeeId == null || !date || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "employeeId, date, startMinutes, endMinutes required" }, { status: 400 });
@@ -121,6 +169,52 @@ export async function POST(request: Request) {
 
   if (existing)
     return NextResponse.json({ error: "Employee is already scheduled on this date" }, { status: 409 });
+
+  // Conflict checks (skip if override)
+  if (!override) {
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+
+    // Check time-off conflict
+    const { data: timeOff } = await supabase
+      .from("time_off_requests")
+      .select("id, status")
+      .eq("employee_id", employeeId)
+      .eq("date", date)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (timeOff) {
+      return NextResponse.json({
+        conflict: "time_off",
+        message: `Employee has approved time off on ${date}`,
+      }, { status: 409 });
+    }
+
+    // Check availability conflict
+    const { data: availRecord } = await supabase
+      .from("availability")
+      .select("id, start_minutes, end_minutes")
+      .eq("employee_id", employeeId)
+      .eq("day_of_week", dayOfWeek)
+      .maybeSingle();
+
+    if (availRecord) {
+      if (availRecord.start_minutes === null || availRecord.end_minutes === null) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: null,
+          message: `Employee is unavailable on ${new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+        }, { status: 409 });
+      }
+      if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: { startMinutes: availRecord.start_minutes, endMinutes: availRecord.end_minutes },
+          message: `Shift falls outside employee's availability window (${fmtMinutes(availRecord.start_minutes)} – ${fmtMinutes(availRecord.end_minutes)})`,
+        }, { status: 409 });
+      }
+    }
+  }
 
   const { error } = await supabase
     .from("schedules")
