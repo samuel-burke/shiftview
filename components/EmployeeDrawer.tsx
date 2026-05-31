@@ -6,6 +6,7 @@ import {
   Employee,
   Schedule,
   StoreHours,
+  AvailabilityRecord,
   getShiftType,
   getMonogram,
   isHere,
@@ -15,6 +16,12 @@ import {
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+type ConflictState = {
+  type: string;
+  window: { startMinutes: number; endMinutes: number } | null;
+  message: string;
+} | null;
+
 type Props = {
   open: boolean;
   employee: Employee | null;
@@ -23,10 +30,10 @@ type Props = {
   nowMinutes: number;
   isToday: boolean;
   date?: string;
-  unavailableDays?: number[];
+  availabilityRecords?: AvailabilityRecord[];
   onClose: () => void;
-  onSave: (scheduleId: number, startMinutes: number, endMinutes: number) => Promise<void>;
-  onCreate: (employeeId: number, startMinutes: number, endMinutes: number) => Promise<void>;
+  onSave: (scheduleId: number, startMinutes: number, endMinutes: number, override?: boolean) => Promise<void>;
+  onCreate: (employeeId: number, startMinutes: number, endMinutes: number, override?: boolean) => Promise<void>;
   onMarkOff: (scheduleId: number) => Promise<void>;
   onResendInvite?: (email: string) => Promise<void>;
   isManager: boolean;
@@ -50,7 +57,7 @@ export default function EmployeeDrawer({
   nowMinutes,
   isToday,
   date,
-  unavailableDays,
+  availabilityRecords,
   onClose,
   onSave,
   onCreate,
@@ -69,6 +76,7 @@ export default function EmployeeDrawer({
   const [messageText, setMessageText] = useState("");
   const [messageSent, setMessageSent] = useState(false);
   const [messageSending, setMessageSending] = useState(false);
+  const [conflict, setConflict] = useState<ConflictState>(null);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -81,6 +89,7 @@ export default function EmployeeDrawer({
       setStartVal(schedule ? minutesToTime(schedule.startMinutes) : "09:00");
       setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
       setError(null);
+      setConflict(null);
       setInviteSent(false);
       setComposing(false);
       setMessageText("");
@@ -97,7 +106,10 @@ export default function EmployeeDrawer({
   const statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
   const statusColor = here ? "#22c55e" : "#94a3b8";
 
-  async function handleSave() {
+  // Find matching availability record
+  const availRecord = availabilityRecords?.find((r) => r.dayOfWeek === dayOfWeek);
+
+  async function handleSave(overrideFlag = false) {
     if (!employee) return;
     if (!startVal || !endVal) { setError("Both times are required."); return; }
     const start = timeToMinutes(startVal);
@@ -105,19 +117,28 @@ export default function EmployeeDrawer({
     if (start >= end) { setError("End time must be after start time."); return; }
     setSaving(true);
     setError(null);
+    setConflict(null);
     try {
       if (schedule) {
-        await onSave(schedule.id, start, end);
+        await onSave(schedule.id, start, end, overrideFlag);
       } else {
-        await onCreate(employee.id, start, end);
+        await onCreate(employee.id, start, end, overrideFlag);
       }
       setEditing(false);
       onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save shift");
+    } catch (e: any) {
+      if (e?.conflict) {
+        setConflict({ type: e.conflict, window: e.window ?? null, message: e.message });
+      } else {
+        setError(e instanceof Error ? e.message : "Failed to save shift");
+      }
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleOverride() {
+    await handleSave(true);
   }
 
   async function handleMarkOff() {
@@ -154,6 +175,53 @@ export default function EmployeeDrawer({
 
   return (
     <>
+      {/* Conflict override modal */}
+      {conflict && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => setConflict(null)}
+        >
+          <div
+            className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl">
+                ⚠️
+              </div>
+              <div>
+                <div className="text-base font-bold text-slate-100">
+                  {conflict.type === "time_off" ? "Time Off Conflict" : "Availability Conflict"}
+                </div>
+                <div className="text-sm text-slate-400 mt-1.5">{conflict.message}</div>
+                {conflict.type === "availability" && conflict.window && (
+                  <div className="mt-2 text-sm font-semibold text-amber-400">
+                    Available: {fmtMinutes(conflict.window.startMinutes)} – {fmtMinutes(conflict.window.endMinutes)}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex border-t border-slate-800">
+              <button
+                onClick={() => setConflict(null)}
+                disabled={saving}
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOverride}
+                disabled={saving}
+                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer bg-transparent border-none"
+              >
+                {saving ? "Saving…" : "Override & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         onClick={onClose}
         className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
@@ -204,9 +272,20 @@ export default function EmployeeDrawer({
             </button>
           </div>
 
-          {unavailableDays?.includes(dayOfWeek) && (
+          {/* Availability banner */}
+          {availRecord && (
             <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
-              ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+              {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
+                <>
+                  ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+                  {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                </>
+              ) : (
+                <>
+                  ⚠ Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
+                  {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                </>
+              )}
             </div>
           )}
 
@@ -223,7 +302,7 @@ export default function EmployeeDrawer({
                   <input
                     type="time"
                     value={val}
-                    onChange={(e) => { set(e.target.value); setError(null); }}
+                    onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
                     className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
                   />
                 </div>
@@ -234,7 +313,7 @@ export default function EmployeeDrawer({
               )}
 
               <button
-                onClick={handleSave}
+                onClick={() => handleSave(false)}
                 disabled={saving}
                 className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
               >
@@ -252,7 +331,7 @@ export default function EmployeeDrawer({
               )}
 
               <button
-                onClick={() => { setEditing(false); setError(null); }}
+                onClick={() => { setEditing(false); setError(null); setConflict(null); }}
                 disabled={saving}
                 className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
               >

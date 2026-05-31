@@ -21,6 +21,7 @@ export function makeSupabaseClient({
   linkedEmployee = undefined as Record<string, unknown> | null | undefined,
   queryData = null as any,
   queryError = null as any,
+  tableOverrides = {} as Record<string, { data: any; error: any }>,
 } = {}) {
   const managerRow = isManager && user ? { user_id: user.id } : null;
   return {
@@ -32,6 +33,8 @@ export function makeSupabaseClient({
         return makeQueryBuilder({ data: managerRow, error: null });
       if (table === "employees" && linkedEmployee !== undefined)
         return makeQueryBuilder({ data: linkedEmployee, error: null });
+      if (tableOverrides[table] !== undefined)
+        return makeQueryBuilder(tableOverrides[table]);
       return makeQueryBuilder({ data: queryData, error: queryError });
     }),
   };

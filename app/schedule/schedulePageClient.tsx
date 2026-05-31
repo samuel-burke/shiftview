@@ -15,6 +15,7 @@ import BottomNav from "../../components/BottomNav";
 import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
+import AvailabilitySection from "../../components/AvailabilitySection";
 import { createClient } from "@/lib/supabase-browser";
 
 type View = "week" | "month";
@@ -536,6 +537,18 @@ export default function SchedulePageClient() {
           </div>
         </div>
       </div>
+
+      {/* Availability Section */}
+      {(employeeId !== null || isDemo) && !loading && (
+        <div className="px-4 mt-2">
+          <AvailabilitySection
+            employeeId={employeeId ?? 0}
+            weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
+            isDemo={isDemo}
+          />
+        </div>
+      )}
 
       <DatePickerSheet
         open={pickerOpen}
