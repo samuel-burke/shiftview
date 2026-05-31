@@ -327,8 +327,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Coverage Thresholds
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Optimal coverage</div>
                 <div className="text-xs text-slate-500 mt-0.5">Minimum staff for green status</div>
@@ -432,7 +432,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Week Start
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-3">
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
@@ -457,7 +457,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Timezone
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-3">
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <select
               aria-label="Timezone"
               value={timezone}
