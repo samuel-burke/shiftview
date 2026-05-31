@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
   StoreHours,
+  TimeOffRequest,
   getShiftType,
   fmtMinutes,
   SHIFT_COLORS,
@@ -103,6 +104,7 @@ export default function SchedulePageClient() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
+  const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
 
@@ -132,6 +134,21 @@ export default function SchedulePageClient() {
         if (tz) setTimezone(tz);
       })
       .catch(() => {});
+    if (!isDemo) {
+      fetch("/api/time-off")
+        .then((r) => r.json())
+        .then(({ requests }) => {
+          if (Array.isArray(requests)) {
+            setTimeOffRequests(requests.map((r: { id: number; date: string; status: string; note?: string }) => ({
+              id: r.id,
+              date: r.date,
+              status: r.status as TimeOffRequest["status"],
+              note: r.note,
+            })));
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -177,6 +194,10 @@ export default function SchedulePageClient() {
         setTimeOffStatus("error");
       } else {
         setTimeOffStatus("success");
+        setTimeOffRequests((prev) => [
+          ...prev.filter((r) => r.date !== selectedDateKey),
+          { id: json.id, date: selectedDateKey, status: "pending" },
+        ]);
       }
     } catch {
       setTimeOffError("Failed to submit request");
@@ -291,12 +312,16 @@ export default function SchedulePageClient() {
     ? "Today"
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 
-  // Show "Request Day Off" when: no shift scheduled, date is strictly in the future, and user has an employeeId
+  const selectedTimeOff = timeOffRequests.find((r) => r.date === selectedDateKey) ?? null;
+
+  // Show "Request Day Off" when: no shift, future date, has employeeId, no existing pending/approved request
   const canRequestDayOff =
     !selectedSchedule &&
     selectedDateKey > todayKey &&
     employeeId !== null &&
-    !isDemo;
+    !isDemo &&
+    selectedTimeOff?.status !== "pending" &&
+    selectedTimeOff?.status !== "approved";
 
   // Stats
   const totalShifts = schedules.length;
@@ -455,6 +480,7 @@ export default function SchedulePageClient() {
             weekStart={weekStart}
             onSelectDate={setSelectedDate}
             today={today}
+            timeOffRequests={timeOffRequests}
           />
         ) : (
           <MonthView
@@ -465,6 +491,7 @@ export default function SchedulePageClient() {
             navDate={navDate}
             onSelectDate={setSelectedDate}
             today={today}
+            timeOffRequests={timeOffRequests}
           />
         )}
 
@@ -494,7 +521,36 @@ export default function SchedulePageClient() {
             <div className="text-2xl font-bold text-slate-400 mt-1">Day Off</div>
           )}
 
-          {/* Request Day Off button */}
+          {/* Time-off request status or action */}
+          {selectedTimeOff?.status === "pending" && !selectedSchedule && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <span className="text-amber-400 text-base">⏳</span>
+              <span className="text-sm text-amber-300 font-semibold">Time-off request pending</span>
+            </div>
+          )}
+          {selectedTimeOff?.status === "approved" && !selectedSchedule && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+              <span className="text-emerald-400 text-base">✓</span>
+              <span className="text-sm text-emerald-300 font-semibold">Time off approved</span>
+            </div>
+          )}
+          {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
+            <div className="mt-3">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
+                <span className="text-red-400 text-base">✕</span>
+                <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
+              </div>
+              {employeeId !== null && !isDemo && (
+                <button
+                  onClick={handleRequestDayOff}
+                  disabled={timeOffStatus === "loading"}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                >
+                  {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
+                </button>
+              )}
+            </div>
+          )}
           {canRequestDayOff && (
             <div className="mt-3">
               {timeOffStatus === "success" ? (

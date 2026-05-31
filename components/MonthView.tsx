@@ -1,7 +1,19 @@
 "use client";
 
-import { Schedule, StoreHours, getShiftType, SHIFT_COLORS } from "../data/types";
+import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS } from "../data/types";
 import { SunriseIcon, SunIcon, MoonIcon } from "./ShiftIcons";
+
+const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
+  pending: "#f59e0b",
+  approved: "#34d399",
+  denied: "#f87171",
+};
+
+const TIME_OFF_STATUS_LABELS: Record<TimeOffRequest["status"], string> = {
+  pending: "Time off pending",
+  approved: "Time off approved",
+  denied: "Time off denied",
+};
 
 type Props = {
   schedules: Schedule[];
@@ -11,6 +23,7 @@ type Props = {
   navDate: Date;
   onSelectDate: (d: Date) => void;
   today: Date;
+  timeOffRequests?: TimeOffRequest[];
 };
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -26,7 +39,7 @@ function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
-export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, navDate, onSelectDate, today }: Props) {
+export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, navDate, onSelectDate, today, timeOffRequests = [] }: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
   const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
@@ -82,11 +95,15 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
               const dayHours = weeklyHours[d.getDay()] ?? { open: 360, close: 1320 };
               const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, dayHours.open, dayHours.close) : null;
               const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
+              const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
+              const dotColor = shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : null);
+              const ariaLabel = timeOff ? TIME_OFF_STATUS_LABELS[timeOff.status] : undefined;
 
               return (
                 <button
                   key={di}
                   onClick={() => onSelectDate(d)}
+                  aria-label={ariaLabel}
                   className={`h-[52px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
                     isSelected
                       ? "border border-indigo-500 bg-indigo-500/10"
@@ -100,8 +117,8 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
                   >
                     {d.getDate()}
                   </div>
-                  {shiftColor ? (
-                    <div className="w-5 h-[3px] rounded-full mt-1" style={{ background: shiftColor }} />
+                  {dotColor ? (
+                    <div className="w-5 h-[3px] rounded-full mt-1" style={{ background: dotColor }} />
                   ) : (
                     <div className="h-[3px] mt-1" />
                   )}

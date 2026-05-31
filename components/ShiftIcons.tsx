@@ -52,3 +52,30 @@ export function ShiftIcon({ shiftType, size = 14, color = "currentColor" }: { sh
   if (shiftType === "closer") return <MoonIcon size={size} color={color} />;
   return null;
 }
+
+export function TimeOffPendingIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="5.5" stroke={color} strokeWidth="1.5" />
+      <path d="M8 5.5V8l1.5 1.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TimeOffApprovedIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="5.5" stroke={color} strokeWidth="1.5" />
+      <path d="M5.5 8.5l2 2 3-4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TimeOffDeniedIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="5.5" stroke={color} strokeWidth="1.5" />
+      <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
