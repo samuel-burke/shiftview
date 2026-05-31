@@ -18,6 +18,8 @@ export const DEMO_SETTINGS = {
   minCoverage: 2,
   firstDayOfWeek: 1,
   timezone: "America/New_York",
+  manualPunchesEnabled: true,
+  gpsRequired: false,
 };
 
 export function getDemoSchedulesForDate(date: string): Schedule[] {

@@ -221,6 +221,15 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "punchedAt must be within the last 30 days and not in the future" }, { status: 400 });
 
   const supabase = await createClient();
+
+  // Check if manual punch corrections are enabled
+  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+  const settingsMap = Object.fromEntries(
+    (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+  );
+  if (settingsMap.manual_punches_enabled === "false") {
+    return NextResponse.json({ error: "Manual punch corrections are disabled" }, { status: 403 });
+  }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
