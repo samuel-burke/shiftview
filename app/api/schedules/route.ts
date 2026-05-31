@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
+import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
+import { notify } from "@/lib/notify";
+import { sendEmail } from "@/lib/email";
+import { fmtMinutes } from "@/data/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,15 +20,21 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const table = user ? "schedules" : "schedules_demo";
+
+  if (!user) {
+    return NextResponse.json(getDemoSchedulesForDate(date));
+  }
 
   const { data, error } = await supabase
-    .from(table)
+    .from("schedules")
     .select("*")
     .eq("date", date)
     .order("start_minutes");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const mapped = data.map((s) => ({
     id:           s.id,
@@ -38,7 +48,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const { id, startMinutes, endMinutes } = await request.json();
+  const { id, startMinutes, endMinutes, override = false } = await request.json();
 
   if (id == null || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "id, startMinutes, endMinutes required" }, { status: 400 });
@@ -50,18 +60,93 @@ export async function PUT(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("employee_id, date")
+    .eq("id", id)
+    .maybeSingle();
+
+  // Conflict checks (skip if override)
+  if (!override && existing) {
+    const dateStr = existing.date;
+    const empId = existing.employee_id;
+    const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
+
+    // Check time-off conflict
+    const { data: timeOff } = await supabase
+      .from("time_off_requests")
+      .select("id, status")
+      .eq("employee_id", empId)
+      .eq("date", dateStr)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (timeOff) {
+      return NextResponse.json({
+        conflict: "time_off",
+        message: `Employee has approved time off on ${dateStr}`,
+      }, { status: 409 });
+    }
+
+    // Check availability conflict
+    const { data: availRecord } = await supabase
+      .from("availability")
+      .select("id, start_minutes, end_minutes")
+      .eq("employee_id", empId)
+      .eq("day_of_week", dayOfWeek)
+      .maybeSingle();
+
+    if (availRecord) {
+      if (availRecord.start_minutes === null || availRecord.end_minutes === null) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: null,
+          message: `Employee is unavailable on ${new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+        }, { status: 409 });
+      }
+      if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: { startMinutes: availRecord.start_minutes, endMinutes: availRecord.end_minutes },
+          message: `Shift falls outside employee's availability window (${fmtMinutes(availRecord.start_minutes)} – ${fmtMinutes(availRecord.end_minutes)})`,
+        }, { status: 409 });
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("schedules")
     .update({ start_minutes: startMinutes, end_minutes: endMinutes })
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Notify the affected employee of their shift change
+  if (existing) {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("user_id, name")
+      .eq("id", existing.employee_id)
+      .maybeSingle();
+    if (emp?.user_id) {
+      notify(supabase, {
+        userId: emp.user_id,
+        type: "shift_change",
+        title: "Shift Updated",
+        body: `Your shift on ${existing.date} has been updated to ${fmtMinutes(startMinutes)} – ${fmtMinutes(endMinutes)}`,
+        data: { scheduleId: id, date: existing.date },
+      }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
 
 export async function POST(request: Request) {
-  const { employeeId, date, startMinutes, endMinutes } = await request.json();
+  const { employeeId, date, startMinutes, endMinutes, override = false } = await request.json();
 
   if (employeeId == null || !date || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "employeeId, date, startMinutes, endMinutes required" }, { status: 400 });
@@ -75,11 +160,86 @@ export async function POST(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("id")
+    .eq("employee_id", employeeId)
+    .eq("date", date)
+    .maybeSingle();
+
+  if (existing)
+    return NextResponse.json({ error: "Employee is already scheduled on this date" }, { status: 409 });
+
+  // Conflict checks (skip if override)
+  if (!override) {
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+
+    // Check time-off conflict
+    const { data: timeOff } = await supabase
+      .from("time_off_requests")
+      .select("id, status")
+      .eq("employee_id", employeeId)
+      .eq("date", date)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (timeOff) {
+      return NextResponse.json({
+        conflict: "time_off",
+        message: `Employee has approved time off on ${date}`,
+      }, { status: 409 });
+    }
+
+    // Check availability conflict
+    const { data: availRecord } = await supabase
+      .from("availability")
+      .select("id, start_minutes, end_minutes")
+      .eq("employee_id", employeeId)
+      .eq("day_of_week", dayOfWeek)
+      .maybeSingle();
+
+    if (availRecord) {
+      if (availRecord.start_minutes === null || availRecord.end_minutes === null) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: null,
+          message: `Employee is unavailable on ${new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+        }, { status: 409 });
+      }
+      if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {
+        return NextResponse.json({
+          conflict: "availability",
+          window: { startMinutes: availRecord.start_minutes, endMinutes: availRecord.end_minutes },
+          message: `Shift falls outside employee's availability window (${fmtMinutes(availRecord.start_minutes)} – ${fmtMinutes(availRecord.end_minutes)})`,
+        }, { status: 409 });
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("schedules")
     .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Notify the employee of their new shift
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("user_id, name")
+    .eq("id", employeeId)
+    .maybeSingle();
+  if (emp?.user_id) {
+    notify(supabase, {
+      userId: emp.user_id,
+      type: "shift_change",
+      title: "New Shift Scheduled",
+      body: `You have a new shift on ${date}: ${fmtMinutes(startMinutes)} – ${fmtMinutes(endMinutes)}`,
+      data: { date, employeeId },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }
@@ -96,12 +256,66 @@ export async function DELETE(request: Request) {
   const { error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  // Fetch the schedule before deletion to get its date
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("id, date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("schedules")
     .delete()
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/schedules]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Check if coverage dropped below minimum and alert managers
+  if (existing?.date) {
+    const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+    const settingsMap = Object.fromEntries((settingsData ?? []).map((r) => [r.key, r.value]));
+
+    if (settingsMap.email_notifications === "true") {
+      const minCoverage = parseInt(settingsMap.minimum_coverage ?? "2");
+
+      const { data: remaining } = await supabase
+        .from("schedules")
+        .select("id")
+        .eq("date", existing.date);
+
+      const remainingCount = (remaining ?? []).length;
+
+      if (remainingCount < minCoverage) {
+        // Fetch manager user_ids, then their employee emails
+        const { data: managerRows } = await supabase.from("managers").select("user_id");
+        const managerUserIds = (managerRows ?? []).map((r: { user_id: string }) => r.user_id);
+
+        if (managerUserIds.length > 0) {
+          const { data: managerEmployees } = await supabase
+            .from("employees")
+            .select("email")
+            .in("user_id", managerUserIds);
+
+          const managerEmails = (managerEmployees ?? [])
+            .map((e: { email: string | null }) => e.email)
+            .filter((e): e is string => Boolean(e));
+
+          await Promise.allSettled(
+            managerEmails.map((email) =>
+              sendEmail({
+                to: email,
+                subject: `Low coverage alert — ${existing.date}`,
+                html: `<p>Coverage for <strong>${existing.date}</strong> has dropped to <strong>${remainingCount}</strong> (minimum: ${minCoverage}). Please review the schedule.</p><p>— ShiftView</p>`,
+              })
+            )
+          );
+        }
+      }
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
+import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,18 @@ export async function GET(request: Request) {
 
   if (!user) {
     const { data, error } = await supabase.from("employees_demo").select("id, name");
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[api/employees]", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
     return NextResponse.json(sortByName(data ?? []));
   }
 
   const { data, error } = await supabase.from("employees").select("id, name, email, user_id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/employees]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   return NextResponse.json(sortByName(data ?? []));
 }
 
@@ -64,7 +71,10 @@ export async function PATCH(request: Request) {
 
   const { error } = await supabase.from("employees").update(updates).eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/employees]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -106,7 +116,10 @@ export async function DELETE(request: Request) {
     .eq("id", id)
     .select("id");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/employees]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   if (!deleted || deleted.length === 0)
     return NextResponse.json({ error: "Employee not found or permission denied" }, { status: 404 });
 

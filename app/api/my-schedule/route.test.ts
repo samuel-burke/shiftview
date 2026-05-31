@@ -56,21 +56,16 @@ describe("GET /api/my-schedule", () => {
     expect(res.status).toBe(200);
   });
 
-  it("queries schedules_demo for unauthenticated users", async () => {
-    const client = makeSupabaseClient({ user: null, queryData: MOCK_DB_SCHEDULES });
+  it("returns demo fixture schedules for unauthenticated users without querying Supabase", async () => {
+    const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request(VALID_URL));
     expect(res.status).toBe(200);
-    expect(client.from).toHaveBeenCalledWith("schedules_demo");
-  });
-
-  it("returns employeeId null and empty name for unauthenticated demo", async () => {
-    const client = makeSupabaseClient({ user: null, queryData: [] });
-    mockCreateClient.mockResolvedValue(client as any);
-    const res = await GET(new Request(VALID_URL));
+    expect(client.from).not.toHaveBeenCalledWith("schedules_demo");
     const json = await res.json();
+    expect(json.employeeId).toBe(1);
     expect(json.employeeName).toBeNull();
-    expect(json.schedules).toEqual([]);
+    expect(Array.isArray(json.schedules)).toBe(true);
   });
 
   it("returns empty schedules when authenticated user has no linked employee", async () => {

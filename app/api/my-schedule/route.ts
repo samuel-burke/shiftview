@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { DEMO_EMPLOYEES, getDemoSchedulesForEmployee } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DEMO_EMPLOYEE_ID = 1;
+const DEMO_EMPLOYEE_ID = DEMO_EMPLOYEES[0].id;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -32,20 +33,10 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const { data, error } = await supabase
-      .from("schedules_demo")
-      .select("*")
-      .eq("employee_id", DEMO_EMPLOYEE_ID)
-      .gte("date", from)
-      .lte("date", to)
-      .order("date");
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
     return NextResponse.json({
       employeeId: DEMO_EMPLOYEE_ID,
       employeeName: null,
-      schedules: mapSchedules(data ?? []),
+      schedules: getDemoSchedulesForEmployee(DEMO_EMPLOYEE_ID, from!, to!),
     });
   }
 
@@ -67,7 +58,10 @@ export async function GET(request: Request) {
     .lte("date", to)
     .order("date");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/my-schedule]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({
     employeeId: emp.id,

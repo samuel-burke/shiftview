@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -13,10 +13,35 @@ import WeekView from "../../components/WeekView";
 import MonthView from "../../components/MonthView";
 import BottomNav from "../../components/BottomNav";
 import UserMenu from "../../components/UserMenu";
+import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
+import AvailabilitySection from "../../components/AvailabilitySection";
 import { createClient } from "@/lib/supabase-browser";
 
 type View = "week" | "month";
+
+export function isShiftUpcoming(
+  shift: { date: string; endMinutes: number; startMinutes: number },
+  todayKey: string,
+  nowMinutes: number,
+): boolean {
+  return shift.date > todayKey || (shift.date === todayKey && shift.endMinutes > nowMinutes);
+}
+
+export function formatNextShiftDate(dateStr: string, todayKey: string): string {
+  if (dateStr === todayKey) return "Today";
+  const d = new Date(todayKey + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  const tomorrowKey = d.toISOString().slice(0, 10);
+  if (dateStr === tomorrowKey) return "Tomorrow";
+  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
+export function getDaysUntil(dateStr: string, todayKey: string): number {
+  const a = new Date(dateStr + "T12:00:00Z").getTime();
+  const b = new Date(todayKey + "T12:00:00Z").getTime();
+  return Math.round((a - b) / 86400000);
+}
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
   0: { open: 480, close: 1200 },
@@ -28,8 +53,8 @@ const DEFAULT_HOURS: Record<number, StoreHours> = {
   6: { open: 360, close: 1320 },
 };
 
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+function toDateKey(d: Date, tz = "America/New_York") {
+  return d.toLocaleDateString("en-CA", { timeZone: tz });
 }
 
 function offsetDays(d: Date, n: number): Date {
@@ -57,7 +82,7 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SchedulePageClient() {
-  const today = new Date();
+  const [today] = useState(() => new Date());
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
@@ -68,12 +93,18 @@ export default function SchedulePageClient() {
   const [navDate, setNavDate] = useState(today);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [isManager, setIsManager] = useState(false);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
+  const [timezone, setTimezone] = useState("America/New_York");
   const [loading, setLoading] = useState(true);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [timeOffError, setTimeOffError] = useState<string | null>(null);
+  const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
+  const supplementalFetchedRef = useRef(false);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -84,9 +115,10 @@ export default function SchedulePageClient() {
   useEffect(() => {
     fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
       .then((r) => r.json())
-      .then(({ employeeName, isManager }) => {
+      .then(({ employeeName, isManager, employeeId }) => {
         setEmployeeName(employeeName ?? null);
         setIsManager(!!isManager);
+        setEmployeeId(employeeId ?? null);
       })
       .catch(() => {});
     fetch("/api/store-hours")
@@ -95,7 +127,10 @@ export default function SchedulePageClient() {
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ firstDayOfWeek }) => { if (firstDayOfWeek != null) setFirstDayOfWeek(firstDayOfWeek); })
+      .then(({ firstDayOfWeek, timezone: tz }) => {
+        if (firstDayOfWeek != null) setFirstDayOfWeek(firstDayOfWeek);
+        if (tz) setTimezone(tz);
+      })
       .catch(() => {});
   }, []);
 
@@ -111,14 +146,72 @@ export default function SchedulePageClient() {
     }
     setLoading(true);
     setScheduleError(null);
-    fetch(`/api/my-schedule?from=${toDateKey(from)}&to=${toDateKey(to)}${isDemo ? "&demo=true" : ""}`)
+    fetch(`/api/my-schedule?from=${toDateKey(from, timezone)}&to=${toDateKey(to, timezone)}${isDemo ? "&demo=true" : ""}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         setSchedules(data.schedules ?? []);
         setLoading(false);
       })
       .catch(() => { setScheduleError("Failed to load schedule"); setLoading(false); });
-  }, [view, navDate, firstDayOfWeek]);
+  }, [view, navDate, firstDayOfWeek, timezone]);
+
+  // Reset time-off request status when selected date changes
+  useEffect(() => {
+    setTimeOffStatus("idle");
+    setTimeOffError(null);
+  }, [selectedDate]);
+
+  async function handleRequestDayOff() {
+    if (!employeeId || isDemo) return;
+    setTimeOffStatus("loading");
+    setTimeOffError(null);
+    try {
+      const res = await fetch("/api/time-off", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, date: selectedDateKey }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setTimeOffError(json.error ?? "Failed to submit request");
+        setTimeOffStatus("error");
+      } else {
+        setTimeOffStatus("success");
+      }
+    } catch {
+      setTimeOffError("Failed to submit request");
+      setTimeOffStatus("error");
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const todayKey = toDateKey(today);
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
+    const upcoming = schedules
+      .filter(s => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
+    if (upcoming.length > 0) {
+      setNextShift(upcoming[0]);
+    } else if (!loading) {
+      if (supplementalFetchedRef.current) return;
+      supplementalFetchedRef.current = true;
+      // Do a supplemental fetch for next 30 days
+      const to = new Date(today); to.setDate(today.getDate() + 30);
+      const toKey = toDateKey(to);
+      fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return;
+          const upcoming = (data.schedules ?? [])
+            .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+            .sort((a: Schedule, b: Schedule) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
+          setNextShift(upcoming[0] ?? null);
+        })
+        .catch(() => { if (!cancelled) setNextShift(null); });
+    }
+    return () => { cancelled = true; };
+  }, [schedules, loading]);
 
   function goToPrev() {
     if (view === "week") {
@@ -168,10 +261,10 @@ export default function SchedulePageClient() {
   const weekStart = useMemo(() => getWeekStart(navDate, firstDayOfWeek), [navDate, firstDayOfWeek]);
   const weekEnd = useMemo(() => offsetDays(weekStart, 6), [weekStart]);
 
-  const todayKey = toDateKey(today);
+  const todayKey = toDateKey(today, timezone);
   const isAtToday =
     view === "week"
-      ? todayKey >= toDateKey(weekStart) && todayKey <= toDateKey(weekEnd)
+      ? todayKey >= toDateKey(weekStart, timezone) && todayKey <= toDateKey(weekEnd, timezone)
       : navDate.getFullYear() === today.getFullYear() && navDate.getMonth() === today.getMonth();
 
   const rangeLabel =
@@ -179,7 +272,7 @@ export default function SchedulePageClient() {
       ? formatWeekRange(weekStart, weekEnd)
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const selectedDateKey = toDateKey(selectedDate);
+  const selectedDateKey = toDateKey(selectedDate, timezone);
   const selectedSchedule =
     schedules.find((s) => s.date.slice(0, 10) === selectedDateKey) ?? null;
 
@@ -193,10 +286,17 @@ export default function SchedulePageClient() {
     ? (selectedSchedule.endMinutes - selectedSchedule.startMinutes) / 60
     : null;
 
-  const isSelectedToday = selectedDateKey === toDateKey(today);
+  const isSelectedToday = selectedDateKey === toDateKey(today, timezone);
   const selectedDayLabel = isSelectedToday
     ? "Today"
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+
+  // Show "Request Day Off" when: no shift scheduled, date is strictly in the future, and user has an employeeId
+  const canRequestDayOff =
+    !selectedSchedule &&
+    selectedDateKey > todayKey &&
+    employeeId !== null &&
+    !isDemo;
 
   // Stats
   const totalShifts = schedules.length;
@@ -225,7 +325,7 @@ export default function SchedulePageClient() {
     <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
       {/* Top bar */}
       <div
-        className="px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
@@ -236,6 +336,7 @@ export default function SchedulePageClient() {
         </span>
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-400">{todayStr}</span>
+          {!isDemo && <NotificationBell />}
           <UserMenu
             name={employeeName}
             isManager={isManager}
@@ -246,6 +347,30 @@ export default function SchedulePageClient() {
       </div>
 
       <div className="px-4 pt-4">
+        {/* Next Shift card */}
+        <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
+          <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
+          {nextShift === undefined ? (
+            <div className="h-8 bg-slate-800 rounded animate-pulse" />
+          ) : nextShift ? (
+            <>
+              <div className="text-slate-300 font-semibold text-sm">
+                {formatNextShiftDate(nextShift.date, toDateKey(today))}
+              </div>
+              <div className="text-2xl font-extrabold text-slate-100 mt-1">
+                {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
+              </div>
+              {getDaysUntil(nextShift.date, toDateKey(today)) > 1 && (
+                <div className="text-xs text-slate-400 mt-1">
+                  in {getDaysUntil(nextShift.date, toDateKey(today))} days
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+          )}
+        </div>
+
         {/* MY SCHEDULE label + Week/Month toggle */}
         <div className="flex items-start justify-between mb-1">
           <div>
@@ -368,6 +493,28 @@ export default function SchedulePageClient() {
           ) : (
             <div className="text-2xl font-bold text-slate-400 mt-1">Day Off</div>
           )}
+
+          {/* Request Day Off button */}
+          {canRequestDayOff && (
+            <div className="mt-3">
+              {timeOffStatus === "success" ? (
+                <div className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleRequestDayOff}
+                    disabled={timeOffStatus === "loading"}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
+                  </button>
+                  {timeOffStatus === "error" && timeOffError && (
+                    <div className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Stats row */}
@@ -390,6 +537,18 @@ export default function SchedulePageClient() {
           </div>
         </div>
       </div>
+
+      {/* Availability Section */}
+      {(employeeId !== null || isDemo) && !loading && (
+        <div className="px-4 mt-2">
+          <AvailabilitySection
+            employeeId={employeeId ?? 0}
+            weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
+            isDemo={isDemo}
+          />
+        </div>
+      )}
 
       <DatePickerSheet
         open={pickerOpen}

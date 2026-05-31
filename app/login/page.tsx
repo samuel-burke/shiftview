@@ -1,14 +1,19 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
 type Step = "email" | "code";
 
+function getSupabase() {
+  return createClient();
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -19,6 +24,7 @@ export default function LoginPage() {
     if (!email.trim()) { setError("Email is required."); return; }
     setLoading(true);
     setError(null);
+    const supabase = getSupabase();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { shouldCreateUser: false },
@@ -35,6 +41,7 @@ export default function LoginPage() {
     if (!code.trim()) { setError("Enter the code from your email."); return; }
     setLoading(true);
     setError(null);
+    const supabase = getSupabase();
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: code.trim(),
@@ -99,13 +106,15 @@ export default function LoginPage() {
               <input
                 type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
                 placeholder="000000"
                 value={code}
                 maxLength={6}
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] outline-none [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] outline-none [color-scheme:dark] caret-transparent"
               />
               {error && <div className="text-xs text-red-400 text-center">{error}</div>}
               <button
