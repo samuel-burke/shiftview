@@ -122,24 +122,6 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  async function dismissOne(id: number) {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    fetch("/api/notifications", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-  }
-
-  async function clearAll() {
-    setNotifications([]);
-    fetch("/api/notifications", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ all: true }),
-    });
-  }
-
   async function markAllRead() {
     const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
     if (!unreadIds.length) return;
@@ -234,14 +216,6 @@ export default function NotificationBell() {
                   Mark all read
                 </button>
               )}
-              {notifications.length > 0 && (
-                <button
-                  onClick={clearAll}
-                  className="text-xs text-slate-400 hover:text-red-400 cursor-pointer"
-                >
-                  Clear all
-                </button>
-              )}
             </div>
           </div>
 
@@ -266,18 +240,9 @@ export default function NotificationBell() {
                   <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
                   <div className="text-[11px] text-slate-600 mt-1">{timeAgo(n.created_at)}</div>
                 </div>
-                <div className="flex flex-col items-center gap-1 shrink-0">
-                  {!n.read && (
-                    <span className="size-2 rounded-full bg-indigo-500" />
-                  )}
-                  <button
-                    onClick={() => dismissOne(n.id)}
-                    aria-label={`Dismiss: ${n.title}`}
-                    className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none"
-                  >
-                    ×
-                  </button>
-                </div>
+                {!n.read && (
+                  <span className="size-2 rounded-full bg-indigo-500 shrink-0 mt-1.5" />
+                )}
               </div>
             ))}
           </div>
