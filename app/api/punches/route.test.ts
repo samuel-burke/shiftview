@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "./route";
+import { POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER } from "../__tests__/helpers";
@@ -283,14 +283,6 @@ describe("POST /api/punches — state-machine guard", () => {
 
 // ── POST /api/punches — late clock-in notification timezone correctness ───────
 
-/**
- * Builds a full punch client that includes schedules and app_settings tables
- * for testing the late clock-in notification path.
- *
- * punchedAtUTC: ISO timestamp stored in the database (UTC)
- * scheduleStartMinutes: minutes from local midnight (store timezone)
- * timezone: IANA timezone string in app_settings (default "America/New_York")
- */
 function makeTimezoneClockInClient({
   punchedAtUTC,
   scheduleStartMinutes,
@@ -356,11 +348,6 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
   });
 
   it("does NOT fire notification when employee clocks in early in store timezone (UTC would appear late)", async () => {
-    // Store timezone: America/New_York (EDT = UTC-4 in May)
-    // Schedule starts 14:00 ET = 840 minutes
-    // Punch at 12:47 PM ET = 16:47 UTC — employee is 73 min EARLY
-    // Bug: getHours() returns 16*60+47=1007, 1007-840=167 "late" (wrong)
-    // Fix: local time 12*60+47=767, 767-840=-73 (early, no notification)
     mockCreateClient.mockResolvedValue(
       makeTimezoneClockInClient({
         punchedAtUTC: "2026-05-26T16:47:00.000Z",
@@ -373,8 +360,6 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
   });
 
   it("fires notification with correct lateMinutes when employee is genuinely late in store timezone", async () => {
-    // Schedule starts 08:00 ET = 480 minutes
-    // Punch at 08:15 AM ET = 12:15 UTC — employee is 15 min LATE
     mockCreateClient.mockResolvedValue(
       makeTimezoneClockInClient({
         punchedAtUTC: "2026-05-26T12:15:00.000Z",
@@ -390,8 +375,6 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
   });
 
   it("does NOT fire notification when within the 5-minute grace window", async () => {
-    // Schedule starts 08:00 ET = 480 minutes
-    // Punch at 08:04 AM ET = 12:04 UTC — 4 min late, within grace period
     mockCreateClient.mockResolvedValue(
       makeTimezoneClockInClient({
         punchedAtUTC: "2026-05-26T12:04:00.000Z",
@@ -404,13 +387,11 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
   });
 
   it("uses America/New_York as fallback when timezone missing from app_settings", async () => {
-    // Same as first test but timezone not in settings — should still use ET default
     const client = makeTimezoneClockInClient({
       punchedAtUTC: "2026-05-26T16:47:00.000Z",
       scheduleStartMinutes: 840,
       timezone: "America/New_York",
     });
-    // Override app_settings to return empty array (no timezone key)
     const originalFrom = client.from;
     client.from = vi.fn().mockImplementation((table: string) => {
       if (table === "app_settings") {
@@ -429,8 +410,6 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
   });
 
   it("fires exact notification text with employee name and scheduled time", async () => {
-    // Schedule starts 09:00 ET = 540 minutes
-    // Punch at 09:12 AM ET = 13:12 UTC — 12 min late
     mockCreateClient.mockResolvedValue(
       makeTimezoneClockInClient({
         punchedAtUTC: "2026-05-26T13:12:00.000Z",
@@ -445,5 +424,56 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
     expect(msg).toContain("Bob");
     expect(msg).toContain("12m late");
     expect(msg).toContain("9:00 AM");
+  });
+});
+
+// ── PUT /api/punches — manual punch corrections ───────────────────────────────
+
+function makeManualPunchClient({ manualEnabled = true }: { manualEnabled?: boolean } = {}) {
+  const settingsRow = manualEnabled
+    ? []
+    : [{ key: "manual_punches_enabled", value: "false" }];
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "app_settings") return makeBuilder({ data: settingsRow, error: null });
+      if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id }, error: null });
+      if (table === "employees") return makeBuilder({ data: { id: 1 }, error: null });
+      if (table === "punch_records") return makeBuilder({ data: null, error: null });
+      return makeBuilder({ data: null, error: null });
+    }),
+  };
+}
+
+function makePutRequest(body: Record<string, unknown>) {
+  return new Request("http://localhost/api/punches", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+const validPutBody = {
+  punchType: "clock_in",
+  punchedAt: new Date(Date.now() - 60_000).toISOString(),
+  note: "Forgot to punch",
+  employeeId: 1,
+};
+
+describe("PUT /api/punches — manual punches setting", () => {
+  it("returns 200 when manual punches are enabled (default)", async () => {
+    mockCreateClient.mockResolvedValue(makeManualPunchClient({ manualEnabled: true }) as any);
+    const res = await PUT(makePutRequest(validPutBody));
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 403 when manual_punches_enabled is false", async () => {
+    mockCreateClient.mockResolvedValue(makeManualPunchClient({ manualEnabled: false }) as any);
+    const res = await PUT(makePutRequest(validPutBody));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toMatch(/manual/i);
   });
 });

@@ -48,6 +48,8 @@ describe("GET /api/settings", () => {
       optimalCoverage: 4,
       minCoverage: 3,
       timezone: "America/Chicago",
+      manualPunchesEnabled: true,
+      gpsRequired: false,
     });
   });
 
@@ -72,7 +74,24 @@ describe("GET /api/settings", () => {
       optimalCoverage: 3,
       minCoverage: 2,
       timezone: "America/New_York",
+      manualPunchesEnabled: true,
+      gpsRequired: false,
     });
+  });
+
+  it("returns manualPunchesEnabled=false and gpsRequired=true when set in DB", async () => {
+    const dbSettings = [
+      ...MOCK_DB_SETTINGS,
+      { key: "manual_punches_enabled", value: "false" },
+      { key: "gps_required",           value: "true"  },
+    ];
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, queryData: dbSettings }) as any
+    );
+    const res = await GET();
+    const body = await res.json();
+    expect(body.manualPunchesEnabled).toBe(false);
+    expect(body.gpsRequired).toBe(true);
   });
 
   it("returns 500 on database error for authenticated users", async () => {
@@ -203,6 +222,32 @@ describe("PUT /api/settings", () => {
     const res = await PUT(putReq({ timezone: "Not/Real" }));
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ error: expect.stringMatching(/IANA|valid/i) });
+  });
+
+  // ── manualPunchesEnabled / gpsRequired ─────────────────────────────────────
+
+  it("returns 200 when updating manualPunchesEnabled to false", async () => {
+    const res = await PUT(putReq({ manualPunchesEnabled: false }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 400 when manualPunchesEnabled is not a boolean", async () => {
+    const res = await PUT(putReq({ manualPunchesEnabled: "yes" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("manualPunchesEnabled") });
+  });
+
+  it("returns 200 when updating gpsRequired to true", async () => {
+    const res = await PUT(putReq({ gpsRequired: true }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 400 when gpsRequired is not a boolean", async () => {
+    const res = await PUT(putReq({ gpsRequired: 1 }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("gpsRequired") });
   });
 
   // ── DB error ─────────────────────────────────────────────────────────────────

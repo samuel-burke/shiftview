@@ -121,6 +121,10 @@ export default function ClockPageClient() {
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
   const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
 
+  // Time clock settings
+  const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
+  const [gpsRequired, setGpsRequired] = useState(false);
+
   const todayKey = toDateKey(today);
   const storeHours = weeklyHours[today.getDay()];
 
@@ -145,11 +149,12 @@ export default function ClockPageClient() {
     setLoading(true);
     setError(null);
     try {
-      const [meRes, schedRes, punchRes, hoursRes] = await Promise.all([
+      const [meRes, schedRes, punchRes, hoursRes, settingsRes] = await Promise.all([
         fetch(`/api/me${isDemo ? "?demo=true" : ""}`),
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
         fetch("/api/store-hours"),
+        fetch("/api/settings"),
       ]);
 
       const me = await meRes.json();
@@ -170,6 +175,10 @@ export default function ClockPageClient() {
 
       const hours = await hoursRes.json();
       setWeeklyHours((prev) => ({ ...prev, ...hours }));
+
+      const settings = await settingsRes.json();
+      if (settings.manualPunchesEnabled != null) setManualPunchesEnabled(settings.manualPunchesEnabled);
+      if (settings.gpsRequired != null) setGpsRequired(settings.gpsRequired);
     } catch {
       setError("Failed to load data");
     } finally {
@@ -228,9 +237,15 @@ export default function ClockPageClient() {
     let lat: number | null = null;
     let lng: number | null = null;
 
-    if (punchType === "clock_in") {
+    if (punchType === "clock_in" && gpsRequired) {
       const gps = await getGps();
-      if (gps) { lat = gps.lat; lng = gps.lng; }
+      if (!gps) {
+        setActionError("GPS location is required to clock in. Please enable location access.");
+        setActionPending(false);
+        return;
+      }
+      lat = gps.lat;
+      lng = gps.lng;
     }
 
     try {
@@ -540,8 +555,8 @@ export default function ClockPageClient() {
           </div>
         )}
 
-        {/* Missed punch correction */}
-        <div className="bg-card rounded-2xl border border-slate-800/60">
+        {/* Missed punch correction — hidden when setting is disabled */}
+        {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-slate-800/60">
           <button
             onClick={() => setShowCorrection((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer"
@@ -607,7 +622,7 @@ export default function ClockPageClient() {
               </button>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Timesheet export */}
         <div className="bg-card rounded-2xl border border-slate-800/60">
