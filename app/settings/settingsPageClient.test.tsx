@@ -478,3 +478,82 @@ describe("SettingsPageClient — auto-save", () => {
     });
   });
 });
+
+// ── EmployeeAvailabilityRow (manager Settings) ─────────────────────────────
+
+describe("EmployeeAvailabilityRow in SettingsPageClient", () => {
+  function setupManagerFetch(availabilityRecords: any[] = []) {
+    return vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
+      const url = input.toString();
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET") {
+        if (url.includes("/api/store-hours")) return { ok: true, json: async () => DEFAULT_HOURS } as Response;
+        if (url.includes("/api/settings"))   return { ok: true, json: async () => DEFAULT_SETTINGS } as Response;
+        if (url.includes("/api/employees"))  return { ok: true, json: async () => [{ id: 5, name: "Alice Smith", email: "alice@test.com", user_id: null }] } as Response;
+        if (url.includes("/api/me"))         return { ok: true, json: async () => ({ isManager: true }) } as Response;
+        if (url.includes("/api/templates"))  return { ok: true, json: async () => ({ templates: [] }) } as Response;
+        if (url.includes("/api/availability")) return { ok: true, json: async () => availabilityRecords } as Response;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+  }
+
+  it("renders 'Typical Week' toggle for each employee when manager", async () => {
+    setupManagerFetch();
+    render(<SettingsPageClient />);
+    await screen.findByTestId("store-hours-section");
+    await waitFor(() => expect(screen.getByTestId("employee-avail-5")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Toggle typical week" })).toBeInTheDocument();
+  });
+
+  it("expands to show 'No restrictions set' when employee has no records", async () => {
+    setupManagerFetch([]);
+    render(<SettingsPageClient />);
+    await screen.findByTestId("store-hours-section");
+    await waitFor(() => expect(screen.getByTestId("employee-avail-5")).toBeInTheDocument());
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Toggle typical week" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText("No restrictions set")).toBeInTheDocument());
+  });
+
+  it("shows 'Unavailable' for Off days (null start/end)", async () => {
+    setupManagerFetch([{ id: 1, dayOfWeek: 0, startMinutes: null, endMinutes: null, note: null }]);
+    render(<SettingsPageClient />);
+    await screen.findByTestId("store-hours-section");
+    await waitFor(() => expect(screen.getByTestId("employee-avail-5")).toBeInTheDocument());
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Toggle typical week" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText("Unavailable")).toBeInTheDocument());
+  });
+
+  it("shows time range and availability bar for Window records", async () => {
+    setupManagerFetch([{ id: 2, dayOfWeek: 1, startMinutes: 720, endMinutes: 1320, note: null }]);
+    render(<SettingsPageClient />);
+    await screen.findByTestId("store-hours-section");
+    await waitFor(() => expect(screen.getByTestId("employee-avail-5")).toBeInTheDocument());
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Toggle typical week" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/12:00 PM/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Mon availability bar/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows note under restricted day when note exists", async () => {
+    setupManagerFetch([{ id: 1, dayOfWeek: 0, startMinutes: null, endMinutes: null, note: "Family time" }]);
+    render(<SettingsPageClient />);
+    await screen.findByTestId("store-hours-section");
+    await waitFor(() => expect(screen.getByTestId("employee-avail-5")).toBeInTheDocument());
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Toggle typical week" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText("Family time")).toBeInTheDocument());
+  });
+});

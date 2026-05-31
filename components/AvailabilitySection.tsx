@@ -17,6 +17,7 @@ type DayConfig = {
   state: DayState;
   startVal: string;
   endVal: string;
+  note: string;
   saveStatus: "idle" | "saving" | "saved" | "error";
 };
 
@@ -67,7 +68,7 @@ export default function AvailabilitySection({
   const orderedDays = Array.from({ length: 7 }, (_, i) => (i + firstDayOfWeek) % 7);
 
   const defaultDay = (): DayConfig => ({
-    recordId: null, state: "any", startVal: "", endVal: "", saveStatus: "idle",
+    recordId: null, state: "any", startVal: "", endVal: "", note: "", saveStatus: "idle",
   });
 
   const [days, setDays] = useState<Record<number, DayConfig>>(() => {
@@ -103,7 +104,7 @@ export default function AvailabilitySection({
           for (const rec of records) {
             const dow = rec.dayOfWeek;
             if (rec.startMinutes === null || rec.endMinutes === null) {
-              next[dow] = { ...next[dow], recordId: rec.id, state: "off", startVal: "", endVal: "", saveStatus: "idle" };
+              next[dow] = { ...next[dow], recordId: rec.id, state: "off", startVal: "", endVal: "", note: rec.note ?? "", saveStatus: "idle" };
             } else {
               next[dow] = {
                 ...next[dow],
@@ -111,6 +112,7 @@ export default function AvailabilitySection({
                 state: "window",
                 startVal: minutesToTimeStr(rec.startMinutes),
                 endVal:   minutesToTimeStr(rec.endMinutes),
+                note: rec.note ?? "",
                 saveStatus: "saved",
               };
             }
@@ -164,7 +166,7 @@ export default function AvailabilitySection({
       const res = await fetch("/api/availability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, dayOfWeek: dow, startMinutes, endMinutes, note: null }),
+        body: JSON.stringify({ employeeId, dayOfWeek: dow, startMinutes, endMinutes, note: cfg.note.trim() || null }),
       });
       if (res.ok) {
         const json = await res.json();
