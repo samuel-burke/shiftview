@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
 import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
-import { getMonogram } from "../../data/types";
+import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -41,6 +41,125 @@ function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string
       {status === "saving" && <div className="text-xs text-slate-400 mt-2 text-right">Saving…</div>}
       {status === "saved"  && <div className="text-xs text-emerald-400 mt-2 text-right">Saved ✓</div>}
       {status === "error"  && <div className="text-xs text-red-400 mt-2 text-right">Failed to save</div>}
+    </div>
+  );
+}
+
+const DEFAULT_STORE_HOURS: Record<number, { open: number; close: number }> = {
+  0: { open: 480, close: 1200 }, 1: { open: 360, close: 1320 }, 2: { open: 360, close: 1320 },
+  3: { open: 360, close: 1320 }, 4: { open: 360, close: 1320 }, 5: { open: 360, close: 1320 },
+  6: { open: 360, close: 1200 },
+};
+
+function clamp(v: number, lo: number, hi: number) { return Math.min(hi, Math.max(lo, v)); }
+
+function EmployeeAvailabilityRow({
+  employeeId,
+  storeHours,
+}: {
+  employeeId: number;
+  storeHours: Record<number, { open: number; close: number }>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [records, setRecords] = useState<AvailabilityRecord[] | null>(null);
+  const fetchedRef = useRef(false);
+
+  function toggle() {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (next && !fetchedRef.current) {
+        fetchedRef.current = true;
+        fetch(`/api/availability?employeeId=${employeeId}`)
+          .then((r) => r.json())
+          .then((data: AvailabilityRecord[]) => setRecords(Array.isArray(data) ? data : []))
+          .catch(() => setRecords([]));
+      }
+      return next;
+    });
+  }
+
+  const restricted = (records ?? []).filter(
+    (r) => r.startMinutes !== null || r.endMinutes !== null || (r.startMinutes === null && r.endMinutes === null)
+  );
+  const restrictedDows = new Set(restricted.map((r) => r.dayOfWeek));
+  const freeDows = [0, 1, 2, 3, 4, 5, 6].filter((d) => !restrictedDows.has(d));
+  const allFree = records !== null && restricted.length === 0;
+
+  return (
+    <div data-testid={`employee-avail-${employeeId}`} className="px-4 pb-3 pt-0">
+      <button
+        onClick={toggle}
+        aria-expanded={expanded}
+        aria-label="Toggle typical week"
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none"
+      >
+        <span>{expanded ? "▾" : "▸"}</span>
+        <span>Typical Week</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-2 pl-1">
+          {records === null ? (
+            <div className="text-xs text-slate-600">Loading…</div>
+          ) : allFree ? (
+            <div className="text-xs text-slate-500">No restrictions set</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {restricted.map((rec) => {
+                const hours = storeHours[rec.dayOfWeek] ?? DEFAULT_STORE_HOURS[rec.dayOfWeek];
+                const isOff = rec.startMinutes === null || rec.endMinutes === null;
+                return (
+                  <div key={rec.dayOfWeek} className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-400 w-7 shrink-0">
+                        {DAY_SHORT[rec.dayOfWeek]}
+                      </span>
+                      {isOff ? (
+                        <span className="text-xs text-slate-500">Unavailable</span>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="flex-1 min-w-0">
+                            {(() => {
+                              const total = hours.close - hours.open;
+                              if (total <= 0) return null;
+                              const s = rec.startMinutes!;
+                              const e = rec.endMinutes!;
+                              const bPct = clamp((s - hours.open) / total * 100, 0, 100);
+                              const wPct = clamp((e - s) / total * 100, 0, 100);
+                              const aPct = clamp(100 - bPct - wPct, 0, 100);
+                              return (
+                                <div
+                                  className="flex h-1 rounded-full overflow-hidden gap-px"
+                                  aria-label={`${DAY_SHORT[rec.dayOfWeek]} availability bar`}
+                                >
+                                  {bPct > 0 && <div className="bg-slate-700/60" style={{ width: `${bPct}%` }} />}
+                                  {wPct > 0 && <div className="bg-emerald-500/70" style={{ width: `${wPct}%` }} />}
+                                  {aPct > 0 && <div className="bg-slate-700/60" style={{ width: `${aPct}%` }} />}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
+                            {fmtMinutes(rec.startMinutes!)} – {fmtMinutes(rec.endMinutes!)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {rec.note && (
+                      <div className="text-[11px] text-slate-500 italic pl-9">{rec.note}</div>
+                    )}
+                  </div>
+                );
+              })}
+              {freeDows.length > 0 && (
+                <div className="text-[11px] text-slate-600">
+                  {freeDows.map((d) => DAY_SHORT[d]).join(", ")} — no restrictions
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -194,6 +313,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editError, setEditError] = useState<string | null>(null);
 
   const [isManager, setIsManager] = useState(false);
+  const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
 
   type Template = { id: number; name: string; rowCount: number };
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -230,6 +350,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             fetch("/api/templates")
               .then((r) => r.ok ? r.json() : Promise.reject())
               .then(({ templates: t }) => setTemplates(t ?? []))
+              .catch(() => {});
+            fetch("/api/store-hours")
+              .then((r) => r.ok ? r.json() : Promise.reject())
+              .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
               .catch(() => {});
           }
         })
@@ -559,6 +683,9 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                       </div>
                     )}
                   </div>
+                  {isManager && (
+                    <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
+                  )}
                 </div>
               ))
             )}

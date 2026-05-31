@@ -17,6 +17,7 @@ type DayConfig = {
   state: DayState;
   startVal: string;
   endVal: string;
+  note: string;
   saveStatus: "idle" | "saving" | "saved" | "error";
 };
 
@@ -67,7 +68,7 @@ export default function AvailabilitySection({
   const orderedDays = Array.from({ length: 7 }, (_, i) => (i + firstDayOfWeek) % 7);
 
   const defaultDay = (): DayConfig => ({
-    recordId: null, state: "any", startVal: "", endVal: "", saveStatus: "idle",
+    recordId: null, state: "any", startVal: "", endVal: "", note: "", saveStatus: "idle",
   });
 
   const [days, setDays] = useState<Record<number, DayConfig>>(() => {
@@ -79,15 +80,21 @@ export default function AvailabilitySection({
   // Sheet state
   const [activeDow, setActiveDow] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
 
   function openSheet(dow: number) {
     setActiveDow(dow);
+    setNoteEditing(false);
+    setNoteDraft("");
     // Two rAF ticks so the element mounts before the transition starts
     requestAnimationFrame(() => requestAnimationFrame(() => setSheetOpen(true)));
   }
 
   function closeSheet() {
     setSheetOpen(false);
+    setNoteEditing(false);
+    setNoteDraft("");
     setTimeout(() => setActiveDow(null), 300);
   }
 
@@ -103,7 +110,7 @@ export default function AvailabilitySection({
           for (const rec of records) {
             const dow = rec.dayOfWeek;
             if (rec.startMinutes === null || rec.endMinutes === null) {
-              next[dow] = { ...next[dow], recordId: rec.id, state: "off", startVal: "", endVal: "", saveStatus: "idle" };
+              next[dow] = { ...next[dow], recordId: rec.id, state: "off", startVal: "", endVal: "", note: rec.note ?? "", saveStatus: "idle" };
             } else {
               next[dow] = {
                 ...next[dow],
@@ -111,6 +118,7 @@ export default function AvailabilitySection({
                 state: "window",
                 startVal: minutesToTimeStr(rec.startMinutes),
                 endVal:   minutesToTimeStr(rec.endMinutes),
+                note: rec.note ?? "",
                 saveStatus: "saved",
               };
             }
@@ -164,7 +172,7 @@ export default function AvailabilitySection({
       const res = await fetch("/api/availability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, dayOfWeek: dow, startMinutes, endMinutes, note: null }),
+        body: JSON.stringify({ employeeId, dayOfWeek: dow, startMinutes, endMinutes, note: cfg.note.trim() || null }),
       });
       if (res.ok) {
         const json = await res.json();
@@ -270,9 +278,14 @@ export default function AvailabilitySection({
               <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
-              <span className={`flex items-center gap-2 flex-1 text-sm ${labelColor}`}>
-                <span className={`size-2 rounded-full shrink-0 ${dot}`} />
-                {label}
+              <span className="flex flex-col flex-1 min-w-0">
+                <span className={`flex items-center gap-2 text-sm ${labelColor}`}>
+                  <span className={`size-2 rounded-full shrink-0 ${dot}`} />
+                  {label}
+                </span>
+                {cfg.note && (
+                  <span className="text-[11px] text-slate-500 mt-0.5 truncate pl-4">📝 {cfg.note}</span>
+                )}
               </span>
               {cfg.saveStatus === "saving" && (
                 <span className="text-[11px] text-slate-500 shrink-0">Saving…</span>
@@ -417,6 +430,74 @@ export default function AvailabilitySection({
                       })}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Note field — shown for window and off, hidden for any */}
+              {(sheetDay?.state === "window" || sheetDay?.state === "off") && (
+                <div className="mt-5">
+                  {noteEditing ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        autoFocus
+                        value={noteDraft}
+                        onChange={(e) => setNoteDraft(e.target.value.slice(0, 120))}
+                        placeholder="E.g. Available after school drop-off"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 resize-none"
+                        rows={2}
+                        maxLength={120}
+                        aria-label="Note"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-600">{noteDraft.length}/120</span>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => { setNoteEditing(false); setNoteDraft(""); }}
+                            className="text-xs text-slate-500 cursor-pointer bg-transparent border-none"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              setNoteEditing(false);
+                              scheduleSave(activeDow, (cfg) => ({ ...cfg, note: noteDraft.trim() }));
+                            }}
+                            className="text-xs font-semibold text-indigo-400 cursor-pointer bg-transparent border-none"
+                          >
+                            Save note
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : sheetDay?.note ? (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-slate-400 flex-1 italic min-w-0">📝 &ldquo;{sheetDay.note}&rdquo;</span>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => { setNoteDraft(sheetDay.note); setNoteEditing(true); }}
+                          className="text-[11px] text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none"
+                          aria-label="Edit note"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => scheduleSave(activeDow, (cfg) => ({ ...cfg, note: "" }))}
+                          className="text-[11px] text-red-400/70 hover:text-red-400 cursor-pointer bg-transparent border-none"
+                          aria-label="Clear note"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setNoteDraft(""); setNoteEditing(true); }}
+                      className="text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none"
+                      aria-label="Add note"
+                    >
+                      + Add note
+                    </button>
+                  )}
                 </div>
               )}
 
