@@ -34,14 +34,13 @@ const FIRST_DAY_OPTIONS = [
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
-type AvailabilityRecord = { id: number; dayOfWeek: number; startMinutes: number | null; endMinutes: number | null };
 
 function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string }) {
   return (
-    <div className="h-5 text-right" data-testid={testId}>
-      {status === "saving" && <span className="text-xs text-slate-400">Saving…</span>}
-      {status === "saved"  && <span className="text-xs text-emerald-400">Saved ✓</span>}
-      {status === "error"  && <span className="text-xs text-red-400">Failed to save</span>}
+    <div data-testid={testId}>
+      {status === "saving" && <div className="text-xs text-slate-400 mt-2 text-right">Saving…</div>}
+      {status === "saved"  && <div className="text-xs text-emerald-400 mt-2 text-right">Saved ✓</div>}
+      {status === "error"  && <div className="text-xs text-red-400 mt-2 text-right">Failed to save</div>}
     </div>
   );
 }
@@ -194,7 +193,6 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const [availability, setAvailability] = useState<Record<number, Set<number>>>({});
   const [isManager, setIsManager] = useState(false);
 
   type Template = { id: number; name: string; rowCount: number };
@@ -222,29 +220,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
         .catch(() => {});
       fetch("/api/employees")
         .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((emps: Employee[]) => {
-          setEmployees(emps);
-          Promise.allSettled(
-            emps.map((emp) =>
-              fetch(`/api/availability?employeeId=${emp.id}`)
-                .then((r) => r.json())
-                .then((records: AvailabilityRecord[]) => ({
-                  id: emp.id,
-                  days: records
-                    .filter((rec) => rec.startMinutes === null)
-                    .map((rec) => rec.dayOfWeek),
-                }))
-            )
-          ).then((results) => {
-            const map: Record<number, Set<number>> = {};
-            for (const result of results) {
-              if (result.status === "fulfilled") {
-                map[result.value.id] = new Set(result.value.days);
-              }
-            }
-            setAvailability(map);
-          });
-        })
+        .then((emps: Employee[]) => setEmployees(emps))
         .catch(() => {});
       fetch("/api/me")
         .then((r) => r.json())
@@ -315,32 +291,6 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     } else {
       setDeleteErrorId(id);
       setTimeout(() => setDeleteErrorId(null), 3000);
-    }
-  }
-
-  async function toggleAvailability(employeeId: number, dow: number) {
-    const current = availability[employeeId] ?? new Set<number>();
-    const isUnavailable = current.has(dow);
-
-    setAvailability((prev) => {
-      const next = new Set(prev[employeeId] ?? []);
-      isUnavailable ? next.delete(dow) : next.add(dow);
-      return { ...prev, [employeeId]: next };
-    });
-
-    if (isDemo) return;
-
-    const res = await fetch("/api/availability", {
-      method: isUnavailable ? "DELETE" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, dayOfWeek: dow }),
-    });
-    if (!res.ok) {
-      setAvailability((prev) => {
-        const next = new Set(prev[employeeId] ?? []);
-        isUnavailable ? next.add(dow) : next.delete(dow);
-        return { ...prev, [employeeId]: next };
-      });
     }
   }
 
@@ -609,31 +559,6 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                       </div>
                     )}
                   </div>
-                  {isManager && (
-                    <div className="flex items-center gap-2 px-4 pb-3">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider w-[68px] shrink-0">Unavailable</span>
-                      <div className="flex gap-1">
-                        {DAY_LETTER.map((letter, dow) => {
-                          const unavailable = (availability[emp.id] ?? new Set()).has(dow);
-                          return (
-                            <button
-                              key={dow}
-                              onClick={() => toggleAvailability(emp.id, dow)}
-                              aria-label={`Toggle ${DAY_FULL[dow]} unavailability`}
-                              aria-pressed={unavailable}
-                              className={`size-7 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
-                                unavailable
-                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                                  : "bg-slate-800 text-slate-500 border border-slate-700"
-                              }`}
-                            >
-                              {letter}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))
             )}
