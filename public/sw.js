@@ -13,14 +13,24 @@ self.addEventListener("push", (event) => {
   const { title, body, icon, badge, data, tag } = payload;
 
   event.waitUntil(
-    self.registration.showNotification(title ?? "ShiftView", {
-      body:  body ?? "",
-      icon:  icon  ?? "/icon-192.png",
-      badge: badge ?? "/icon-96.png",
-      data:  data  ?? {},
-      tag:   tag,
-      renotify: !!tag,
-    })
+    Promise.all([
+      self.registration.showNotification(title ?? "ShiftView", {
+        body:  body ?? "",
+        icon:  icon  ?? "/icon-192.png",
+        badge: badge ?? "/icon-96.png",
+        data:  data  ?? {},
+        tag:   tag,
+        renotify: !!tag,
+      }),
+      // Tell any open app windows to refresh their notification list immediately
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clientList) => {
+          clientList.forEach((client) =>
+            client.postMessage({ type: "PUSH_RECEIVED" })
+          );
+        }),
+    ])
   );
 });
 
