@@ -7,6 +7,7 @@ import BottomNav from "../../components/BottomNav";
 import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
+import AvailabilitySection from "../../components/AvailabilitySection";
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -164,7 +165,13 @@ function EmployeeAvailabilityRow({
   );
 }
 
-export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolean }) {
+export default function SettingsPageClient({
+  isDemo = false,
+  isManagerInitial = false,
+}: {
+  isDemo?: boolean;
+  isManagerInitial?: boolean;
+}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -339,7 +346,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const [isManager, setIsManager] = useState(false);
+  const [isManager, setIsManager] = useState(isManagerInitial);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
 
   type Template = { id: number; name: string; rowCount: number };
@@ -373,8 +381,9 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
         .catch(() => {});
       fetch("/api/me")
         .then((r) => r.json())
-        .then(({ isManager: mgr }) => {
+        .then(({ isManager: mgr, employeeId: empId }) => {
           if (mgr != null) setIsManager(mgr);
+          if (empId != null) setEmployeeId(empId);
           if (mgr) {
             fetch("/api/templates")
               .then((r) => r.ok ? r.json() : Promise.reject())
@@ -387,6 +396,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           }
         })
         .catch(() => {});
+    } else {
+      setIsManager(true); // demo mode is always manager
     }
   }, [isDemo]);
 
@@ -467,16 +478,28 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
 
       <div className="px-4 pt-5 flex flex-col gap-5">
 
-        {/* Store Hours */}
+        {/* My Availability — shown to all linked employees */}
+        {employeeId !== null && (
+          <AvailabilitySection
+            employeeId={employeeId}
+            weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
+            isDemo={isDemo}
+          />
+        )}
+
+        {/* Store Hours — manager only */}
+        {isManager && (
         <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Store Hours
           </div>
           <StoreHoursSection firstDayOfWeek={firstDayOfWeek} isDemo={isDemo} />
         </section>
+        )}
 
-        {/* Coverage */}
-        <section>
+        {/* Coverage — manager only */}
+        {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Coverage Thresholds
           </div>
@@ -540,10 +563,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             )}
             <SaveStatusText status={coverageStatus} testId="coverage-status" />
           </div>
-        </section>
+        </section>}
 
-        {/* Email Notifications */}
-        <section>
+        {/* Email Notifications — manager only */}
+        {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Notifications
           </div>
@@ -578,10 +601,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               <div className="text-xs text-emerald-400 mt-2 text-right">Saved</div>
             )}
           </div>
-        </section>
+        </section>}
 
-        {/* Time Clock */}
-        <section>
+        {/* Time Clock — manager only */}
+        {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Time Clock
           </div>
@@ -644,10 +667,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               <div className="text-xs text-emerald-400 text-right">Saved ✓</div>
             )}
           </div>
-        </section>
+        </section>}
 
-        {/* Week Start */}
-        <section>
+        {/* Week Start — manager only */}
+        {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Week Start
           </div>
@@ -669,10 +692,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             </div>
             <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </div>
-        </section>
+        </section>}
 
-        {/* Timezone */}
-        <section>
+        {/* Timezone — manager only */}
+        {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Timezone
           </div>
@@ -692,10 +715,10 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             </select>
             <SaveStatusText status={timezoneStatus} testId="timezone-status" />
           </div>
-        </section>
+        </section>}
 
-        {/* Employees */}
-        <section>
+        {/* Employees — manager only */}
+        {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Employees
           </div>
@@ -785,7 +808,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               ))
             )}
           </div>
-        </section>
+        </section>}
 
         {/* Templates — manager only */}
         {isManager && (
@@ -868,19 +891,18 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
         )}
 
         {/* Admin */}
+        {isManager && (
         <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Admin
           </div>
           <div className="flex flex-col gap-2">
-            {isManager && (
-              <button
-                onClick={() => router.push(isDemo ? "/reports?demo=true" : "/reports")}
-                className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-              >
-                View Reports
-              </button>
-            )}
+            <button
+              onClick={() => router.push(isDemo ? "/reports?demo=true" : "/reports")}
+              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+            >
+              View Reports
+            </button>
             <button
               onClick={() => router.push(isDemo ? "/admin?demo=true" : "/admin")}
               className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
@@ -889,6 +911,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             </button>
           </div>
         </section>
+        )}
 
         {/* Sign out / Sign in */}
         <section className="pb-2">

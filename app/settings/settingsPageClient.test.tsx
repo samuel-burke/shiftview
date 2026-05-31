@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SettingsPageClient from "./settingsPageClient";
@@ -39,7 +39,7 @@ function setupFetch({ putOk = true } = {}) {
       if (url.includes("/api/employees"))
         return { ok: true, json: async () => [] } as Response;
       if (url.includes("/api/me"))
-        return { ok: true, json: async () => ({ isManager: false }) } as Response;
+        return { ok: true, json: async () => ({ isManager: true, employeeId: null }) } as Response;
       if (url.includes("/api/availability"))
         return { ok: true, json: async () => [] } as Response;
     }
@@ -555,5 +555,60 @@ describe("EmployeeAvailabilityRow in SettingsPageClient", () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(screen.getByText("Family time")).toBeInTheDocument());
+  });
+});
+
+// ── Employee (non-manager) view ───────────────────────────────────────────────
+
+describe("SettingsPageClient — employee view", () => {
+  function setupEmployeeFetch() {
+    return vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
+      const url = input.toString();
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET") {
+        if (url.includes("/api/me"))
+          return { ok: true, json: async () => ({ isManager: false, employeeId: 5 }) } as Response;
+        if (url.includes("/api/availability"))
+          return { ok: true, json: async () => [] } as Response;
+        if (url.includes("/api/settings"))
+          return { ok: true, json: async () => DEFAULT_SETTINGS } as Response;
+        if (url.includes("/api/employees"))
+          return { ok: true, json: async () => [] } as Response;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+  }
+
+  beforeEach(() => { vi.clearAllMocks(); setupEmployeeFetch(); });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("shows the My Typical Week availability section for a linked employee", async () => {
+    render(<SettingsPageClient />);
+    await screen.findByTestId("availability-section");
+    expect(screen.getByText("My Typical Week")).toBeInTheDocument();
+  });
+
+  it("hides Store Hours from employees", async () => {
+    render(<SettingsPageClient />);
+    await screen.findByTestId("availability-section");
+    expect(screen.queryByTestId("store-hours-section")).not.toBeInTheDocument();
+  });
+
+  it("hides Coverage Thresholds from employees", async () => {
+    render(<SettingsPageClient />);
+    await screen.findByTestId("availability-section");
+    expect(screen.queryByText(/coverage thresholds/i)).not.toBeInTheDocument();
+  });
+
+  it("hides the Employees management section from non-managers", async () => {
+    render(<SettingsPageClient />);
+    await screen.findByTestId("availability-section");
+    expect(screen.queryByRole("button", { name: /add employee/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the Sign Out button to all users", async () => {
+    render(<SettingsPageClient />);
+    await screen.findByTestId("availability-section");
+    expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
   });
 });

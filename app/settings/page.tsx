@@ -11,6 +11,7 @@ export default async function SettingsPage({
   const params = await searchParams;
   const isDemo = params.demo === "true";
 
+  let isManagerInitial = false;
   if (!isDemo) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,12 +23,12 @@ export default async function SettingsPage({
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!managerRow) redirect("/");
+    isManagerInitial = !!managerRow;
   }
 
   return (
     <Suspense>
-      <SettingsPageClient isDemo={isDemo} />
+      <SettingsPageClient isDemo={isDemo} isManagerInitial={isManagerInitial} />
     </Suspense>
   );
 }
