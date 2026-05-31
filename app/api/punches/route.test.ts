@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
+import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
@@ -16,6 +17,7 @@ vi.mock("next/server", () => ({
 vi.mock("@/lib/notify", () => ({ notifyManagers: vi.fn().mockResolvedValue(undefined) }));
 
 const mockCreateClient = vi.mocked(createClient);
+const mockNotifyManagers = vi.mocked(notifyManagers);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -276,5 +278,172 @@ describe("POST /api/punches — state-machine guard", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).toBe("Internal server error");
+  });
+});
+
+// ── POST /api/punches — late clock-in notification timezone correctness ───────
+
+/**
+ * Builds a full punch client that includes schedules and app_settings tables
+ * for testing the late clock-in notification path.
+ *
+ * punchedAtUTC: ISO timestamp stored in the database (UTC)
+ * scheduleStartMinutes: minutes from local midnight (store timezone)
+ * timezone: IANA timezone string in app_settings (default "America/New_York")
+ */
+function makeTimezoneClockInClient({
+  punchedAtUTC,
+  scheduleStartMinutes,
+  timezone = "America/New_York",
+  empName = "Alice",
+}: {
+  punchedAtUTC: string;
+  scheduleStartMinutes: number;
+  timezone?: string;
+  empName?: string;
+}) {
+  const insertData = {
+    id: 99,
+    employee_id: 1,
+    schedule_id: 10,
+    punch_type: "clock_in",
+    punched_at: punchedAtUTC,
+    lat: null,
+    lng: null,
+    is_manual: false,
+    note: null,
+  };
+
+  const buildSimple = (data: any) => {
+    const b: any = {};
+    for (const m of ["select", "insert", "update", "delete", "eq", "gte", "lte", "order", "limit"]) {
+      b[m] = vi.fn().mockReturnValue(b);
+    }
+    b.maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
+    b.single = vi.fn().mockResolvedValue({ data, error: null });
+    b.then = (resolve: any, _rej: any) => Promise.resolve({ data, error: null }).then(resolve, _rej);
+    return b;
+  };
+
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "managers")    return buildSimple(null);
+      if (table === "employees")   return buildSimple({ id: 1, name: empName });
+      if (table === "app_settings") return buildSimple([{ key: "timezone", value: timezone }]);
+      if (table === "schedules")   return buildSimple({ start_minutes: scheduleStartMinutes, date: "2026-05-26", employee_id: 1 });
+      if (table === "punch_records") {
+        const b: any = {};
+        for (const m of ["select", "insert", "eq", "gte", "lte", "order", "limit"]) {
+          b[m] = vi.fn().mockReturnValue(b);
+        }
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+        b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
+        b.then = (resolve: any, _rej: any) =>
+          Promise.resolve({ data: insertData, error: null }).then(resolve, _rej);
+        return b;
+      }
+      return buildSimple(null);
+    }),
+  };
+}
+
+describe("POST /api/punches — late clock-in notification uses store timezone", () => {
+  beforeEach(() => {
+    mockNotifyManagers.mockClear();
+  });
+
+  it("does NOT fire notification when employee clocks in early in store timezone (UTC would appear late)", async () => {
+    // Store timezone: America/New_York (EDT = UTC-4 in May)
+    // Schedule starts 14:00 ET = 840 minutes
+    // Punch at 12:47 PM ET = 16:47 UTC — employee is 73 min EARLY
+    // Bug: getHours() returns 16*60+47=1007, 1007-840=167 "late" (wrong)
+    // Fix: local time 12*60+47=767, 767-840=-73 (early, no notification)
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T16:47:00.000Z",
+        scheduleStartMinutes: 840,
+        timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("fires notification with correct lateMinutes when employee is genuinely late in store timezone", async () => {
+    // Schedule starts 08:00 ET = 480 minutes
+    // Punch at 08:15 AM ET = 12:15 UTC — employee is 15 min LATE
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T12:15:00.000Z",
+        scheduleStartMinutes: 480,
+        timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).toHaveBeenCalledOnce();
+    const callArgs = mockNotifyManagers.mock.calls[0];
+    expect(callArgs[4]).toMatchObject({ lateMinutes: 15 });
+    expect(callArgs[3]).toContain("15m late");
+  });
+
+  it("does NOT fire notification when within the 5-minute grace window", async () => {
+    // Schedule starts 08:00 ET = 480 minutes
+    // Punch at 08:04 AM ET = 12:04 UTC — 4 min late, within grace period
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T12:04:00.000Z",
+        scheduleStartMinutes: 480,
+        timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("uses America/New_York as fallback when timezone missing from app_settings", async () => {
+    // Same as first test but timezone not in settings — should still use ET default
+    const client = makeTimezoneClockInClient({
+      punchedAtUTC: "2026-05-26T16:47:00.000Z",
+      scheduleStartMinutes: 840,
+      timezone: "America/New_York",
+    });
+    // Override app_settings to return empty array (no timezone key)
+    const originalFrom = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      if (table === "app_settings") {
+        const b: any = {};
+        for (const m of ["select", "insert", "eq"]) b[m] = vi.fn().mockReturnValue(b);
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: [], error: null });
+        b.single = vi.fn().mockResolvedValue({ data: [], error: null });
+        b.then = (resolve: any, _rej: any) => Promise.resolve({ data: [], error: null }).then(resolve, _rej);
+        return b;
+      }
+      return originalFrom(table);
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("fires exact notification text with employee name and scheduled time", async () => {
+    // Schedule starts 09:00 ET = 540 minutes
+    // Punch at 09:12 AM ET = 13:12 UTC — 12 min late
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T13:12:00.000Z",
+        scheduleStartMinutes: 540,
+        timezone: "America/New_York",
+        empName: "Bob",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).toHaveBeenCalledOnce();
+    const msg = mockNotifyManagers.mock.calls[0][3] as string;
+    expect(msg).toContain("Bob");
+    expect(msg).toContain("12m late");
+    expect(msg).toContain("9:00 AM");
   });
 });

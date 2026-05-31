@@ -7,6 +7,18 @@ export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+function getLocalMinutes(date: Date, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const h = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10) % 24;
+  const m = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0", 10);
+  return h * 60 + m;
+}
+
 function mapRow(r: Record<string, unknown>) {
   return {
     id:         r.id,
@@ -158,8 +170,13 @@ export async function POST(request: Request) {
       .eq("id", scheduleId)
       .maybeSingle();
     if (sched) {
+      const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+      const settingsMap = Object.fromEntries(
+        (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+      );
+      const tz = settingsMap.timezone ?? "America/New_York";
       const punchedAt = new Date(data.punched_at);
-      const clockInMinutes = punchedAt.getHours() * 60 + punchedAt.getMinutes();
+      const clockInMinutes = getLocalMinutes(punchedAt, tz);
       const lateMinutes = clockInMinutes - sched.start_minutes;
       if (lateMinutes > 5) {
         const { data: empData } = await supabase
