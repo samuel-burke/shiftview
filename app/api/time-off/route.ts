@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function GET() {
+export async function GET(request?: Request) {
+  const mine = request ? new URL(request.url).searchParams.get("mine") === "true" : false;
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,7 +19,7 @@ export async function GET() {
   const { error: managerError } = await requireManager(supabase);
   const isManager = !managerError;
 
-  if (isManager) {
+  if (isManager && !mine) {
     // Fetch all pending requests
     const { data: requests, error } = await supabase
       .from("time_off_requests")

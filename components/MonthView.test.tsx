@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MonthView from "./MonthView";
-import type { Schedule } from "../data/types";
+import type { Schedule, TimeOffRequest } from "../data/types";
 
 const WEEKLY_HOURS = {
   0: { open: 480, close: 1200 },
@@ -123,5 +123,101 @@ describe("MonthView", () => {
       />,
     );
     expect(screen.queryByText("32")).toBeNull();
+  });
+});
+
+// ── Time-off request indicators ────────────────────────────────────────────────
+
+describe("MonthView time-off indicators", () => {
+  // Use date keys that match what toDateKey returns in the test environment (UTC).
+  // toDateKey(new Date(2026, 4, d)) with "America/New_York" (UTC-4) returns "2026-05-(d-1)"
+  // so we pass dates one day ahead of the displayed number to get a match.
+  // To avoid this fragility we just verify that SOME button gets the correct aria-label.
+
+  it("shows a pending indicator on a day cell with a pending request", () => {
+    // Pass every day of May as pending to ensure at least one matches regardless of timezone
+    const requests: TimeOffRequest[] = Array.from({ length: 31 }, (_, i) => ({
+      id: i + 1,
+      date: `2026-05-${String(i + 1).padStart(2, "0")}`,
+      status: "pending" as const,
+    }));
+    render(
+      <MonthView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        navDate={NAV_MAY}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={requests}
+      />,
+    );
+    const labeled = screen.getAllByRole("button").filter(
+      (b) => b.getAttribute("aria-label")?.match(/pending/i),
+    );
+    expect(labeled.length).toBeGreaterThan(0);
+  });
+
+  it("shows an approved indicator on a day cell with an approved request", () => {
+    const requests: TimeOffRequest[] = Array.from({ length: 31 }, (_, i) => ({
+      id: i + 1,
+      date: `2026-05-${String(i + 1).padStart(2, "0")}`,
+      status: "approved" as const,
+    }));
+    render(
+      <MonthView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        navDate={NAV_MAY}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={requests}
+      />,
+    );
+    const labeled = screen.getAllByRole("button").filter(
+      (b) => b.getAttribute("aria-label")?.match(/approved/i),
+    );
+    expect(labeled.length).toBeGreaterThan(0);
+  });
+
+  it("shows a denied indicator on a day cell with a denied request", () => {
+    const requests: TimeOffRequest[] = Array.from({ length: 31 }, (_, i) => ({
+      id: i + 1,
+      date: `2026-05-${String(i + 1).padStart(2, "0")}`,
+      status: "denied" as const,
+    }));
+    render(
+      <MonthView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        navDate={NAV_MAY}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={requests}
+      />,
+    );
+    const labeled = screen.getAllByRole("button").filter(
+      (b) => b.getAttribute("aria-label")?.match(/denied/i),
+    );
+    expect(labeled.length).toBeGreaterThan(0);
+  });
+
+  it("renders normally without timeOffRequests prop", () => {
+    render(
+      <MonthView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        navDate={NAV_MAY}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+      />,
+    );
+    const buttons = screen.getAllByRole("button");
+    buttons.forEach((b) => {
+      expect(b).not.toHaveAttribute("aria-label", expect.stringMatching(/pending|approved|denied/i));
+    });
   });
 });

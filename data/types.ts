@@ -92,6 +92,13 @@ export type AvailabilityRecord = {
   note: string | null;
 };
 
+export type TimeOffRequest = {
+  id: number;
+  date: string;       // YYYY-MM-DD
+  status: "pending" | "approved" | "denied";
+  note?: string;
+};
+
 export type PunchType = "clock_in" | "clock_out" | "break_start" | "break_end";
 export type AttendanceStatus = "clocked_in" | "on_break" | "clocked_out" | "not_clocked_in";
 
