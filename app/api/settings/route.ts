@@ -24,11 +24,13 @@ export async function GET() {
 
   const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   return NextResponse.json({
-    firstDayOfWeek:     parseInt(map.first_day_of_week  ?? "6"),
-    optimalCoverage:    parseInt(map.optimal_coverage   ?? "3"),
-    minCoverage:        parseInt(map.minimum_coverage   ?? "2"),
-    timezone:           map.timezone ?? "America/New_York",
-    emailNotifications: map.email_notifications === "true",
+    firstDayOfWeek:       parseInt(map.first_day_of_week  ?? "6"),
+    optimalCoverage:      parseInt(map.optimal_coverage   ?? "3"),
+    minCoverage:          parseInt(map.minimum_coverage   ?? "2"),
+    timezone:             map.timezone ?? "America/New_York",
+    emailNotifications:   map.email_notifications === "true",
+    manualPunchesEnabled: map.manual_punches_enabled !== "false",
+    gpsRequired:          map.gps_required === "true",
   });
 }
 
@@ -78,6 +80,18 @@ export async function PUT(request: Request) {
     if (typeof body.emailNotifications !== "boolean")
       return NextResponse.json({ error: "emailNotifications must be a boolean" }, { status: 400 });
     rows.push({ key: "email_notifications", value: String(body.emailNotifications) });
+  }
+
+  if (body.manualPunchesEnabled !== undefined) {
+    if (typeof body.manualPunchesEnabled !== "boolean")
+      return NextResponse.json({ error: "manualPunchesEnabled must be a boolean" }, { status: 400 });
+    rows.push({ key: "manual_punches_enabled", value: String(body.manualPunchesEnabled) });
+  }
+
+  if (body.gpsRequired !== undefined) {
+    if (typeof body.gpsRequired !== "boolean")
+      return NextResponse.json({ error: "gpsRequired must be a boolean" }, { status: 400 });
+    rows.push({ key: "gps_required", value: String(body.gpsRequired) });
   }
 
   if (rows.length === 0)

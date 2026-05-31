@@ -300,6 +300,33 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     }
   }
 
+  // ── Time Clock ─────────────────────────────────────────────────────────────
+  const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
+  const [gpsRequired, setGpsRequired] = useState(false);
+  const [timeclockSaving, setTimeclockSaving] = useState(false);
+  const [timeclockSaved, setTimeclockSaved] = useState(false);
+
+  async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean }) {
+    setTimeclockSaving(true);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setTimeclockSaving(false);
+      setTimeclockSaved(true);
+      setTimeout(() => setTimeclockSaved(false), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setTimeclockSaving(false);
+    if (res.ok) {
+      setTimeclockSaved(true);
+      setTimeout(() => setTimeclockSaved(false), 2000);
+    }
+  }
+
   // ── Employees ───────────────────────────────────────────────────────────────
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -330,12 +357,14 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     if (!isDemo) {
       fetch("/api/settings")
         .then((r) => r.json())
-        .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en }) => {
+        .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en, manualPunchesEnabled: mp, gpsRequired: gps }) => {
           if (fdw != null) setFirstDayOfWeek(fdw);
           if (oc  != null) setOptimalCoverage(oc);
           if (mc  != null) setMinCoverage(mc);
           if (tz)          setTimezone(tz);
           if (en  != null) setEmailNotifications(en);
+          if (mp  != null) setManualPunchesEnabled(mp);
+          if (gps != null) setGpsRequired(gps);
         })
         .catch(() => {});
       fetch("/api/employees")
@@ -547,6 +576,72 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
             </div>
             {emailNotifSaved && (
               <div className="text-xs text-emerald-400 mt-2 text-right">Saved</div>
+            )}
+          </div>
+        </section>
+
+        {/* Time Clock */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Time Clock
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Allow Manual Punch Corrections</div>
+                <div className="text-xs text-slate-500 mt-0.5">Employees can report missed punches</div>
+              </div>
+              <button
+                role="switch"
+                aria-label="Allow manual punch corrections"
+                aria-checked={manualPunchesEnabled}
+                disabled={timeclockSaving}
+                data-testid="toggle-manual-punches"
+                onClick={() => {
+                  const next = !manualPunchesEnabled;
+                  setManualPunchesEnabled(next);
+                  saveTimeclockSetting({ manualPunchesEnabled: next });
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                  manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                    manualPunchesEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Require GPS for Clock-In</div>
+                <div className="text-xs text-slate-500 mt-0.5">Block clock-in if location is denied</div>
+              </div>
+              <button
+                role="switch"
+                aria-label="Require GPS for clock-in"
+                aria-checked={gpsRequired}
+                disabled={timeclockSaving}
+                data-testid="toggle-gps-required"
+                onClick={() => {
+                  const next = !gpsRequired;
+                  setGpsRequired(next);
+                  saveTimeclockSetting({ gpsRequired: next });
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                  gpsRequired ? "bg-indigo-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                    gpsRequired ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            {timeclockSaved && (
+              <div className="text-xs text-emerald-400 text-right">Saved ✓</div>
             )}
           </div>
         </section>

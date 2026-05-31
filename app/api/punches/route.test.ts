@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "./route";
+import { POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
+import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
@@ -16,6 +17,7 @@ vi.mock("next/server", () => ({
 vi.mock("@/lib/notify", () => ({ notifyManagers: vi.fn().mockResolvedValue(undefined) }));
 
 const mockCreateClient = vi.mocked(createClient);
+const mockNotifyManagers = vi.mocked(notifyManagers);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -276,5 +278,202 @@ describe("POST /api/punches — state-machine guard", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).toBe("Internal server error");
+  });
+});
+
+// ── POST /api/punches — late clock-in notification timezone correctness ───────
+
+function makeTimezoneClockInClient({
+  punchedAtUTC,
+  scheduleStartMinutes,
+  timezone = "America/New_York",
+  empName = "Alice",
+}: {
+  punchedAtUTC: string;
+  scheduleStartMinutes: number;
+  timezone?: string;
+  empName?: string;
+}) {
+  const insertData = {
+    id: 99,
+    employee_id: 1,
+    schedule_id: 10,
+    punch_type: "clock_in",
+    punched_at: punchedAtUTC,
+    lat: null,
+    lng: null,
+    is_manual: false,
+    note: null,
+  };
+
+  const buildSimple = (data: any) => {
+    const b: any = {};
+    for (const m of ["select", "insert", "update", "delete", "eq", "gte", "lte", "order", "limit"]) {
+      b[m] = vi.fn().mockReturnValue(b);
+    }
+    b.maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
+    b.single = vi.fn().mockResolvedValue({ data, error: null });
+    b.then = (resolve: any, _rej: any) => Promise.resolve({ data, error: null }).then(resolve, _rej);
+    return b;
+  };
+
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "managers")    return buildSimple(null);
+      if (table === "employees")   return buildSimple({ id: 1, name: empName });
+      if (table === "app_settings") return buildSimple([{ key: "timezone", value: timezone }]);
+      if (table === "schedules")   return buildSimple({ start_minutes: scheduleStartMinutes, date: "2026-05-26", employee_id: 1 });
+      if (table === "punch_records") {
+        const b: any = {};
+        for (const m of ["select", "insert", "eq", "gte", "lte", "order", "limit"]) {
+          b[m] = vi.fn().mockReturnValue(b);
+        }
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+        b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
+        b.then = (resolve: any, _rej: any) =>
+          Promise.resolve({ data: insertData, error: null }).then(resolve, _rej);
+        return b;
+      }
+      return buildSimple(null);
+    }),
+  };
+}
+
+describe("POST /api/punches — late clock-in notification uses store timezone", () => {
+  beforeEach(() => {
+    mockNotifyManagers.mockClear();
+  });
+
+  it("does NOT fire notification when employee clocks in early in store timezone (UTC would appear late)", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T16:47:00.000Z",
+        scheduleStartMinutes: 840,
+        timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("fires notification with correct lateMinutes when employee is genuinely late in store timezone", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T12:15:00.000Z",
+        scheduleStartMinutes: 480,
+        timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).toHaveBeenCalledOnce();
+    const callArgs = mockNotifyManagers.mock.calls[0];
+    expect(callArgs[4]).toMatchObject({ lateMinutes: 15 });
+    expect(callArgs[3]).toContain("15m late");
+  });
+
+  it("does NOT fire notification when within the 5-minute grace window", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T12:04:00.000Z",
+        scheduleStartMinutes: 480,
+        timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("uses America/New_York as fallback when timezone missing from app_settings", async () => {
+    const client = makeTimezoneClockInClient({
+      punchedAtUTC: "2026-05-26T16:47:00.000Z",
+      scheduleStartMinutes: 840,
+      timezone: "America/New_York",
+    });
+    const originalFrom = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      if (table === "app_settings") {
+        const b: any = {};
+        for (const m of ["select", "insert", "eq"]) b[m] = vi.fn().mockReturnValue(b);
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: [], error: null });
+        b.single = vi.fn().mockResolvedValue({ data: [], error: null });
+        b.then = (resolve: any, _rej: any) => Promise.resolve({ data: [], error: null }).then(resolve, _rej);
+        return b;
+      }
+      return originalFrom(table);
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("fires exact notification text with employee name and scheduled time", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T13:12:00.000Z",
+        scheduleStartMinutes: 540,
+        timezone: "America/New_York",
+        empName: "Bob",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).toHaveBeenCalledOnce();
+    const msg = mockNotifyManagers.mock.calls[0][3] as string;
+    expect(msg).toContain("Bob");
+    expect(msg).toContain("12m late");
+    expect(msg).toContain("9:00 AM");
+  });
+});
+
+// ── PUT /api/punches — manual punch corrections ───────────────────────────────
+
+function makeManualPunchClient({ manualEnabled = true }: { manualEnabled?: boolean } = {}) {
+  const settingsRow = manualEnabled
+    ? []
+    : [{ key: "manual_punches_enabled", value: "false" }];
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "app_settings") return makeBuilder({ data: settingsRow, error: null });
+      if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id }, error: null });
+      if (table === "employees") return makeBuilder({ data: { id: 1 }, error: null });
+      if (table === "punch_records") return makeBuilder({ data: null, error: null });
+      return makeBuilder({ data: null, error: null });
+    }),
+  };
+}
+
+function makePutRequest(body: Record<string, unknown>) {
+  return new Request("http://localhost/api/punches", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+const validPutBody = {
+  punchType: "clock_in",
+  punchedAt: new Date(Date.now() - 60_000).toISOString(),
+  note: "Forgot to punch",
+  employeeId: 1,
+};
+
+describe("PUT /api/punches — manual punches setting", () => {
+  it("returns 200 when manual punches are enabled (default)", async () => {
+    mockCreateClient.mockResolvedValue(makeManualPunchClient({ manualEnabled: true }) as any);
+    const res = await PUT(makePutRequest(validPutBody));
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 403 when manual_punches_enabled is false", async () => {
+    mockCreateClient.mockResolvedValue(makeManualPunchClient({ manualEnabled: false }) as any);
+    const res = await PUT(makePutRequest(validPutBody));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toMatch(/manual/i);
   });
 });

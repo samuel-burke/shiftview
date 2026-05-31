@@ -19,6 +19,7 @@ import BottomNav from "../../components/BottomNav";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
 import { createClient } from "@/lib/supabase-browser";
+import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -116,6 +117,14 @@ export default function ClockPageClient() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"idle" | "acquiring" | "ok" | "denied">("idle");
 
+  // Pre-punch warning confirmation
+  const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
+  const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
+
+  // Time clock settings
+  const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
+  const [gpsRequired, setGpsRequired] = useState(false);
+
   const todayKey = toDateKey(today);
   const storeHours = weeklyHours[today.getDay()];
 
@@ -140,11 +149,12 @@ export default function ClockPageClient() {
     setLoading(true);
     setError(null);
     try {
-      const [meRes, schedRes, punchRes, hoursRes] = await Promise.all([
+      const [meRes, schedRes, punchRes, hoursRes, settingsRes] = await Promise.all([
         fetch(`/api/me${isDemo ? "?demo=true" : ""}`),
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
         fetch("/api/store-hours"),
+        fetch("/api/settings"),
       ]);
 
       const me = await meRes.json();
@@ -165,6 +175,10 @@ export default function ClockPageClient() {
 
       const hours = await hoursRes.json();
       setWeeklyHours((prev) => ({ ...prev, ...hours }));
+
+      const settings = await settingsRes.json();
+      if (settings.manualPunchesEnabled != null) setManualPunchesEnabled(settings.manualPunchesEnabled);
+      if (settings.gpsRequired != null) setGpsRequired(settings.gpsRequired);
     } catch {
       setError("Failed to load data");
     } finally {
@@ -192,6 +206,29 @@ export default function ClockPageClient() {
     });
   }
 
+  function handlePunchClick(punchType: PunchType) {
+    const warning = getPunchWarning(punchType, nowMinutes, schedule);
+    if (warning) {
+      setPendingPunchType(punchType);
+      setPendingWarning(warning);
+    } else {
+      submitPunch(punchType);
+    }
+  }
+
+  function confirmPunch() {
+    if (pendingPunchType) {
+      submitPunch(pendingPunchType);
+    }
+    setPendingPunchType(null);
+    setPendingWarning(null);
+  }
+
+  function cancelPunch() {
+    setPendingPunchType(null);
+    setPendingWarning(null);
+  }
+
   async function submitPunch(punchType: PunchType) {
     if (actionPending) return;
     setActionPending(true);
@@ -200,9 +237,15 @@ export default function ClockPageClient() {
     let lat: number | null = null;
     let lng: number | null = null;
 
-    if (punchType === "clock_in") {
+    if (punchType === "clock_in" && gpsRequired) {
       const gps = await getGps();
-      if (gps) { lat = gps.lat; lng = gps.lng; }
+      if (!gps) {
+        setActionError("GPS location is required to clock in. Please enable location access.");
+        setActionPending(false);
+        return;
+      }
+      lat = gps.lat;
+      lng = gps.lng;
     }
 
     try {
@@ -429,7 +472,7 @@ export default function ClockPageClient() {
         <div className="grid gap-3">
           {status === "not_clocked_in" && (
             <button
-              onClick={() => submitPunch("clock_in")}
+              onClick={() => handlePunchClick("clock_in")}
               disabled={actionPending}
               className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
             >
@@ -447,7 +490,7 @@ export default function ClockPageClient() {
                 {actionPending ? "…" : "Start Break"}
               </button>
               <button
-                onClick={() => submitPunch("clock_out")}
+                onClick={() => handlePunchClick("clock_out")}
                 disabled={actionPending}
                 className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
               >
@@ -512,8 +555,8 @@ export default function ClockPageClient() {
           </div>
         )}
 
-        {/* Missed punch correction */}
-        <div className="bg-card rounded-2xl border border-slate-800/60">
+        {/* Missed punch correction — hidden when setting is disabled */}
+        {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-slate-800/60">
           <button
             onClick={() => setShowCorrection((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer"
@@ -579,7 +622,7 @@ export default function ClockPageClient() {
               </button>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Timesheet export */}
         <div className="bg-card rounded-2xl border border-slate-800/60">
@@ -626,6 +669,51 @@ export default function ClockPageClient() {
       </div>
 
       <BottomNav active="clock" />
+
+      {/* Pre-punch warning modal */}
+      {pendingWarning && pendingPunchType && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="punch-warning-heading"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          onClick={cancelPunch}
+        >
+          <div
+            className="w-full max-w-[480px] bg-card rounded-t-3xl border border-slate-700 px-6 pt-6 pb-10 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-2" />
+            <div className="text-center">
+              <div className="text-2xl mb-1">
+                {pendingWarning.diffMinutes > 0 ? "⏰" : "⚡"}
+              </div>
+              <div
+                id="punch-warning-heading"
+                className="text-lg font-extrabold text-slate-100"
+              >
+                {pendingWarning.heading}
+              </div>
+              <div className="text-sm text-slate-400 mt-1">{pendingWarning.body}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={cancelPunch}
+                className="py-3.5 rounded-2xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 active:scale-[0.98] transition-transform cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmPunch}
+                data-testid="confirm-punch-btn"
+                className="py-3.5 rounded-2xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30 active:scale-[0.98] transition-transform cursor-pointer"
+              >
+                {pendingPunchType === "clock_in" ? "Clock In Anyway" : "End Shift Anyway"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
