@@ -346,6 +346,75 @@ export default function SettingsPageClient({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // ── Push Notifications ──────────────────────────────────────────────────────
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushSaving, setPushSaving] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setPushSupported(true);
+    navigator.serviceWorker.ready.then((reg) =>
+      reg.pushManager.getSubscription().then((sub) => setPushSubscribed(!!sub))
+    );
+  }, []);
+
+  function urlBase64ToUint8Array(base64: string): Uint8Array {
+    const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+    const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = window.atob(b64);
+    const buf = new ArrayBuffer(raw.length);
+    const output = new Uint8Array(buf);
+    for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+    return output;
+  }
+
+  async function togglePush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setPushSaving(true);
+    setPushError(null);
+    try {
+      if (pushSubscribed) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await sub.unsubscribe();
+          await fetch("/api/push/subscribe", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+        }
+        setPushSubscribed(false);
+      } else {
+        const keyRes = await fetch("/api/push/vapid-key");
+        if (!keyRes.ok) { setPushError("Push notifications are not configured on this server."); return; }
+        const { publicKey } = await keyRes.json();
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+        });
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub.toJSON()),
+        });
+        setPushSubscribed(true);
+      }
+    } catch (err) {
+      console.error("[push] toggle failed:", err);
+      if ((err as { name?: string }).name === "NotAllowedError") {
+        setPushError("Permission denied. Enable notifications in your device Settings.");
+      } else {
+        setPushError((err as Error).message ?? "Failed to update push notifications.");
+      }
+    } finally {
+      setPushSaving(false);
+    }
+  }
+
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
@@ -486,6 +555,42 @@ export default function SettingsPageClient({
             firstDayOfWeek={firstDayOfWeek}
             isDemo={isDemo}
           />
+        )}
+
+        {/* Push Notifications — all users */}
+        {pushSupported && (
+          <section>
+            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+              Notifications
+            </div>
+            <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-200">Push Notifications</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Receive alerts on this device when the app is closed</div>
+                </div>
+                <button
+                  role="switch"
+                  aria-label="Push notifications"
+                  aria-checked={pushSubscribed}
+                  disabled={pushSaving}
+                  onClick={togglePush}
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                    pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                      pushSubscribed ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              {pushError && (
+                <div className="text-xs text-red-400 mt-2">{pushError}</div>
+              )}
+            </div>
+          </section>
         )}
 
         {/* Store Hours — manager only */}
