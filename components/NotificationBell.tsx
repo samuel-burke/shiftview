@@ -38,8 +38,6 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
-  const [pushSupported, setPushSupported] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Lazily initialised on the client only — never called during SSR / test renders
@@ -101,15 +99,6 @@ export default function NotificationBell() {
     return () => { sb.removeChannel(channel); };
   }, [userId]);
 
-  // Check push subscription state
-  useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    setPushSupported(true);
-    navigator.serviceWorker.ready.then((reg) =>
-      reg.pushManager.getSubscription().then((sub) => setSubscribed(!!sub))
-    );
-  }, []);
-
   // Close on outside click
   useEffect(() => {
     if (!open) return;
@@ -151,42 +140,6 @@ export default function NotificationBell() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
-  async function togglePush() {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-
-    if (subscribed) {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        await sub.unsubscribe();
-        await fetch("/api/push/subscribe", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
-        });
-      }
-      setSubscribed(false);
-      return;
-    }
-
-    const keyRes = await fetch("/api/push/vapid-key");
-    if (!keyRes.ok) return;
-    const { publicKey } = await keyRes.json();
-
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: publicKey,
-    });
-
-    await fetch("/api/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sub.toJSON()),
-    });
-    setSubscribed(true);
-  }
-
   if (!userId) return null;
 
   return (
@@ -213,19 +166,6 @@ export default function NotificationBell() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
             <span className="text-sm font-bold text-slate-100">Notifications</span>
             <div className="flex items-center gap-2">
-              {pushSupported && (
-                <button
-                  onClick={togglePush}
-                  title={subscribed ? "Disable push notifications" : "Enable push notifications"}
-                  className={`text-xs px-2 py-1 rounded-lg font-semibold border cursor-pointer transition-colors ${
-                    subscribed
-                      ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                      : "bg-slate-800 text-slate-400 border-slate-700"
-                  }`}
-                >
-                  {subscribed ? "Push On" : "Push Off"}
-                </button>
-              )}
               {unread > 0 && (
                 <button
                   onClick={markAllRead}
