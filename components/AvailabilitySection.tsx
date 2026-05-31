@@ -364,14 +364,16 @@ export default function AvailabilitySection({
                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                           {label}
                         </div>
-                        <input
-                          type="time"
-                          value={val}
-                          onChange={(e) => onChange(e.target.value)}
-                          onBlur={() => handleTimeBlur(activeDow)}
-                          className="block w-full min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-slate-100 text-base [color-scheme:dark]"
-                          aria-label={ariaLabel}
-                        />
+                        <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
+                          <input
+                            type="time"
+                            value={val}
+                            onChange={(e) => onChange(e.target.value)}
+                            onBlur={() => handleTimeBlur(activeDow)}
+                            className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base [color-scheme:dark] outline-none"
+                            aria-label={ariaLabel}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
