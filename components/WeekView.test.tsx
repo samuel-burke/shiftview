@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import WeekView from "./WeekView";
-import type { Schedule } from "../data/types";
+import type { Schedule, TimeOffRequest } from "../data/types";
 
 const WEEKLY_HOURS = {
   0: { open: 480, close: 1200 },
@@ -135,5 +135,92 @@ describe("WeekView", () => {
     );
     // 360 min = 6am → "6a", 840 min = 2pm → "2p"
     expect(screen.getByText("6a–2p")).toBeInTheDocument();
+  });
+});
+
+// ── Time-off request indicators ────────────────────────────────────────────────
+
+describe("WeekView time-off indicators", () => {
+  // May 26 2026 is a Tuesday (within WEEK_START May 24)
+  const pendingRequest: TimeOffRequest = { id: 1, date: "2026-05-26", status: "pending" };
+  const approvedRequest: TimeOffRequest = { id: 2, date: "2026-05-26", status: "approved" };
+  const deniedRequest: TimeOffRequest = { id: 3, date: "2026-05-26", status: "denied" };
+
+  it("shows 'REQ' label for a pending time-off request on a day with no shift", () => {
+    render(
+      <WeekView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={[pendingRequest]}
+      />,
+    );
+    expect(screen.getByText("REQ")).toBeInTheDocument();
+  });
+
+  it("shows 'APR' label for an approved time-off request", () => {
+    render(
+      <WeekView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={[approvedRequest]}
+      />,
+    );
+    expect(screen.getByText("APR")).toBeInTheDocument();
+  });
+
+  it("shows 'DEN' label for a denied time-off request", () => {
+    render(
+      <WeekView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={[deniedRequest]}
+      />,
+    );
+    expect(screen.getByText("DEN")).toBeInTheDocument();
+  });
+
+  it("does not show time-off label when a shift is scheduled that day", () => {
+    const shiftOnTuesday: Schedule = {
+      id: 99, employeeId: 1, date: "2026-05-26", startMinutes: 480, endMinutes: 960,
+    };
+    render(
+      <WeekView
+        schedules={[shiftOnTuesday]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        timeOffRequests={[pendingRequest]}
+      />,
+    );
+    expect(screen.queryByText("REQ")).not.toBeInTheDocument();
+  });
+
+  it("renders normally without timeOffRequests prop", () => {
+    render(
+      <WeekView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+      />,
+    );
+    expect(screen.queryByText("REQ")).not.toBeInTheDocument();
+    expect(screen.queryByText("APR")).not.toBeInTheDocument();
   });
 });

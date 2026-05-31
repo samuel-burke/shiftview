@@ -123,6 +123,54 @@ describe("GET /api/time-off", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ requests: [] });
   });
+
+  it("takes the employee code path (calls maybeSingle) for managers with ?mine=true", async () => {
+    // The manager path uses .in() for batch employee name lookup — never calls maybeSingle on employees.
+    // The employee path calls employees.maybeSingle() to get the linked employee record.
+    // So we spy on maybeSingle to detect which path was taken.
+    const employeesMaybeSingleSpy = vi.fn().mockResolvedValue({
+      data: { id: 5, name: "Alice Smith" },
+      error: null,
+    });
+
+    const client: any = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "managers") {
+          const b: any = {};
+          for (const m of ["select", "eq", "order", "gte", "lte", "in"]) b[m] = vi.fn().mockReturnValue(b);
+          b.maybeSingle = vi.fn().mockResolvedValue({ data: { user_id: MOCK_USER.id }, error: null });
+          b.then = (resolve: any) =>
+            Promise.resolve({ data: { user_id: MOCK_USER.id }, error: null }).then(resolve);
+          return b;
+        }
+        if (table === "employees") {
+          const b: any = {};
+          for (const m of ["select", "eq", "order", "gte", "lte", "in"]) b[m] = vi.fn().mockReturnValue(b);
+          b.maybeSingle = employeesMaybeSingleSpy;
+          b.then = (resolve: any) =>
+            Promise.resolve({ data: [], error: null }).then(resolve);
+          return b;
+        }
+        const b: any = {};
+        for (const m of ["select", "eq", "order", "gte", "lte", "in"]) b[m] = vi.fn().mockReturnValue(b);
+        b.then = (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve);
+        return b;
+      }),
+    };
+    mockCreateClient.mockResolvedValue(client as any);
+
+    // Without mine=true: manager path runs, employees.maybeSingle is NOT called
+    await GET(new Request("http://localhost/api/time-off"));
+    expect(employeesMaybeSingleSpy).not.toHaveBeenCalled();
+
+    // With mine=true: employee path runs, employees.maybeSingle IS called
+    const res = await GET(new Request("http://localhost/api/time-off?mine=true"));
+    expect(res.status).toBe(200);
+    expect(employeesMaybeSingleSpy).toHaveBeenCalled();
+  });
 });
 
 // ── POST ──────────────────────────────────────────────────────────────────────

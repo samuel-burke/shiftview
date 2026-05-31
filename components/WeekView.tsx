@@ -1,7 +1,19 @@
 "use client";
 
-import { Schedule, StoreHours, getShiftType, SHIFT_COLORS } from "../data/types";
-import { ShiftIcon } from "./ShiftIcons";
+import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS } from "../data/types";
+import { ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon } from "./ShiftIcons";
+
+const TIME_OFF_LABELS: Record<TimeOffRequest["status"], string> = {
+  pending: "REQ",
+  approved: "APR",
+  denied: "DEN",
+};
+
+const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
+  pending: "#f59e0b",
+  approved: "#34d399",
+  denied: "#f87171",
+};
 
 type Props = {
   schedules: Schedule[];
@@ -11,6 +23,7 @@ type Props = {
   weekStart: Date;
   onSelectDate: (d: Date) => void;
   today: Date;
+  timeOffRequests?: TimeOffRequest[];
 };
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -34,7 +47,7 @@ function shortTime(minutes: number): string {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, "0")}${suffix}`;
 }
 
-export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, weekStart, onSelectDate, today }: Props) {
+export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, weekStart, onSelectDate, today, timeOffRequests = [] }: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
   const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
@@ -55,7 +68,9 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
         const dayHours = weeklyHours[d.getDay()] ?? { open: 360, close: 1320 };
         const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, dayHours.open, dayHours.close) : null;
         const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
-        const shiftLabel = shiftType ? SHIFT_LABELS[shiftType] : "Off";
+        const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
+        const shiftLabel = shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
+        const labelColor = shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "#94a3b8");
 
         return (
           <button
@@ -79,11 +94,17 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             </div>
             <div
               className="w-6 h-[3px] rounded-full mb-1"
-              style={{ background: shiftColor ?? "transparent", visibility: shiftColor ? "visible" : "hidden" }}
+              style={{ background: labelColor ?? "transparent", visibility: (shiftColor || timeOff) ? "visible" : "hidden" }}
             />
             <div className="mb-0.5 h-[14px] flex items-center justify-center">
               {shiftType ? (
                 <ShiftIcon shiftType={shiftType} size={13} color={shiftColor ?? "#94a3b8"} />
+              ) : timeOff?.status === "pending" ? (
+                <TimeOffPendingIcon size={13} color={TIME_OFF_COLORS.pending} />
+              ) : timeOff?.status === "approved" ? (
+                <TimeOffApprovedIcon size={13} color={TIME_OFF_COLORS.approved} />
+              ) : timeOff?.status === "denied" ? (
+                <TimeOffDeniedIcon size={13} color={TIME_OFF_COLORS.denied} />
               ) : (
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -92,7 +113,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             </div>
             <div
               className="text-[9px] font-semibold tracking-wider leading-tight"
-              style={{ color: shiftColor ?? "#94a3b8" }}
+              style={{ color: labelColor }}
             >
               {shiftLabel}
             </div>
