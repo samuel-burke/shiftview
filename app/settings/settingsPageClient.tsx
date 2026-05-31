@@ -1,42 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
 import InviteSheet from "../../components/InviteSheet";
 import { getMonogram } from "../../data/types";
 
-const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 
 const TIMEZONE_OPTIONS = [
-  { label: "Eastern (ET)",   value: "America/New_York" },
-  { label: "Central (CT)",   value: "America/Chicago" },
-  { label: "Mountain (MT)",  value: "America/Denver" },
-  { label: "Pacific (PT)",   value: "America/Los_Angeles" },
-  { label: "Alaska (AKT)",   value: "America/Anchorage" },
-  { label: "Hawaii (HST)",   value: "Pacific/Honolulu" },
-  { label: "London (GMT)",   value: "Europe/London" },
-  { label: "Paris (CET)",    value: "Europe/Paris" },
-  { label: "Tokyo (JST)",    value: "Asia/Tokyo" },
-  { label: "Sydney (AEDT)",  value: "Australia/Sydney" },
+  { label: "Eastern (ET)",  value: "America/New_York" },
+  { label: "Central (CT)",  value: "America/Chicago" },
+  { label: "Mountain (MT)", value: "America/Denver" },
+  { label: "Pacific (PT)",  value: "America/Los_Angeles" },
+  { label: "Alaska (AKT)",  value: "America/Anchorage" },
+  { label: "Hawaii (HST)",  value: "Pacific/Honolulu" },
+  { label: "London (GMT)",  value: "Europe/London" },
+  { label: "Paris (CET)",   value: "Europe/Paris" },
+  { label: "Tokyo (JST)",   value: "Asia/Tokyo" },
+  { label: "Sydney (AEDT)", value: "Australia/Sydney" },
 ];
 
 const FIRST_DAY_OPTIONS = [
-  { label: "Sunday", value: 0 },
-  { label: "Monday", value: 1 },
+  { label: "Sunday",   value: 0 },
+  { label: "Monday",   value: 1 },
   { label: "Saturday", value: 6 },
 ];
 
 const DEFAULT_HOURS: Record<number, { open: number; close: number }> = {
-  0: { open: 480, close: 1200 },
-  1: { open: 360, close: 1320 },
-  2: { open: 360, close: 1320 },
-  3: { open: 360, close: 1320 },
-  4: { open: 360, close: 1320 },
-  5: { open: 360, close: 1320 },
-  6: { open: 360, close: 1320 },
+  0: { open: 480,  close: 1200 },
+  1: { open: 360,  close: 1320 },
+  2: { open: 360,  close: 1320 },
+  3: { open: 360,  close: 1320 },
+  4: { open: 360,  close: 1320 },
+  5: { open: 360,  close: 1320 },
+  6: { open: 360,  close: 1320 },
 };
 
 function minutesToTime(m: number): string {
@@ -50,218 +51,170 @@ function timeToMinutes(t: string): number {
   return h * 60 + (m || 0);
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
+type AvailabilityRecord = { id: number; dayOfWeek: number; startMinutes: number | null; endMinutes: number | null };
+
+function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string }) {
+  return (
+    <div className="h-5 text-right" data-testid={testId}>
+      {status === "saving" && <span className="text-xs text-slate-400">Saving…</span>}
+      {status === "saved"  && <span className="text-xs text-emerald-400">Saved ✓</span>}
+      {status === "error"  && <span className="text-xs text-red-400">Failed to save</span>}
+    </div>
+  );
+}
 
 export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
 
+  // ── Store Hours ─────────────────────────────────────────────────────────────
   const [storeHours, setStoreHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_HOURS);
-  const [hoursSaving, setHoursSaving] = useState(false);
-  const [hoursSaved, setHoursSaved] = useState(false);
-  const [hoursError, setHoursError] = useState(false);
+  const [hoursDayStatus, setHoursDayStatus] = useState<Record<number, SaveStatus>>({});
+  const hoursDayTimerRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
+  async function saveDayHours(day: number) {
+    setHoursDayStatus((prev) => ({ ...prev, [day]: "saving" }));
+    const { open, close } = storeHours[day] ?? DEFAULT_HOURS[day];
+
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setHoursDayStatus((prev) => ({ ...prev, [day]: "saved" }));
+      setTimeout(() => setHoursDayStatus((prev) => ({ ...prev, [day]: "idle" })), 2000);
+      return;
+    }
+
+    const res = await fetch("/api/store-hours", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dayOfWeek: day, openMinutes: open, closeMinutes: close }),
+    });
+    if (res.ok) {
+      setHoursDayStatus((prev) => ({ ...prev, [day]: "saved" }));
+      setTimeout(() => setHoursDayStatus((prev) => ({ ...prev, [day]: "idle" })), 2000);
+    } else {
+      setHoursDayStatus((prev) => ({ ...prev, [day]: "error" }));
+      setTimeout(() => setHoursDayStatus((prev) => ({ ...prev, [day]: "idle" })), 4000);
+    }
+  }
+
+  function handleHoursBlur(day: number) {
+    if (hoursDayTimerRefs.current[day]) clearTimeout(hoursDayTimerRefs.current[day]);
+    hoursDayTimerRefs.current[day] = setTimeout(() => saveDayHours(day), 0);
+  }
+
+  // ── Coverage ────────────────────────────────────────────────────────────────
   const [optimalCoverage, setOptimalCoverage] = useState(3);
   const [minCoverage, setMinCoverage] = useState(2);
-  const [coverageSaving, setCoverageSaving] = useState(false);
-  const [coverageSaved, setCoverageSaved] = useState(false);
-  const [coverageError, setCoverageError] = useState<string | null>(null);
+  const [coverageStatus, setCoverageStatus] = useState<SaveStatus>("idle");
+  const [coverageValidationError, setCoverageValidationError] = useState<string | null>(null);
+  const coverageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function scheduleCoverageSave(nextOptimal: number, nextMin: number) {
+    if (nextMin > nextOptimal) {
+      setCoverageValidationError("Minimum cannot exceed optimal");
+      if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
+      return;
+    }
+    setCoverageValidationError(null);
+    if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
+    coverageTimerRef.current = setTimeout(() => doSaveCoverage(nextOptimal, nextMin), 800);
+  }
+
+  async function doSaveCoverage(optimal: number, min: number) {
+    setCoverageStatus("saving");
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setCoverageStatus("saved");
+      setTimeout(() => setCoverageStatus("idle"), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ optimalCoverage: optimal, minCoverage: min }),
+    });
+    if (res.ok) {
+      setCoverageStatus("saved");
+      setTimeout(() => setCoverageStatus("idle"), 2000);
+    } else {
+      setCoverageStatus("error");
+      setTimeout(() => setCoverageStatus("idle"), 4000);
+    }
+  }
+
+  function stepOptimal(delta: number) {
+    const next = Math.max(1, optimalCoverage + delta);
+    setOptimalCoverage(next);
+    scheduleCoverageSave(next, minCoverage);
+  }
+
+  function stepMin(delta: number) {
+    const next = Math.max(0, minCoverage + delta);
+    setMinCoverage(next);
+    scheduleCoverageSave(optimalCoverage, next);
+  }
+
+  // ── Week Start ──────────────────────────────────────────────────────────────
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
-  const [firstDaySaving, setFirstDaySaving] = useState(false);
-  const [firstDaySaved, setFirstDaySaved] = useState(false);
-  const [firstDayError, setFirstDayError] = useState<string | null>(null);
+  const [firstDayStatus, setFirstDayStatus] = useState<SaveStatus>("idle");
 
+  async function saveFirstDay(value: number) {
+    setFirstDayOfWeek(value);
+    setFirstDayStatus("saving");
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setFirstDayStatus("saved");
+      setTimeout(() => setFirstDayStatus("idle"), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ firstDayOfWeek: value }),
+    });
+    if (res.ok) {
+      setFirstDayStatus("saved");
+      setTimeout(() => setFirstDayStatus("idle"), 2000);
+    } else {
+      setFirstDayStatus("error");
+      setTimeout(() => setFirstDayStatus("idle"), 4000);
+    }
+  }
+
+  // ── Timezone ────────────────────────────────────────────────────────────────
   const [timezone, setTimezone] = useState("America/New_York");
-  const [timezoneSaving, setTimezoneSaving] = useState(false);
-  const [timezoneSaved, setTimezoneSaved] = useState(false);
-  const [timezoneError, setTimezoneError] = useState<string | null>(null);
+  const [timezoneStatus, setTimezoneStatus] = useState<SaveStatus>("idle");
 
+  async function saveTimezone(value: string) {
+    setTimezone(value);
+    setTimezoneStatus("saving");
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setTimezoneStatus("saved");
+      setTimeout(() => setTimezoneStatus("idle"), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezone: value }),
+    });
+    if (res.ok) {
+      setTimezoneStatus("saved");
+      setTimeout(() => setTimezoneStatus("idle"), 2000);
+    } else {
+      setTimezoneStatus("error");
+      setTimeout(() => setTimezoneStatus("idle"), 4000);
+    }
+  }
+
+  // ── Email Notifications ─────────────────────────────────────────────────────
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [emailNotifSaving, setEmailNotifSaving] = useState(false);
   const [emailNotifSaved, setEmailNotifSaved] = useState(false);
-
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [showInvite, setShowInvite] = useState(false);
-  const [confirmDeleteEmployee, setConfirmDeleteEmployee] = useState<Employee | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [deleteErrorId, setDeleteErrorId] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-
-  const [availability, setAvailability] = useState<Record<number, Set<number>>>({});
-  const [isManager, setIsManager] = useState(false);
-  type Template = { id: number; name: string; rowCount: number };
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [applyingId, setApplyingId] = useState<number | null>(null);
-  const [applyDateInput, setApplyDateInput] = useState<Record<number, string>>({});
-  const [applyError, setApplyError] = useState<Record<number, string | null>>({});
-  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
-    fetch("/api/store-hours")
-      .then((r) => r.json())
-      .then((data) => setStoreHours((prev) => ({ ...prev, ...data })))
-      .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en }) => {
-        if (fdw != null) setFirstDayOfWeek(fdw);
-        if (oc != null) setOptimalCoverage(oc);
-        if (mc != null) setMinCoverage(mc);
-        if (tz) setTimezone(tz);
-        if (en != null) setEmailNotifications(en);
-      })
-      .catch(() => {});
-    fetch("/api/employees")
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then((emps: Employee[]) => {
-        setEmployees(emps);
-        // Fetch availability for all employees
-        Promise.allSettled(
-          emps.map((emp) =>
-            fetch(`/api/availability?employeeId=${emp.id}`)
-              .then((r) => r.json())
-              .then(({ unavailableDays }: { unavailableDays: number[] }) => ({ id: emp.id, days: unavailableDays }))
-          )
-        ).then((results) => {
-          const map: Record<number, Set<number>> = {};
-          for (const result of results) {
-            if (result.status === "fulfilled") {
-              map[result.value.id] = new Set(result.value.days);
-            }
-          }
-          setAvailability(map);
-        });
-      })
-      .catch(() => {});
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then(({ isManager: mgr }) => {
-        if (mgr != null) setIsManager(mgr);
-        if (mgr) {
-          fetch("/api/templates")
-            .then((r) => r.ok ? r.json() : Promise.reject())
-            .then(({ templates: t }) => setTemplates(t ?? []))
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  async function saveAllStoreHours() {
-    setHoursSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setHoursSaving(false);
-      setHoursSaved(true);
-      setTimeout(() => setHoursSaved(false), 2000);
-      return;
-    }
-    const results = await Promise.all(
-      Array.from({ length: 7 }, (_, day) => {
-        const { open, close } = storeHours[day] ?? DEFAULT_HOURS[day];
-        return fetch("/api/store-hours", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dayOfWeek: day, openMinutes: open, closeMinutes: close }),
-        });
-      })
-    );
-    setHoursSaving(false);
-    if (results.every((r) => r.ok)) {
-      setHoursSaved(true);
-      setTimeout(() => setHoursSaved(false), 2000);
-    } else {
-      setHoursError(true);
-      setTimeout(() => setHoursError(false), 3000);
-    }
-  }
-
-  async function saveCoverage() {
-    setCoverageSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setCoverageSaving(false);
-      setCoverageSaved(true);
-      setTimeout(() => setCoverageSaved(false), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ optimalCoverage, minCoverage }),
-    });
-    setCoverageSaving(false);
-    if (res.ok) {
-      setCoverageSaved(true);
-      setTimeout(() => setCoverageSaved(false), 2000);
-    } else {
-      const json = await res.json().catch(() => ({}));
-      setCoverageError(json.error ?? "Failed to save");
-      setTimeout(() => setCoverageError(null), 4000);
-    }
-  }
-
-  async function saveFirstDay() {
-    setFirstDaySaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setFirstDaySaving(false);
-      setFirstDaySaved(true);
-      setTimeout(() => setFirstDaySaved(false), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstDayOfWeek }),
-    });
-    setFirstDaySaving(false);
-    if (res.ok) {
-      setFirstDaySaved(true);
-      setTimeout(() => setFirstDaySaved(false), 2000);
-    } else {
-      const json = await res.json().catch(() => ({}));
-      setFirstDayError(json.error ?? "Failed to save");
-      setTimeout(() => setFirstDayError(null), 4000);
-    }
-  }
-
-  async function saveTimezone() {
-    setTimezoneSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setTimezoneSaving(false);
-      setTimezoneSaved(true);
-      setTimeout(() => setTimezoneSaved(false), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ timezone }),
-    });
-    setTimezoneSaving(false);
-    if (res.ok) {
-      setTimezoneSaved(true);
-      setTimeout(() => setTimezoneSaved(false), 2000);
-    } else {
-      const json = await res.json().catch(() => ({}));
-      setTimezoneError(json.error ?? "Failed to save");
-      setTimeout(() => setTimezoneError(null), 4000);
-    }
-  }
 
   async function saveEmailNotif(newValue: boolean) {
     setEmailNotifSaving(true);
@@ -284,6 +237,95 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     }
   }
 
+  // ── Employees ───────────────────────────────────────────────────────────────
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [showInvite, setShowInvite] = useState(false);
+  const [confirmDeleteEmployee, setConfirmDeleteEmployee] = useState<Employee | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteErrorId, setDeleteErrorId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [availability, setAvailability] = useState<Record<number, Set<number>>>({});
+  const [isManager, setIsManager] = useState(false);
+
+  type Template = { id: number; name: string; rowCount: number };
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [applyingId, setApplyingId] = useState<number | null>(null);
+  const [applyDateInput, setApplyDateInput] = useState<Record<number, string>>({});
+  const [applyError, setApplyError] = useState<Record<number, string | null>>({});
+  const [deletingTemplateId, setDeletingTemplateId] = useState<number | null>(null);
+
+  // ── Initial data fetch ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isDemo) {
+      supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+    }
+    if (!isDemo) {
+      fetch("/api/store-hours")
+        .then((r) => r.json())
+        .then((data) => setStoreHours((prev) => ({ ...prev, ...data })))
+        .catch(() => {});
+      fetch("/api/settings")
+        .then((r) => r.json())
+        .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en }) => {
+          if (fdw != null) setFirstDayOfWeek(fdw);
+          if (oc  != null) setOptimalCoverage(oc);
+          if (mc  != null) setMinCoverage(mc);
+          if (tz)          setTimezone(tz);
+          if (en  != null) setEmailNotifications(en);
+        })
+        .catch(() => {});
+      fetch("/api/employees")
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((emps: Employee[]) => {
+          setEmployees(emps);
+          Promise.allSettled(
+            emps.map((emp) =>
+              fetch(`/api/availability?employeeId=${emp.id}`)
+                .then((r) => r.json())
+                .then((records: AvailabilityRecord[]) => ({
+                  id: emp.id,
+                  days: records
+                    .filter((rec) => rec.startMinutes === null)
+                    .map((rec) => rec.dayOfWeek),
+                }))
+            )
+          ).then((results) => {
+            const map: Record<number, Set<number>> = {};
+            for (const result of results) {
+              if (result.status === "fulfilled") {
+                map[result.value.id] = new Set(result.value.days);
+              }
+            }
+            setAvailability(map);
+          });
+        })
+        .catch(() => {});
+      fetch("/api/me")
+        .then((r) => r.json())
+        .then(({ isManager: mgr }) => {
+          if (mgr != null) setIsManager(mgr);
+          if (mgr) {
+            fetch("/api/templates")
+              .then((r) => r.ok ? r.json() : Promise.reject())
+              .then(({ templates: t }) => setTemplates(t ?? []))
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isDemo]);
+
+  // ── Employee actions ────────────────────────────────────────────────────────
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
   async function saveEditName(id: number) {
     const trimmed = editingName.trim();
     if (!trimmed) { setEditError("Name cannot be empty"); return; }
@@ -303,9 +345,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
     });
     setEditSaving(false);
     if (res.ok) {
-      setEmployees((prev) =>
-        prev.map((e) => e.id === id ? { ...e, name: trimmed } : e)
-      );
+      setEmployees((prev) => prev.map((e) => e.id === id ? { ...e, name: trimmed } : e));
       setEditingId(null);
     } else {
       const json = await res.json().catch(() => ({}));
@@ -340,41 +380,30 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
   async function toggleAvailability(employeeId: number, dow: number) {
     const current = availability[employeeId] ?? new Set<number>();
     const isUnavailable = current.has(dow);
-    const method = isUnavailable ? "DELETE" : "POST";
 
-    // Optimistically update UI
     setAvailability((prev) => {
       const next = new Set(prev[employeeId] ?? []);
-      if (isUnavailable) {
-        next.delete(dow);
-      } else {
-        next.add(dow);
-      }
+      isUnavailable ? next.delete(dow) : next.add(dow);
       return { ...prev, [employeeId]: next };
     });
 
     if (isDemo) return;
 
     const res = await fetch("/api/availability", {
-      method,
+      method: isUnavailable ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ employeeId, dayOfWeek: dow }),
     });
-
     if (!res.ok) {
-      // Revert on error
       setAvailability((prev) => {
         const next = new Set(prev[employeeId] ?? []);
-        if (isUnavailable) {
-          next.add(dow);
-        } else {
-          next.delete(dow);
-        }
+        isUnavailable ? next.add(dow) : next.delete(dow);
         return { ...prev, [employeeId]: next };
       });
     }
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
       {/* Top bar */}
@@ -402,54 +431,55 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
             {Array.from({ length: 7 }, (_, i) => i).map((day) => {
               const hours = storeHours[day] ?? DEFAULT_HOURS[day];
+              const status = hoursDayStatus[day] ?? "idle";
               return (
                 <div key={day} className="flex items-center gap-2 px-4 py-3">
                   <span className="text-sm font-semibold text-slate-400 w-9 shrink-0">
                     {DAY_SHORT[day]}
                   </span>
-                  <input
-                    type="time"
-                    value={minutesToTime(hours.open)}
-                    onChange={(e) =>
-                      setStoreHours((prev) => ({
-                        ...prev,
-                        [day]: { ...prev[day], open: timeToMinutes(e.target.value) },
-                      }))
-                    }
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 min-w-0"
-                  />
+                  <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex-1 min-w-0">
+                    <input
+                      type="time"
+                      aria-label={`${DAY_FULL[day]} open time`}
+                      value={minutesToTime(hours.open)}
+                      onChange={(e) =>
+                        setStoreHours((prev) => ({
+                          ...prev,
+                          [day]: { ...prev[day], open: timeToMinutes(e.target.value) },
+                        }))
+                      }
+                      onBlur={() => handleHoursBlur(day)}
+                      className="w-full min-w-0 block bg-transparent px-2 py-1.5 text-sm text-slate-100 outline-none [color-scheme:dark]"
+                    />
+                  </div>
                   <span className="text-slate-600 text-sm shrink-0">–</span>
-                  <input
-                    type="time"
-                    value={minutesToTime(hours.close)}
-                    onChange={(e) =>
-                      setStoreHours((prev) => ({
-                        ...prev,
-                        [day]: { ...prev[day], close: timeToMinutes(e.target.value) },
-                      }))
-                    }
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 min-w-0"
-                  />
+                  <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex-1 min-w-0">
+                    <input
+                      type="time"
+                      aria-label={`${DAY_FULL[day]} close time`}
+                      value={minutesToTime(hours.close)}
+                      onChange={(e) =>
+                        setStoreHours((prev) => ({
+                          ...prev,
+                          [day]: { ...prev[day], close: timeToMinutes(e.target.value) },
+                        }))
+                      }
+                      onBlur={() => handleHoursBlur(day)}
+                      className="w-full min-w-0 block bg-transparent px-2 py-1.5 text-sm text-slate-100 outline-none [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="w-14 shrink-0 text-right" data-testid={`store-hours-status-${day}`}>
+                    {status === "saving" && <span className="text-[11px] text-slate-500">Saving…</span>}
+                    {status === "saved"  && <span className="text-[11px] text-emerald-400">Saved ✓</span>}
+                    {status === "error"  && <span className="text-[11px] text-red-400">Failed</span>}
+                  </div>
                 </div>
               );
             })}
           </div>
-          <button
-            onClick={saveAllStoreHours}
-            disabled={hoursSaving}
-            className={`mt-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              hoursError
-                ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                : hoursSaved
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
-            }`}
-          >
-            {hoursError ? "Error saving" : hoursSaved ? "Saved ✓" : hoursSaving ? "Saving…" : "Save Store Hours"}
-          </button>
         </section>
 
-        {/* Coverage thresholds */}
+        {/* Coverage */}
         <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Coverage Thresholds
@@ -462,7 +492,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setOptimalCoverage((v) => Math.max(1, v - 1))}
+                  data-testid="coverage-optimal-minus"
+                  onClick={() => stepOptimal(-1)}
                   className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
                 >
                   −
@@ -471,7 +502,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                   {optimalCoverage}
                 </span>
                 <button
-                  onClick={() => setOptimalCoverage((v) => v + 1)}
+                  data-testid="coverage-optimal-plus"
+                  onClick={() => stepOptimal(1)}
                   className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
                 >
                   +
@@ -486,7 +518,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setMinCoverage((v) => Math.max(0, v - 1))}
+                  data-testid="coverage-min-minus"
+                  onClick={() => stepMin(-1)}
                   className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
                 >
                   −
@@ -495,7 +528,8 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                   {minCoverage}
                 </span>
                 <button
-                  onClick={() => setMinCoverage((v) => v + 1)}
+                  data-testid="coverage-min-plus"
+                  onClick={() => stepMin(1)}
                   className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
                 >
                   +
@@ -503,22 +537,12 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               </div>
             </div>
 
-            <button
-              onClick={saveCoverage}
-              disabled={coverageSaving}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-                coverageError
-                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                  : coverageSaved
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
-              }`}
-            >
-              {coverageError ? "Error" : coverageSaved ? "Saved" : coverageSaving ? "Saving…" : "Save Coverage"}
-            </button>
-            {coverageError && (
-              <div className="text-xs text-red-400 text-center -mt-2">{coverageError}</div>
+            {coverageValidationError && (
+              <div className="text-xs text-red-400" data-testid="coverage-validation-error">
+                {coverageValidationError}
+              </div>
             )}
+            <SaveStatusText status={coverageStatus} testId="coverage-status" />
           </div>
         </section>
 
@@ -535,6 +559,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
               </div>
               <button
                 role="switch"
+                aria-label="Email notifications"
                 aria-checked={emailNotifications}
                 disabled={emailNotifSaving}
                 onClick={() => {
@@ -559,17 +584,17 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           </div>
         </section>
 
-        {/* Week start */}
+        {/* Week Start */}
         <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Week Start
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-4">
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-3">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
                   key={value}
-                  onClick={() => setFirstDayOfWeek(value)}
+                  onClick={() => saveFirstDay(value)}
                   className={`flex-1 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
                     firstDayOfWeek === value
                       ? "bg-slate-600 text-slate-100"
@@ -580,22 +605,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                 </button>
               ))}
             </div>
-            <button
-              onClick={saveFirstDay}
-              disabled={firstDaySaving}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-                firstDayError
-                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                  : firstDaySaved
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
-              }`}
-            >
-              {firstDayError ? "Error" : firstDaySaved ? "Saved" : firstDaySaving ? "Saving…" : "Save"}
-            </button>
-            {firstDayError && (
-              <div className="text-xs text-red-400 text-center -mt-2">{firstDayError}</div>
-            )}
+            <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </div>
         </section>
 
@@ -604,10 +614,11 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Timezone
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-4">
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 flex flex-col gap-3">
             <select
+              aria-label="Timezone"
               value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
+              onChange={(e) => saveTimezone(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer"
             >
               {TIMEZONE_OPTIONS.map(({ label, value }) => (
@@ -617,22 +628,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                 <option value={timezone}>{timezone}</option>
               )}
             </select>
-            <button
-              onClick={saveTimezone}
-              disabled={timezoneSaving}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-                timezoneError
-                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                  : timezoneSaved
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30"
-              }`}
-            >
-              {timezoneError ? "Error" : timezoneSaved ? "Saved" : timezoneSaving ? "Saving…" : "Save Timezone"}
-            </button>
-            {timezoneError && (
-              <div className="text-xs text-red-400 text-center -mt-2">{timezoneError}</div>
-            )}
+            <SaveStatusText status={timezoneStatus} testId="timezone-status" />
           </div>
         </section>
 
@@ -730,7 +726,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
                             <button
                               key={dow}
                               onClick={() => toggleAvailability(emp.id, dow)}
-                              aria-label={`Toggle ${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][dow]} unavailability`}
+                              aria-label={`Toggle ${DAY_FULL[dow]} unavailability`}
                               aria-pressed={unavailable}
                               className={`size-7 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
                                 unavailable
