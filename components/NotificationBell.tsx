@@ -99,6 +99,15 @@ export default function NotificationBell() {
     return () => { sb.removeChannel(channel); };
   }, [userId]);
 
+  // Re-fetch when app comes back to foreground (e.g. opened from a push notification)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") fetchNotifications();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchNotifications]);
+
   // Close on outside click
   useEffect(() => {
     if (!open) return;
