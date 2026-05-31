@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ShiftView — Landing Page Wireframe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a1628;
+    color: #f8fafc;
+    font-family: Inter, -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 48px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    position: sticky;
+    top: 0;
+    background: rgba(10,22,40,0.9);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .nav-links { display: flex; gap: 32px; }
+  .nav-links a {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color .2s;
+  }
+  .nav-links a:hover { color: #f8fafc; }
+  .nav-cta {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .nav-cta:hover { background: #818cf8; }
+
+  /* HERO */
+  .hero {
+    text-align: center;
+    padding: 96px 48px 80px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.35);
+    color: #a5b4fc;
+    border-radius: 99px;
+    padding: 5px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 28px;
+  }
+  .hero-badge::before { content: "●"; font-size: 8px; color: #6ee7b7; }
+  h1 {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 22px;
+  }
+  h1 span {
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero-sub {
+    font-size: 18px;
+    color: #94a3b8;
+    max-width: 520px;
+    margin: 0 auto 40px;
+    line-height: 1.7;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-secondary {
+    background: rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* MOCKUP PREVIEW */
+  .preview-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 48px 80px;
+    position: relative;
+  }
+  .preview-glow {
+    position: absolute;
+    top: -40px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 200px;
+    background: radial-gradient(ellipse, rgba(99,102,241,0.25) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .preview-frame {
+    background: #1a2236;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+  }
+  .preview-topbar {
+    background: #111c2f;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .preview-topbar-title {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    color: #475569;
+  }
+  .preview-body { padding: 20px; }
+
+  /* mini schedule grid inside preview */
+  .mini-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    gap: 4px;
+    font-size: 11px;
+  }
+  .mini-header { color: #64748b; padding: 4px 6px; text-align: center; font-weight: 600; }
+  .mini-name {
+    color: #94a3b8;
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
+  }
+  .mini-cell {
+    background: rgba(99,102,241,0.18);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 4px;
+    padding: 5px 4px;
+    text-align: center;
+    color: #a5b4fc;
+    font-size: 10px;
+  }
+  .mini-cell.off { background: transparent; border-color: transparent; color: transparent; }
+  .mini-cell.green { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: #6ee7b7; }
+  .mini-cell.orange { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #fcd34d; }
+
+  /* FEATURES */
+  .section { padding: 72px 48px; max-width: 1100px; margin: 0 auto; }
+  .section-label {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #6366f1;
+    margin-bottom: 12px;
+  }
+  h2 {
+    text-align: center;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.8px;
+    margin-bottom: 12px;
+  }
+  .section-sub {
+    text-align: center;
+    color: #64748b;
+    font-size: 16px;
+    max-width: 460px;
+    margin: 0 auto 56px;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .feature-card {
+    background: #1a2236;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 28px;
+    transition: border-color .2s;
+  }
+  .feature-card:hover { border-color: rgba(99,102,241,0.4); }
+  .feature-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 18px;
+  }
+  .ic-indigo { background: rgba(99,102,241,0.2); }
+  .ic-green  { background: rgba(16,185,129,0.2); }
+  .ic-amber  { background: rgba(245,158,11,0.2); }
+  .ic-purple { background: rgba(168,85,247,0.2); }
+  .ic-sky    { background: rgba(14,165,233,0.2); }
+  .ic-rose   { background: rgba(244,63,94,0.2); }
+  .feature-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .feature-card p { font-size: 14px; color: #64748b; line-height: 1.6; }
+
+  /* HOW IT WORKS */
+  .steps { display: flex; gap: 0; position: relative; margin-top: 48px; }
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 22px; left: calc(50% / 3 + 16.66%);
+    width: calc(66%);
+    height: 1px;
+    background: linear-gradient(90deg, #6366f1, rgba(99,102,241,0.1));
+  }
+  .step { flex: 1; text-align: center; padding: 0 24px; }
+  .step-num {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    margin: 0 auto 16px;
+    position: relative;
+    z-index: 1;
+  }
+  .step h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .step p { font-size: 13px; color: #64748b; }
+
+  /* SOCIAL PROOF */
+  .proof-strip {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; color: #a5b4fc; }
+  .stat-label { font-size: 13px; color: #64748b; margin-top: 2px; }
+
+  /* CTA BANNER */
+  .cta-banner {
+    margin: 72px 48px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.15));
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 24px;
+    padding: 64px 48px;
+    text-align: center;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-banner::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%);
+  }
+  .cta-banner h2 { font-size: 32px; letter-spacing: -0.5px; margin-bottom: 14px; }
+  .cta-banner p { color: #94a3b8; margin-bottom: 32px; font-size: 16px; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #475569;
+    font-size: 13px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer a { color: #475569; text-decoration: none; margin-left: 24px; }
+  footer a:hover { color: #94a3b8; }
+
+  /* WIREFRAME LABEL */
+  .wf-label {
+    position: fixed;
+    top: 12px; right: 12px;
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.4);
+    color: #fcd34d;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 6px;
+    z-index: 999;
+  }
+</style>
+</head>
+<body>
+
+<div class="wf-label">Wireframe</div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    ShiftView
+  </div>
+  <div class="nav-links">
+    <a href="#">Features</a>
+    <a href="#">How it works</a>
+    <a href="#">Pricing</a>
+  </div>
+  <button class="nav-cta">Sign in →</button>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Now with real-time push notifications</div>
+  <h1>Scheduling your<br/><span>team made simple</span></h1>
+  <p class="hero-sub">
+    Build weekly schedules in minutes, track attendance live, and keep your whole team in sync — from any device.
+  </p>
+  <div class="hero-actions">
+    <button class="btn-primary">Get started free <span>→</span></button>
+    <button class="btn-secondary">See a demo</button>
+  </div>
+</section>
+
+<!-- APP PREVIEW -->
+<div class="preview-wrap">
+  <div class="preview-glow"></div>
+  <div class="preview-frame">
+    <div class="preview-topbar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <div class="preview-topbar-title">shiftview.app — Schedule</div>
+    </div>
+    <div class="preview-body">
+      <div class="mini-grid">
+        <div class="mini-header"></div>
+        <div class="mini-header">Mon</div>
+        <div class="mini-header">Tue</div>
+        <div class="mini-header">Wed</div>
+        <div class="mini-header">Thu</div>
+        <div class="mini-header">Fri</div>
+        <div class="mini-header">Sat</div>
+        <div class="mini-header">Sun</div>
+
+        <div class="mini-name">Alex T.</div>
+        <div class="mini-cell">9–5</div>
+        <div class="mini-cell">9–5</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell">9–5</div>
+        <div class="mini-cell">9–5</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell off">—</div>
+
+        <div class="mini-name">Jordan K.</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell green">10–6</div>
+        <div class="mini-cell green">10–6</div>
+        <div class="mini-cell green">10–6</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell green">12–8</div>
+        <div class="mini-cell green">12–8</div>
+
+        <div class="mini-name">Sam R.</div>
+        <div class="mini-cell orange">12–8</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell orange">12–8</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell orange">12–8</div>
+        <div class="mini-cell orange">9–5</div>
+        <div class="mini-cell off">—</div>
+
+        <div class="mini-name">Morgan B.</div>
+        <div class="mini-cell">8–4</div>
+        <div class="mini-cell">8–4</div>
+        <div class="mini-cell">8–4</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell off">—</div>
+        <div class="mini-cell">10–6</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS STRIP -->
+<div class="proof-strip">
+  <div class="stat"><div class="stat-num">2 min</div><div class="stat-label">average schedule build time</div></div>
+  <div class="stat"><div class="stat-num">100%</div><div class="stat-label">web-based — no app install needed</div></div>
+  <div class="stat"><div class="stat-num">Real-time</div><div class="stat-label">attendance & clock-in tracking</div></div>
+  <div class="stat"><div class="stat-num">PWA</div><div class="stat-label">push alerts on iPhone & Android</div></div>
+</div>
+
+<!-- FEATURES -->
+<section class="section">
+  <div class="section-label">Features</div>
+  <h2>Everything your team needs</h2>
+  <p class="section-sub">One dashboard for managers and employees — no extra tools required.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon ic-indigo">🗓</div>
+      <h3>Visual weekly schedule</h3>
+      <p>Drag-and-drop shifts on a clean grid. Set recurring patterns, copy weeks, and publish in one click.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon ic-green">🟢</div>
+      <h3>Live attendance</h3>
+      <p>See who's clocked in right now. Employees tap to clock in from any device — no hardware needed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon ic-amber">🔔</div>
+      <h3>Push notifications</h3>
+      <p>Schedule changes and shift reminders arrive instantly on iOS and Android, even when the app is closed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon ic-purple">📋</div>
+      <h3>Availability tracking</h3>
+      <p>Employees set their typical availability. Managers see it inline while building the schedule.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon ic-sky">📊</div>
+      <h3>Coverage thresholds</h3>
+      <p>Define minimum headcount per day. The dashboard warns you before you're understaffed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon ic-rose">🔒</div>
+      <h3>Role-based access</h3>
+      <p>Managers see everything. Employees see their own schedule and nothing else — no config required.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" style="padding-top:0">
+  <div class="section-label">How it works</div>
+  <h2>Up and running in minutes</h2>
+  <p class="section-sub">No long onboarding. No training sessions.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Add your team</h3>
+      <p>Invite employees by email. They get instant access to their schedule.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Build the schedule</h3>
+      <p>Fill in shifts on the weekly grid. Publish when you're ready.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Stay in sync</h3>
+      <p>Notifications go out automatically. Everyone always knows when they work.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<div class="cta-banner">
+  <h2>Ready to simplify scheduling?</h2>
+  <p>Sign in with your work email to get started — free for small teams.</p>
+  <div class="hero-actions" style="justify-content:center">
+    <button class="btn-primary">Sign in with email →</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="logo" style="font-size:15px">
+    <div class="logo-icon" style="width:26px;height:26px;font-size:13px">⬡</div>
+    ShiftView
+  </div>
+  <div>
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>
