@@ -135,7 +135,7 @@ export default function SchedulePageClient() {
       })
       .catch(() => {});
     if (!isDemo) {
-      fetch("/api/time-off")
+      fetch("/api/time-off?mine=true")
         .then((r) => r.json())
         .then(({ requests }) => {
           if (Array.isArray(requests)) {
