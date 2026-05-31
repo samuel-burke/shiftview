@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SettingsPageClient from "./settingsPageClient";
@@ -50,8 +50,14 @@ function setupFetch({ putOk = true } = {}) {
 
 async function renderAndSettle() {
   render(<SettingsPageClient />);
-  // Wait for store hours inputs to appear (signals initial fetches resolved)
-  await screen.findByLabelText("Sunday open time");
+  // Wait for store hours section to appear (signals initial fetches resolved)
+  await screen.findByTestId("store-hours-section");
+}
+
+async function openStoreHoursSheet(dow: number) {
+  const row = screen.getByTestId(`day-row-${dow}`);
+  await act(async () => { fireEvent.click(row); });
+  await act(async () => { await Promise.resolve(); });
 }
 
 describe("SettingsPageClient — auto-save", () => {
@@ -71,11 +77,14 @@ describe("SettingsPageClient — auto-save", () => {
     it("PUT /api/store-hours for that day when open-time input is blurred", async () => {
       const fetchSpy = setupFetch();
       await renderAndSettle();
+      await openStoreHoursSheet(0);
 
       const input = screen.getByLabelText("Sunday open time");
       await act(async () => {
         fireEvent.change(input, { target: { value: "09:00" } });
         fireEvent.blur(input);
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -93,11 +102,14 @@ describe("SettingsPageClient — auto-save", () => {
     it("PUT /api/store-hours for that day when close-time input is blurred", async () => {
       const fetchSpy = setupFetch();
       await renderAndSettle();
+      await openStoreHoursSheet(1);
 
       const input = screen.getByLabelText("Monday close time");
       await act(async () => {
         fireEvent.change(input, { target: { value: "21:00" } });
         fireEvent.blur(input);
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -115,11 +127,14 @@ describe("SettingsPageClient — auto-save", () => {
     it("shows 'Saved ✓' in the day row after a successful save", async () => {
       setupFetch();
       await renderAndSettle();
+      await openStoreHoursSheet(0);
 
       const input = screen.getByLabelText("Sunday open time");
       await act(async () => {
         fireEvent.change(input, { target: { value: "09:00" } });
         fireEvent.blur(input);
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -130,11 +145,14 @@ describe("SettingsPageClient — auto-save", () => {
     it("shows 'Failed to save' in the day row on API error", async () => {
       setupFetch({ putOk: false });
       await renderAndSettle();
+      await openStoreHoursSheet(0);
 
       const input = screen.getByLabelText("Sunday open time");
       await act(async () => {
         fireEvent.change(input, { target: { value: "09:00" } });
         fireEvent.blur(input);
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -145,11 +163,14 @@ describe("SettingsPageClient — auto-save", () => {
     it("only saves the changed day, not all 7", async () => {
       const fetchSpy = setupFetch();
       await renderAndSettle();
+      await openStoreHoursSheet(3);
 
       const input = screen.getByLabelText("Wednesday open time");
       await act(async () => {
         fireEvent.change(input, { target: { value: "07:00" } });
         fireEvent.blur(input);
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
@@ -352,7 +373,12 @@ describe("SettingsPageClient — auto-save", () => {
       const fetchSpy = vi.spyOn(global, "fetch");
 
       render(<SettingsPageClient isDemo={true} />);
-      await screen.findByLabelText("Sunday open time");
+      await screen.findByTestId("store-hours-section");
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("day-row-0"));
+        await Promise.resolve();
+      });
 
       const input = screen.getByLabelText("Sunday open time");
       await act(async () => {
@@ -373,7 +399,7 @@ describe("SettingsPageClient — auto-save", () => {
       const fetchSpy = vi.spyOn(global, "fetch");
 
       render(<SettingsPageClient isDemo={true} />);
-      await screen.findByLabelText("Sunday open time");
+      await screen.findByTestId("store-hours-section");
 
       await act(async () => {
         fireEvent.click(screen.getByTestId("coverage-optimal-plus"));
@@ -393,7 +419,7 @@ describe("SettingsPageClient — auto-save", () => {
       const fetchSpy = vi.spyOn(global, "fetch");
 
       render(<SettingsPageClient isDemo={true} />);
-      await screen.findByLabelText("Sunday open time");
+      await screen.findByTestId("store-hours-section");
 
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: "Monday" }));
@@ -412,7 +438,7 @@ describe("SettingsPageClient — auto-save", () => {
       const fetchSpy = vi.spyOn(global, "fetch");
 
       render(<SettingsPageClient isDemo={true} />);
-      await screen.findByLabelText("Sunday open time");
+      await screen.findByTestId("store-hours-section");
 
       await act(async () => {
         fireEvent.change(screen.getByLabelText("Timezone"), {

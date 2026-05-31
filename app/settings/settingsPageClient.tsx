@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
 import InviteSheet from "../../components/InviteSheet";
+import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram } from "../../data/types";
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -30,27 +31,6 @@ const FIRST_DAY_OPTIONS = [
   { label: "Saturday", value: 6 },
 ];
 
-const DEFAULT_HOURS: Record<number, { open: number; close: number }> = {
-  0: { open: 480,  close: 1200 },
-  1: { open: 360,  close: 1320 },
-  2: { open: 360,  close: 1320 },
-  3: { open: 360,  close: 1320 },
-  4: { open: 360,  close: 1320 },
-  5: { open: 360,  close: 1320 },
-  6: { open: 360,  close: 1320 },
-};
-
-function minutesToTime(m: number): string {
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + (m || 0);
-}
-
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
@@ -69,41 +49,6 @@ function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string
 export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
-
-  // ── Store Hours ─────────────────────────────────────────────────────────────
-  const [storeHours, setStoreHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_HOURS);
-  const [hoursDayStatus, setHoursDayStatus] = useState<Record<number, SaveStatus>>({});
-  const hoursDayTimerRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
-
-  async function saveDayHours(day: number) {
-    setHoursDayStatus((prev) => ({ ...prev, [day]: "saving" }));
-    const { open, close } = storeHours[day] ?? DEFAULT_HOURS[day];
-
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setHoursDayStatus((prev) => ({ ...prev, [day]: "saved" }));
-      setTimeout(() => setHoursDayStatus((prev) => ({ ...prev, [day]: "idle" })), 2000);
-      return;
-    }
-
-    const res = await fetch("/api/store-hours", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dayOfWeek: day, openMinutes: open, closeMinutes: close }),
-    });
-    if (res.ok) {
-      setHoursDayStatus((prev) => ({ ...prev, [day]: "saved" }));
-      setTimeout(() => setHoursDayStatus((prev) => ({ ...prev, [day]: "idle" })), 2000);
-    } else {
-      setHoursDayStatus((prev) => ({ ...prev, [day]: "error" }));
-      setTimeout(() => setHoursDayStatus((prev) => ({ ...prev, [day]: "idle" })), 4000);
-    }
-  }
-
-  function handleHoursBlur(day: number) {
-    if (hoursDayTimerRefs.current[day]) clearTimeout(hoursDayTimerRefs.current[day]);
-    hoursDayTimerRefs.current[day] = setTimeout(() => saveDayHours(day), 0);
-  }
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [optimalCoverage, setOptimalCoverage] = useState(3);
@@ -265,10 +210,6 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
       supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
     }
     if (!isDemo) {
-      fetch("/api/store-hours")
-        .then((r) => r.json())
-        .then((data) => setStoreHours((prev) => ({ ...prev, ...data })))
-        .catch(() => {});
       fetch("/api/settings")
         .then((r) => r.json())
         .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en }) => {
@@ -428,55 +369,7 @@ export default function SettingsPageClient({ isDemo = false }: { isDemo?: boolea
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Store Hours
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
-            {Array.from({ length: 7 }, (_, i) => i).map((day) => {
-              const hours = storeHours[day] ?? DEFAULT_HOURS[day];
-              const status = hoursDayStatus[day] ?? "idle";
-              return (
-                <div key={day} className="flex items-center gap-2 px-4 py-3">
-                  <span className="text-sm font-semibold text-slate-400 w-9 shrink-0">
-                    {DAY_SHORT[day]}
-                  </span>
-                  <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex-1 min-w-0">
-                    <input
-                      type="time"
-                      aria-label={`${DAY_FULL[day]} open time`}
-                      value={minutesToTime(hours.open)}
-                      onChange={(e) =>
-                        setStoreHours((prev) => ({
-                          ...prev,
-                          [day]: { ...prev[day], open: timeToMinutes(e.target.value) },
-                        }))
-                      }
-                      onBlur={() => handleHoursBlur(day)}
-                      className="w-full min-w-0 block bg-transparent px-2 py-1.5 text-sm text-slate-100 outline-none [color-scheme:dark]"
-                    />
-                  </div>
-                  <span className="text-slate-600 text-sm shrink-0">–</span>
-                  <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex-1 min-w-0">
-                    <input
-                      type="time"
-                      aria-label={`${DAY_FULL[day]} close time`}
-                      value={minutesToTime(hours.close)}
-                      onChange={(e) =>
-                        setStoreHours((prev) => ({
-                          ...prev,
-                          [day]: { ...prev[day], close: timeToMinutes(e.target.value) },
-                        }))
-                      }
-                      onBlur={() => handleHoursBlur(day)}
-                      className="w-full min-w-0 block bg-transparent px-2 py-1.5 text-sm text-slate-100 outline-none [color-scheme:dark]"
-                    />
-                  </div>
-                  <div className="w-14 shrink-0 text-right" data-testid={`store-hours-status-${day}`}>
-                    {status === "saving" && <span className="text-[11px] text-slate-500">Saving…</span>}
-                    {status === "saved"  && <span className="text-[11px] text-emerald-400">Saved ✓</span>}
-                    {status === "error"  && <span className="text-[11px] text-red-400">Failed</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <StoreHoursSection firstDayOfWeek={firstDayOfWeek} isDemo={isDemo} />
         </section>
 
         {/* Coverage */}
