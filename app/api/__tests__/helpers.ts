@@ -22,6 +22,8 @@ export function makeSupabaseClient({
   queryData = null as any,
   queryError = null as any,
   tableOverrides = {} as Record<string, { data: any; error: any }>,
+  rpcData = null as any,
+  rpcError = null as any,
 } = {}) {
   const managerRow = isManager && user ? { user_id: user.id } : null;
   return {
@@ -37,5 +39,6 @@ export function makeSupabaseClient({
         return makeQueryBuilder(tableOverrides[table]);
       return makeQueryBuilder({ data: queryData, error: queryError });
     }),
+    rpc: vi.fn().mockResolvedValue({ data: rpcData, error: rpcError }),
   };
 }

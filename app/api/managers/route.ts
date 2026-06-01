@@ -13,8 +13,8 @@ export async function GET() {
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  const { data, error } = await supabase.from("managers").select("user_id");
+  const { data, error } = await supabase.rpc("notify_get_manager_ids");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ managerUserIds: (data ?? []).map((r) => r.user_id) });
+  return NextResponse.json({ managerUserIds: (data ?? []).map((r: { user_id: string }) => r.user_id) });
 }
