@@ -108,25 +108,12 @@ export async function POST(request: Request) {
   if (!emp)
     return NextResponse.json({ error: "No employee record linked to this account" }, { status: 403 });
 
-  // Fetch settings once — used for the late clock-in check below
-  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
-  const settingsMap = Object.fromEntries(
-    (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
-  );
-  const tz = settingsMap.timezone ?? "America/New_York";
-
-  // Look back 16 hours for the state-machine query. A fixed UTC-day window breaks for
-  // timezones where 11pm local = next day UTC (e.g. 9pm EST = 1am UTC). 16 hours covers
-  // any realistic shift length while also expiring genuinely stale sessions.
-  const todayStart = new Date(Date.now() - 16 * 60 * 60 * 1000);
-  const todayEnd   = new Date();
-
+  // No date window — just the most recent punch ever. Any timezone edge cases are avoided
+  // because the state machine is purely transition-based, not day-scoped.
   const { data: lastPunch, error: lastPunchError } = await supabase
     .from("punch_records")
     .select("punch_type")
     .eq("employee_id", emp.id)
-    .gte("punched_at", todayStart.toISOString())
-    .lte("punched_at", todayEnd.toISOString())
     .order("punched_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -139,7 +126,7 @@ export async function POST(request: Request) {
   const lastType = lastPunch?.punch_type ?? null;
 
   const VALID_TRANSITIONS: Record<string, (string | null)[]> = {
-    clock_in:    [null, "clock_out", "break_end"],
+    clock_in:    [null, "clock_out"],
     clock_out:   ["clock_in", "break_end"],
     break_start: ["clock_in", "break_end"],
     break_end:   ["break_start"],
@@ -177,6 +164,11 @@ export async function POST(request: Request) {
       .eq("id", scheduleId)
       .maybeSingle();
     if (sched) {
+      const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+      const settingsMap = Object.fromEntries(
+        (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+      );
+      const tz = settingsMap.timezone ?? "America/New_York";
       const punchedAt = new Date(data.punched_at);
       const clockInMinutes = getLocalMinutes(punchedAt, tz);
       const lateMinutes = clockInMinutes - sched.start_minutes;
