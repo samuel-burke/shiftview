@@ -485,10 +485,6 @@ export default function Page() {
     () => employees.filter((emp) => !daySchedules.some((s) => s.employeeId === emp.id)),
     [employees, daySchedules],
   );
-  const hereNow = useMemo(
-    () => scheduled.filter((s) => isHere(s, nowMinutes)),
-    [scheduled, nowMinutes],
-  );
   const sortedScheduled = useMemo(
     () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
     [scheduled],
@@ -506,6 +502,15 @@ export default function Page() {
     }
     return map;
   }, [punchRecords, scheduled, punchesLoaded]);
+
+  // When punch data is loaded for today, count employees actually clocked in.
+  // On past/future dates or before punch data arrives, fall back to schedule window.
+  const hereNow = useMemo(() => {
+    if (isToday && punchesLoaded) {
+      return scheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in");
+    }
+    return scheduled.filter((s) => isHere(s, nowMinutes));
+  }, [scheduled, nowMinutes, isToday, punchesLoaded, attendanceMap]);
 
   const lastUpdated = lastFetchedAt
     ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
