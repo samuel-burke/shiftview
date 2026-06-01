@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -36,6 +36,8 @@ function getNowMinutes() {
   const [h, m] = parts.split(":").map(Number);
   return h * 60 + m;
 }
+
+
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
   clocked_in:    "Clocked In",
@@ -130,6 +132,13 @@ export default function ClockPageClient() {
 
   const status = getAttendanceStatus(punches);
 
+  // Allow clock-in whenever the last punch was a clock_out (or there are no punches).
+  // The only gate on Clock In is: last punch must be null or clock_out.
+  const effectiveStatus = useMemo((): AttendanceStatus => {
+    if (status === "clocked_out") return "not_clocked_in";
+    return status;
+  }, [status]);
+
   // Live elapsed clock — ticks every second when clocked in or on break (tracking active work)
   useEffect(() => {
     setElapsed(getTotalClockedSeconds(punches));
@@ -217,9 +226,7 @@ export default function ClockPageClient() {
   }
 
   function confirmPunch() {
-    if (pendingPunchType) {
-      submitPunch(pendingPunchType);
-    }
+    if (pendingPunchType) submitPunch(pendingPunchType);
     setPendingPunchType(null);
     setPendingWarning(null);
   }
@@ -427,22 +434,22 @@ export default function ClockPageClient() {
           <div
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-3"
             style={{
-              background: `${STATUS_COLORS[status]}22`,
-              color: STATUS_COLORS[status],
-              border: `1px solid ${STATUS_COLORS[status]}44`,
+              background: `${STATUS_COLORS[effectiveStatus]}22`,
+              color: STATUS_COLORS[effectiveStatus],
+              border: `1px solid ${STATUS_COLORS[effectiveStatus]}44`,
             }}
           >
             <span
               className="size-2 rounded-full"
               style={{
-                background: STATUS_COLORS[status],
-                boxShadow: status === "clocked_in" ? `0 0 6px ${STATUS_COLORS[status]}` : "none",
+                background: STATUS_COLORS[effectiveStatus],
+                boxShadow: effectiveStatus === "clocked_in" ? `0 0 6px ${STATUS_COLORS[effectiveStatus]}` : "none",
               }}
             />
-            {STATUS_LABELS[status]}
+            {STATUS_LABELS[effectiveStatus]}
           </div>
 
-          {(status === "clocked_in" || status === "on_break" || status === "clocked_out") && (
+          {(effectiveStatus === "clocked_in" || effectiveStatus === "on_break" || effectiveStatus === "clocked_out") && (
             <>
               <div className="text-4xl font-mono font-extrabold text-slate-100 tabular-nums">
                 {fmtElapsed(elapsed)}
@@ -470,7 +477,7 @@ export default function ClockPageClient() {
         )}
 
         <div className="grid gap-3">
-          {status === "not_clocked_in" && (
+          {effectiveStatus === "not_clocked_in" && (
             <button
               onClick={() => handlePunchClick("clock_in")}
               disabled={actionPending}
@@ -480,7 +487,7 @@ export default function ClockPageClient() {
             </button>
           )}
 
-          {status === "clocked_in" && (
+          {effectiveStatus === "clocked_in" && (
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => submitPunch("break_start")}
@@ -499,7 +506,7 @@ export default function ClockPageClient() {
             </div>
           )}
 
-          {status === "on_break" && (
+          {effectiveStatus === "on_break" && (
             <button
               onClick={() => submitPunch("break_end")}
               disabled={actionPending}
@@ -509,7 +516,7 @@ export default function ClockPageClient() {
             </button>
           )}
 
-          {status === "clocked_out" && (
+          {effectiveStatus === "clocked_out" && (
             <div className="text-center py-3 text-sm text-slate-400">
               Shift complete — see you next time!
             </div>
@@ -688,10 +695,7 @@ export default function ClockPageClient() {
               <div className="text-2xl mb-1">
                 {pendingWarning.diffMinutes > 0 ? "⏰" : "⚡"}
               </div>
-              <div
-                id="punch-warning-heading"
-                className="text-lg font-extrabold text-slate-100"
-              >
+              <div id="punch-warning-heading" className="text-lg font-extrabold text-slate-100">
                 {pendingWarning.heading}
               </div>
               <div className="text-sm text-slate-400 mt-1">{pendingWarning.body}</div>
