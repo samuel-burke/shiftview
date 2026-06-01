@@ -56,7 +56,7 @@ export default function CoverageTimeline({
 }: Props) {
   const range = closeMinutes - openMinutes;
 
-  const STEP = 15;
+  const STEP = 5;
 
   const points = useMemo(() => {
     const pts = [];
