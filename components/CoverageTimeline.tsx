@@ -32,12 +32,12 @@ function fmtMinutes(m: number): string {
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
 
-function PulsingDot({ cx, cy }: { cx?: number; cy?: number }) {
+function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; color?: string }) {
   if (cx === undefined || cy === undefined) return null;
   return (
     <g>
-      <circle cx={cx} cy={cy} r={4} fill="#3b82f6" />
-      <circle cx={cx} cy={cy} r={4} fill="none" stroke="#3b82f6" strokeWidth={2}>
+      <circle cx={cx} cy={cy} r={4} fill={color} />
+      <circle cx={cx} cy={cy} r={4} fill="none" stroke={color} strokeWidth={2}>
         <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
         <animate attributeName="stroke-opacity" values="0.8;0;0.8" dur="1.5s" repeatCount="indefinite" />
       </circle>
@@ -138,8 +138,10 @@ export default function CoverageTimeline({
     const staff = schedules.filter(
       (s) => clampedM >= s.startMinutes && clampedM < s.endMinutes,
     ).length;
-    return { label, staff };
-  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules]);
+    const idx = points.findIndex((p) => p.m === clampedM);
+    const actual = actualByPoint && idx >= 0 ? actualByPoint[idx] : null;
+    return { label, staff, actual };
+  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules, points, actualByPoint]);
 
   // Measure the actual chart area after mount and on resize
   useEffect(() => {
@@ -293,8 +295,8 @@ export default function CoverageTimeline({
             {isToday && nowDataPoint && (
               <ReferenceDot
                 x={nowDataPoint.label}
-                y={nowDataPoint.staff}
-                shape={<PulsingDot />}
+                y={nowDataPoint.actual ?? nowDataPoint.staff}
+                shape={<PulsingDot color={nowDataPoint.actual != null ? "#22c55e" : "#3b82f6"} />}
               />
             )}
           </AreaChart>
