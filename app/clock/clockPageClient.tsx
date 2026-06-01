@@ -25,17 +25,6 @@ function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
-function getLocalMinutes(isoString: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date(isoString));
-  const h = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
-  const m = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0");
-  return h * 60 + m;
-}
 
 function getNowMinutes() {
   const now = new Date();
@@ -142,19 +131,12 @@ export default function ClockPageClient() {
 
   const status = getAttendanceStatus(punches);
 
-  // If the last clock-out happened before today's shift start (local time), it belongs to a
-  // cross-midnight shift from the previous calendar day — let the employee clock in again.
+  // Allow clock-in whenever the last punch was a clock_out (or there are no punches).
+  // The only gate on Clock In is: last punch must be null or clock_out.
   const effectiveStatus = useMemo((): AttendanceStatus => {
-    if (status === "clocked_out" && schedule) {
-      const lastClockOut = [...punches]
-        .filter((p) => p.punchType === "clock_out")
-        .sort((a, b) => new Date(b.punchedAt).getTime() - new Date(a.punchedAt).getTime())[0];
-      if (lastClockOut && getLocalMinutes(lastClockOut.punchedAt) < schedule.startMinutes) {
-        return "not_clocked_in";
-      }
-    }
+    if (status === "clocked_out") return "not_clocked_in";
     return status;
-  }, [status, schedule, punches]);
+  }, [status]);
 
   // Live elapsed clock — ticks every second when clocked in or on break (tracking active work)
   useEffect(() => {
