@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -27,40 +27,30 @@ export async function PUT(
   if (action === "demote" && userId === user!.id)
     return NextResponse.json({ error: "You cannot demote yourself" }, { status: 400 });
 
-  let admin;
-  try {
-    admin = createAdminClient();
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfiguration" },
-      { status: 500 }
-    );
+  const { data: targetEmp } = await supabase
+    .from("employees")
+    .select("name")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const fn = action === "promote" ? "manager_promote" : "manager_demote";
+  const { error } = await supabase.rpc(fn, { target_user_id: userId });
+
+  if (error) {
+    console.error("[api/managers]", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (action === "promote") {
-    const { data, error } = await admin
-      .from("managers")
-      .upsert({ user_id: userId })
-      .select("user_id");
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!data || data.length === 0)
-      return NextResponse.json(
-        { error: "Promote failed — check that SUPABASE_SERVICE_ROLE_KEY is set and the managers table allows service-role writes." },
-        { status: 500 }
-      );
-  } else {
-    const { data, error } = await admin
-      .from("managers")
-      .delete()
-      .eq("user_id", userId)
-      .select("user_id");
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!data || data.length === 0)
-      return NextResponse.json(
-        { error: "Demote failed — user may not be a manager, or SUPABASE_SERVICE_ROLE_KEY is missing." },
-        { status: 500 }
-      );
-  }
+  writeAuditLog({
+    action:       action === "promote" ? "manager.promote" : "manager.demote",
+    actorId:      user?.id,
+    resourceType: "manager",
+    resourceId:   userId,
+    metadata: {
+      targetUserId: userId,
+      targetName:   targetEmp?.name ?? null,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

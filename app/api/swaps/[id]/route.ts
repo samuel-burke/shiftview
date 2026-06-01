@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { notify } from "@/lib/notify";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function PUT(
   }
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError) {
     return NextResponse.json(
       { error: authError },
@@ -37,7 +38,7 @@ export async function PUT(
   // Fetch the swap request
   const { data: swap, error: fetchError } = await supabase
     .from("shift_swaps")
-    .select("id, status, schedule_a_id, schedule_b_id")
+    .select("id, status, schedule_a_id, schedule_b_id, requester_id, target_id")
     .eq("id", swapId)
     .maybeSingle();
 
@@ -100,30 +101,45 @@ export async function PUT(
     return NextResponse.json({ error: statusError.message }, { status: 500 });
   }
 
-  // Notify the requester of the outcome
-  const { data: swapFull } = await supabase
-    .from("shift_swaps")
-    .select("requester_id")
-    .eq("id", swapId)
+  // Notify the requester of the outcome and gather names for audit log
+  const { data: requesterEmp } = await supabase
+    .from("employees")
+    .select("user_id, name")
+    .eq("id", swap.requester_id)
     .maybeSingle();
-  if (swapFull?.requester_id) {
-    const { data: requesterEmp } = await supabase
-      .from("employees")
-      .select("user_id")
-      .eq("id", swapFull.requester_id)
-      .maybeSingle();
-    if (requesterEmp?.user_id) {
-      notify(supabase, {
-        userId: requesterEmp.user_id,
-        type: status === "approved" ? "swap_approved" : "swap_denied",
-        title: status === "approved" ? "Swap Request Approved" : "Swap Request Denied",
-        body: status === "approved"
-          ? "Your shift swap request has been approved."
-          : "Your shift swap request was denied.",
-        data: { swapId },
-      }).catch(() => {});
-    }
+
+  const { data: targetEmp } = await supabase
+    .from("employees")
+    .select("name")
+    .eq("id", swap.target_id)
+    .maybeSingle();
+
+  if (requesterEmp?.user_id) {
+    notify(supabase, {
+      userId: requesterEmp.user_id,
+      type: status === "approved" ? "swap_approved" : "swap_denied",
+      title: status === "approved" ? "Swap Request Approved" : "Swap Request Denied",
+      body: status === "approved"
+        ? "Your shift swap request has been approved."
+        : "Your shift swap request was denied.",
+      data: { swapId },
+    }).catch(() => {});
   }
+
+  writeAuditLog({
+    action:       status === "approved" ? "swap.approve" : "swap.deny",
+    actorId:      user?.id,
+    resourceType: "shift_swap",
+    resourceId:   String(swapId),
+    before:       { status: "pending" },
+    after:        { status },
+    metadata: {
+      requesterId:   swap.requester_id,
+      requesterName: requesterEmp?.name ?? null,
+      targetId:      swap.target_id,
+      targetName:    targetEmp?.name ?? null,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

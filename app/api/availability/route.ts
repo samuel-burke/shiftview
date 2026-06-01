@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -73,16 +76,25 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  let employeeName: string | null = null;
   if (!managerRow) {
     // Non-manager: must be setting own availability
     const { data: linkedEmployee } = await supabase
       .from("employees")
-      .select("id, user_id")
+      .select("id, user_id, name")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (!linkedEmployee || linkedEmployee.id !== employeeId)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    employeeName = linkedEmployee.name;
+  } else {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("name")
+      .eq("id", employeeId)
+      .maybeSingle();
+    employeeName = emp?.name ?? null;
   }
 
   const { error } = await supabase
@@ -93,6 +105,20 @@ export async function POST(request: Request) {
     );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  writeAuditLog({
+    action:       "availability.upsert",
+    actorId:      user.id,
+    resourceType: "availability",
+    after: { employeeId, dayOfWeek, startMinutes, endMinutes, note },
+    metadata: {
+      employeeId,
+      employeeName,
+      dayOfWeek,
+      dayName: DAY_NAMES[dayOfWeek] ?? null,
+      byManager: !!managerRow,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }
@@ -111,7 +137,7 @@ export async function DELETE(request: Request) {
   // Fetch the availability record to check ownership
   const { data: record } = await supabase
     .from("availability")
-    .select("id, employee_id")
+    .select("id, employee_id, day_of_week")
     .eq("id", id)
     .maybeSingle();
 
@@ -122,16 +148,25 @@ export async function DELETE(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  let employeeName: string | null = null;
   if (!managerRow) {
     // Non-manager: must own the record
     const { data: linkedEmployee } = await supabase
       .from("employees")
-      .select("id, user_id")
+      .select("id, user_id, name")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (!linkedEmployee || !record || linkedEmployee.id !== record.employee_id)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    employeeName = linkedEmployee.name;
+  } else if (record?.employee_id) {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("name")
+      .eq("id", record.employee_id)
+      .maybeSingle();
+    employeeName = emp?.name ?? null;
   }
 
   const { error } = await supabase
@@ -140,6 +175,23 @@ export async function DELETE(request: Request) {
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  writeAuditLog({
+    action:       "availability.delete",
+    actorId:      user.id,
+    resourceType: "availability",
+    resourceId:   String(id),
+    before: record
+      ? { employeeId: record.employee_id, dayOfWeek: record.day_of_week }
+      : null,
+    metadata: {
+      employeeId:   record?.employee_id ?? null,
+      employeeName,
+      dayOfWeek:    record?.day_of_week ?? null,
+      dayName:      record?.day_of_week != null ? DAY_NAMES[record.day_of_week] : null,
+      byManager:    !!managerRow,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

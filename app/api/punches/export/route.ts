@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,8 @@ export async function GET(request: Request) {
     .order("punched_at")
     .limit(10_000);
 
+  const filterEmpId = searchParams.get("employeeId");
+
   if (!managerRow) {
     const { data: emp } = await supabase
       .from("employees")
@@ -63,7 +66,6 @@ export async function GET(request: Request) {
     if (!emp) return NextResponse.json({ error: "No employee record" }, { status: 403 });
     query = query.eq("employee_id", emp.id);
   } else {
-    const filterEmpId = searchParams.get("employeeId");
     if (filterEmpId) query = query.eq("employee_id", Number(filterEmpId));
   }
 
@@ -74,6 +76,19 @@ export async function GET(request: Request) {
   }
 
   const rows = data ?? [];
+
+  writeAuditLog({
+    action:       "punch.export",
+    actorId:      user.id,
+    resourceType: "punch_record",
+    metadata: {
+      from,
+      to,
+      employeeId: filterEmpId ? Number(filterEmpId) : null,
+      rowCount:   rows.length,
+      byManager:  !!managerRow,
+    },
+  }).catch(() => {});
 
   const headers = ["Employee", "Date", "Time", "Punch Type", "Manual", "Note", "Lat", "Lng"];
   const lines = [headers.join(",")];

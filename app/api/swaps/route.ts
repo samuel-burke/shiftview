@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
   // Look up the employee linked to the current user
   const { data: requesterEmployee } = await supabase
     .from("employees")
-    .select("id")
+    .select("id, name")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -120,8 +121,8 @@ export async function POST(request: Request) {
 
   // Fetch both schedules
   const [{ data: scheduleA, error: errA }, { data: scheduleB, error: errB }] = await Promise.all([
-    supabase.from("schedules").select("id, employee_id").eq("id", scheduleAId).maybeSingle(),
-    supabase.from("schedules").select("id, employee_id").eq("id", scheduleBId).maybeSingle(),
+    supabase.from("schedules").select("id, employee_id, date").eq("id", scheduleAId).maybeSingle(),
+    supabase.from("schedules").select("id, employee_id, date").eq("id", scheduleBId).maybeSingle(),
   ]);
 
   if (errA || !scheduleA) {
@@ -146,6 +147,12 @@ export async function POST(request: Request) {
   // Derive target from schedule B
   const targetId = scheduleB.employee_id;
 
+  const { data: targetEmployee } = await supabase
+    .from("employees")
+    .select("name")
+    .eq("id", targetId)
+    .maybeSingle();
+
   const { data: inserted, error: insertError } = await supabase
     .from("shift_swaps")
     .insert({
@@ -160,6 +167,25 @@ export async function POST(request: Request) {
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
+
+  writeAuditLog({
+    action:       "swap.request",
+    actorId:      user.id,
+    resourceType: "shift_swap",
+    resourceId:   inserted?.id != null ? String(inserted.id) : null,
+    after: {
+      requesterId:  requesterEmployee.id,
+      targetId,
+      scheduleAId,
+      scheduleBId,
+    },
+    metadata: {
+      requesterName:  requesterEmployee.name,
+      targetName:     targetEmployee?.name ?? null,
+      scheduleADate:  scheduleA.date,
+      scheduleBDate:  scheduleB.date,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ id: inserted?.id, ok: true });
 }

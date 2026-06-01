@@ -84,20 +84,29 @@ export default function NotificationBell() {
         },
         () => { fetchNotifications(); }
       )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: "user_id=is.null",
-        },
-        () => { fetchNotifications(); }
-      )
       .subscribe();
 
     return () => { sb.removeChannel(channel); };
   }, [userId]);
+
+  // Re-fetch when the service worker receives a push (handles foreground delivery)
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    function onSWMessage(e: MessageEvent) {
+      if (e.data?.type === "PUSH_RECEIVED") fetchNotifications();
+    }
+    navigator.serviceWorker.addEventListener("message", onSWMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onSWMessage);
+  }, [fetchNotifications]);
+
+  // Re-fetch when app comes back to foreground (handles tapping a push banner to open the app)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") fetchNotifications();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchNotifications]);
 
   // Close on outside click
   useEffect(() => {

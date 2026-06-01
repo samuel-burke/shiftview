@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -31,6 +32,12 @@ export async function POST(
   const d = new Date(weekStartDate + "T00:00:00Z");
   if (isNaN(d.getTime())) return NextResponse.json({ error: "Invalid weekStartDate" }, { status: 400 });
   if (d.getUTCDay() !== 1) return NextResponse.json({ error: "weekStartDate must be a Monday" }, { status: 422 });
+
+  const { data: template } = await supabase
+    .from("schedule_templates")
+    .select("id, name")
+    .eq("id", id)
+    .maybeSingle();
 
   // Fetch template rows
   const { data: rows, error: rowErr } = await supabase
@@ -70,6 +77,20 @@ export async function POST(
 
   const { error: insertErr } = await supabase.from("schedules").insert(toInsert);
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
+
+  writeAuditLog({
+    action:       "template.apply",
+    actorId:      user?.id,
+    resourceType: "schedule_template",
+    resourceId:   String(id),
+    metadata: {
+      templateId:   id,
+      templateName: template?.name ?? null,
+      weekStartDate,
+      created:      toInsert.length,
+      skipped,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ created: toInsert.length, skipped });
 }

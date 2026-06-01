@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { DEMO_STORE_HOURS } from "@/data/demo-fixtures";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export async function PUT(request: Request) {
   const { dayOfWeek, openMinutes, closeMinutes } = await request.json();
@@ -20,7 +23,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "open must be before close" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -32,6 +35,20 @@ export async function PUT(request: Request) {
     console.error("[api/store-hours]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+
+  writeAuditLog({
+    action:       "store_hours.update",
+    actorId:      user?.id,
+    resourceType: "store_hours",
+    after: { dayOfWeek, openMinutes, closeMinutes },
+    metadata: {
+      dayOfWeek,
+      dayName: DAY_NAMES[dayOfWeek] ?? null,
+      openMinutes,
+      closeMinutes,
+    },
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }
 
