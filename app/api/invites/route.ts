@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -24,20 +25,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "email format is invalid" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  // Use the admin client for both operations — bypasses RLS (we've already
-  // verified manager status above) and keeps privileges consistent.
   const admin = createAdminClient();
+  const formattedName = formatName(name);
 
   const { data: employee, error: insertError } = await admin
     .from("employees")
-    .insert({ name: formatName(name), email })
+    .insert({ name: formattedName, email })
     .select("id")
     .single();
 
@@ -54,6 +54,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: inviteError.message }, { status: 500 });
   }
 
+  writeAuditLog({
+    action:       "employee.invite",
+    actorId:      user?.id,
+    resourceType: "employee",
+    resourceId:   String(employee.id),
+    after: { name: formattedName, email },
+    metadata: {
+      employeeId:   employee.id,
+      employeeName: formattedName,
+      email,
+    },
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true, employeeId: employee.id }, { status: 201 });
 }
 
@@ -64,7 +77,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -78,6 +91,13 @@ export async function PUT(request: Request) {
 
   if (inviteError)
     return NextResponse.json({ error: inviteError.message }, { status: 500 });
+
+  writeAuditLog({
+    action:       "employee.reinvite",
+    actorId:      user?.id,
+    resourceType: "employee",
+    metadata: { email },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

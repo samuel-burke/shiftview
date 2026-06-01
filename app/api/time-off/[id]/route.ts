@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { notify } from "@/lib/notify";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function PUT(
     );
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -47,12 +48,14 @@ export async function PUT(
   }
 
   // Notify the employee of the decision
+  let empName: string | null = null;
   if (pto?.employee_id) {
     const { data: emp } = await supabase
       .from("employees")
-      .select("user_id")
+      .select("user_id, name")
       .eq("id", pto.employee_id)
       .maybeSingle();
+    empName = emp?.name ?? null;
     if (emp?.user_id) {
       notify(supabase, {
         userId: emp.user_id,
@@ -65,6 +68,20 @@ export async function PUT(
       }).catch(() => {});
     }
   }
+
+  writeAuditLog({
+    action:       status === "approved" ? "time_off.approve" : "time_off.deny",
+    actorId:      user?.id,
+    resourceType: "time_off_request",
+    resourceId:   String(id),
+    before:       { status: "pending" },
+    after:        { status },
+    metadata: {
+      employeeId:   pto?.employee_id ?? null,
+      employeeName: empName,
+      date:         pto?.date ?? null,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

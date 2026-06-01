@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
   // Verify the employee belongs to the current user
   const { data: emp } = await supabase
     .from("employees")
-    .select("id")
+    .select("id, name")
     .eq("id", employeeId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -142,6 +143,19 @@ export async function POST(request: Request) {
     console.error("[api/time-off]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+
+  writeAuditLog({
+    action:       "time_off.request",
+    actorId:      user.id,
+    resourceType: "time_off_request",
+    resourceId:   String(data.id),
+    after: { employeeId, date, note: insertData.note ?? null },
+    metadata: {
+      employeeId,
+      employeeName: emp.name,
+      date,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ id: data.id, ok: true }, { status: 201 });
 }

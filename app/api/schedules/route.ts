@@ -6,6 +6,7 @@ import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 import { notify } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
 import { fmtMinutes } from "@/data/types";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -57,12 +58,12 @@ export async function PUT(request: Request) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("schedules")
-    .select("employee_id, date")
+    .select("employee_id, date, start_minutes, end_minutes")
     .eq("id", id)
     .maybeSingle();
 
@@ -140,6 +141,23 @@ export async function PUT(request: Request) {
         data: { scheduleId: id, date: existing.date },
       }).catch(() => {});
     }
+
+    writeAuditLog({
+      action:       "schedule.update",
+      actorId:      user?.id,
+      resourceType: "schedule",
+      resourceId:   String(id),
+      before: {
+        startMinutes: existing.start_minutes,
+        endMinutes:   existing.end_minutes,
+      },
+      after: { startMinutes, endMinutes },
+      metadata: {
+        employeeId:   existing.employee_id,
+        employeeName: emp?.name ?? null,
+        date:         existing.date,
+      },
+    }).catch(() => {});
   }
 
   return NextResponse.json({ ok: true });
@@ -157,7 +175,7 @@ export async function POST(request: Request) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
@@ -241,6 +259,20 @@ export async function POST(request: Request) {
     }).catch(() => {});
   }
 
+  writeAuditLog({
+    action:       "schedule.create",
+    actorId:      user?.id,
+    resourceType: "schedule",
+    after: { employeeId, date, startMinutes, endMinutes },
+    metadata: {
+      employeeId,
+      employeeName: emp?.name ?? null,
+      date,
+      startMinutes,
+      endMinutes,
+    },
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true }, { status: 201 });
 }
 
@@ -253,13 +285,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
-  // Fetch the schedule before deletion to get its date
+  // Fetch the schedule before deletion
   const { data: existing } = await supabase
     .from("schedules")
-    .select("id, date")
+    .select("id, date, employee_id, start_minutes, end_minutes")
     .eq("id", id)
     .maybeSingle();
 
@@ -289,7 +321,6 @@ export async function DELETE(request: Request) {
       const remainingCount = (remaining ?? []).length;
 
       if (remainingCount < minCoverage) {
-        // Fetch manager user_ids, then their employee emails
         const { data: managerRows } = await supabase.from("managers").select("user_id");
         const managerUserIds = (managerRows ?? []).map((r: { user_id: string }) => r.user_id);
 
@@ -315,6 +346,32 @@ export async function DELETE(request: Request) {
         }
       }
     }
+
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("name")
+      .eq("id", existing.employee_id)
+      .maybeSingle();
+
+    writeAuditLog({
+      action:       "schedule.delete",
+      actorId:      user?.id,
+      resourceType: "schedule",
+      resourceId:   String(id),
+      before: {
+        employeeId:   existing.employee_id,
+        date:         existing.date,
+        startMinutes: existing.start_minutes,
+        endMinutes:   existing.end_minutes,
+      },
+      metadata: {
+        employeeId:   existing.employee_id,
+        employeeName: emp?.name ?? null,
+        date:         existing.date,
+        startMinutes: existing.start_minutes,
+        endMinutes:   existing.end_minutes,
+      },
+    }).catch(() => {});
   }
 
   return NextResponse.json({ ok: true });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -63,6 +64,19 @@ export async function POST(request: Request) {
     .insert(rowData);
 
   if (rowError) return NextResponse.json({ error: rowError.message }, { status: 500 });
+
+  writeAuditLog({
+    action:       "template.create",
+    actorId:      user?.id,
+    resourceType: "schedule_template",
+    resourceId:   String(template.id),
+    after: { name: name.trim(), rowCount: rows.length },
+    metadata: {
+      templateId:   template.id,
+      templateName: name.trim(),
+      rowCount:     rows.length,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ id: template.id });
 }

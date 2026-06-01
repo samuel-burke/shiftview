@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "dates must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -65,6 +66,18 @@ export async function POST(request: Request) {
     console.error("[schedules/copy] schedules insert failed:", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+
+  writeAuditLog({
+    action:       "schedule.copy",
+    actorId:      user?.id,
+    resourceType: "schedule",
+    metadata: {
+      fromDate,
+      toDate,
+      copied:  toInsert.length,
+      skipped,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ copied: toInsert.length, skipped });
 }
