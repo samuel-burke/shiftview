@@ -551,6 +551,8 @@ export default function Page() {
       isToday={isToday}
       openMinutes={storeHours.open}
       closeMinutes={storeHours.close}
+      punchRecords={punchRecords}
+      timezone={timezone}
     />
   );
 

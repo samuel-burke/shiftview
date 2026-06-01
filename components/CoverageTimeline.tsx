@@ -10,7 +10,7 @@ import {
   ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
-import { Schedule } from "../data/types";
+import { Schedule, PunchRecord } from "../data/types";
 
 type Props = {
   schedules: Schedule[];
@@ -18,6 +18,8 @@ type Props = {
   isToday: boolean;
   openMinutes: number;
   closeMinutes: number;
+  punchRecords?: PunchRecord[];
+  timezone?: string;
 };
 
 function fmtMinutes(m: number): string {
@@ -49,6 +51,8 @@ export default function CoverageTimeline({
   isToday,
   openMinutes,
   closeMinutes,
+  punchRecords,
+  timezone = "America/New_York",
 }: Props) {
   const range = closeMinutes - openMinutes;
 
@@ -69,6 +73,44 @@ export default function CoverageTimeline({
     }
     return result;
   }, [openMinutes, closeMinutes]);
+  // For each 15-min slot, count employees with status "clocked_in" at that minute.
+  // Returns null for future slots so the line terminates at nowMinutes.
+  const actualByPoint = useMemo(() => {
+    if (!isToday || !punchRecords?.length) return null;
+
+    const withMinutes = punchRecords.map((p) => {
+      const d = new Date(p.punchedAt);
+      const s = d.toLocaleTimeString("en-US", {
+        timeZone: timezone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      const [h, min] = s.split(":").map(Number);
+      return { ...p, minuteOfDay: h * 60 + min };
+    });
+
+    const byEmployee = new Map<number, typeof withMinutes>();
+    for (const p of withMinutes) {
+      if (!byEmployee.has(p.employeeId)) byEmployee.set(p.employeeId, []);
+      byEmployee.get(p.employeeId)!.push(p);
+    }
+
+    return points.map(({ m }) => {
+      if (m > nowMinutes) return null;
+      let count = 0;
+      for (const empPunches of byEmployee.values()) {
+        const before = empPunches
+          .filter((p) => p.minuteOfDay <= m)
+          .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime());
+        if (!before.length) continue;
+        const last = before[before.length - 1];
+        if (last.punchType === "clock_in" || last.punchType === "break_end") count++;
+      }
+      return count;
+    });
+  }, [isToday, punchRecords, points, nowMinutes, timezone]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [chartRect, setChartRect] = useState<{
     left: number;
@@ -78,13 +120,14 @@ export default function CoverageTimeline({
   } | null>(null);
 
   const data = useMemo(() => {
-    return points.map(({ label, m }) => ({
+    return points.map(({ label, m }, i) => ({
       label,
       staff: schedules.filter(
         (s) => m >= s.startMinutes && m < s.endMinutes,
       ).length,
+      actual: actualByPoint ? actualByPoint[i] : undefined,
     }));
-  }, [schedules, points]);
+  }, [schedules, points, actualByPoint]);
 
   const nowDataPoint = useMemo(() => {
     if (!isToday) return null;
@@ -152,9 +195,23 @@ export default function CoverageTimeline({
 
   return (
     <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
-      <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase mb-3 pl-1.5">
-        Coverage Timeline
-      </p>
+      <div className="flex items-center justify-between mb-3 pl-1.5 pr-1">
+        <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
+          Coverage Timeline
+        </p>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1 text-[10px] text-slate-400">
+            <span className="inline-block w-3 h-0.5 rounded bg-blue-500" />
+            Scheduled
+          </span>
+          {actualByPoint && (
+            <span className="flex items-center gap-1 text-[10px] text-slate-400">
+              <span className="inline-block w-3 h-0.5 rounded bg-green-500" />
+              Clocked In
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Wrapper — position relative so overlay can be absolute */}
       <div
@@ -179,6 +236,10 @@ export default function CoverageTimeline({
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
+              <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+              </linearGradient>
             </defs>
             <XAxis
               dataKey="label"
@@ -201,7 +262,11 @@ export default function CoverageTimeline({
                 fontSize: 12,
                 color: "#f1f5f9",
               }}
-              formatter={(v) => [`${v} staff`, "Coverage"]}
+              formatter={(v, name) => {
+                if (name === "staff") return [`${v} scheduled`, "Scheduled"];
+                if (name === "actual") return [`${v} clocked in`, "Actual"];
+                return [`${v}`, String(name)];
+              }}
             />
             <Area
               type="monotone"
@@ -211,6 +276,17 @@ export default function CoverageTimeline({
               fill="url(#covGrad)"
               dot={false}
             />
+            {actualByPoint && (
+              <Area
+                type="monotone"
+                dataKey="actual"
+                stroke="#22c55e"
+                strokeWidth={2.5}
+                fill="url(#actualGrad)"
+                dot={false}
+                connectNulls={false}
+              />
+            )}
             {isToday && nowDataPoint && (
               <ReferenceLine
                 x={nowDataPoint.label}
