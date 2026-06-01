@@ -298,18 +298,64 @@ export default function Page() {
     return () => clearInterval(t);
   }, [timezone]);
 
-  // Auto-refresh punch records every 60 seconds when viewing today (manager only)
+  // Supabase Realtime — live punch updates while viewing today (manager only)
   useEffect(() => {
     const viewingToday = toDateKey(date, timezone) === toDateKey(new Date(), timezone);
     if (!viewingToday || isDemo || !isManager) return;
+
+    const todayKey = toDateKey(new Date(), timezone);
+
+    function rowToPunch(p: Record<string, unknown>): PunchRecord {
+      return {
+        id:         p.id          as number,
+        employeeId: p.employee_id as number,
+        scheduleId: p.schedule_id as number | null,
+        punchType:  p.punch_type  as PunchRecord["punchType"],
+        punchedAt:  p.punched_at  as string,
+        lat:        p.lat         as number | null,
+        lng:        p.lng         as number | null,
+        isManual:   p.is_manual   as boolean,
+        note:       p.note        as string | null,
+      };
+    }
+
+    const channel = supabase
+      .channel("punch-records-live")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "punch_records" },
+        (payload) => {
+          const p = payload.new as Record<string, unknown>;
+          const punchDate = new Date(p.punched_at as string).toLocaleDateString("en-CA", { timeZone: timezone });
+          if (punchDate !== todayKey) return;
+          setPunchRecords((prev) => [...prev, rowToPunch(p)]);
+          setPunchesLoaded(true);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "punch_records" },
+        (payload) => {
+          const p = payload.new as Record<string, unknown>;
+          const punch = rowToPunch(p);
+          setPunchRecords((prev) => prev.map((r) => r.id === punch.id ? punch : r));
+        }
+      )
+      .subscribe();
+
+    // 5-minute background poll as a fallback in case the Realtime connection drops
     const t = setInterval(() => {
       const dateKey = toDateKey(date, timezone);
       apiFetch(`/api/punches?date=${dateKey}`)
         .then((r) => r.json())
         .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
         .catch(() => {});
-    }, 60000);
-    return () => clearInterval(t);
+    }, 300000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(t);
+    };
   }, [isDemo, isManager, date, timezone]);
 
   // Fetch employees, manager status, store hours, and settings in parallel on mount
@@ -439,10 +485,6 @@ export default function Page() {
     () => employees.filter((emp) => !daySchedules.some((s) => s.employeeId === emp.id)),
     [employees, daySchedules],
   );
-  const hereNow = useMemo(
-    () => scheduled.filter((s) => isHere(s, nowMinutes)),
-    [scheduled, nowMinutes],
-  );
   const sortedScheduled = useMemo(
     () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
     [scheduled],
@@ -460,6 +502,15 @@ export default function Page() {
     }
     return map;
   }, [punchRecords, scheduled, punchesLoaded]);
+
+  // When punch data is loaded for today, count employees actually clocked in.
+  // On past/future dates or before punch data arrives, fall back to schedule window.
+  const hereNow = useMemo(() => {
+    if (isToday && punchesLoaded) {
+      return scheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in");
+    }
+    return scheduled.filter((s) => isHere(s, nowMinutes));
+  }, [scheduled, nowMinutes, isToday, punchesLoaded, attendanceMap]);
 
   const lastUpdated = lastFetchedAt
     ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
@@ -551,6 +602,8 @@ export default function Page() {
       isToday={isToday}
       openMinutes={storeHours.open}
       closeMinutes={storeHours.close}
+      punchRecords={punchRecords}
+      timezone={timezone}
     />
   );
 
