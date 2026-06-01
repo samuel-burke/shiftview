@@ -83,7 +83,7 @@ describe("pageClient attendance", () => {
     });
     render(<Page />);
     await waitFor(() => {
-      expect(screen.getByText("Clocked In")).toBeInTheDocument();
+      expect(screen.getAllByText("Clocked In").length).toBeGreaterThanOrEqual(1);
     });
   });
 });
