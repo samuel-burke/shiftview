@@ -59,12 +59,14 @@ export default function CoverageTimeline({
   const STEP = 5;
 
   const points = useMemo(() => {
-    const pts = [];
-    for (let m = openMinutes; m <= closeMinutes; m += STEP) {
-      pts.push({ label: fmtMinutes(m), m });
-    }
+    const pts: { label: string; m: number }[] = [];
+    const ms = new Set<number>();
+    for (let m = openMinutes; m <= closeMinutes; m += STEP) ms.add(m);
+    // Inject the exact current minute so the actual line always ends right at now
+    if (isToday && nowMinutes > openMinutes && nowMinutes < closeMinutes) ms.add(nowMinutes);
+    for (const m of [...ms].sort((a, b) => a - b)) pts.push({ label: fmtMinutes(m), m });
     return pts;
-  }, [openMinutes, closeMinutes]);
+  }, [openMinutes, closeMinutes, isToday, nowMinutes]);
 
   const ticks = useMemo(() => {
     const result = [];
@@ -131,13 +133,10 @@ export default function CoverageTimeline({
 
   const nowDataPoint = useMemo(() => {
     if (!isToday) return null;
-    const snappedM = Math.min(
-      Math.max(Math.round(nowMinutes / STEP) * STEP, openMinutes),
-      closeMinutes,
-    );
-    const label = fmtMinutes(snappedM);
+    const clampedM = Math.min(Math.max(nowMinutes, openMinutes), closeMinutes);
+    const label = fmtMinutes(clampedM);
     const staff = schedules.filter(
-      (s) => snappedM >= s.startMinutes && snappedM < s.endMinutes,
+      (s) => clampedM >= s.startMinutes && clampedM < s.endMinutes,
     ).length;
     return { label, staff };
   }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules]);
@@ -182,11 +181,7 @@ export default function CoverageTimeline({
 
   if (range === 0) return null;
 
-  const nowSnapped = Math.min(
-    Math.max(Math.round(nowMinutes / STEP) * STEP, openMinutes),
-    closeMinutes,
-  );
-  const nowPct = (nowSnapped - openMinutes) / range; // 0–1
+  const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
   const timeStr = fmtMinutes(nowMinutes);
 
   // Pixel position of the badge within the container
