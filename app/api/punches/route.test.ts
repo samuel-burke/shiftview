@@ -270,6 +270,37 @@ describe("POST /api/punches — state-machine guard", () => {
     expect(res.status).toBe(409);
   });
 
+  it("uses a 16-hour rolling window so punches near UTC midnight are not missed", async () => {
+    vi.useFakeTimers();
+    // 1:04am UTC on June 2 = 9:04pm EST on June 1 — crosses UTC midnight
+    vi.setSystemTime(new Date("2026-06-02T01:04:00Z"));
+
+    let gteArg = "";
+    const client = makePunchClient({ lastPunch: { punch_type: "clock_in" } });
+    const origFrom = (client as any).from.bind(client);
+    (client as any).from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "punch_records") {
+        const origGte = b.gte.bind(b);
+        b.gte = vi.fn().mockImplementation((col: string, val: string) => {
+          if (col === "punched_at") gteArg = val;
+          return origGte(col, val);
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(makePostRequest({ punchType: "clock_out" }));
+    vi.useRealTimers();
+
+    // BUG (before): gte = "2026-06-02T00:00:00Z" — UTC midnight, misses all of June 1
+    // FIX (after) : gte = "2026-06-01T09:04:00Z" — 16h ago, covers a 9am EST clock-in
+    // A clock-in at 9am EST = 13:00 UTC June 1 must be within the query window.
+    expect(new Date(gteArg).getTime()).toBeLessThanOrEqual(
+      new Date("2026-06-01T13:00:00.000Z").getTime()
+    );
+  });
+
   it("returns 500 when last-punch query fails", async () => {
     mockCreateClient.mockResolvedValue(
       makePunchClient({ lastPunchError: { message: "db error" } }) as any
