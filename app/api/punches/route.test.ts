@@ -148,12 +148,12 @@ describe("POST /api/punches — state-machine guard", () => {
     expect(res.status).toBe(201);
   });
 
-  it("allows clock_in after break_end", async () => {
+  it("rejects clock_in after break_end — must clock out first (returns 409)", async () => {
     mockCreateClient.mockResolvedValue(
       makePunchClient({ lastPunch: { punch_type: "break_end" } }) as any
     );
     const res = await POST(makePostRequest({ punchType: "clock_in" }));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(409);
   });
 
   it("rejects clock_in when already clocked in (returns 409)", async () => {
@@ -268,6 +268,27 @@ describe("POST /api/punches — state-machine guard", () => {
     );
     const res = await POST(makePostRequest({ punchType: "break_end" }));
     expect(res.status).toBe(409);
+  });
+
+  it("applies no time window — last punch is found regardless of when it occurred", async () => {
+    // A clock-in from hours ago (simulating 9pm EST = 1am UTC next day scenario)
+    // must still be visible so clock-out is allowed.
+    let gteCallCount = 0;
+    const client = makePunchClient({ lastPunch: { punch_type: "clock_in" } });
+    const origFrom = (client as any).from.bind(client);
+    (client as any).from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "punch_records") {
+        const origGte = b.gte.bind(b);
+        b.gte = vi.fn().mockImplementation((...args: unknown[]) => { gteCallCount++; return origGte(...args); });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_out" }));
+    expect(res.status).toBe(201);
+    // No date filter applied to the state-machine query
+    expect(gteCallCount).toBe(0);
   });
 
   it("returns 500 when last-punch query fails", async () => {
