@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -19,24 +19,12 @@ import BottomNav from "../../components/BottomNav";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
 import { createClient } from "@/lib/supabase-browser";
-import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
 
-function getNowMinutes() {
-  const now = new Date();
-  const parts = now.toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const [h, m] = parts.split(":").map(Number);
-  return h * 60 + m;
-}
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
   clocked_in:    "Clocked In",
@@ -85,7 +73,6 @@ export default function ClockPageClient() {
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [elapsed, setElapsed] = useState(0);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [isManager, setIsManager] = useState(false);
@@ -118,10 +105,6 @@ export default function ClockPageClient() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"idle" | "acquiring" | "ok" | "denied">("idle");
 
-  // Pre-punch warning confirmation
-  const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
-  const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
-
   // Time clock settings
   const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
   const [gpsRequired, setGpsRequired] = useState(false);
@@ -146,12 +129,6 @@ export default function ClockPageClient() {
       return () => clearInterval(t);
     }
   }, [punches, status]);
-
-  // Live nowMinutes for shift status
-  useEffect(() => {
-    const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
-    return () => clearInterval(t);
-  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -212,29 +189,6 @@ export default function ClockPageClient() {
         { timeout: 8000 }
       );
     });
-  }
-
-  function handlePunchClick(punchType: PunchType) {
-    const warning = getPunchWarning(punchType, nowMinutes, schedule);
-    if (warning) {
-      setPendingPunchType(punchType);
-      setPendingWarning(warning);
-    } else {
-      submitPunch(punchType);
-    }
-  }
-
-  function confirmPunch() {
-    if (pendingPunchType) {
-      submitPunch(pendingPunchType);
-    }
-    setPendingPunchType(null);
-    setPendingWarning(null);
-  }
-
-  function cancelPunch() {
-    setPendingPunchType(null);
-    setPendingWarning(null);
   }
 
   async function submitPunch(punchType: PunchType) {
@@ -480,7 +434,7 @@ export default function ClockPageClient() {
         <div className="grid gap-3">
           {effectiveStatus === "not_clocked_in" && (
             <button
-              onClick={() => handlePunchClick("clock_in")}
+              onClick={() => submitPunch("clock_in")}
               disabled={actionPending}
               className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
             >
@@ -498,7 +452,7 @@ export default function ClockPageClient() {
                 {actionPending ? "…" : "Start Break"}
               </button>
               <button
-                onClick={() => handlePunchClick("clock_out")}
+                onClick={() => submitPunch("clock_out")}
                 disabled={actionPending}
                 className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
               >
@@ -677,51 +631,6 @@ export default function ClockPageClient() {
       </div>
 
       <BottomNav active="clock" />
-
-      {/* Pre-punch warning modal */}
-      {pendingWarning && pendingPunchType && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="punch-warning-heading"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
-          onClick={cancelPunch}
-        >
-          <div
-            className="w-full max-w-[480px] bg-card rounded-t-3xl border border-slate-700 px-6 pt-6 pb-10 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-2" />
-            <div className="text-center">
-              <div className="text-2xl mb-1">
-                {pendingWarning.diffMinutes > 0 ? "⏰" : "⚡"}
-              </div>
-              <div
-                id="punch-warning-heading"
-                className="text-lg font-extrabold text-slate-100"
-              >
-                {pendingWarning.heading}
-              </div>
-              <div className="text-sm text-slate-400 mt-1">{pendingWarning.body}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <button
-                onClick={cancelPunch}
-                className="py-3.5 rounded-2xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 active:scale-[0.98] transition-transform cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmPunch}
-                data-testid="confirm-punch-btn"
-                className="py-3.5 rounded-2xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30 active:scale-[0.98] transition-transform cursor-pointer"
-              >
-                {pendingPunchType === "clock_in" ? "Clock In Anyway" : "End Shift Anyway"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
