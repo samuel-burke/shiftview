@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,12 @@ export async function PUT(
   if (action === "demote" && userId === user!.id)
     return NextResponse.json({ error: "You cannot demote yourself" }, { status: 400 });
 
+  const { data: targetEmp } = await supabase
+    .from("employees")
+    .select("name")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   const fn = action === "promote" ? "manager_promote" : "manager_demote";
   const { error } = await supabase.rpc(fn, { target_user_id: userId });
 
@@ -33,6 +40,17 @@ export async function PUT(
     console.error("[api/managers]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  writeAuditLog({
+    action:       action === "promote" ? "manager.promote" : "manager.demote",
+    actorId:      user?.id,
+    resourceType: "manager",
+    resourceId:   userId,
+    metadata: {
+      targetUserId: userId,
+      targetName:   targetEmp?.name ?? null,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

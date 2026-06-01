@@ -136,14 +136,17 @@ describe("DELETE /api/templates/[id]", () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("deletes a template successfully", async () => {
-    const deleteBuilder: any = {
+    const templateBuilder: any = {
+      select: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 1, name: "Test" }, error: null }),
+      then: (resolve: any, reject: any) => Promise.resolve({ data: null, error: null }).then(resolve, reject),
     };
     const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     vi.spyOn(supabase, "from").mockImplementation((table: string) => {
       if (table === "managers") return makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers") as any;
-      if (table === "schedule_templates") return deleteBuilder;
+      if (table === "schedule_templates") return templateBuilder;
       return {} as any;
     });
     vi.mocked(createClient).mockResolvedValue(supabase as any);
@@ -187,6 +190,13 @@ describe("POST /api/templates/[id]/apply", () => {
     const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     vi.spyOn(supabase, "from").mockImplementation((table: string) => {
       if (table === "managers") return makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers") as any;
+      if (table === "schedule_templates") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 1, name: "Test Template" }, error: null }),
+        } as any;
+      }
       if (table === "schedule_template_rows") {
         return {
           select: vi.fn().mockReturnThis(),

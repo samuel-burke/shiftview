@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { DEMO_SETTINGS } from "@/data/demo-fixtures";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const supabase = await createClient();
 
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -105,5 +106,16 @@ export async function PUT(request: Request) {
     console.error("[api/settings]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+
+  writeAuditLog({
+    action:       "settings.update",
+    actorId:      user?.id,
+    resourceType: "app_settings",
+    after:        Object.fromEntries(rows.map((r) => [r.key, r.value])),
+    metadata: {
+      changedKeys: rows.map((r) => r.key),
+    },
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }

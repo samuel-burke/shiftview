@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
 import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -55,12 +56,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
+
+  const { data: before } = await supabase
+    .from("employees")
+    .select("id, name, email, user_id")
+    .eq("id", id)
+    .maybeSingle();
 
   const updates: Record<string, unknown> = {};
   if (userId !== undefined) updates.user_id = userId;
@@ -76,6 +83,19 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  writeAuditLog({
+    action:       "employee.update",
+    actorId:      user?.id,
+    resourceType: "employee",
+    resourceId:   String(id),
+    before:       before ? { name: before.name, email: before.email, userId: before.user_id } : null,
+    after:        updates,
+    metadata: {
+      employeeId:   id,
+      employeeName: before?.name ?? null,
+    },
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }
 
@@ -88,14 +108,14 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { user, error: authError } = await requireManager(supabase);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   // Fetch the employee first to get their linked auth user_id
   const { data: employee } = await supabase
     .from("employees")
-    .select("id, user_id")
+    .select("id, user_id, name, email")
     .eq("id", id)
     .maybeSingle();
 
@@ -129,6 +149,23 @@ export async function DELETE(request: Request) {
     await admin.from("managers").delete().eq("user_id", employee.user_id);
     await admin.auth.admin.deleteUser(employee.user_id);
   }
+
+  writeAuditLog({
+    action:       "employee.delete",
+    actorId:      user?.id,
+    resourceType: "employee",
+    resourceId:   String(id),
+    before: {
+      name:   employee.name,
+      email:  employee.email,
+      userId: employee.user_id,
+    },
+    metadata: {
+      employeeId:   id,
+      employeeName: employee.name,
+      email:        employee.email,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

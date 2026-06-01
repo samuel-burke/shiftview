@@ -8,6 +8,12 @@ function makeQueryBuilder(result: { data: any; error: any }) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
+  b.single = vi.fn().mockResolvedValue(result);
+  b.limit = vi.fn().mockReturnValue(b);
+  b.range = vi.fn().mockReturnValue(b);
+  b.like = vi.fn().mockReturnValue(b);
+  b.in = vi.fn().mockReturnValue(b);
+  b.or = vi.fn().mockReturnValue(b);
   // Makes the builder thenable so `await builder.chain()` works
   b.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
   return b;

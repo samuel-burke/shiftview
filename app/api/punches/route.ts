@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
+import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -101,15 +102,13 @@ export async function POST(request: Request) {
 
   const { data: emp } = await supabase
     .from("employees")
-    .select("id")
+    .select("id, name")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!emp)
     return NextResponse.json({ error: "No employee record linked to this account" }, { status: 403 });
 
-  // No date window — just the most recent punch ever. Any timezone edge cases are avoided
-  // because the state machine is purely transition-based, not day-scoped.
   const { data: lastPunch, error: lastPunchError } = await supabase
     .from("punch_records")
     .select("punch_type")
@@ -173,21 +172,32 @@ export async function POST(request: Request) {
       const clockInMinutes = getLocalMinutes(punchedAt, tz);
       const lateMinutes = clockInMinutes - sched.start_minutes;
       if (lateMinutes > 5) {
-        const { data: empData } = await supabase
-          .from("employees")
-          .select("name")
-          .eq("id", sched.employee_id)
-          .maybeSingle();
         notifyManagers(
           supabase,
           "late_clock_in",
           "Late Clock-In",
-          `${empData?.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
+          `${emp.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
           { employeeId: sched.employee_id, scheduleId, lateMinutes }
         ).catch(() => {});
       }
     }
   }
+
+  writeAuditLog({
+    action:       `punch.${punchType}`,
+    actorId:      user.id,
+    resourceType: "punch_record",
+    resourceId:   String(data.id),
+    after: { employeeId: emp.id, punchType, scheduleId: scheduleId ?? null },
+    metadata: {
+      employeeId:   emp.id,
+      employeeName: emp.name,
+      punchType,
+      punchedAt:    data.punched_at,
+      lat:          lat ?? null,
+      lng:          lng ?? null,
+    },
+  }).catch(() => {});
 
   return NextResponse.json(mapRow(data), { status: 201 });
 }
@@ -235,17 +245,25 @@ export async function PUT(request: Request) {
 
   // Determine target employee
   let targetEmployeeId: number;
+  let targetEmployeeName: string | null = null;
   if (managerRow) {
     if (!employeeId) return NextResponse.json({ error: "employeeId required for manager corrections" }, { status: 400 });
     targetEmployeeId = employeeId;
+    const { data: empData } = await supabase
+      .from("employees")
+      .select("name")
+      .eq("id", employeeId)
+      .maybeSingle();
+    targetEmployeeName = empData?.name ?? null;
   } else {
     const { data: emp } = await supabase
       .from("employees")
-      .select("id")
+      .select("id, name")
       .eq("user_id", user.id)
       .maybeSingle();
     if (!emp) return NextResponse.json({ error: "No employee record" }, { status: 403 });
     targetEmployeeId = emp.id;
+    targetEmployeeName = emp.name;
   }
 
   if (id != null) {
@@ -276,6 +294,22 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
+
+  writeAuditLog({
+    action:       "punch.correction",
+    actorId:      user.id,
+    resourceType: "punch_record",
+    resourceId:   id != null ? String(id) : null,
+    after: { employeeId: targetEmployeeId, punchType, punchedAt, note: note ?? null },
+    metadata: {
+      employeeId:   targetEmployeeId,
+      employeeName: targetEmployeeName,
+      punchType,
+      punchedAt,
+      isUpdate:     id != null,
+      byManager:    !!managerRow,
+    },
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }
