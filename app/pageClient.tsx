@@ -686,16 +686,22 @@ export default function Page() {
   ) : null;
 
   const pendingBanner = isManager && !isDemo && pendingTimeOff.length > 0 ? (
-    <button
-      onClick={() => setTimeOffDrawerOpen(true)}
-      className="w-full text-left px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer"
-      style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24" }}
+    <div
+      className="px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
+      style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}
     >
       <TimeOffPendingIcon size={13} color="#fbbf24" />
-      <span className="font-medium">
+      <span className="font-medium text-amber-300 flex-1">
         {pendingTimeOff.length} new time-off {pendingTimeOff.length === 1 ? "request" : "requests"}
       </span>
-    </button>
+      <button
+        onClick={() => setTimeOffDrawerOpen(true)}
+        className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-md cursor-pointer"
+        style={{ background: "rgba(245,158,11,0.25)", border: "1px solid rgba(245,158,11,0.45)", color: "#fbbf24" }}
+      >
+        Review time off requests
+      </button>
+    </div>
   ) : null;
 
   const errorBanner = error ? (
