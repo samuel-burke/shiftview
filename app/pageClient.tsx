@@ -720,7 +720,7 @@ export default function Page() {
         <CoverageHeader {...headerProps} />
         {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
         {errorBanner}
-        {pendingBanner && <div className="mx-6 mt-3">{pendingBanner}</div>}
+        {pendingBanner && <div className="mx-6 mt-3 mb-1">{pendingBanner}</div>}
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
@@ -749,7 +749,7 @@ export default function Page() {
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
-      {pendingBanner && <div className="mt-3">{pendingBanner}</div>}
+      {pendingBanner && <div className="mt-3 mb-1">{pendingBanner}</div>}
       {statsRow}
       {timeline}
       {legend}

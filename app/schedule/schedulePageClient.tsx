@@ -29,6 +29,15 @@ import {
   TimeOffApprovedIcon,
   TimeOffDeniedIcon,
 } from "../../components/ShiftIcons";
+import TimeOffRequestsDrawer from "../../components/TimeOffRequestsDrawer";
+
+type ManagerTimeOffRequest = {
+  id: number;
+  employeeName: string;
+  date: string;
+  note?: string;
+  status: string;
+};
 
 type View = "week" | "month";
 
@@ -118,6 +127,34 @@ export default function SchedulePageClient() {
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
+  const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  const [managerTimeOffDrawerOpen, setManagerTimeOffDrawerOpen] = useState(false);
+
+  async function handleApproveManagerTimeOff(id: number) {
+    const res = await fetch(`/api/time-off/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to approve request");
+    }
+    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function handleDenyManagerTimeOff(id: number) {
+    const res = await fetch(`/api/time-off/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "denied" }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to deny request");
+    }
+    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -132,6 +169,12 @@ export default function SchedulePageClient() {
         setEmployeeName(employeeName ?? null);
         setIsManager(!!isManager);
         setEmployeeId(employeeId ?? null);
+        if (isManager && !isDemo) {
+          fetch("/api/time-off")
+            .then((r) => r.json())
+            .then(({ requests }) => { if (Array.isArray(requests)) setPendingManagerTimeOff(requests); })
+            .catch(() => {});
+        }
       })
       .catch(() => {});
     fetch("/api/store-hours")
@@ -382,6 +425,21 @@ export default function SchedulePageClient() {
         </div>
       </div>
 
+      {isManager && !isDemo && pendingManagerTimeOff.length > 0 && (
+        <div className="px-4 pt-3">
+          <button
+            onClick={() => setManagerTimeOffDrawerOpen(true)}
+            className="w-full text-left px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer"
+            style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24" }}
+          >
+            <TimeOffPendingIcon size={13} color="#fbbf24" />
+            <span className="font-medium">
+              {pendingManagerTimeOff.length} new time-off {pendingManagerTimeOff.length === 1 ? "request" : "requests"}
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="px-4 pt-4">
         {/* Next Shift card */}
         <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
@@ -624,6 +682,14 @@ export default function SchedulePageClient() {
         firstDayOfWeek={firstDayOfWeek}
         onSelect={handlePickerSelect}
         onClose={() => setPickerOpen(false)}
+      />
+
+      <TimeOffRequestsDrawer
+        open={managerTimeOffDrawerOpen}
+        onClose={() => setManagerTimeOffDrawerOpen(false)}
+        requests={pendingManagerTimeOff}
+        onApprove={handleApproveManagerTimeOff}
+        onDeny={handleDenyManagerTimeOff}
       />
 
       <BottomNav active="schedule" />

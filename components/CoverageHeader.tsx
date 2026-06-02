@@ -148,7 +148,7 @@ export default function CoverageHeader({
             className="mx-6 mt-3 px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
             style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
           >
-            <span>{alertConfig.icon}</span>
+            {alertConfig.icon}
             <span>{alertConfig.message}</span>
           </div>
         )}
@@ -189,7 +189,7 @@ export default function CoverageHeader({
           className="mt-3 px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
           style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
         >
-          <span>{alertConfig.icon}</span>
+          {alertConfig.icon}
           <span>{alertConfig.message}</span>
         </div>
       )}
