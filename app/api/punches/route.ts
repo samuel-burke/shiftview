@@ -20,6 +20,31 @@ function getLocalMinutes(date: Date, tz: string): number {
   return h * 60 + m;
 }
 
+// Returns the UTC start and end instants that bound a full calendar day in `tz`.
+// Using noon UTC as the reference avoids DST-at-midnight edge cases.
+function localDayBoundsUtc(dateKey: string, tz: string): { start: Date; end: Date } {
+  const noonUtc = new Date(`${dateKey}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  }).formatToParts(noonUtc);
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+  const localNoonMs = Date.UTC(
+    get("year"), get("month") - 1, get("day"),
+    get("hour") % 24, get("minute"), get("second"),
+  );
+  // offsetMs is negative for timezones behind UTC (e.g. America/*)
+  const offsetMs = localNoonMs - noonUtc.getTime();
+  const [y, mo, d] = dateKey.split("-").map(Number);
+  return {
+    start: new Date(Date.UTC(y, mo - 1, d,  0,  0,  0,   0) - offsetMs),
+    end:   new Date(Date.UTC(y, mo - 1, d, 23, 59, 59, 999) - offsetMs),
+  };
+}
+
 function mapRow(r: Record<string, unknown>) {
   return {
     id:         r.id,
@@ -48,8 +73,13 @@ export async function GET(request: Request) {
 
   if (!user) return NextResponse.json([]);
 
-  const dayStart = `${date}T00:00:00+00:00`;
-  const dayEnd   = `${date}T23:59:59.999+00:00`;
+  // Resolve store timezone so the day window is in local time, not UTC.
+  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+  const settingsMap = Object.fromEntries(
+    (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+  );
+  const tz = settingsMap.timezone ?? "America/New_York";
+  const { start: dayStart, end: dayEnd } = localDayBoundsUtc(date, tz);
 
   const { data: managerRow } = await supabase
     .from("managers")
@@ -60,8 +90,8 @@ export async function GET(request: Request) {
   let query = supabase
     .from("punch_records")
     .select("*")
-    .gte("punched_at", dayStart)
-    .lte("punched_at", dayEnd)
+    .gte("punched_at", dayStart.toISOString())
+    .lte("punched_at", dayEnd.toISOString())
     .order("punched_at");
 
   if (!managerRow) {

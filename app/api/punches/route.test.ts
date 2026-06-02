@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST, PUT } from "./route";
+import { GET, POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER } from "../__tests__/helpers";
@@ -496,5 +496,187 @@ describe("PUT /api/punches — manual punches setting", () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toMatch(/manual/i);
+  });
+});
+
+// ── GET /api/punches — timezone-aware day boundaries ─────────────────────────
+
+function makeGetRequest(date?: string) {
+  const url = date
+    ? `http://localhost/api/punches?date=${date}`
+    : `http://localhost/api/punches`;
+  return new Request(url, { method: "GET" });
+}
+
+/**
+ * Builds a Supabase client for GET tests.
+ * Captures the gte/lte values passed to punch_records for assertion,
+ * and optionally filters the provided punchRows through those bounds.
+ */
+function makeGetClient({
+  timezone = "America/New_York",
+  isManager = true,
+  punchRows = [] as any[],
+} = {}) {
+  let capturedGte: string | undefined;
+  let capturedLte: string | undefined;
+
+  const client = {
+    _getCaptured: () => ({ gte: capturedGte, lte: capturedLte }),
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      const b: any = {};
+      for (const m of ["select", "eq", "gte", "lte", "order", "limit"]) {
+        b[m] = vi.fn().mockReturnValue(b);
+      }
+      b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+      b.then = (resolve: any, _rej: any) =>
+        Promise.resolve({ data: null, error: null }).then(resolve, _rej);
+
+      if (table === "app_settings") {
+        b.then = (resolve: any, _rej: any) =>
+          Promise.resolve({
+            data: [{ key: "timezone", value: timezone }],
+            error: null,
+          }).then(resolve, _rej);
+        return b;
+      }
+
+      if (table === "managers") {
+        b.maybeSingle = vi.fn().mockResolvedValue({
+          data: isManager ? { user_id: MOCK_USER.id } : null,
+          error: null,
+        });
+        return b;
+      }
+
+      if (table === "employees") {
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1 }, error: null });
+        return b;
+      }
+
+      if (table === "punch_records") {
+        b.gte = vi.fn().mockImplementation((_col: string, val: string) => {
+          capturedGte = val;
+          return b;
+        });
+        b.lte = vi.fn().mockImplementation((_col: string, val: string) => {
+          capturedLte = val;
+          return b;
+        });
+        b.then = (resolve: any, _rej: any) => {
+          const filtered = punchRows.filter((p) => {
+            const t = new Date(p.punched_at).getTime();
+            const lo = capturedGte ? new Date(capturedGte).getTime() : -Infinity;
+            const hi = capturedLte ? new Date(capturedLte).getTime() : Infinity;
+            return t >= lo && t <= hi;
+          });
+          return Promise.resolve({ data: filtered, error: null }).then(resolve, _rej);
+        };
+        return b;
+      }
+
+      return b;
+    }),
+  };
+  return client;
+}
+
+describe("GET /api/punches — input validation", () => {
+  it("returns 400 when date param is missing", async () => {
+    mockCreateClient.mockResolvedValue(makeGetClient() as any);
+    const res = await GET(makeGetRequest());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/date/i);
+  });
+
+  it("returns 400 when date format is invalid", async () => {
+    mockCreateClient.mockResolvedValue(makeGetClient() as any);
+    const res = await GET(makeGetRequest("not-a-date"));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /api/punches — timezone-aware day filtering", () => {
+  it("computes EDT-aligned UTC boundaries: midnight EDT = 04:00 UTC", async () => {
+    const client = makeGetClient({ timezone: "America/New_York" });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    await GET(makeGetRequest("2026-06-01"));
+
+    const { gte, lte } = client._getCaptured();
+    // EDT = UTC-4: midnight EDT on Jun 1 = 04:00 UTC; 23:59:59.999 EDT = Jun 2 03:59:59.999 UTC
+    expect(gte).toBe("2026-06-01T04:00:00.000Z");
+    expect(lte).toBe("2026-06-02T03:59:59.999Z");
+  });
+
+  it("computes EST-aligned UTC boundaries in winter: midnight EST = 05:00 UTC", async () => {
+    const client = makeGetClient({ timezone: "America/New_York" });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    await GET(makeGetRequest("2026-01-15"));
+
+    const { gte, lte } = client._getCaptured();
+    // EST = UTC-5: midnight EST on Jan 15 = 05:00 UTC; 23:59:59.999 EST = Jan 16 04:59:59.999 UTC
+    expect(gte).toBe("2026-01-15T05:00:00.000Z");
+    expect(lte).toBe("2026-01-16T04:59:59.999Z");
+  });
+
+  it("excludes a 9:53 PM EDT punch when querying the following local date", async () => {
+    // 2026-06-01T01:53:08Z = 9:53 PM EDT on May 31 — must NOT appear in June 1 results
+    const prevNightPunch = {
+      id: 1, employee_id: 1, schedule_id: null, punch_type: "clock_in",
+      punched_at: "2026-06-01T01:53:08.000Z",
+      lat: null, lng: null, is_manual: false, note: null,
+    };
+    const client = makeGetClient({ timezone: "America/New_York", punchRows: [prevNightPunch] });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    const res = await GET(makeGetRequest("2026-06-01"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(0);
+  });
+
+  it("includes the same 9:53 PM EDT punch when querying May 31", async () => {
+    const prevNightPunch = {
+      id: 1, employee_id: 1, schedule_id: null, punch_type: "clock_in",
+      punched_at: "2026-06-01T01:53:08.000Z",
+      lat: null, lng: null, is_manual: false, note: null,
+    };
+    const client = makeGetClient({ timezone: "America/New_York", punchRows: [prevNightPunch] });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    const res = await GET(makeGetRequest("2026-05-31"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].punchType).toBe("clock_in");
+  });
+
+  it("uses America/New_York as fallback when timezone is absent from app_settings", async () => {
+    const client = makeGetClient({ timezone: "America/New_York" });
+    // Override app_settings to return an empty array (no timezone key)
+    const origFrom = client.from.bind(client);
+    client.from = vi.fn().mockImplementation((table: string) => {
+      if (table === "app_settings") {
+        const b: any = {};
+        b.select = vi.fn().mockReturnValue(b);
+        b.then = (resolve: any, _rej: any) =>
+          Promise.resolve({ data: [], error: null }).then(resolve, _rej);
+        return b;
+      }
+      return origFrom(table);
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    await GET(makeGetRequest("2026-06-01"));
+
+    const { gte } = client._getCaptured();
+    // Fallback to America/New_York (EDT = UTC-4 in June)
+    expect(gte).toBe("2026-06-01T04:00:00.000Z");
   });
 });
