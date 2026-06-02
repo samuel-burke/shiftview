@@ -18,6 +18,12 @@ import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import { createClient } from "@/lib/supabase-browser";
+import {
+  SkeletonNextShift,
+  SkeletonWeekCalendar,
+  SkeletonDetailCard,
+  SkeletonStatsRow,
+} from "../../components/Skeleton";
 
 type View = "week" | "month";
 
@@ -376,7 +382,7 @@ export default function SchedulePageClient() {
         <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
           <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
           {nextShift === undefined ? (
-            <div className="h-8 bg-slate-800 rounded animate-pulse" />
+            <SkeletonNextShift />
           ) : nextShift ? (
             <>
               <div className="text-slate-300 font-semibold text-sm">
@@ -464,9 +470,7 @@ export default function SchedulePageClient() {
 
         {/* Calendar */}
         {loading ? (
-          <div className="h-[120px] flex items-center justify-center">
-            <div className="spinner" />
-          </div>
+          <SkeletonWeekCalendar />
         ) : scheduleError ? (
           <div className="h-[120px] flex items-center justify-center">
             <div className="text-sm text-red-400 text-center">{scheduleError}</div>
@@ -496,7 +500,8 @@ export default function SchedulePageClient() {
         )}
 
         {/* Detail card */}
-        <div className="bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60">
+        {loading ? <SkeletonDetailCard /> : null}
+        <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${loading ? " hidden" : ""}`}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm text-slate-400">{selectedDayLabel}</span>
             {shiftLabel && shiftColor && (
@@ -574,7 +579,8 @@ export default function SchedulePageClient() {
         </div>
 
         {/* Stats row */}
-        <div className="flex gap-2">
+        {loading ? <SkeletonStatsRow /> : null}
+        <div className={`flex gap-2${loading ? " hidden" : ""}`}>
           <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
             <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
             <div className="text-xs text-slate-400 mt-1">

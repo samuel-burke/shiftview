@@ -20,6 +20,7 @@ import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
+import { SkeletonClockBody } from "../../components/Skeleton";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -339,9 +340,17 @@ export default function ClockPageClient() {
   if (loading) {
     return (
       <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="spinner" />
+        <div
+          className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+        >
+          <div>
+            <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
+            <div className="skeleton h-7 w-28 rounded" />
+          </div>
+          <div className="skeleton h-8 w-28 rounded-xl" />
         </div>
+        <SkeletonClockBody />
         <BottomNav active="clock" />
       </main>
     );
