@@ -247,8 +247,8 @@ export default function EmployeeDrawer({
               <div
                 className="size-[52px] rounded-[14px] flex items-center justify-center text-base font-extrabold"
                 style={{
-                  background: `${shiftColor}22`,
-                  border: `2px solid ${shiftColor}55`,
+                  background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`,
+                  border: `2px solid color-mix(in srgb, ${shiftColor} 33%, transparent)`,
                   color: shiftColor,
                 }}
               >
