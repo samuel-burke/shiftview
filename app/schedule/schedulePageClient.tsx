@@ -24,6 +24,11 @@ import {
   SkeletonDetailCard,
   SkeletonStatsRow,
 } from "../../components/Skeleton";
+import {
+  TimeOffPendingIcon,
+  TimeOffApprovedIcon,
+  TimeOffDeniedIcon,
+} from "../../components/ShiftIcons";
 
 type View = "week" | "month";
 
@@ -529,20 +534,20 @@ export default function SchedulePageClient() {
           {/* Time-off request status or action */}
           {selectedTimeOff?.status === "pending" && !selectedSchedule && (
             <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-              <span className="text-yellow-400 text-base">⏳</span>
+              <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
               <span className="text-sm text-yellow-300 font-semibold">Time-off request pending</span>
             </div>
           )}
           {selectedTimeOff?.status === "approved" && !selectedSchedule && (
             <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-              <span className="text-emerald-400 text-base">✓</span>
+              <TimeOffApprovedIcon size={16} color="rgb(52 211 153)" />
               <span className="text-sm text-emerald-300 font-semibold">Time off approved</span>
             </div>
           )}
           {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
             <div className="mt-3">
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
-                <span className="text-red-400 text-base">✕</span>
+                <TimeOffDeniedIcon size={16} color="rgb(248 113 113)" />
                 <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
               </div>
               {employeeId !== null && !isDemo && (
