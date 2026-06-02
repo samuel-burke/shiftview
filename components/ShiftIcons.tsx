@@ -128,3 +128,12 @@ export function BellIcon({ size = 14, color = "currentColor" }: IconProps) {
     </svg>
   );
 }
+
+export function LockIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="3" y="7.5" width="10" height="7" rx="1.5" stroke={color} strokeWidth="1.5" />
+      <path d="M5 7.5V5a3 3 0 016 0v2.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}

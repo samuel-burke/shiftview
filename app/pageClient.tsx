@@ -37,7 +37,7 @@ import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useIsDesktop } from "../hooks/useIsDesktop";
-import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
+import { SunriseIcon, SunIcon, MoonIcon, TimeOffPendingIcon } from "../components/ShiftIcons";
 
 function toDateKey(d: Date, tz = "America/New_York") {
   return d.toLocaleDateString("en-CA", { timeZone: tz });
@@ -685,12 +685,16 @@ export default function Page() {
     />
   ) : null;
 
-  const pendingBadge = isManager && !isDemo && pendingTimeOff.length > 0 ? (
+  const pendingBanner = isManager && !isDemo && pendingTimeOff.length > 0 ? (
     <button
       onClick={() => setTimeOffDrawerOpen(true)}
-      className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5 cursor-pointer"
+      className="w-full text-left px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer"
+      style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24" }}
     >
-      📋 {pendingTimeOff.length}
+      <TimeOffPendingIcon size={13} color="#fbbf24" />
+      <span className="font-medium">
+        {pendingTimeOff.length} new time-off {pendingTimeOff.length === 1 ? "request" : "requests"}
+      </span>
     </button>
   ) : null;
 
@@ -716,12 +720,10 @@ export default function Page() {
         <CoverageHeader {...headerProps} />
         {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
         {errorBanner}
+        {pendingBanner && <div className="mx-6 mt-3">{pendingBanner}</div>}
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
-            {pendingBadge && (
-              <div className="flex justify-end mb-3">{pendingBadge}</div>
-            )}
             {statsRow}
             {timeline}
             {legend}
@@ -747,9 +749,7 @@ export default function Page() {
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
-      {pendingBadge && (
-        <div className="flex justify-end mb-3 mt-2">{pendingBadge}</div>
-      )}
+      {pendingBanner && <div className="mt-3">{pendingBanner}</div>}
       {statsRow}
       {timeline}
       {legend}
