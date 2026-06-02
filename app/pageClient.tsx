@@ -31,13 +31,13 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
-import TimeOffRequestsDrawer from "../components/TimeOffRequestsDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useIsDesktop } from "../hooks/useIsDesktop";
-import { SunriseIcon, SunIcon, MoonIcon, TimeOffPendingIcon } from "../components/ShiftIcons";
+import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
+import PendingTimeOffSection from "../components/PendingTimeOffSection";
 
 function toDateKey(d: Date, tz = "America/New_York") {
   return d.toLocaleDateString("en-CA", { timeZone: tz });
@@ -156,7 +156,6 @@ export default function Page() {
     status: string;
   };
   const [pendingTimeOff, setPendingTimeOff] = useState<TimeOffRequest[]>([]);
-  const [timeOffDrawerOpen, setTimeOffDrawerOpen] = useState(false);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -675,35 +674,6 @@ export default function Page() {
     />
   );
 
-  const timeOffDrawer = isManager && !isDemo ? (
-    <TimeOffRequestsDrawer
-      open={timeOffDrawerOpen}
-      onClose={() => setTimeOffDrawerOpen(false)}
-      requests={pendingTimeOff}
-      onApprove={handleApproveTimeOff}
-      onDeny={handleDenyTimeOff}
-    />
-  ) : null;
-
-  const pendingBanner = isManager && !isDemo && pendingTimeOff.length > 0 ? (
-    <div
-      className="px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
-      style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}
-    >
-      <TimeOffPendingIcon size={13} color="#fbbf24" />
-      <span className="font-medium text-amber-300 flex-1">
-        {pendingTimeOff.length} new time-off {pendingTimeOff.length === 1 ? "request" : "requests"}
-      </span>
-      <button
-        onClick={() => setTimeOffDrawerOpen(true)}
-        className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-md cursor-pointer"
-        style={{ background: "rgba(245,158,11,0.25)", border: "1px solid rgba(245,158,11,0.45)", color: "#fbbf24" }}
-      >
-        Review time off requests
-      </button>
-    </div>
-  ) : null;
-
   const errorBanner = error ? (
     <div className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
       {error}
@@ -726,7 +696,6 @@ export default function Page() {
         <CoverageHeader {...headerProps} />
         {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
         {errorBanner}
-        {pendingBanner && <div className="mx-6 mt-3 mb-1">{pendingBanner}</div>}
         <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
           {/* Left: stats + timeline + legend */}
           <div>
@@ -740,11 +709,17 @@ export default function Page() {
           </div>
           {/* Right: team list */}
           <div className="sticky top-4">
+            {isManager && !isDemo && (
+              <PendingTimeOffSection
+                requests={pendingTimeOff}
+                onApprove={handleApproveTimeOff}
+                onDeny={handleDenyTimeOff}
+              />
+            )}
             {teamSections}
           </div>
         </div>
         {drawer}
-        {timeOffDrawer}
         <BottomNav active="team" />
       </main>
     );
@@ -755,17 +730,22 @@ export default function Page() {
       <CoverageHeader {...headerProps} />
       {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
       {errorBanner}
-      {pendingBanner && <div className="mt-3 mb-1">{pendingBanner}</div>}
       {statsRow}
       {timeline}
       {legend}
+      {isManager && !isDemo && (
+        <PendingTimeOffSection
+          requests={pendingTimeOff}
+          onApprove={handleApproveTimeOff}
+          onDeny={handleDenyTimeOff}
+        />
+      )}
       {teamSections}
       <div className="flex items-center justify-between mt-4">
         <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
         {exportButton}
       </div>
       {drawer}
-      {timeOffDrawer}
       <BottomNav active="team" />
     </main>
   );
