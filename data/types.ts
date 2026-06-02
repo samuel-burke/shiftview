@@ -48,7 +48,7 @@ export const SHIFT_COLORS: Record<ShiftType, string> = {
 };
 
 export const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
-  pending:  "#60a5fa",  // blue-400    — awaiting review
+  pending:  "#fde047",  // yellow-300  — awaiting review
   approved: "#34d399",  // emerald-400 — confirmed off
   denied:   "#f87171",  // red-400     — request rejected
 };

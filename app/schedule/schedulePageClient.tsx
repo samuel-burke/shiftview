@@ -528,9 +528,9 @@ export default function SchedulePageClient() {
 
           {/* Time-off request status or action */}
           {selectedTimeOff?.status === "pending" && !selectedSchedule && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30">
-              <span className="text-blue-400 text-base">⏳</span>
-              <span className="text-sm text-blue-300 font-semibold">Time-off request pending</span>
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+              <span className="text-yellow-400 text-base">⏳</span>
+              <span className="text-sm text-yellow-300 font-semibold">Time-off request pending</span>
             </div>
           )}
           {selectedTimeOff?.status === "approved" && !selectedSchedule && (
