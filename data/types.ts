@@ -42,15 +42,15 @@ export function isHere(s: Schedule, nowMinutes: number): boolean {
 }
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
-  opener: "#f59e0b",  // amber  — morning
-  mid:    "#fb923c",  // orange — midday
-  closer: "#a78bfa",  // violet — evening
+  opener: "#f59e0b",  // amber    — morning
+  mid:    "#38bdf8",  // sky-400  — midday
+  closer: "#a78bfa",  // violet   — evening
 };
 
 export const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
-  pending:  "#60a5fa",  // blue-400  — awaiting review
-  approved: "#22d3ee",  // cyan-400  — confirmed off
-  denied:   "#f87171",  // red-400   — request rejected
+  pending:  "#60a5fa",  // blue-400    — awaiting review
+  approved: "#34d399",  // emerald-400 — confirmed off
+  denied:   "#f87171",  // red-400     — request rejected
 };
 
 export const OPTIMAL_COVERAGE = 3;
