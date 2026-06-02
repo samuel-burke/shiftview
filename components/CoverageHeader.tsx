@@ -120,16 +120,8 @@ export default function CoverageHeader({
     return (
       <div className="mb-6">
         <div className="bg-bg border-b border-slate-800 px-6 py-[14px] flex items-center gap-6">
-          {/* Brand */}
-          <span className="text-[22px] font-extrabold text-slate-100 tracking-tight shrink-0">
-            Shift
-            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-              View
-            </span>
-          </span>
-
-          {/* Date nav — centered */}
-          <div className="flex-1 flex justify-center">
+          {/* Date nav — left-aligned, no brand (SideNav owns it) */}
+          <div className="flex-1">
             {dateNav}
           </div>
 
