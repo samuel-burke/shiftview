@@ -16,7 +16,6 @@ import BottomNav from "../../components/BottomNav";
 import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
-import AvailabilitySection from "../../components/AvailabilitySection";
 import { createClient } from "@/lib/supabase-browser";
 import {
   SkeletonNextShift,
@@ -24,6 +23,20 @@ import {
   SkeletonDetailCard,
   SkeletonStatsRow,
 } from "../../components/Skeleton";
+import {
+  TimeOffPendingIcon,
+  TimeOffApprovedIcon,
+  TimeOffDeniedIcon,
+} from "../../components/ShiftIcons";
+import PendingTimeOffSection from "../../components/PendingTimeOffSection";
+
+type ManagerTimeOffRequest = {
+  id: number;
+  employeeName: string;
+  date: string;
+  note?: string;
+  status: string;
+};
 
 type View = "week" | "month";
 
@@ -113,6 +126,33 @@ export default function SchedulePageClient() {
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
+  const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+
+  async function handleApproveManagerTimeOff(id: number) {
+    const res = await fetch(`/api/time-off/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to approve request");
+    }
+    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function handleDenyManagerTimeOff(id: number) {
+    const res = await fetch(`/api/time-off/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "denied" }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to deny request");
+    }
+    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -127,6 +167,12 @@ export default function SchedulePageClient() {
         setEmployeeName(employeeName ?? null);
         setIsManager(!!isManager);
         setEmployeeId(employeeId ?? null);
+        if (isManager && !isDemo) {
+          fetch("/api/time-off")
+            .then((r) => r.json())
+            .then(({ requests }) => { if (Array.isArray(requests)) setPendingManagerTimeOff(requests); })
+            .catch(() => {});
+        }
       })
       .catch(() => {});
     fetch("/api/store-hours")
@@ -529,20 +575,20 @@ export default function SchedulePageClient() {
           {/* Time-off request status or action */}
           {selectedTimeOff?.status === "pending" && !selectedSchedule && (
             <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-              <span className="text-yellow-400 text-base">⏳</span>
+              <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
               <span className="text-sm text-yellow-300 font-semibold">Time-off request pending</span>
             </div>
           )}
           {selectedTimeOff?.status === "approved" && !selectedSchedule && (
             <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-              <span className="text-emerald-400 text-base">✓</span>
+              <TimeOffApprovedIcon size={16} color="rgb(52 211 153)" />
               <span className="text-sm text-emerald-300 font-semibold">Time off approved</span>
             </div>
           )}
           {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
             <div className="mt-3">
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
-                <span className="text-red-400 text-base">✕</span>
+                <TimeOffDeniedIcon size={16} color="rgb(248 113 113)" />
                 <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
               </div>
               {employeeId !== null && !isDemo && (
@@ -598,19 +644,17 @@ export default function SchedulePageClient() {
             <div className="text-xs text-slate-400 mt-1">Days off</div>
           </div>
         </div>
-      </div>
 
-      {/* Availability Section */}
-      {(employeeId !== null || isDemo) && !loading && (
-        <div className="px-4 mt-2">
-          <AvailabilitySection
-            employeeId={employeeId ?? 0}
-            weeklyHours={weeklyHours}
-            firstDayOfWeek={firstDayOfWeek}
-            isDemo={isDemo}
-          />
-        </div>
-      )}
+        {isManager && !isDemo && (
+          <div className="mt-4">
+            <PendingTimeOffSection
+              requests={pendingManagerTimeOff}
+              onApprove={handleApproveManagerTimeOff}
+              onDeny={handleDenyManagerTimeOff}
+            />
+          </div>
+        )}
+      </div>
 
       <DatePickerSheet
         open={pickerOpen}
