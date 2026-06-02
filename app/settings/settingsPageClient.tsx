@@ -8,6 +8,7 @@ import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
+import { SkeletonSettingsBody } from "../../components/Skeleton";
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -415,6 +416,7 @@ export default function SettingsPageClient({
     }
   }
 
+  const [loading, setLoading] = useState(!isDemo);
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
@@ -464,7 +466,8 @@ export default function SettingsPageClient({
               .catch(() => {});
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoading(false));
     } else {
       setIsManager(true); // demo mode is always manager
     }
@@ -545,7 +548,11 @@ export default function SettingsPageClient({
         <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
       </div>
 
-      <div className="px-4 pt-5 flex flex-col gap-5">
+      {loading ? (
+        <SkeletonSettingsBody isManager={isManager} />
+      ) : null}
+
+      <div className={`px-4 pt-5 flex flex-col gap-5${loading ? " hidden" : ""}`}>
 
         {/* My Availability — shown to all linked employees */}
         {employeeId !== null && (
