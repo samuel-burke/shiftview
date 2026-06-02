@@ -1,6 +1,6 @@
 "use client";
 
-import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS } from "../data/types";
+import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS } from "../data/types";
 import { ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon } from "./ShiftIcons";
 
 const TIME_OFF_LABELS: Record<TimeOffRequest["status"], string> = {
@@ -9,11 +9,6 @@ const TIME_OFF_LABELS: Record<TimeOffRequest["status"], string> = {
   denied: "DEN",
 };
 
-const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
-  pending: "#f59e0b",
-  approved: "#34d399",
-  denied: "#f87171",
-};
 
 type Props = {
   schedules: Schedule[];
