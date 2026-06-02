@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import {
+  CalendarIcon,
+  AlarmIcon,
+  TimeOffApprovedIcon,
+  TimeOffDeniedIcon,
+  WarningIcon,
+  MegaphoneIcon,
+  BellIcon,
+} from "./ShiftIcons";
 
 type Notification = {
   id: number;
@@ -13,16 +22,23 @@ type Notification = {
   data?: Record<string, unknown>;
 };
 
-const TYPE_ICONS: Record<string, string> = {
-  shift_change:      "📅",
-  shift_reminder:    "⏰",
-  swap_approved:     "✅",
-  swap_denied:       "❌",
-  pto_approved:      "🏖️",
-  pto_denied:        "❌",
-  late_clock_in:     "⚠️",
-  schedule_published:"📢",
+const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
+  shift_change:       { Icon: CalendarIcon,        color: "#60a5fa" },
+  shift_reminder:     { Icon: AlarmIcon,           color: "#fbbf24" },
+  swap_approved:      { Icon: TimeOffApprovedIcon, color: "#34d399" },
+  swap_denied:        { Icon: TimeOffDeniedIcon,   color: "#f87171" },
+  pto_approved:       { Icon: TimeOffApprovedIcon, color: "#34d399" },
+  pto_denied:         { Icon: TimeOffDeniedIcon,   color: "#f87171" },
+  late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
+  schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
+  message:            { Icon: BellIcon,            color: "#94a3b8" },
 };
+
+function NotifIcon({ type }: { type: string }) {
+  const entry = TYPE_ICON_MAP[type] ?? { Icon: BellIcon, color: "#94a3b8" };
+  const Icon = entry.Icon;
+  return <Icon size={18} color={entry.color} />;
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -209,7 +225,7 @@ export default function NotificationBell() {
                 key={n.id}
                 className={`px-4 py-3 border-b border-slate-800/50 flex gap-3 ${n.read ? "opacity-60" : ""}`}
               >
-                <span className="text-lg shrink-0">{TYPE_ICONS[n.type] ?? "🔔"}</span>
+                <span className="shrink-0 flex items-center pt-0.5"><NotifIcon type={n.type} /></span>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-slate-100 truncate">{n.title}</div>
                   <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
