@@ -81,8 +81,8 @@ export default function ShiftCard({
       <div
         className="size-[38px] rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
-          background: `${shiftColor}22`,
-          border: `1.5px solid ${shiftColor}55`,
+          background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`,
+          border: `1.5px solid color-mix(in srgb, ${shiftColor} 33%, transparent)`,
           color: shiftColor,
         }}
       >
