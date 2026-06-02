@@ -3,6 +3,16 @@
 @theme {
   --color-bg: #0a1628;
   --color-card: #1a2236;
+
+  /* Shift types */
+  --color-shift-opener:  #f59e0b;
+  --color-shift-mid:     #38bdf8;
+  --color-shift-closer:  #a78bfa;
+
+  /* Time-off request statuses */
+  --color-timeoff-pending:  #fde047;
+  --color-timeoff-approved: #34d399;
+  --color-timeoff-denied:   #f87171;
 }
 
 html, body {
