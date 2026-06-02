@@ -79,3 +79,61 @@ export function TimeOffDeniedIcon({ size = 14, color = "currentColor" }: IconPro
     </svg>
   );
 }
+
+export function CalendarIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="3" width="12" height="11" rx="1.5" stroke={color} strokeWidth="1.5" />
+      <path d="M2 7h12" stroke={color} strokeWidth="1.5" />
+      <path d="M5.5 1.5v3M10.5 1.5v3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function AlarmIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="9" r="4.5" stroke={color} strokeWidth="1.5" />
+      <path d="M8 7v2l1.5 1" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 4.5L2.5 3M12 4.5L13.5 3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function WarningIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2L14.5 13H1.5L8 2Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M8 6.5v3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M8 11v.75" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function MegaphoneIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1" y="6" width="3" height="4" rx="0.75" stroke={color} strokeWidth="1.5" />
+      <path d="M4 6.5L11 3.5v9L4 9.5" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M12.5 5.5a3.5 3.5 0 010 5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function BellIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2.5a4 4 0 00-4 4v2L3 10h10l-1-1.5v-2a4 4 0 00-4-4Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M6.5 10.5a1.5 1.5 0 003 0" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function LockIcon({ size = 14, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="3" y="7.5" width="10" height="7" rx="1.5" stroke={color} strokeWidth="1.5" />
+      <path d="M5 7.5V5a3 3 0 016 0v2.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
