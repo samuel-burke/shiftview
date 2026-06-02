@@ -15,6 +15,7 @@ import {
   CoverageStatus,
   getAttendanceStatus,
   fmtMinutes,
+  SHIFT_COLORS,
 } from "../data/types";
 
 const DEFAULT_HOURS: Record<number, StoreHours> = {
@@ -634,9 +635,9 @@ export default function Page() {
   const legend = (
     <div className="flex gap-4 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl">
       {([
-        { label: "Opener", color: "#f59e0b", Icon: SunriseIcon },
-        { label: "Mid",    color: "#34d399", Icon: SunIcon },
-        { label: "Closer", color: "#a78bfa", Icon: MoonIcon },
+        { label: "Opener", color: SHIFT_COLORS.opener, Icon: SunriseIcon },
+        { label: "Mid",    color: SHIFT_COLORS.mid,    Icon: SunIcon },
+        { label: "Closer", color: SHIFT_COLORS.closer,  Icon: MoonIcon },
       ] as const).map(({ label, color, Icon }) => (
         <div key={label} className="flex items-center gap-1.5">
           <Icon size={13} color={color} />
