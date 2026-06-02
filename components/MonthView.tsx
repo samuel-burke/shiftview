@@ -1,8 +1,7 @@
 "use client";
 
 import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS } from "../data/types";
-import { SunriseIcon, SunIcon, MoonIcon } from "./ShiftIcons";
-
+import { SunriseIcon, SunIcon, MoonIcon, ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon } from "./ShiftIcons";
 
 const TIME_OFF_STATUS_LABELS: Record<TimeOffRequest["status"], string> = {
   pending: "Time off pending",
@@ -23,13 +22,6 @@ type Props = {
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-const LEGEND = [
-  { label: "Early",   color: SHIFT_COLORS.opener, Icon: SunriseIcon },
-  { label: "Mid",     color: SHIFT_COLORS.mid,    Icon: SunIcon },
-  { label: "Closing", color: SHIFT_COLORS.closer,  Icon: MoonIcon },
-  { label: "Off",     color: "#94a3b8",            Icon: null },
-];
-
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
@@ -45,7 +37,6 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = (firstDow - firstDayOfWeek + 7) % 7;
 
-  // Build flat cell array: null for leading padding, then each date
   const cells: (Date | null)[] = [
     ...Array.from({ length: startOffset }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
@@ -58,13 +49,34 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
   return (
     <div className="mb-3">
       {/* Legend */}
-      <div className="flex gap-3 flex-wrap mb-3 px-3 py-2 bg-card rounded-xl border border-slate-800/60">
-        {LEGEND.map(({ label, color, Icon }) => (
-          <div key={label} className="flex items-center gap-1">
-            {Icon ? <Icon size={12} color={color} /> : <span className="size-2 rounded-full inline-block" style={{ background: color }} />}
-            <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
-          </div>
-        ))}
+      <div className="flex flex-col gap-2 mb-3 px-3 py-2 bg-card rounded-xl border border-slate-800/60">
+        <div className="flex gap-3 flex-wrap">
+          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">Shifts</span>
+          {([
+            { label: "Opening", color: SHIFT_COLORS.opener, Icon: SunriseIcon },
+            { label: "Mid",     color: SHIFT_COLORS.mid,    Icon: SunIcon },
+            { label: "Closing", color: SHIFT_COLORS.closer,  Icon: MoonIcon },
+          ] as const).map(({ label, color, Icon }) => (
+            <div key={label} className="flex items-center gap-1">
+              <Icon size={12} color={color} />
+              <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="h-px bg-slate-800/60" />
+        <div className="flex gap-3 flex-wrap">
+          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">Time Off</span>
+          {([
+            { label: "Pending",  color: TIME_OFF_COLORS.pending,  Icon: TimeOffPendingIcon },
+            { label: "Approved", color: TIME_OFF_COLORS.approved, Icon: TimeOffApprovedIcon },
+            { label: "Denied",   color: TIME_OFF_COLORS.denied,   Icon: TimeOffDeniedIcon },
+          ] as const).map(({ label, color, Icon }) => (
+            <div key={label} className="flex items-center gap-1">
+              <Icon size={12} color={color} />
+              <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Day-of-week headers */}
@@ -91,7 +103,6 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
               const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, dayHours.open, dayHours.close) : null;
               const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
               const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
-              const dotColor = shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : null);
               const ariaLabel = timeOff ? TIME_OFF_STATUS_LABELS[timeOff.status] : undefined;
 
               return (
@@ -112,11 +123,12 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
                   >
                     {d.getDate()}
                   </div>
-                  {dotColor ? (
-                    <div className="w-5 h-[3px] rounded-full mt-1" style={{ background: dotColor }} />
-                  ) : (
-                    <div className="h-[3px] mt-1" />
-                  )}
+                  <div className="h-[14px] mt-0.5 flex items-center justify-center">
+                    {shiftType && shiftColor && <ShiftIcon shiftType={shiftType} size={12} color={shiftColor} />}
+                    {timeOff?.status === "pending"  && <TimeOffPendingIcon  size={12} color={TIME_OFF_COLORS.pending}  />}
+                    {timeOff?.status === "approved" && <TimeOffApprovedIcon size={12} color={TIME_OFF_COLORS.approved} />}
+                    {timeOff?.status === "denied"   && <TimeOffDeniedIcon   size={12} color={TIME_OFF_COLORS.denied}   />}
+                  </div>
                 </button>
               );
             })}

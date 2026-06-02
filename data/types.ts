@@ -43,8 +43,8 @@ export function isHere(s: Schedule, nowMinutes: number): boolean {
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
   opener: "#f59e0b",  // amber  — morning
-  mid:    "#34d399",  // emerald — midday
-  closer: "#a78bfa",  // violet  — evening
+  mid:    "#fb923c",  // orange — midday
+  closer: "#a78bfa",  // violet — evening
 };
 
 export const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
