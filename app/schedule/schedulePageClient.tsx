@@ -534,9 +534,9 @@ export default function SchedulePageClient() {
             </div>
           )}
           {selectedTimeOff?.status === "approved" && !selectedSchedule && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/30">
-              <span className="text-green-400 text-base">✓</span>
-              <span className="text-sm text-green-300 font-semibold">Time off approved</span>
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+              <span className="text-cyan-400 text-base">✓</span>
+              <span className="text-sm text-cyan-300 font-semibold">Time off approved</span>
             </div>
           )}
           {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
