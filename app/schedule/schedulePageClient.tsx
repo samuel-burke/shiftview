@@ -16,7 +16,6 @@ import BottomNav from "../../components/BottomNav";
 import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
-import AvailabilitySection from "../../components/AvailabilitySection";
 import { createClient } from "@/lib/supabase-browser";
 import {
   SkeletonNextShift,
@@ -29,7 +28,7 @@ import {
   TimeOffApprovedIcon,
   TimeOffDeniedIcon,
 } from "../../components/ShiftIcons";
-import TimeOffRequestsDrawer from "../../components/TimeOffRequestsDrawer";
+import PendingTimeOffSection from "../../components/PendingTimeOffSection";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -128,7 +127,6 @@ export default function SchedulePageClient() {
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
-  const [managerTimeOffDrawerOpen, setManagerTimeOffDrawerOpen] = useState(false);
 
   async function handleApproveManagerTimeOff(id: number) {
     const res = await fetch(`/api/time-off/${id}`, {
@@ -425,21 +423,6 @@ export default function SchedulePageClient() {
         </div>
       </div>
 
-      {isManager && !isDemo && pendingManagerTimeOff.length > 0 && (
-        <div className="px-4 pt-3">
-          <button
-            onClick={() => setManagerTimeOffDrawerOpen(true)}
-            className="w-full text-left px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer"
-            style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24" }}
-          >
-            <TimeOffPendingIcon size={13} color="#fbbf24" />
-            <span className="font-medium">
-              {pendingManagerTimeOff.length} new time-off {pendingManagerTimeOff.length === 1 ? "request" : "requests"}
-            </span>
-          </button>
-        </div>
-      )}
-
       <div className="px-4 pt-4">
         {/* Next Shift card */}
         <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
@@ -661,19 +644,17 @@ export default function SchedulePageClient() {
             <div className="text-xs text-slate-400 mt-1">Days off</div>
           </div>
         </div>
-      </div>
 
-      {/* Availability Section */}
-      {(employeeId !== null || isDemo) && !loading && (
-        <div className="px-4 mt-2">
-          <AvailabilitySection
-            employeeId={employeeId ?? 0}
-            weeklyHours={weeklyHours}
-            firstDayOfWeek={firstDayOfWeek}
-            isDemo={isDemo}
-          />
-        </div>
-      )}
+        {isManager && !isDemo && (
+          <div className="mt-4">
+            <PendingTimeOffSection
+              requests={pendingManagerTimeOff}
+              onApprove={handleApproveManagerTimeOff}
+              onDeny={handleDenyManagerTimeOff}
+            />
+          </div>
+        )}
+      </div>
 
       <DatePickerSheet
         open={pickerOpen}
@@ -682,14 +663,6 @@ export default function SchedulePageClient() {
         firstDayOfWeek={firstDayOfWeek}
         onSelect={handlePickerSelect}
         onClose={() => setPickerOpen(false)}
-      />
-
-      <TimeOffRequestsDrawer
-        open={managerTimeOffDrawerOpen}
-        onClose={() => setManagerTimeOffDrawerOpen(false)}
-        requests={pendingManagerTimeOff}
-        onApprove={handleApproveManagerTimeOff}
-        onDeny={handleDenyManagerTimeOff}
       />
 
       <BottomNav active="schedule" />

@@ -37,7 +37,6 @@ import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
-import PendingTimeOffSection from "../components/PendingTimeOffSection";
 
 function toDateKey(d: Date, tz = "America/New_York") {
   return d.toLocaleDateString("en-CA", { timeZone: tz });
@@ -709,13 +708,6 @@ export default function Page() {
           </div>
           {/* Right: team list */}
           <div className="sticky top-4">
-            {isManager && !isDemo && (
-              <PendingTimeOffSection
-                requests={pendingTimeOff}
-                onApprove={handleApproveTimeOff}
-                onDeny={handleDenyTimeOff}
-              />
-            )}
             {teamSections}
           </div>
         </div>
@@ -733,13 +725,6 @@ export default function Page() {
       {statsRow}
       {timeline}
       {legend}
-      {isManager && !isDemo && (
-        <PendingTimeOffSection
-          requests={pendingTimeOff}
-          onApprove={handleApproveTimeOff}
-          onDeny={handleDenyTimeOff}
-        />
-      )}
       {teamSections}
       <div className="flex items-center justify-between mt-4">
         <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
