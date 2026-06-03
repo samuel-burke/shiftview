@@ -89,7 +89,7 @@ export default function TeamSection({
             <div className="text-[11px] text-slate-400">Off</div>
           </>
         );
-        const baseClass = "flex items-center gap-3 w-full bg-gray-900 border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2";
+        const baseClass = "flex items-center gap-3 w-full bg-card border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2";
         const selectable = onSelectOff && (!canSelectOff || canSelectOff(emp));
         return selectable ? (
           <button

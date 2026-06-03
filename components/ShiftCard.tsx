@@ -74,7 +74,7 @@ export default function ShiftCard({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-gray-900 hover:bg-card border border-slate-800 rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-colors duration-150"
+      className="w-full text-left bg-card hover:bg-slate-800 border border-slate-800 rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-colors duration-150"
       style={{ borderLeft: `3px solid ${shiftColor}` }}
     >
       {/* Avatar */}

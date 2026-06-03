@@ -52,7 +52,7 @@ function RequestRow({
   }
 
   return (
-    <div className="bg-gray-900 border border-slate-800 border-l-[3px] border-l-amber-500/50 rounded-xl px-[14px] py-3 mb-2">
+    <div className="bg-card border border-slate-800 border-l-[3px] border-l-amber-500/50 rounded-xl px-[14px] py-3 mb-2">
       <div className="flex items-center gap-3 mb-3">
         <div className="size-[38px] rounded-full bg-amber-500/10 border-[1.5px] border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-400 shrink-0">
           {getMonogram(request.employeeName)}
