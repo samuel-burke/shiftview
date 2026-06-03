@@ -32,6 +32,11 @@ body {
   box-sizing: border-box;
 }
 
+/* Prevent iOS Safari from zooming the page when focusing inputs smaller than 16px */
+input, textarea, select {
+  font-size: max(16px, 1em);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
