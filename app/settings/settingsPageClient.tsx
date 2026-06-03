@@ -409,7 +409,7 @@ export default function SettingsPageClient({
         geofenceLat,
         geofenceLng,
         geofenceRadius,
-        geofenceAddress: geofenceAddress ?? addressInput.trim() || null,
+        geofenceAddress: (geofenceAddress ?? addressInput.trim()) || null,
       }),
     });
     setGeofenceSaving(false);
