@@ -48,7 +48,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-40 bg-[#1e2a3a] border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-11 w-40 bg-card border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
           {onSignOut && (
             <Link
               href={settingsHref}
