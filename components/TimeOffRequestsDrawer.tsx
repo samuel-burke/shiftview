@@ -118,7 +118,7 @@ export default function TimeOffRequestsDrawer({
             </div>
             <button
               onClick={onClose}
-              className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+              className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
             >
               ✕
             </button>
@@ -155,8 +155,8 @@ export default function TimeOffRequestsDrawer({
                     <button
                       onClick={() => handleApprove(req.id)}
                       disabled={acting === req.id}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold border-none cursor-pointer transition-opacity bg-emerald-600 text-white ${
-                        acting === req.id ? "opacity-50" : "hover:bg-emerald-500"
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-opacity bg-gradient-to-r from-blue-500 to-violet-500 text-white ${
+                        acting === req.id ? "opacity-50" : ""
                       }`}
                     >
                       {acting === req.id ? "…" : "Approve"}
@@ -164,8 +164,8 @@ export default function TimeOffRequestsDrawer({
                     <button
                       onClick={() => handleDeny(req.id)}
                       disabled={acting === req.id}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold border border-red-700 cursor-pointer transition-opacity bg-transparent text-red-400 ${
-                        acting === req.id ? "opacity-50" : "hover:bg-red-900/30"
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-500/30 cursor-pointer transition-opacity bg-transparent text-red-400 ${
+                        acting === req.id ? "opacity-50" : "hover:bg-red-500/10"
                       }`}
                     >
                       {acting === req.id ? "…" : "Deny"}

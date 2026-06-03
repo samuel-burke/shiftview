@@ -66,14 +66,14 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
       />
       {isDesktop ? (
         <div
-          className={`fixed top-1/2 left-1/2 z-50 bg-slate-900 border border-slate-800 rounded-[20px] w-[420px] transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+          className={`fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[420px] transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
           style={{ transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)" }}
         >
           {sheetContent()}
         </div>
       ) : (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
+          className={`fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 rounded-full bg-slate-700" />
@@ -92,7 +92,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
           <div className="text-lg font-bold text-slate-100">Add Employee</div>
           <button
             onClick={onClose}
-            className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+            className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
           >
             ✕
           </button>

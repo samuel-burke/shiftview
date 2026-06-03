@@ -70,7 +70,7 @@ export default function SwapRequestsDrawer({
           </div>
         )}
 
-        <div className={isDesktop ? "p-7" : "px-5 pt-2 pb-11"}>
+        <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <div>
@@ -81,7 +81,7 @@ export default function SwapRequestsDrawer({
             </div>
             <button
               onClick={onClose}
-              className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+              className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
             >
               ✕
             </button>

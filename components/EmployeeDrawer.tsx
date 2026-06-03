@@ -209,7 +209,7 @@ export default function EmployeeDrawer({
       />
       <div
         data-testid="employee-drawer"
-        className={`fixed z-50 bg-slate-900 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed z-50 bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isDesktop
             ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${open ? "translate-x-0" : "translate-x-full"}`
             : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto ${open ? "translate-y-0" : "translate-y-full"}`
