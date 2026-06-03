@@ -230,14 +230,11 @@ export default function AvailabilitySection({
                           && sheetStartMins !== null && sheetEndMins !== null && !sheetInvalid;
 
   return (
-    <section
-      data-testid="availability-section"
-      className="bg-slate-900 border border-slate-800 rounded-xl px-4 pt-4 pb-2 mt-4"
-    >
-      <h2 className="text-base font-bold text-slate-100 mb-1">My Typical Week</h2>
-      <p className="text-xs text-slate-400 mb-3">
-        Let your manager know when you&rsquo;re usually available to work.
-      </p>
+    <section data-testid="availability-section">
+      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+        Availability
+      </div>
+      <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
 
       {allAny && (
         <div className="mb-2 text-xs text-emerald-400">
@@ -286,6 +283,7 @@ export default function AvailabilitySection({
             </button>
           );
         })}
+      </div>
       </div>
 
       {/* Bottom sheet */}
@@ -396,7 +394,7 @@ export default function AvailabilitySection({
                   {/* Copy to */}
                   <div>
                     <div className="text-xs text-slate-500 mb-2">Apply this window to:</div>
-                    <div className="flex flex-col gap-2">
+                    <div className="rounded-xl border border-slate-700/60 overflow-hidden divide-y divide-slate-700/60">
                       {[
                         { key: "weekdays", label: "Weekdays", targets: WEEKDAYS },
                         { key: "weekends", label: "Weekends", targets: WEEKENDS },
@@ -407,10 +405,10 @@ export default function AvailabilitySection({
                           <button
                             key={key}
                             onClick={() => copyToTarget(activeDow, targets, key)}
-                            className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
+                            className={`w-full py-3 px-4 text-sm font-semibold text-left transition-colors cursor-pointer border-none ${
                               copied
-                                ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
-                                : "bg-slate-800 border-slate-700 text-slate-300"
+                                ? "bg-emerald-900/40 text-emerald-400"
+                                : "bg-slate-800/50 text-slate-300 hover:bg-slate-800"
                             }`}
                           >
                             {copied ? `✓ ${label} updated` : label}

@@ -61,3 +61,12 @@ input, textarea, select {
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 6px;
 }
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% center; }
+  50%       { background-position: 100% center; }
+}
+
+.animate-gradient {
+  animation: gradient-shift 4s ease infinite;
+}
