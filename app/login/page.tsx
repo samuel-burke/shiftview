@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
@@ -133,6 +134,12 @@ export default function LoginPage() {
             </>
           )}
         </div>
+
+        <p className="text-center text-xs text-slate-700 mt-6">
+          <Link href="/privacy" className="hover:text-slate-500 transition-colors">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </main>
   );
