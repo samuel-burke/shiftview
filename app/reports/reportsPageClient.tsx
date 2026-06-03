@@ -1,5 +1,6 @@
 "use client";
 
+import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -388,7 +389,7 @@ export default function ReportsPageClient() {
     return map;
   }, [weekSchedules]);
 
-  function exportCSV() {
+  async function exportCSV() {
     const rows: string[][] = [];
     rows.push(["Employee", ...weekDates.map(formatDateShort), "Total"]);
     for (const emp of employees) {
@@ -402,12 +403,7 @@ export default function ReportsPageClient() {
     rows.push(["Coverage", ...weekDates.map((d) => String(coverageMap[d] ?? 0)), ""]);
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `shift-report-${selectedWeekStart}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadCSV(blob, `shift-report-${selectedWeekStart}.csv`);
   }
 
   return (

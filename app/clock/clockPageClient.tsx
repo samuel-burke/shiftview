@@ -1,5 +1,6 @@
 "use client";
 
+import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -120,6 +121,12 @@ export default function ClockPageClient() {
   const [exportFrom, setExportFrom] = useState(toDateKey(today));
   const [exportTo, setExportTo] = useState(toDateKey(today));
   const [showExport, setShowExport] = useState(false);
+
+  async function handleExportDownload() {
+    const res = await fetch(`/api/punches/export?from=${exportFrom}&to=${exportTo}`);
+    const blob = await res.blob();
+    await downloadCSV(blob, `timesheet_${exportFrom}_to_${exportTo}.csv`);
+  }
 
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -699,13 +706,12 @@ export default function ClockPageClient() {
                   />
                 </div>
               </div>
-              <a
-                href={`/api/punches/export?from=${exportFrom}&to=${exportTo}`}
-                download
+              <button
+                onClick={handleExportDownload}
                 className="block w-full py-2.5 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer"
               >
                 Download CSV
-              </a>
+              </button>
             </div>
           )}
         </div>
