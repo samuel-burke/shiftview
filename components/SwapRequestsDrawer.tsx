@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
@@ -42,71 +42,76 @@ export default function SwapRequestsDrawer({
   const isDesktop = useIsDesktop();
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-      />
-
-      {/* Drawer */}
-      <div
-        data-testid="swap-requests-drawer"
-        className={`fixed z-50 bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isDesktop
-            ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${
-                open ? "translate-x-0" : "translate-x-full"
-              }`
-            : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto ${
-                open ? "translate-y-0" : "translate-y-full"
-              }`
-        }`}
-      >
-        {!isDesktop && (
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-slate-700" />
-          </div>
-        )}
-
-        <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <div className="text-lg font-bold text-slate-100">Swap Requests</div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                {swaps.length} pending
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            key="backdrop"
+            className="fixed inset-0 bg-black/60 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={onClose}
+          />
+          <motion.div
+            key="panel"
+            data-testid="swap-requests-drawer"
+            className={`fixed z-50 bg-bg ${
+              isDesktop
+                ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto"
+            }`}
+            initial={isDesktop ? { x: "100%" } : { y: "100%" }}
+            animate={isDesktop ? { x: 0 } : { y: 0 }}
+            exit={isDesktop ? { x: "100%" } : { y: "100%" }}
+            transition={{ type: "spring", damping: 32, stiffness: 300 }}
+          >
+            {!isDesktop && (
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-slate-700" />
               </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
-            >
-              ✕
-            </button>
-          </div>
+            )}
 
-          {swaps.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-sm">
-              No pending swap requests
-            </div>
-          ) : (
-            <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate={open ? "show" : "hidden"}>
-              {swaps.map((swap) => (
-                <motion.div key={swap.id} variants={listItem}>
-                  <SwapCard
-                    swap={swap}
-                    onApprove={onApprove}
-                    onDeny={onDeny}
-                  />
+            <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <div className="text-lg font-bold text-slate-100">Swap Requests</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {swaps.length} pending
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {swaps.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  No pending swap requests
+                </div>
+              ) : (
+                <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate="show">
+                  {swaps.map((swap) => (
+                    <motion.div key={swap.id} variants={listItem}>
+                      <SwapCard
+                        swap={swap}
+                        onApprove={onApprove}
+                        onDeny={onDeny}
+                      />
+                    </motion.div>
+                  ))}
                 </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </div>
-      </div>
-    </>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 

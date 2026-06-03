@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
@@ -80,103 +80,111 @@ export default function TimeOffRequestsDrawer({
   }
 
   return (
-    <>
-      <div
-        onClick={onClose}
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-      />
-      <div
-        data-testid="time-off-drawer"
-        className={`fixed z-50 bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isDesktop
-            ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${
-                open ? "translate-x-0" : "translate-x-full"
-              }`
-            : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80vh] overflow-y-auto ${
-                open ? "translate-y-0" : "translate-y-full"
-              }`
-        }`}
-      >
-        {!isDesktop && (
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-slate-700" />
-          </div>
-        )}
-
-        <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <div className="text-lg font-bold text-slate-100">Time Off Requests</div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                {requests.length === 0
-                  ? "No pending requests"
-                  : `${requests.length} pending request${requests.length !== 1 ? "s" : ""}`}
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            key="backdrop"
+            className="fixed inset-0 bg-black/60 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={onClose}
+          />
+          <motion.div
+            key="panel"
+            data-testid="time-off-drawer"
+            className={`fixed z-50 bg-bg ${
+              isDesktop
+                ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80vh] overflow-y-auto"
+            }`}
+            initial={isDesktop ? { x: "100%" } : { y: "100%" }}
+            animate={isDesktop ? { x: 0 } : { y: 0 }}
+            exit={isDesktop ? { x: "100%" } : { y: "100%" }}
+            transition={{ type: "spring", damping: 32, stiffness: 300 }}
+          >
+            {!isDesktop && (
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-slate-700" />
               </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
-            >
-              ✕
-            </button>
-          </div>
+            )}
 
-          {error && (
-            <div className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-              {error}
-            </div>
-          )}
-
-          {requests.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-sm">
-              All caught up — no pending time off requests.
-            </div>
-          ) : (
-            <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate={open ? "show" : "hidden"}>
-              {requests.map((req) => (
-                <motion.div
-                  key={req.id}
-                  variants={listItem}
-                  className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4"
+            <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <div className="text-lg font-bold text-slate-100">Time Off Requests</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {requests.length === 0
+                      ? "No pending requests"
+                      : `${requests.length} pending request${requests.length !== 1 ? "s" : ""}`}
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="font-semibold text-slate-100 text-sm">{req.employeeName}</div>
-                  </div>
-                  <div className="text-xs text-slate-400 mb-2">{formatDate(req.date)}</div>
-                  {req.note && (
-                    <div className="text-xs text-slate-300 bg-slate-800/60 rounded-lg px-3 py-2 mb-3 italic">
-                      &ldquo;{req.note}&rdquo;
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleApprove(req.id)}
-                      disabled={acting === req.id}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-opacity bg-gradient-to-r from-blue-500 to-violet-500 text-white ${
-                        acting === req.id ? "opacity-50" : ""
-                      }`}
+                  ✕
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+                  {error}
+                </div>
+              )}
+
+              {requests.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  All caught up — no pending time off requests.
+                </div>
+              ) : (
+                <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate="show">
+                  {requests.map((req) => (
+                    <motion.div
+                      key={req.id}
+                      variants={listItem}
+                      className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4"
                     >
-                      {acting === req.id ? "…" : "Approve"}
-                    </button>
-                    <button
-                      onClick={() => handleDeny(req.id)}
-                      disabled={acting === req.id}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-500/30 cursor-pointer transition-opacity bg-transparent text-red-400 ${
-                        acting === req.id ? "opacity-50" : "hover:bg-red-500/10"
-                      }`}
-                    >
-                      {acting === req.id ? "…" : "Deny"}
-                    </button>
-                  </div>
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="font-semibold text-slate-100 text-sm">{req.employeeName}</div>
+                      </div>
+                      <div className="text-xs text-slate-400 mb-2">{formatDate(req.date)}</div>
+                      {req.note && (
+                        <div className="text-xs text-slate-300 bg-slate-800/60 rounded-lg px-3 py-2 mb-3 italic">
+                          &ldquo;{req.note}&rdquo;
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(req.id)}
+                          disabled={acting === req.id}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-opacity bg-gradient-to-r from-blue-500 to-violet-500 text-white ${
+                            acting === req.id ? "opacity-50" : ""
+                          }`}
+                        >
+                          {acting === req.id ? "…" : "Approve"}
+                        </button>
+                        <button
+                          onClick={() => handleDeny(req.id)}
+                          disabled={acting === req.id}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-500/30 cursor-pointer transition-opacity bg-transparent text-red-400 ${
+                            acting === req.id ? "opacity-50" : "hover:bg-red-500/10"
+                          }`}
+                        >
+                          {acting === req.id ? "…" : "Deny"}
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
                 </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </div>
-      </div>
-    </>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
