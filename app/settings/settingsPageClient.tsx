@@ -11,7 +11,22 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 
-type NominatimResult = { lat: string; lon: string; display_name: string };
+type NominatimAddress = {
+  house_number?: string; road?: string;
+  city?: string; town?: string; village?: string; hamlet?: string;
+  suburb?: string; municipality?: string;
+  state?: string; country?: string;
+};
+type NominatimResult = { lat: string; lon: string; display_name: string; address?: NominatimAddress };
+
+function shortAddress(r: NominatimResult): string {
+  const a = r.address;
+  if (!a) return r.display_name.split(", ").slice(0, 3).join(", ");
+  const street = [a.house_number, a.road].filter(Boolean).join(" ");
+  const city   = a.city ?? a.town ?? a.village ?? a.hamlet ?? a.suburb ?? a.municipality;
+  const region = a.state ?? a.country;
+  return [street, city, region].filter(Boolean).join(", ") || r.display_name.split(", ")[0];
+}
 
 const RADIUS_PRESETS = [
   { label: "50m",  value: 50 },
@@ -345,7 +360,7 @@ export default function SettingsPageClient({
     setAddressInput(value);
     setShowSuggestions(false);
     if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
-    if (!value.trim() || value.length < 3) { setAddressSuggestions([]); return; }
+    if (!value.trim() || value.length < 2) { setAddressSuggestions([]); return; }
     const currentLat = geofenceLat;
     const currentLng = geofenceLng;
     autocompleteTimerRef.current = setTimeout(async () => {
@@ -354,21 +369,22 @@ export default function SettingsPageClient({
           ? `&viewbox=${currentLng - 0.5},${currentLat + 0.5},${currentLng + 0.5},${currentLat - 0.5}`
           : "";
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value.trim())}&format=json&limit=5${viewbox}`,
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value.trim())}&format=json&limit=5&addressdetails=1${viewbox}`,
           { headers: { "Accept-Language": "en" } }
         );
         const results: NominatimResult[] = await res.json();
         setAddressSuggestions(results);
         if (results.length > 0) setShowSuggestions(true);
       } catch { /* silent */ }
-    }, 450);
+    }, 200);
   }
 
   function selectSuggestion(result: NominatimResult) {
+    const label = shortAddress(result);
     setGeofenceLat(parseFloat(result.lat));
     setGeofenceLng(parseFloat(result.lon));
-    setGeofenceAddress(result.display_name);
-    setAddressInput(result.display_name);
+    setGeofenceAddress(label);
+    setAddressInput(label);
     setShowSuggestions(false);
     setAddressSuggestions([]);
     setGeofenceError(null);
@@ -377,11 +393,11 @@ export default function SettingsPageClient({
   async function reverseGeocode(lat: number, lon: number): Promise<string> {
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
         { headers: { "Accept-Language": "en" } }
       );
-      const data = await res.json();
-      return data.display_name ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      const data: NominatimResult = await res.json();
+      return shortAddress(data);
     } catch {
       return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     }
@@ -987,7 +1003,7 @@ export default function SettingsPageClient({
                               onMouseDown={() => selectSuggestion(s)}
                               className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0 cursor-pointer leading-snug"
                             >
-                              {s.display_name}
+                              {shortAddress(s)}
                             </button>
                           ))}
                         </div>
