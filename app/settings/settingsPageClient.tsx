@@ -11,6 +11,16 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 
+type NominatimResult = { lat: string; lon: string; display_name: string };
+
+const RADIUS_PRESETS = [
+  { label: "50m",  value: 50 },
+  { label: "100m", value: 100 },
+  { label: "250m", value: 250 },
+  { label: "500m", value: 500 },
+  { label: "1km",  value: 1000 },
+];
+
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
@@ -326,36 +336,62 @@ export default function SettingsPageClient({
   const [geofenceSaved, setGeofenceSaved] = useState(false);
   const [geofenceError, setGeofenceError] = useState<string | null>(null);
   const [addressInput, setAddressInput] = useState("");
-  const [geocoding, setGeocoding] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<NominatimResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const autocompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function geocodeAddress() {
-    if (!addressInput.trim()) return;
-    setGeocoding(true);
+  function handleAddressInput(value: string) {
+    setAddressInput(value);
+    setShowSuggestions(false);
+    if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
+    if (!value.trim() || value.length < 3) { setAddressSuggestions([]); return; }
+    autocompleteTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value.trim())}&format=json&limit=5`,
+          { headers: { "Accept-Language": "en" } }
+        );
+        const results: NominatimResult[] = await res.json();
+        setAddressSuggestions(results);
+        if (results.length > 0) setShowSuggestions(true);
+      } catch { /* silent */ }
+    }, 450);
+  }
+
+  function selectSuggestion(result: NominatimResult) {
+    setGeofenceLat(parseFloat(result.lat));
+    setGeofenceLng(parseFloat(result.lon));
+    setGeofenceAddress(result.display_name);
+    setAddressInput(result.display_name);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
     setGeofenceError(null);
+  }
+
+  async function reverseGeocode(lat: number, lon: number): Promise<string> {
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressInput.trim())}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
         { headers: { "Accept-Language": "en" } }
       );
-      const results = await res.json();
-      if (!results.length) {
-        setGeofenceError("Address not found. Try a more specific address.");
-        return;
-      }
-      const { lat, lon, display_name } = results[0];
-      setGeofenceLat(parseFloat(lat));
-      setGeofenceLng(parseFloat(lon));
-      setGeofenceAddress(display_name);
-      setAddressInput(display_name);
+      const data = await res.json();
+      return data.display_name ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     } catch {
-      setGeofenceError("Failed to search address. Check your connection.");
-    } finally {
-      setGeocoding(false);
+      return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     }
   }
 
-  async function useCurrentLocation() {
+  async function placeAtCoords(lat: number, lon: number) {
+    setGeofenceLat(lat);
+    setGeofenceLng(lon);
+    const label = await reverseGeocode(lat, lon);
+    setGeofenceAddress(label);
+    setAddressInput(label);
+    setGeofenceError(null);
+  }
+
+  function useCurrentLocation() {
     if (!navigator.geolocation) {
       setGeofenceError("Geolocation is not supported by your browser.");
       return;
@@ -364,23 +400,7 @@ export default function SettingsPageClient({
     setGeofenceError(null);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude: lat, longitude: lon } = pos.coords;
-        setGeofenceLat(lat);
-        setGeofenceLng(lon);
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-            { headers: { "Accept-Language": "en" } }
-          );
-          const data = await res.json();
-          const label = data.display_name ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-          setGeofenceAddress(label);
-          setAddressInput(label);
-        } catch {
-          const label = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-          setGeofenceAddress(label);
-          setAddressInput(label);
-        }
+        await placeAtCoords(pos.coords.latitude, pos.coords.longitude);
         setGettingLocation(false);
       },
       () => {
@@ -910,6 +930,7 @@ export default function SettingsPageClient({
                       const next = !geofenceEnabled;
                       setGeofenceEnabled(next);
                       saveTimeclockSetting({ geofenceEnabled: next });
+                      if (next && geofenceLat === null) useCurrentLocation();
                     }}
                     className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
                       geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
@@ -925,34 +946,48 @@ export default function SettingsPageClient({
 
                 {geofenceEnabled && (
                   <div className="space-y-3 pt-1">
-                    {/* Address search */}
-                    <div>
+                    {/* Address autocomplete */}
+                    <div className="relative">
                       <div className="text-xs text-slate-400 mb-1.5">Location</div>
                       <div className="flex gap-2">
                         <input
                           value={addressInput}
-                          onChange={(e) => setAddressInput(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") geocodeAddress(); }}
-                          placeholder="Enter address…"
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                          onChange={(e) => handleAddressInput(e.target.value)}
+                          onFocus={() => { if (addressSuggestions.length > 0) setShowSuggestions(true); }}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                          placeholder="Search address…"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
                         />
                         <button
-                          onClick={geocodeAddress}
-                          disabled={geocoding || !addressInput.trim()}
-                          className="px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 text-sm font-semibold disabled:opacity-50 cursor-pointer"
+                          onClick={useCurrentLocation}
+                          disabled={gettingLocation}
+                          title="Use my current location"
+                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 cursor-pointer hover:bg-slate-600 transition-colors"
                         >
-                          {geocoding ? "…" : "Search"}
+                          {gettingLocation ? (
+                            <span className="text-xs font-bold">…</span>
+                          ) : (
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+                              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2"/>
+                              <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          )}
                         </button>
                       </div>
+                      {showSuggestions && addressSuggestions.length > 0 && (
+                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+                          {addressSuggestions.map((s, i) => (
+                            <button
+                              key={i}
+                              onMouseDown={() => selectSuggestion(s)}
+                              className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0 cursor-pointer leading-snug"
+                            >
+                              {s.display_name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-
-                    <button
-                      onClick={useCurrentLocation}
-                      disabled={gettingLocation}
-                      className="w-full py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 font-medium cursor-pointer disabled:opacity-50 hover:bg-slate-700/80 transition-colors"
-                    >
-                      {gettingLocation ? "Getting location…" : "Use My Current Location"}
-                    </button>
 
                     {geofenceLat !== null && geofenceLng !== null && (
                       <>
@@ -962,10 +997,7 @@ export default function SettingsPageClient({
                             lng={geofenceLng}
                             radius={geofenceRadius}
                             zoom={geofenceZoom}
-                            onLocationChange={(lat, lng) => {
-                              setGeofenceLat(lat);
-                              setGeofenceLng(lng);
-                            }}
+                            onLocationChange={(lat, lng) => placeAtCoords(lat, lng)}
                             onZoomChange={setGeofenceZoom}
                             size={300}
                           />
@@ -974,38 +1006,41 @@ export default function SettingsPageClient({
                           Tap map to move the pin
                         </div>
 
-                        {/* Radius control */}
+                        {/* Radius presets */}
                         <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-slate-400">Geofence Radius</span>
-                            <span className="text-xs font-bold text-slate-200 tabular-nums">{geofenceRadius}m</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
-                              className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
-                            >
-                              −
-                            </button>
-                            <input
-                              type="range"
-                              min="50"
-                              max="5000"
-                              step="25"
-                              value={geofenceRadius}
-                              onChange={(e) => setGeofenceRadius(Number(e.target.value))}
-                              className="flex-1 accent-indigo-500"
-                            />
-                            <button
-                              onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
-                              className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <div className="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
-                            <span>50m</span>
-                            <span>5km</span>
+                          <div className="text-xs text-slate-400 mb-2">Geofence Radius</div>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            {RADIUS_PRESETS.map(({ label, value }) => (
+                              <button
+                                key={value}
+                                onClick={() => setGeofenceRadius(value)}
+                                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer border ${
+                                  geofenceRadius === value
+                                    ? "bg-indigo-500 text-white border-indigo-500"
+                                    : "bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-slate-200"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="50"
+                                max="50000"
+                                value={geofenceRadius}
+                                onChange={(e) => {
+                                  const v = parseInt(e.target.value);
+                                  if (!isNaN(v)) setGeofenceRadius(Math.max(50, Math.min(50000, v)));
+                                }}
+                                className={`w-[68px] bg-slate-800 border rounded-lg px-2 py-2 text-sm text-center tabular-nums text-slate-100 ${
+                                  RADIUS_PRESETS.some((p) => p.value === geofenceRadius)
+                                    ? "border-slate-700 text-slate-400"
+                                    : "border-indigo-500 text-indigo-300"
+                                }`}
+                              />
+                              <span className="text-xs text-slate-500">m</span>
+                            </div>
                           </div>
                         </div>
                       </>

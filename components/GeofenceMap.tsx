@@ -135,13 +135,13 @@ export default function GeofenceMap({
         </svg>
       </div>
 
-      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+      <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onZoomChange(Math.min(MAX_ZOOM, zoom + 1));
           }}
-          className="size-8 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-100 text-lg font-bold flex items-center justify-center cursor-pointer"
+          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform"
         >
           +
         </button>
@@ -150,7 +150,7 @@ export default function GeofenceMap({
             e.stopPropagation();
             onZoomChange(Math.max(MIN_ZOOM, zoom - 1));
           }}
-          className="size-8 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-100 text-lg font-bold flex items-center justify-center cursor-pointer"
+          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform"
         >
           −
         </button>
