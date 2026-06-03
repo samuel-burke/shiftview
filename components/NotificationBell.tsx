@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase-browser";
 import {
   CalendarIcon,
@@ -283,12 +284,15 @@ export default function NotificationBell() {
       )}
     </div>
 
-    <MessageThread
-      open={!!chatTarget}
-      otherUserId={chatTarget?.userId ?? ""}
-      otherName={chatTarget?.name ?? ""}
-      onClose={() => setChatTarget(null)}
-    />
+    {createPortal(
+      <MessageThread
+        open={!!chatTarget}
+        otherUserId={chatTarget?.userId ?? ""}
+        otherName={chatTarget?.name ?? ""}
+        onClose={() => setChatTarget(null)}
+      />,
+      document.body
+    )}
     </>
   );
 }
