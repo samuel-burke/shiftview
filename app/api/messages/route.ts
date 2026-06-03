@@ -77,11 +77,19 @@ export async function POST(request: Request) {
   const convId = conversationId(user.id, toUserId);
   const trimmed = msgBody.trim();
 
+  let encryptedBody: string;
+  try {
+    encryptedBody = encrypt(trimmed);
+  } catch (err) {
+    console.error("[api/messages POST] encryption failed:", err);
+    return NextResponse.json({ error: "Message encryption is not configured" }, { status: 500 });
+  }
+
   const { error: insertError } = await supabase.from("messages").insert({
     conversation_id: convId,
     from_user_id: user.id,
     to_user_id: toUserId,
-    body: encrypt(trimmed),
+    body: encryptedBody,
   });
 
   if (insertError) {

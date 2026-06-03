@@ -4,9 +4,11 @@ const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;
 
 function getKey(): Buffer {
-  const hex = process.env.MESSAGE_ENCRYPTION_KEY;
+  const hex = process.env.MESSAGE_ENCRYPTION_KEY?.trim();
   if (!hex || hex.length !== 64) {
-    throw new Error("MESSAGE_ENCRYPTION_KEY must be a 64-char hex string (run: openssl rand -hex 32)");
+    throw new Error(
+      `MESSAGE_ENCRYPTION_KEY must be a 64-char hex string (got ${hex?.length ?? 0} chars). Generate one with: openssl rand -hex 32`
+    );
   }
   return Buffer.from(hex, "hex");
 }
