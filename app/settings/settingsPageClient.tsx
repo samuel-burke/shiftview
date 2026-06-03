@@ -8,6 +8,7 @@ import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
+import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -314,7 +315,113 @@ export default function SettingsPageClient({
   const [timeclockSaving, setTimeclockSaving] = useState(false);
   const [timeclockSaved, setTimeclockSaved] = useState(false);
 
-  async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean }) {
+  // ── Geofence ────────────────────────────────────────────────────────────────
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [geofenceLat, setGeofenceLat] = useState<number | null>(null);
+  const [geofenceLng, setGeofenceLng] = useState<number | null>(null);
+  const [geofenceRadius, setGeofenceRadius] = useState(100);
+  const [geofenceAddress, setGeofenceAddress] = useState<string | null>(null);
+  const [geofenceZoom, setGeofenceZoom] = useState(15);
+  const [geofenceSaving, setGeofenceSaving] = useState(false);
+  const [geofenceSaved, setGeofenceSaved] = useState(false);
+  const [geofenceError, setGeofenceError] = useState<string | null>(null);
+  const [addressInput, setAddressInput] = useState("");
+  const [geocoding, setGeocoding] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
+
+  async function geocodeAddress() {
+    if (!addressInput.trim()) return;
+    setGeocoding(true);
+    setGeofenceError(null);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressInput.trim())}&format=json&limit=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const results = await res.json();
+      if (!results.length) {
+        setGeofenceError("Address not found. Try a more specific address.");
+        return;
+      }
+      const { lat, lon, display_name } = results[0];
+      setGeofenceLat(parseFloat(lat));
+      setGeofenceLng(parseFloat(lon));
+      setGeofenceAddress(display_name);
+      setAddressInput(display_name);
+    } catch {
+      setGeofenceError("Failed to search address. Check your connection.");
+    } finally {
+      setGeocoding(false);
+    }
+  }
+
+  async function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setGeofenceError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGettingLocation(true);
+    setGeofenceError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        setGeofenceLat(lat);
+        setGeofenceLng(lon);
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          const label = data.display_name ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+          setGeofenceAddress(label);
+          setAddressInput(label);
+        } catch {
+          const label = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+          setGeofenceAddress(label);
+          setAddressInput(label);
+        }
+        setGettingLocation(false);
+      },
+      () => {
+        setGeofenceError("Location access denied. Enable location in your browser settings.");
+        setGettingLocation(false);
+      },
+      { timeout: 8000 }
+    );
+  }
+
+  async function saveGeofence() {
+    if (geofenceLat === null || geofenceLng === null) return;
+    setGeofenceSaving(true);
+    setGeofenceError(null);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setGeofenceSaving(false);
+      setGeofenceSaved(true);
+      setTimeout(() => setGeofenceSaved(false), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        geofenceLat,
+        geofenceLng,
+        geofenceRadius,
+        geofenceAddress: geofenceAddress ?? addressInput.trim() || null,
+      }),
+    });
+    setGeofenceSaving(false);
+    if (res.ok) {
+      setGeofenceSaved(true);
+      setTimeout(() => setGeofenceSaved(false), 2000);
+    } else {
+      setGeofenceError("Failed to save geofence settings.");
+    }
+  }
+
+  async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean; geofenceEnabled?: boolean }) {
     setTimeclockSaving(true);
     if (isDemo) {
       await new Promise((r) => setTimeout(r, 250));
@@ -436,14 +543,22 @@ export default function SettingsPageClient({
     if (!isDemo) {
       fetch("/api/settings")
         .then((r) => r.json())
-        .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en, manualPunchesEnabled: mp, gpsRequired: gps }) => {
-          if (fdw != null) setFirstDayOfWeek(fdw);
-          if (oc  != null) setOptimalCoverage(oc);
-          if (mc  != null) setMinCoverage(mc);
-          if (tz)          setTimezone(tz);
-          if (en  != null) setEmailNotifications(en);
-          if (mp  != null) setManualPunchesEnabled(mp);
-          if (gps != null) setGpsRequired(gps);
+        .then((s) => {
+          if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
+          if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
+          if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
+          if (s.timezone)                setTimezone(s.timezone);
+          if (s.emailNotifications != null) setEmailNotifications(s.emailNotifications);
+          if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
+          if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
+          if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
+          if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
+          if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
+          if (s.geofenceRadius  != null) setGeofenceRadius(s.geofenceRadius);
+          if (s.geofenceAddress != null) {
+            setGeofenceAddress(s.geofenceAddress);
+            setAddressInput(s.geofenceAddress);
+          }
         })
         .catch(() => {});
       fetch("/api/employees")
@@ -775,6 +890,143 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
+
+            {/* Geofence enforcement — only visible when GPS is required */}
+            {gpsRequired && (
+              <div className="space-y-4 pt-1">
+                <div className="h-px bg-slate-800" />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-200">Enforce Geofence</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Only allow clock-in within a set radius</div>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-label="Enforce geofence"
+                    aria-checked={geofenceEnabled}
+                    disabled={timeclockSaving || geofenceSaving}
+                    data-testid="toggle-geofence-enabled"
+                    onClick={() => {
+                      const next = !geofenceEnabled;
+                      setGeofenceEnabled(next);
+                      saveTimeclockSetting({ geofenceEnabled: next });
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                        geofenceEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {geofenceEnabled && (
+                  <div className="space-y-3 pt-1">
+                    {/* Address search */}
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1.5">Location</div>
+                      <div className="flex gap-2">
+                        <input
+                          value={addressInput}
+                          onChange={(e) => setAddressInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") geocodeAddress(); }}
+                          placeholder="Enter address…"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                        />
+                        <button
+                          onClick={geocodeAddress}
+                          disabled={geocoding || !addressInput.trim()}
+                          className="px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 text-sm font-semibold disabled:opacity-50 cursor-pointer"
+                        >
+                          {geocoding ? "…" : "Search"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={useCurrentLocation}
+                      disabled={gettingLocation}
+                      className="w-full py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 font-medium cursor-pointer disabled:opacity-50 hover:bg-slate-700/80 transition-colors"
+                    >
+                      {gettingLocation ? "Getting location…" : "Use My Current Location"}
+                    </button>
+
+                    {geofenceLat !== null && geofenceLng !== null && (
+                      <>
+                        <div className="flex justify-center">
+                          <GeofenceMap
+                            lat={geofenceLat}
+                            lng={geofenceLng}
+                            radius={geofenceRadius}
+                            zoom={geofenceZoom}
+                            onLocationChange={(lat, lng) => {
+                              setGeofenceLat(lat);
+                              setGeofenceLng(lng);
+                            }}
+                            onZoomChange={setGeofenceZoom}
+                            size={300}
+                          />
+                        </div>
+                        <div className="text-[11px] text-slate-500 text-center -mt-1">
+                          Tap map to move the pin
+                        </div>
+
+                        {/* Radius control */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-slate-400">Geofence Radius</span>
+                            <span className="text-xs font-bold text-slate-200 tabular-nums">{geofenceRadius}m</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
+                              className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="range"
+                              min="50"
+                              max="5000"
+                              step="25"
+                              value={geofenceRadius}
+                              onChange={(e) => setGeofenceRadius(Number(e.target.value))}
+                              className="flex-1 accent-indigo-500"
+                            />
+                            <button
+                              onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
+                              className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
+                            <span>50m</span>
+                            <span>5km</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {geofenceError && (
+                      <div className="text-xs text-red-400">{geofenceError}</div>
+                    )}
+
+                    <button
+                      onClick={saveGeofence}
+                      disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                    >
+                      {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {timeclockSaved && (
               <div className="text-xs text-emerald-400 text-right">Saved ✓</div>
             )}

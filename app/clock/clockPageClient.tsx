@@ -21,6 +21,7 @@ import UserMenu from "../../components/UserMenu";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
+import { haversineMeters } from "@/lib/haversine";
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -127,6 +128,11 @@ export default function ClockPageClient() {
   // Time clock settings
   const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
   const [gpsRequired, setGpsRequired] = useState(false);
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [geofenceLat, setGeofenceLat] = useState<number | null>(null);
+  const [geofenceLng, setGeofenceLng] = useState<number | null>(null);
+  const [geofenceRadius, setGeofenceRadius] = useState(100);
+  const [geofenceAddress, setGeofenceAddress] = useState<string | null>(null);
 
   const todayKey = toDateKey(today);
   const storeHours = weeklyHours[today.getDay()];
@@ -189,6 +195,11 @@ export default function ClockPageClient() {
       const settings = await settingsRes.json();
       if (settings.manualPunchesEnabled != null) setManualPunchesEnabled(settings.manualPunchesEnabled);
       if (settings.gpsRequired != null) setGpsRequired(settings.gpsRequired);
+      if (settings.geofenceEnabled != null) setGeofenceEnabled(settings.geofenceEnabled);
+      if (settings.geofenceLat != null) setGeofenceLat(settings.geofenceLat);
+      if (settings.geofenceLng != null) setGeofenceLng(settings.geofenceLng);
+      if (settings.geofenceRadius != null) setGeofenceRadius(settings.geofenceRadius);
+      if (settings.geofenceAddress != null) setGeofenceAddress(settings.geofenceAddress);
     } catch {
       setError("Failed to load data");
     } finally {
@@ -254,6 +265,18 @@ export default function ClockPageClient() {
       }
       lat = gps.lat;
       lng = gps.lng;
+
+      if (geofenceEnabled && geofenceLat !== null && geofenceLng !== null) {
+        const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
+        if (dist > geofenceRadius) {
+          const place = geofenceAddress ?? "the designated location";
+          setActionError(
+            `You must be within ${geofenceRadius}m of ${place} to clock in. You are currently ${Math.round(dist)}m away.`
+          );
+          setActionPending(false);
+          return;
+        }
+      }
     }
 
     try {
