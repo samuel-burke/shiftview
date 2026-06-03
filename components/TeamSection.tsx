@@ -103,7 +103,7 @@ export default function TeamSection({
               <div className="text-[11px] text-slate-400">Off</div>
             </>
           );
-          const baseClass = "flex items-center gap-3 w-full bg-[#12192a] border border-white/[0.08] border-l-[3px] border-l-slate-700 rounded-xl px-[14px] py-3 mb-2 transition-transform duration-200 hover:-translate-y-0.5";
+          const baseClass = "flex items-center gap-3 w-full bg-card border border-white/[0.08] border-l-[3px] border-l-slate-700 rounded-xl px-[14px] py-3 mb-2 transition-transform duration-200 hover:-translate-y-0.5";
           const selectable = onSelectOff && (!canSelectOff || canSelectOff(emp));
           return (
             <motion.div key={emp.id} variants={cardItem}>

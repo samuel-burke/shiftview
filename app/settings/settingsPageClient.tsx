@@ -14,6 +14,7 @@ import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
+import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -205,6 +206,7 @@ export default function SettingsPageClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [optimalCoverage, setOptimalCoverage] = useState(3);
@@ -723,6 +725,49 @@ export default function SettingsPageClient({
             isDemo={isDemo}
           />
         )}
+
+        {/* Appearance — all users */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Appearance
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="text-sm font-semibold text-slate-200 mb-3">Theme</div>
+            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+              {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setThemeMode(m)}
+                  aria-pressed={themeMode === m}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
+                    themeMode === m
+                      ? "bg-slate-600 text-slate-100"
+                      : "text-slate-400 hover:text-slate-300"
+                  }`}
+                >
+                  {m === "light" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  {m === "dark" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                  {m === "system" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  <span className="capitalize">{m}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* Push Notifications — all users */}
         {pushSupported && (
@@ -1269,7 +1314,7 @@ export default function SettingsPageClient({
                           type="date"
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark]"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100"
                         />
                         <button
                           disabled={applyingId === tpl.id}

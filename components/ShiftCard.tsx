@@ -81,7 +81,7 @@ export default function ShiftCard({
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="w-full text-left bg-[#12192a] border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
+      className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
       style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >
       {/* Avatar */}

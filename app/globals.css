@@ -15,15 +15,64 @@
   --color-timeoff-denied:   #f87171;
 }
 
+/* ── Dark theme (default) ─────────────────────────────────── */
+:root {
+  color-scheme: dark;
+  --body-color: #f8fafc;
+  --skeleton-shine: #243150;
+}
+
+/* ── Light theme overrides ────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+  --body-color: #0f172a;
+  --skeleton-shine: #e2e8f0;
+
+  /* Semantic backgrounds */
+  --color-bg: #f1f5f9;
+  --color-card: #ffffff;
+
+  /*
+   * Invert the Tailwind slate palette so every bg-slate-*, text-slate-*,
+   * and border-slate-* utility automatically adapts to light mode.
+   * Mapping: slate-N  →  slate-(1000-N)
+   */
+  --color-slate-50:  #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+
+  /*
+   * Accent colors: replace light tints with darker equivalents so text
+   * and borders remain legible on a white/near-white background.
+   */
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4f46e5;
+  --color-emerald-400: #059669;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+  --color-blue-400: #2563eb;
+  --color-violet-400: #7c3aed;
+}
+
+/* ── Base styles ──────────────────────────────────────────── */
+
 html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
-  background: #0a1628;
+  background: var(--color-bg);
 }
 
 body {
-  background: #0a1628;
-  color: #f8fafc;
+  background: var(--color-bg);
+  color: var(--body-color);
   font-family: Inter, sans-serif;
   padding-top: env(safe-area-inset-top);
 }
@@ -44,7 +93,7 @@ input, textarea, select {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #1e293b;
+  border: 2px solid var(--color-slate-800);
   border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -56,7 +105,7 @@ input, textarea, select {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #1a2236 25%, #243150 50%, #1a2236 75%);
+  background: linear-gradient(90deg, var(--color-card) 25%, var(--skeleton-shine) 50%, var(--color-card) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 6px;
