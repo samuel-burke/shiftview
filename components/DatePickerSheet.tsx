@@ -75,14 +75,14 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
       {/* Sheet */}
       {isDesktop ? (
         <div
-          className={`fixed top-1/2 left-1/2 z-50 bg-slate-900 border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7 transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+          className={`fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7 transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
           style={{ transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)" }}
         >
           {sheetContent()}
         </div>
       ) : (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
+          className={`fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="flex justify-center mb-5">
             <div className="w-10 h-1 rounded-full bg-slate-700" />
@@ -126,7 +126,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
               <div key={i} className="flex flex-col items-center gap-[3px]">
                 <button
                   onClick={() => { onSelect(day); onClose(); }}
-                  className={`size-[38px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
+                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
                     isSelected
                       ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold"
                       : isToday_
@@ -148,4 +148,4 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
   }
 }
 
-const navBtn = "size-9 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";

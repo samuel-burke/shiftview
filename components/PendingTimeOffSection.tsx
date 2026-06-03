@@ -56,7 +56,7 @@ function RequestRow({
   }
 
   return (
-    <div className="bg-gray-900 border border-slate-800 border-l-[3px] border-l-amber-500/50 rounded-xl px-[14px] py-3 mb-2">
+    <div className="bg-[#12192a] border border-white/[0.08] border-l-[3px] border-l-amber-500/50 rounded-xl px-4 py-3 mb-2">
       <div className="flex items-center gap-3 mb-3">
         <div className="size-[38px] rounded-full bg-amber-500/10 border-[1.5px] border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-400 shrink-0">
           {getMonogram(request.employeeName)}
@@ -79,7 +79,7 @@ function RequestRow({
         <button
           onClick={handleDeny}
           disabled={loading !== null}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 transition-colors"
         >
           {loading === "deny"
             ? <div className="size-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
@@ -88,7 +88,7 @@ function RequestRow({
         <button
           onClick={handleApprove}
           disabled={loading !== null}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
         >
           {loading === "approve"
             ? <div className="size-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />

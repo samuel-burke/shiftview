@@ -116,7 +116,7 @@ export default function AdminPageClient({
       >
         <button
           onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
           aria-label="Back"
         >
           ‹
@@ -176,7 +176,7 @@ export default function AdminPageClient({
                         <button
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
-                          className={`text-xs font-semibold py-1.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
+                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr

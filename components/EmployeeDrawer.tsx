@@ -247,7 +247,7 @@ export default function EmployeeDrawer({
             </div>
             <button
               onClick={onClose}
-              className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+              className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
             >
               ✕
             </button>

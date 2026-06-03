@@ -110,15 +110,15 @@ export default function ShiftCard({
 
       {/* Right side */}
       <div className="text-right shrink-0">
-        <div className="text-[11px] text-slate-400 whitespace-nowrap">
+        <div className="text-xs text-slate-400 whitespace-nowrap">
           {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
         </div>
         <div className="mt-[5px] flex justify-end items-center gap-1.5">
           {arrivalText && !badge && (
-            <span className="text-[10px] text-slate-400">{arrivalText}</span>
+            <span className="text-xs text-slate-400">{arrivalText}</span>
           )}
           {badge && (
-            <span className={`text-[11px] font-bold px-[9px] py-0.5 rounded-md flex items-center gap-1.5 ${badge.className}`}>
+            <span className={`text-[11px] font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 ${badge.className}`}>
               {badge.label === "Clocked In" && (
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />

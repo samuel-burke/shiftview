@@ -89,7 +89,7 @@ export default function TimeOffRequestsDrawer({
       />
       <div
         data-testid="time-off-drawer"
-        className={`fixed z-50 bg-slate-900 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed z-50 bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isDesktop
             ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${
                 open ? "translate-x-0" : "translate-x-full"
