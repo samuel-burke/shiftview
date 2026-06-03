@@ -72,14 +72,31 @@ export default function GeofenceMap({
     return () => ro.disconnect();
   }, []);
 
-  // View position: tracks live during drag, propagated to parent on release
+  // View position tracked in both state (for rendering) and refs (for event handlers).
+  // Refs avoid stale-closure issues when multiple touch events fire before a re-render.
   const [viewLat, setViewLat] = useState(lat);
   const [viewLng, setViewLng] = useState(lng);
-  useEffect(() => { setViewLat(lat); }, [lat]);
-  useEffect(() => { setViewLng(lng); }, [lng]);
+  const viewLatRef = useRef(lat);
+  const viewLngRef = useRef(lng);
+  const zoomRef = useRef(zoom);
 
-  const dragRef = useRef<{ sx: number; sy: number; sLat: number; sLng: number } | null>(null);
-  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { viewLatRef.current = lat; setViewLat(lat); }, [lat]);
+  useEffect(() => { viewLngRef.current = lng; setViewLng(lng); }, [lng]);
+
+  function setView(newLat: number, newLng: number) {
+    viewLatRef.current = newLat;
+    viewLngRef.current = newLng;
+    setViewLat(newLat);
+    setViewLng(newLng);
+  }
+
+  type DragState = { sx: number; sy: number; sLat: number; sLng: number };
+  // mx/my track the pinch midpoint so the view also pans with the fingers
+  type PinchState = { dist: number; zoom: number; mx: number; my: number };
+
+  const dragRef = useRef<DragState | null>(null);
+  const pinchRef = useRef<PinchState | null>(null);
   const touchesRef = useRef(new Map<number, { x: number; y: number }>());
 
   const cx = mapWidth / 2;
@@ -114,63 +131,93 @@ export default function GeofenceMap({
 
   // ── Mouse ────────────────────────────────────────────────────────────────────
   function onMouseDown(e: React.MouseEvent) {
-    dragRef.current = { sx: e.clientX, sy: e.clientY, sLat: viewLat, sLng: viewLng };
+    dragRef.current = { sx: e.clientX, sy: e.clientY, sLat: viewLatRef.current, sLng: viewLngRef.current };
   }
   function onMouseMove(e: React.MouseEvent) {
     if (!dragRef.current) return;
-    const p = applyDelta(dragRef.current.sLat, dragRef.current.sLng, e.clientX - dragRef.current.sx, e.clientY - dragRef.current.sy, zoom);
-    setViewLat(p.lat);
-    setViewLng(p.lng);
+    const p = applyDelta(dragRef.current.sLat, dragRef.current.sLng, e.clientX - dragRef.current.sx, e.clientY - dragRef.current.sy, zoomRef.current);
+    setView(p.lat, p.lng);
   }
   function onMouseUp() {
     if (!dragRef.current) return;
-    onLocationChange(viewLat, viewLng);
+    onLocationChange(viewLatRef.current, viewLngRef.current);
     dragRef.current = null;
   }
 
-  // ── Touch (touch-none on container = no passive scroll interference) ─────────
+  // ── Touch ────────────────────────────────────────────────────────────────────
   function onTouchStart(e: React.TouchEvent) {
     for (const t of Array.from(e.changedTouches))
       touchesRef.current.set(t.identifier, { x: t.clientX, y: t.clientY });
 
     if (touchesRef.current.size === 1) {
       const [t] = Array.from(touchesRef.current.values());
-      dragRef.current = { sx: t.x, sy: t.y, sLat: viewLat, sLng: viewLng };
-    } else if (touchesRef.current.size === 2) {
+      dragRef.current = { sx: t.x, sy: t.y, sLat: viewLatRef.current, sLng: viewLngRef.current };
+    } else if (touchesRef.current.size >= 2) {
       dragRef.current = null;
       const [a, b] = Array.from(touchesRef.current.values());
-      pinchRef.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+      pinchRef.current = {
+        dist: Math.hypot(a.x - b.x, a.y - b.y),
+        zoom: zoomRef.current,
+        mx: (a.x + b.x) / 2,
+        my: (a.y + b.y) / 2,
+      };
     }
   }
+
   function onTouchMove(e: React.TouchEvent) {
     for (const t of Array.from(e.changedTouches))
       touchesRef.current.set(t.identifier, { x: t.clientX, y: t.clientY });
 
     if (touchesRef.current.size === 1 && dragRef.current) {
       const [t] = Array.from(touchesRef.current.values());
-      const p = applyDelta(dragRef.current.sLat, dragRef.current.sLng, t.x - dragRef.current.sx, t.y - dragRef.current.sy, zoom);
-      setViewLat(p.lat);
-      setViewLng(p.lng);
-    } else if (touchesRef.current.size === 2 && pinchRef.current) {
+      const p = applyDelta(dragRef.current.sLat, dragRef.current.sLng, t.x - dragRef.current.sx, t.y - dragRef.current.sy, zoomRef.current);
+      setView(p.lat, p.lng);
+    } else if (touchesRef.current.size >= 2 && pinchRef.current) {
       const [a, b] = Array.from(touchesRef.current.values());
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+
+      // Pan: follow the midpoint of the two fingers
+      const dx = mx - pinchRef.current.mx;
+      const dy = my - pinchRef.current.my;
+      if (dx !== 0 || dy !== 0) {
+        const p = applyDelta(viewLatRef.current, viewLngRef.current, dx, dy, zoomRef.current);
+        setView(p.lat, p.lng);
+      }
+
+      // Zoom: snap when distance ratio crosses a full integer step
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM,
         Math.round(pinchRef.current.zoom + Math.log2(dist / pinchRef.current.dist)),
       ));
-      if (newZoom !== zoom) onZoomChange(newZoom);
+
+      // Update baseline every move (pan), reset zoom baseline only on zoom change
+      pinchRef.current = {
+        dist,
+        zoom: newZoom !== zoomRef.current ? newZoom : pinchRef.current.zoom,
+        mx,
+        my,
+      };
+
+      if (newZoom !== zoomRef.current) onZoomChange(newZoom);
     }
   }
+
   function onTouchEnd(e: React.TouchEvent) {
     for (const t of Array.from(e.changedTouches))
       touchesRef.current.delete(t.identifier);
 
     if (touchesRef.current.size === 0) {
-      if (dragRef.current) { onLocationChange(viewLat, viewLng); dragRef.current = null; }
+      // Commit position whether the gesture was a drag, a pinch-with-pan, or both
+      if (dragRef.current || pinchRef.current) {
+        onLocationChange(viewLatRef.current, viewLngRef.current);
+      }
+      dragRef.current = null;
       pinchRef.current = null;
     } else if (touchesRef.current.size === 1) {
-      // Finger lifted from pinch — restart drag from current position
+      // One finger lifted from a pinch — seamlessly restart as a drag
       const [t] = Array.from(touchesRef.current.values());
-      dragRef.current = { sx: t.x, sy: t.y, sLat: viewLat, sLng: viewLng };
+      dragRef.current = { sx: t.x, sy: t.y, sLat: viewLatRef.current, sLng: viewLngRef.current };
       pinchRef.current = null;
     }
   }
