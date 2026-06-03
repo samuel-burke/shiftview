@@ -3,17 +3,31 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 type Props = {
   active: "team" | "schedule" | "clock";
 };
 
 const TABS = ["team", "schedule", "clock"] as const;
+const STORAGE_KEY = "nav-prev-tab";
 
 export default function BottomNav({ active }: Props) {
   const searchParams = useSearchParams();
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
   const tabIndex = TABS.indexOf(active);
+
+  // Read which tab was active last time so the pill slides FROM there, not from 0.
+  const [fromIndex] = useState<number>(() => {
+    if (typeof window === "undefined") return tabIndex;
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    return stored !== null ? parseInt(stored, 10) : tabIndex;
+  });
+
+  // Persist current tab for the next navigation.
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, String(tabIndex));
+  }, [tabIndex]);
 
   return (
     <nav
@@ -25,7 +39,7 @@ export default function BottomNav({ active }: Props) {
         <motion.div
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
           style={{ width: "33.333%" }}
-          initial={false}
+          initial={{ left: `${fromIndex * 33.333}%` }}
           animate={{ left: `${tabIndex * 33.333}%` }}
           transition={{ type: "spring", stiffness: 420, damping: 36 }}
         >
