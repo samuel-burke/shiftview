@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
+import { haversineMeters } from "@/lib/haversine";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +167,52 @@ export async function POST(request: Request) {
       ? `Cannot ${punchType}: current state is ${lastType}`
       : `Cannot ${punchType}: no active clock-in`;
     return NextResponse.json({ error: msg }, { status: 409 });
+  }
+
+  // Server-side geofence enforcement for clock_in
+  if (punchType === "clock_in") {
+    const { data: gfData } = await supabase.from("app_settings").select("key, value");
+    const gfMap = Object.fromEntries(
+      (gfData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+    );
+    const gpsRequired    = gfMap.gps_required === "true";
+    const geofenceEnabled = gfMap.geofence_enabled === "true";
+    if (gpsRequired && geofenceEnabled) {
+      const geofenceLat = gfMap.geofence_lat ? parseFloat(gfMap.geofence_lat) : null;
+      const geofenceLng = gfMap.geofence_lng ? parseFloat(gfMap.geofence_lng) : null;
+      const geofenceRadius = parseInt(gfMap.geofence_radius ?? "100");
+      if (geofenceLat !== null && geofenceLng !== null && !isNaN(geofenceLat) && !isNaN(geofenceLng)) {
+        if (lat == null || lng == null) {
+          return NextResponse.json(
+            { error: "GPS location required — geofence enforcement is active" },
+            { status: 422 }
+          );
+        }
+        const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
+        if (dist > geofenceRadius) {
+          writeAuditLog({
+            action:       "punch.geofence_rejected",
+            actorId:      user.id,
+            resourceType: "punch_record",
+            after: { employeeId: emp.id, punchType, lat, lng },
+            metadata: {
+              employeeId:      emp.id,
+              employeeName:    emp.name,
+              distanceMeters:  Math.round(dist),
+              radiusMeters:    geofenceRadius,
+              attemptedLat:    lat,
+              attemptedLng:    lng,
+              geofenceLat,
+              geofenceLng,
+            },
+          }).catch(() => {});
+          return NextResponse.json(
+            { error: `Outside geofence — you must be within ${geofenceRadius}m of the designated location to clock in (currently ${Math.round(dist)}m away)` },
+            { status: 422 }
+          );
+        }
+      }
+    }
   }
 
   const { data, error } = await supabase

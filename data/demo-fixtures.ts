@@ -20,6 +20,11 @@ export const DEMO_SETTINGS = {
   timezone: "America/New_York",
   manualPunchesEnabled: true,
   gpsRequired: false,
+  geofenceEnabled: false,
+  geofenceLat: null as number | null,
+  geofenceLng: null as number | null,
+  geofenceRadius: 100,
+  geofenceAddress: null as string | null,
 };
 
 export function getDemoSchedulesForDate(date: string): Schedule[] {

@@ -32,6 +32,11 @@ export async function GET() {
     emailNotifications:   map.email_notifications === "true",
     manualPunchesEnabled: map.manual_punches_enabled !== "false",
     gpsRequired:          map.gps_required === "true",
+    geofenceEnabled:      map.geofence_enabled === "true",
+    geofenceLat:          map.geofence_lat ? parseFloat(map.geofence_lat) : null,
+    geofenceLng:          map.geofence_lng ? parseFloat(map.geofence_lng) : null,
+    geofenceRadius:       parseInt(map.geofence_radius ?? "100"),
+    geofenceAddress:      map.geofence_address || null,
   });
 }
 
@@ -93,6 +98,37 @@ export async function PUT(request: Request) {
     if (typeof body.gpsRequired !== "boolean")
       return NextResponse.json({ error: "gpsRequired must be a boolean" }, { status: 400 });
     rows.push({ key: "gps_required", value: String(body.gpsRequired) });
+  }
+
+  if (body.geofenceEnabled !== undefined) {
+    if (typeof body.geofenceEnabled !== "boolean")
+      return NextResponse.json({ error: "geofenceEnabled must be a boolean" }, { status: 400 });
+    rows.push({ key: "geofence_enabled", value: String(body.geofenceEnabled) });
+  }
+
+  if (body.geofenceLat !== undefined) {
+    if (body.geofenceLat !== null && (typeof body.geofenceLat !== "number" || isNaN(body.geofenceLat)))
+      return NextResponse.json({ error: "geofenceLat must be a number or null" }, { status: 400 });
+    rows.push({ key: "geofence_lat", value: body.geofenceLat == null ? "" : String(body.geofenceLat) });
+  }
+
+  if (body.geofenceLng !== undefined) {
+    if (body.geofenceLng !== null && (typeof body.geofenceLng !== "number" || isNaN(body.geofenceLng)))
+      return NextResponse.json({ error: "geofenceLng must be a number or null" }, { status: 400 });
+    rows.push({ key: "geofence_lng", value: body.geofenceLng == null ? "" : String(body.geofenceLng) });
+  }
+
+  if (body.geofenceRadius !== undefined) {
+    const v = Number(body.geofenceRadius);
+    if (!Number.isInteger(v) || v < 50 || v > 50000)
+      return NextResponse.json({ error: "geofenceRadius must be 50–50000 meters" }, { status: 400 });
+    rows.push({ key: "geofence_radius", value: String(v) });
+  }
+
+  if (body.geofenceAddress !== undefined) {
+    if (body.geofenceAddress !== null && typeof body.geofenceAddress !== "string")
+      return NextResponse.json({ error: "geofenceAddress must be a string or null" }, { status: 400 });
+    rows.push({ key: "geofence_address", value: body.geofenceAddress ?? "" });
   }
 
   if (rows.length === 0)
