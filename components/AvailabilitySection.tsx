@@ -230,14 +230,11 @@ export default function AvailabilitySection({
                           && sheetStartMins !== null && sheetEndMins !== null && !sheetInvalid;
 
   return (
-    <section
-      data-testid="availability-section"
-      className="bg-slate-900 border border-slate-800 rounded-xl px-4 pt-4 pb-2 mt-4"
-    >
-      <h2 className="text-base font-bold text-slate-100 mb-1">My Typical Week</h2>
-      <p className="text-xs text-slate-400 mb-3">
-        Let your manager know when you&rsquo;re usually available to work.
-      </p>
+    <section data-testid="availability-section">
+      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+        Availability
+      </div>
+      <div className="bg-card rounded-2xl border border-slate-800/60 px-4 pt-4 pb-2">
 
       {allAny && (
         <div className="mb-2 text-xs text-emerald-400">
@@ -286,6 +283,7 @@ export default function AvailabilitySection({
             </button>
           );
         })}
+      </div>
       </div>
 
       {/* Bottom sheet */}
