@@ -974,7 +974,7 @@ export default function SettingsPageClient({
                         <input
                           value={addressInput}
                           onChange={(e) => handleAddressInput(e.target.value)}
-                          onFocus={() => { if (addressSuggestions.length > 0) setShowSuggestions(true); }}
+                          onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           placeholder="Search address…"
                           className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
