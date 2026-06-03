@@ -123,7 +123,10 @@ export default function CoverageHeader({
           {/* Brand */}
           <span className="text-[22px] font-extrabold text-slate-100 tracking-tight shrink-0">
             Shift
-            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
+            <span
+              className="bg-clip-text text-transparent animate-gradient"
+              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
+            >
               View
             </span>
           </span>

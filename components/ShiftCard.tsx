@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   Employee,
   Schedule,
@@ -71,11 +72,17 @@ export default function ShiftCard({
 
   const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
 
+  const glowShadow = isActive
+    ? `0 0 0 1px ${shiftColor}30, 0 4px 24px ${shiftColor}22, inset 0 1px 0 rgba(255,255,255,0.07)`
+    : `inset 0 1px 0 rgba(255,255,255,0.04)`;
+
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className="w-full text-left bg-gray-900 hover:bg-card border border-slate-800 rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-colors duration-150"
-      style={{ borderLeft: `3px solid ${shiftColor}` }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="w-full text-left bg-[#12192a] border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
+      style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >
       {/* Avatar */}
       <div
@@ -111,12 +118,18 @@ export default function ShiftCard({
             <span className="text-[10px] text-slate-400">{arrivalText}</span>
           )}
           {badge && (
-            <span className={`text-[11px] font-bold px-[9px] py-0.5 rounded-md ${badge.className}`}>
+            <span className={`text-[11px] font-bold px-[9px] py-0.5 rounded-md flex items-center gap-1.5 ${badge.className}`}>
+              {badge.label === "Clocked In" && (
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+              )}
               {badge.label}
             </span>
           )}
         </div>
       </div>
-    </button>
+    </motion.button>
   );
 }
