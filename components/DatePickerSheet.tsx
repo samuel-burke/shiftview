@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
 type Props = {
@@ -65,32 +66,47 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
   const days = getCalendarDays(viewYear, viewMonth, firstDayOfWeek);
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-      />
-
-      {/* Sheet */}
-      {isDesktop ? (
-        <div
-          className={`fixed top-1/2 left-1/2 z-50 bg-slate-900 border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7 transition-[opacity,transform] duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-          style={{ transform: open ? "translate(-50%, -50%)" : "translate(-50%, -48%)" }}
-        >
-          {sheetContent()}
-        </div>
-      ) : (
-        <div
-          className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-y-0" : "translate-y-full"}`}
-        >
-          <div className="flex justify-center mb-5">
-            <div className="w-10 h-1 rounded-full bg-slate-700" />
-          </div>
-          {sheetContent()}
-        </div>
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            key="backdrop"
+            className="fixed inset-0 bg-black/60 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={onClose}
+          />
+          {isDesktop ? (
+            <motion.div
+              key="panel"
+              className="fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7"
+              initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
+              animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+              exit={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            >
+              {sheetContent()}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="panel"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 300 }}
+            >
+              <div className="flex justify-center mb-5">
+                <div className="w-10 h-1 rounded-full bg-slate-700" />
+              </div>
+              {sheetContent()}
+            </motion.div>
+          )}
+        </>
       )}
-    </>
+    </AnimatePresence>
   );
 
   function sheetContent() {
@@ -126,7 +142,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
               <div key={i} className="flex flex-col items-center gap-[3px]">
                 <button
                   onClick={() => { onSelect(day); onClose(); }}
-                  className={`size-[38px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
+                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
                     isSelected
                       ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold"
                       : isToday_
@@ -148,4 +164,4 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
   }
 }
 
-const navBtn = "size-9 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";

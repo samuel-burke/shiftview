@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import MessageThread from "./MessageThread";
 import {
@@ -203,180 +204,196 @@ export default function EmployeeDrawer({
         </div>
       )}
 
-      <div
-        onClick={onClose}
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-[250ms] ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-      />
-      <div
-        data-testid="employee-drawer"
-        className={`fixed z-50 bg-slate-900 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isDesktop
-            ? `inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto ${open ? "translate-x-0" : "translate-x-full"}`
-            : `bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto ${open ? "translate-y-0" : "translate-y-full"}`
-        }`}
-      >
-        {!isDesktop && (
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-slate-700" />
-          </div>
-        )}
-
-        <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3.5">
-              <div
-                className="size-[52px] rounded-[14px] flex items-center justify-center text-base font-extrabold"
-                style={{
-                  background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`,
-                  border: `2px solid color-mix(in srgb, ${shiftColor} 33%, transparent)`,
-                  color: shiftColor,
-                }}
-              >
-                {getMonogram(employee.name)}
-              </div>
-              <div>
-                <div className="text-lg font-bold text-slate-100">{employee.name}</div>
-                <div className="text-xs mt-[3px]">
-                  {shiftType && (
-                    <span className="capitalize mr-1.5" style={{ color: shiftColor }}>{shiftType}</span>
-                  )}
-                  <span style={{ color: statusColor }}>· {statusLabel}</span>
-                </div>
-              </div>
-            </div>
-            <button
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              key="backdrop"
+              className="fixed inset-0 bg-black/60 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
               onClick={onClose}
-              className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+            />
+            <motion.div
+              key="panel"
+              data-testid="employee-drawer"
+              className={`fixed z-50 bg-bg ${
+                isDesktop
+                  ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
+                  : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto"
+              }`}
+              initial={isDesktop ? { x: "100%" } : { y: "100%" }}
+              animate={isDesktop ? { x: 0 } : { y: 0 }}
+              exit={isDesktop ? { x: "100%" } : { y: "100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 300 }}
             >
-              ✕
-            </button>
-          </div>
-
-          {/* Availability banner */}
-          {availRecord && (
-            <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
-              {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
-                <>
-                  ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
-                  {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
-                </>
-              ) : (
-                <>
-                  ⚠ Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
-                  {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
-                </>
-              )}
-            </div>
-          )}
-
-          {editing ? (
-            <div className="flex flex-col gap-3">
-              {[
-                { label: "Start time", val: startVal, set: setStartVal },
-                { label: "End time",   val: endVal,   set: setEndVal   },
-              ].map(({ label, val, set }) => (
-                <div key={label}>
-                  <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
-                    {label}
-                  </div>
-                  <input
-                    type="time"
-                    value={val}
-                    onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
-                    className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
-                  />
+              {!isDesktop && (
+                <div className="flex justify-center pt-3 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-slate-700" />
                 </div>
-              ))}
-
-              {error && (
-                <div className="text-xs text-red-400 text-center">{error}</div>
               )}
 
-              <button
-                onClick={() => handleSave(false)}
-                disabled={saving}
-                className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
-              >
-                {saving ? "Saving…" : "Save Shift"}
-              </button>
-
-              {schedule && (
-                <button
-                  onClick={handleMarkOff}
-                  disabled={saving}
-                  className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
-                >
-                  Mark as Off
-                </button>
-              )}
-
-              <button
-                onClick={() => { setEditing(false); setError(null); setConflict(null); }}
-                disabled={saving}
-                className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-2.5 mb-6">
-                {[
-                  { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },
-                  { label: "End",        value: schedule ? fmtMinutes(schedule.endMinutes) : "—" },
-                  { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "—" },
-                  { label: "Status",     value: statusLabel },
-                ].map(({ label, value }) => (
-                  <div key={label} className="bg-card rounded-xl px-[14px] py-3">
-                    <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1">{label}</div>
-                    <div className="text-sm font-semibold text-slate-100">{value}</div>
+              <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className="size-[52px] rounded-[14px] flex items-center justify-center text-base font-extrabold"
+                      style={{
+                        background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`,
+                        border: `2px solid color-mix(in srgb, ${shiftColor} 33%, transparent)`,
+                        color: shiftColor,
+                      }}
+                    >
+                      {getMonogram(employee.name)}
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-slate-100">{employee.name}</div>
+                      <div className="text-xs mt-[3px]">
+                        {shiftType && (
+                          <span className="capitalize mr-1.5" style={{ color: shiftColor }}>{shiftType}</span>
+                        )}
+                        <span style={{ color: statusColor }}>· {statusLabel}</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2.5">
-                {isManager && (
                   <button
-                    onClick={() => setEditing(true)}
-                    className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
+                    onClick={onClose}
+                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
                   >
-                    {schedule ? "Edit Shift" : "Add Shift"}
+                    ✕
                   </button>
+                </div>
+
+                {/* Availability banner */}
+                {availRecord && (
+                  <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+                    {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
+                      <>
+                        ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+                        {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                      </>
+                    ) : (
+                      <>
+                        ⚠ Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
+                        {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                      </>
+                    )}
+                  </div>
                 )}
-                {employee.user_id && (
-                  <button
-                    onClick={() => { setChatMounted(true); setChatOpen(true); }}
-                    className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
-                  >
-                    Message
-                  </button>
+
+                {editing ? (
+                  <div className="flex flex-col gap-3">
+                    {[
+                      { label: "Start time", val: startVal, set: setStartVal },
+                      { label: "End time",   val: endVal,   set: setEndVal   },
+                    ].map(({ label, val, set }) => (
+                      <div key={label}>
+                        <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
+                          {label}
+                        </div>
+                        <input
+                          type="time"
+                          value={val}
+                          onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
+                          className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
+                        />
+                      </div>
+                    ))}
+
+                    {error && (
+                      <div className="text-xs text-red-400 text-center">{error}</div>
+                    )}
+
+                    <button
+                      onClick={() => handleSave(false)}
+                      disabled={saving}
+                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+                    >
+                      {saving ? "Saving…" : "Save Shift"}
+                    </button>
+
+                    {schedule && (
+                      <button
+                        onClick={handleMarkOff}
+                        disabled={saving}
+                        className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+                      >
+                        Mark as Off
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => { setEditing(false); setError(null); setConflict(null); }}
+                      disabled={saving}
+                      className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2.5 mb-6">
+                      {[
+                        { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },
+                        { label: "End",        value: schedule ? fmtMinutes(schedule.endMinutes) : "—" },
+                        { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "—" },
+                        { label: "Status",     value: statusLabel },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-card rounded-xl px-[14px] py-3">
+                          <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1">{label}</div>
+                          <div className="text-sm font-semibold text-slate-100">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      {isManager && (
+                        <button
+                          onClick={() => setEditing(true)}
+                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
+                        >
+                          {schedule ? "Edit Shift" : "Add Shift"}
+                        </button>
+                      )}
+                      {employee.user_id && (
+                        <button
+                          onClick={() => { setChatMounted(true); setChatOpen(true); }}
+                          className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
+                        >
+                          Message
+                        </button>
+                      )}
+                    </div>
+
+                    {isManager && onResendInvite && !employee.user_id && employee.email && (
+                      <button
+                        onClick={async () => {
+                          setSaving(true);
+                          try {
+                            await onResendInvite(employee.email!);
+                            setInviteSent(true);
+                          } catch {
+                            setError("Failed to resend invite");
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                        disabled={saving || inviteSent}
+                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400"}`}
+                      >
+                        {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
-
-              {isManager && onResendInvite && !employee.user_id && employee.email && (
-                <button
-                  onClick={async () => {
-                    setSaving(true);
-                    try {
-                      await onResendInvite(employee.email!);
-                      setInviteSent(true);
-                    } catch {
-                      setError("Failed to resend invite");
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                  disabled={saving || inviteSent}
-                  className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400"}`}
-                >
-                  {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {employee.user_id && chatMounted && (
         <MessageThread

@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
+const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type DayCount = { date: string; count: number };
 type Employee = { id: number; name: string };
@@ -617,11 +621,11 @@ export default function ReportsPageClient() {
               <div className="text-[11px] text-slate-500 px-1">
                 {auditTotal.toLocaleString()} {auditTotal === 1 ? "event" : "events"} found
               </div>
-              <div className="flex flex-col gap-2">
+              <motion.div className="flex flex-col gap-2" variants={listContainer} initial="hidden" animate="show">
                 {auditEntries.map((entry) => {
                   const detail = auditDetail(entry);
                   return (
-                    <div key={entry.id} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
+                    <motion.div key={entry.id} variants={listItem} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${auditBadgeClass(entry.action)}`}>
                           {auditBadgeLabel(entry.action)}
@@ -639,10 +643,10 @@ export default function ReportsPageClient() {
                       {entry.actorName && (
                         <div className="text-[11px] text-slate-500 mt-0.5">by {entry.actorName}</div>
                       )}
-                    </div>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </motion.div>
               {auditHasMore && (
                 <button
                   onClick={() => fetchAuditPage(auditPage + 1, false)}
