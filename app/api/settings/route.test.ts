@@ -50,6 +50,11 @@ describe("GET /api/settings", () => {
       timezone: "America/Chicago",
       manualPunchesEnabled: true,
       gpsRequired: false,
+      geofenceEnabled: false,
+      geofenceLat: null,
+      geofenceLng: null,
+      geofenceRadius: 100,
+      geofenceAddress: null,
     });
   });
 
@@ -76,6 +81,11 @@ describe("GET /api/settings", () => {
       timezone: "America/New_York",
       manualPunchesEnabled: true,
       gpsRequired: false,
+      geofenceEnabled: false,
+      geofenceLat: null,
+      geofenceLng: null,
+      geofenceRadius: 100,
+      geofenceAddress: null,
     });
   });
 

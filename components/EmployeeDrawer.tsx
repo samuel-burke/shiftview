@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import MessageThread from "./MessageThread";
 import {
   Employee,
   Schedule,
@@ -72,10 +73,8 @@ export default function EmployeeDrawer({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
-  const [composing, setComposing] = useState(false);
-  const [messageText, setMessageText] = useState("");
-  const [messageSent, setMessageSent] = useState(false);
-  const [messageSending, setMessageSending] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
   const [conflict, setConflict] = useState<ConflictState>(null);
 
   useEffect(() => {
@@ -91,9 +90,8 @@ export default function EmployeeDrawer({
       setError(null);
       setConflict(null);
       setInviteSent(false);
-      setComposing(false);
-      setMessageText("");
-      setMessageSent(false);
+      setChatOpen(false);
+      setChatMounted(false);
     }
   }, [open, schedule]);
 
@@ -153,23 +151,6 @@ export default function EmployeeDrawer({
       setError(e instanceof Error ? e.message : "Failed to mark as off");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleSend() {
-    if (!employee || !messageText.trim()) return;
-    setMessageSending(true);
-    try {
-      await fetch("/api/notify-employee", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: employee.id, message: messageText.trim() }),
-      });
-      setMessageSent(true);
-      setMessageText("");
-      setComposing(false);
-    } finally {
-      setMessageSending(false);
     }
   }
 
@@ -365,36 +346,13 @@ export default function EmployeeDrawer({
                 )}
                 {employee.user_id && (
                   <button
-                    onClick={() => { setComposing((c) => !c); setMessageSent(false); }}
+                    onClick={() => { setChatMounted(true); setChatOpen(true); }}
                     className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
                   >
                     Message
                   </button>
                 )}
               </div>
-
-              {employee.user_id && composing && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <textarea
-                    placeholder="Write a message…"
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm resize-none"
-                    rows={3}
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={messageSending || !messageText.trim()}
-                    className={`py-[12px] rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${messageSending ? "opacity-70" : "opacity-100"}`}
-                  >
-                    {messageSending ? "Sending…" : "Send"}
-                  </button>
-                </div>
-              )}
-
-              {messageSent && !composing && (
-                <div className="mt-2 text-sm text-green-400 text-center">Sent ✓</div>
-              )}
 
               {isManager && onResendInvite && !employee.user_id && employee.email && (
                 <button
@@ -419,6 +377,15 @@ export default function EmployeeDrawer({
           )}
         </div>
       </div>
+
+      {employee.user_id && chatMounted && (
+        <MessageThread
+          open={chatOpen}
+          otherUserId={employee.user_id}
+          otherName={employee.name}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
     </>
   );
 }
