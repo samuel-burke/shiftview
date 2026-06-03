@@ -346,10 +346,15 @@ export default function SettingsPageClient({
     setShowSuggestions(false);
     if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
     if (!value.trim() || value.length < 3) { setAddressSuggestions([]); return; }
+    const currentLat = geofenceLat;
+    const currentLng = geofenceLng;
     autocompleteTimerRef.current = setTimeout(async () => {
       try {
+        const viewbox = currentLat !== null && currentLng !== null
+          ? `&viewbox=${currentLng - 0.5},${currentLat + 0.5},${currentLng + 0.5},${currentLat - 0.5}`
+          : "";
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value.trim())}&format=json&limit=5`,
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value.trim())}&format=json&limit=5${viewbox}`,
           { headers: { "Accept-Language": "en" } }
         );
         const results: NominatimResult[] = await res.json();
@@ -991,56 +996,47 @@ export default function SettingsPageClient({
 
                     {geofenceLat !== null && geofenceLng !== null && (
                       <>
-                        <div className="flex justify-center">
-                          <GeofenceMap
-                            lat={geofenceLat}
-                            lng={geofenceLng}
-                            radius={geofenceRadius}
-                            zoom={geofenceZoom}
-                            onLocationChange={(lat, lng) => placeAtCoords(lat, lng)}
-                            onZoomChange={setGeofenceZoom}
-                            size={300}
-                          />
-                        </div>
-                        <div className="text-[11px] text-slate-500 text-center -mt-1">
-                          Tap map to move the pin
-                        </div>
+                        <GeofenceMap
+                          lat={geofenceLat}
+                          lng={geofenceLng}
+                          radius={geofenceRadius}
+                          zoom={geofenceZoom}
+                          onLocationChange={(lat, lng) => placeAtCoords(lat, lng)}
+                          onZoomChange={setGeofenceZoom}
+                        />
 
-                        {/* Radius presets */}
+                        {/* Radius control */}
                         <div>
-                          <div className="text-xs text-slate-400 mb-2">Geofence Radius</div>
-                          <div className="flex flex-wrap gap-2 items-center">
-                            {RADIUS_PRESETS.map(({ label, value }) => (
-                              <button
-                                key={value}
-                                onClick={() => setGeofenceRadius(value)}
-                                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer border ${
-                                  geofenceRadius === value
-                                    ? "bg-indigo-500 text-white border-indigo-500"
-                                    : "bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-slate-200"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="number"
-                                min="50"
-                                max="50000"
-                                value={geofenceRadius}
-                                onChange={(e) => {
-                                  const v = parseInt(e.target.value);
-                                  if (!isNaN(v)) setGeofenceRadius(Math.max(50, Math.min(50000, v)));
-                                }}
-                                className={`w-[68px] bg-slate-800 border rounded-lg px-2 py-2 text-sm text-center tabular-nums text-slate-100 ${
-                                  RADIUS_PRESETS.some((p) => p.value === geofenceRadius)
-                                    ? "border-slate-700 text-slate-400"
-                                    : "border-indigo-500 text-indigo-300"
-                                }`}
-                              />
-                              <span className="text-xs text-slate-500">m</span>
-                            </div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-slate-400">Geofence Radius</span>
+                            <span className="text-xs font-bold text-slate-200 tabular-nums">{geofenceRadius}m</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="range"
+                              min="50"
+                              max="5000"
+                              step="25"
+                              value={geofenceRadius}
+                              onChange={(e) => setGeofenceRadius(Number(e.target.value))}
+                              className="flex-1 accent-indigo-500"
+                            />
+                            <button
+                              onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
+                            <span>50m</span>
+                            <span>5km</span>
                           </div>
                         </div>
                       </>
