@@ -33,6 +33,7 @@ import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
+import AppShell from "../components/AppShell";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useIsDesktop } from "../hooks/useIsDesktop";
@@ -691,47 +692,50 @@ export default function Page() {
 
   if (isDesktop) {
     return (
-      <main className="bg-bg min-h-screen">
-        <CoverageHeader {...headerProps} />
-        {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
-        {errorBanner}
-        <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-28 items-start">
-          {/* Left: stats + timeline + legend */}
-          <div>
-            {statsRow}
-            {timeline}
-            {legend}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-              {exportButton}
+      <AppShell active="team" isManager={isManager}>
+        <main className="bg-bg min-h-screen">
+          <CoverageHeader {...headerProps} />
+          {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+          {errorBanner}
+          <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
+            {/* Left: stats + timeline + legend */}
+            <div>
+              {statsRow}
+              {timeline}
+              {legend}
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
+                {exportButton}
+              </div>
+            </div>
+            {/* Right: team list */}
+            <div className="sticky top-4">
+              {teamSections}
             </div>
           </div>
-          {/* Right: team list */}
-          <div className="sticky top-4">
-            {teamSections}
-          </div>
-        </div>
-        {drawer}
-        <BottomNav active="team" />
-      </main>
+          {drawer}
+        </main>
+      </AppShell>
     );
   }
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
-      <CoverageHeader {...headerProps} />
-      {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
-      {errorBanner}
-      {statsRow}
-      {timeline}
-      {legend}
-      {teamSections}
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-        {exportButton}
-      </div>
-      {drawer}
-      <BottomNav active="team" />
-    </main>
+    <AppShell active="team" isManager={isManager}>
+      <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
+        <CoverageHeader {...headerProps} />
+        {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+        {errorBanner}
+        {statsRow}
+        {timeline}
+        {legend}
+        {teamSections}
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
+          {exportButton}
+        </div>
+        {drawer}
+        <BottomNav active="team" />
+      </main>
+    </AppShell>
   );
 }

@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BottomNav from "../../components/BottomNav";
+import AppShell from "../../components/AppShell";
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 
 type DayCount = { date: string; count: number };
 type Employee = { id: number; name: string };
@@ -406,25 +408,34 @@ export default function ReportsPageClient() {
     URL.revokeObjectURL(url);
   }
 
+  const isDesktop = useIsDesktop();
+
   return (
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
+    <AppShell active="reports" isManager>
+    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
       {/* Top bar */}
-      <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-      >
-        <button
-          onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
-          aria-label="Back"
+      {isDesktop ? (
+        <div className="border-b border-slate-800 px-6 py-[14px]">
+          <span className="text-xl font-extrabold text-slate-100 tracking-tight">Reports</span>
+        </div>
+      ) : (
+        <div
+          className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
-          ‹
-        </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Reports</span>
-      </div>
+          <button
+            onClick={() => router.back()}
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            aria-label="Back"
+          >
+            ‹
+          </button>
+          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Reports</span>
+        </div>
+      )}
 
       {/* Tab bar */}
-      <div className="px-4 pt-4 flex gap-2">
+      <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-4 flex gap-2`}>
         {(["coverage", "activity"] as const).map((tab) => (
           <button
             key={tab}
@@ -442,7 +453,7 @@ export default function ReportsPageClient() {
 
       {/* ── Coverage tab ── */}
       {activeTab === "coverage" && (
-        <div className="px-4 pt-5 flex flex-col gap-5">
+        <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-5 flex flex-col gap-5`}>
           {/* Coverage heatmap */}
           <section>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
@@ -557,7 +568,7 @@ export default function ReportsPageClient() {
 
       {/* ── Activity Log tab ── */}
       {activeTab === "activity" && (
-        <div className="px-4 pt-4 flex flex-col gap-4">
+        <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-4 flex flex-col gap-4`}>
           {/* Filters */}
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
@@ -657,7 +668,8 @@ export default function ReportsPageClient() {
         </div>
       )}
 
-      <BottomNav active="team" />
+      {!isDesktop && <BottomNav active="reports" />}
     </main>
+    </AppShell>
   );
 }
