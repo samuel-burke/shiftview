@@ -25,6 +25,7 @@ export default function BottomNav({ active }: Props) {
         <motion.div
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
           style={{ width: "33.333%" }}
+          initial={false}
           animate={{ left: `${tabIndex * 33.333}%` }}
           transition={{ type: "spring", stiffness: 420, damping: 36 }}
         >
