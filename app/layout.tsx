@@ -1,5 +1,6 @@
 import "./globals.css";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata = {
   title: "ShiftView",
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body>
         {children}
         <ServiceWorkerRegistrar />
+        <SpeedInsights />
       </body>
     </html>
   );
