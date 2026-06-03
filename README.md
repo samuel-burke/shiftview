@@ -50,7 +50,18 @@ Create a `.env.local` file in the project root:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Message encryption — required for the messaging feature
+MESSAGE_ENCRYPTION_KEY=your_64_char_hex_key
 ```
+
+Generate a key with:
+
+```bash
+openssl rand -hex 32
+```
+
+> Keep this key secret and back it up securely. Messages are encrypted with AES-256-GCM before being stored in the database. If the key is lost, existing messages cannot be decrypted. When deploying (e.g. Vercel), set `MESSAGE_ENCRYPTION_KEY` as an environment variable in your project settings.
 
 ### 3. Run the dev server
 

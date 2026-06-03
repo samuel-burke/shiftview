@@ -1,6 +1,7 @@
 import "./globals.css";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ThemeProvider } from "../components/ThemeProvider";
 
 export const metadata = {
   title: "ShiftView",
@@ -13,6 +14,15 @@ export const metadata = {
   },
 };
 
+/* Inline script that runs before first paint to avoid theme flash. */
+const themeInitScript = `
+(function(){
+  var t=localStorage.getItem('theme')||'system';
+  var dark=(t==='dark')||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+})();
+`.trim();
+
 export default function RootLayout({
   children,
 }: {
@@ -21,6 +31,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="apple-touch-icon" href="/icon-512.png" />
         <meta name="theme-color" content="#0a1628" />
         <meta name="screen-orientation" content="portrait" />
@@ -30,7 +42,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <ServiceWorkerRegistrar />
         <SpeedInsights />
       </body>

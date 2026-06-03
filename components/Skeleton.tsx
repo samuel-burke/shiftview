@@ -2,7 +2,7 @@
 
 export function SkeletonShiftCard() {
   return (
-    <div className="flex items-center gap-3 w-full bg-gray-900 border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
+    <div className="flex items-center gap-3 w-full bg-card border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
       <div className="skeleton size-[38px] rounded-full shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="skeleton h-[13px] w-[55%] rounded" />

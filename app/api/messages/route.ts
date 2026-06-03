@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { notify } from "@/lib/notify";
+import { encrypt, decrypt } from "@/lib/encryption";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  return NextResponse.json(data ?? []);
+  const decrypted = (data ?? []).map((msg: { id: number; from_user_id: string; to_user_id: string; body: string; read: boolean; created_at: string }) => {
+    try {
+      return { ...msg, body: decrypt(msg.body) };
+    } catch {
+      // Return as-is if decryption fails (e.g. pre-encryption messages)
+      return msg;
+    }
+  });
+
+  return NextResponse.json(decrypted);
 }
 
 // POST /api/messages — send a message
@@ -67,11 +77,19 @@ export async function POST(request: Request) {
   const convId = conversationId(user.id, toUserId);
   const trimmed = msgBody.trim();
 
+  let encryptedBody: string;
+  try {
+    encryptedBody = encrypt(trimmed);
+  } catch (err) {
+    console.error("[api/messages POST] encryption failed:", err);
+    return NextResponse.json({ error: "Message encryption is not configured" }, { status: 500 });
+  }
+
   const { error: insertError } = await supabase.from("messages").insert({
     conversation_id: convId,
     from_user_id: user.id,
     to_user_id: toUserId,
-    body: trimmed,
+    body: encryptedBody,
   });
 
   if (insertError) {

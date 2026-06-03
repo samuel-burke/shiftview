@@ -1,5 +1,6 @@
 "use client";
 
+import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -22,6 +23,10 @@ import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
+import { motion } from "framer-motion";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055 } } };
+const listItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -116,6 +121,12 @@ export default function ClockPageClient() {
   const [exportFrom, setExportFrom] = useState(toDateKey(today));
   const [exportTo, setExportTo] = useState(toDateKey(today));
   const [showExport, setShowExport] = useState(false);
+
+  async function handleExportDownload() {
+    const res = await fetch(`/api/punches/export?from=${exportFrom}&to=${exportTo}`);
+    const blob = await res.blob();
+    await downloadCSV(blob, `timesheet_${exportFrom}_to_${exportTo}.csv`);
+  }
 
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -559,11 +570,11 @@ export default function ClockPageClient() {
         {punches.length > 0 && (
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-[0.08em] mb-2">Today&apos;s Punches</div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800">
+            <motion.div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800" variants={listContainer} initial="hidden" animate="show">
               {[...punches]
                 .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime())
                 .map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                  <motion.div key={p.id} variants={listItem} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span
                         className="size-2 rounded-full shrink-0"
@@ -588,9 +599,9 @@ export default function ClockPageClient() {
                       <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt)}</div>
                       {p.note && <div className="text-[11px] text-slate-500 mt-0.5 max-w-[140px] truncate">{p.note}</div>}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -612,7 +623,7 @@ export default function ClockPageClient() {
                   <select
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   >
                     <option value="clock_in">Clock In</option>
                     <option value="clock_out">Clock Out</option>
@@ -626,7 +637,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   />
                 </div>
               </div>
@@ -636,7 +647,7 @@ export default function ClockPageClient() {
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                 />
               </div>
               <div>
@@ -646,7 +657,7 @@ export default function ClockPageClient() {
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   placeholder="Why is this punch being added manually?"
                   rows={2}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 resize-none"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none"
                 />
               </div>
               {correctionError && (
@@ -682,7 +693,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   />
                 </div>
                 <div>
@@ -691,17 +702,16 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   />
                 </div>
               </div>
-              <a
-                href={`/api/punches/export?from=${exportFrom}&to=${exportTo}`}
-                download
+              <button
+                onClick={handleExportDownload}
                 className="block w-full py-2.5 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer"
               >
                 Download CSV
-              </a>
+              </button>
             </div>
           )}
         </div>
