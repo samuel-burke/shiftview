@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EmployeeDrawer from "./EmployeeDrawer";
 import type { Employee, Schedule, AvailabilityRecord } from "../data/types";
@@ -105,7 +105,9 @@ describe("EmployeeDrawer", () => {
     render(
       <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onClose={onClose} />
     );
-    await userEvent.click(screen.getByText("✕"));
+    // MessageThread also renders a ✕ button (off-screen), so scope to the drawer
+    const drawer = screen.getByTestId("employee-drawer");
+    await userEvent.click(within(drawer).getByText("✕"));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
