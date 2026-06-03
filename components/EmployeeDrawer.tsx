@@ -74,6 +74,7 @@ export default function EmployeeDrawer({
   const [error, setError] = useState<string | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
   const [conflict, setConflict] = useState<ConflictState>(null);
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function EmployeeDrawer({
       setConflict(null);
       setInviteSent(false);
       setChatOpen(false);
+      setChatMounted(false);
     }
   }, [open, schedule]);
 
@@ -344,7 +346,7 @@ export default function EmployeeDrawer({
                 )}
                 {employee.user_id && (
                   <button
-                    onClick={() => setChatOpen(true)}
+                    onClick={() => { setChatMounted(true); setChatOpen(true); }}
                     className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
                   >
                     Message
@@ -376,7 +378,7 @@ export default function EmployeeDrawer({
         </div>
       </div>
 
-      {employee.user_id && (
+      {employee.user_id && chatMounted && (
         <MessageThread
           open={chatOpen}
           otherUserId={employee.user_id}
