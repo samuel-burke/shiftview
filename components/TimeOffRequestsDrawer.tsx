@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
+const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type TimeOffRequest = {
   id: number;
@@ -131,10 +135,11 @@ export default function TimeOffRequestsDrawer({
               All caught up — no pending time off requests.
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate={open ? "show" : "hidden"}>
               {requests.map((req) => (
-                <div
+                <motion.div
                   key={req.id}
+                  variants={listItem}
                   className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
@@ -166,9 +171,9 @@ export default function TimeOffRequestsDrawer({
                       {acting === req.id ? "…" : "Deny"}
                     </button>
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

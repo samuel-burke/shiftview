@@ -1,6 +1,10 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
+const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type SwapItem = {
   id: number;
@@ -88,16 +92,17 @@ export default function SwapRequestsDrawer({
               No pending swap requests
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate={open ? "show" : "hidden"}>
               {swaps.map((swap) => (
-                <SwapCard
-                  key={swap.id}
-                  swap={swap}
-                  onApprove={onApprove}
-                  onDeny={onDeny}
-                />
+                <motion.div key={swap.id} variants={listItem}>
+                  <SwapCard
+                    swap={swap}
+                    onApprove={onApprove}
+                    onDeny={onDeny}
+                  />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

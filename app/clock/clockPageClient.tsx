@@ -22,6 +22,10 @@ import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
+import { motion } from "framer-motion";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055 } } };
+const listItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -559,11 +563,11 @@ export default function ClockPageClient() {
         {punches.length > 0 && (
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-[0.08em] mb-2">Today&apos;s Punches</div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800">
+            <motion.div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800" variants={listContainer} initial="hidden" animate="show">
               {[...punches]
                 .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime())
                 .map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                  <motion.div key={p.id} variants={listItem} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span
                         className="size-2 rounded-full shrink-0"
@@ -588,9 +592,9 @@ export default function ClockPageClient() {
                       <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt)}</div>
                       {p.note && <div className="text-[11px] text-slate-500 mt-0.5 max-w-[140px] truncate">{p.note}</div>}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-            </div>
+            </motion.div>
           </div>
         )}
 

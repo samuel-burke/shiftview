@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { getMonogram } from "../data/types";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
+const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import {
   TimeOffPendingIcon,
   TimeOffApprovedIcon,
@@ -106,9 +110,13 @@ export default function PendingTimeOffSection({ requests, onApprove, onDeny }: P
           {requests.length}
         </span>
       </div>
-      {requests.map((r) => (
-        <RequestRow key={r.id} request={r} onApprove={onApprove} onDeny={onDeny} />
-      ))}
+      <motion.div variants={listContainer} initial="hidden" animate="show">
+        {requests.map((r) => (
+          <motion.div key={r.id} variants={listItem}>
+            <RequestRow request={r} onApprove={onApprove} onDeny={onDeny} />
+          </motion.div>
+        ))}
+      </motion.div>
     </div>
   );
 }
