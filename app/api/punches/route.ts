@@ -190,6 +190,22 @@ export async function POST(request: Request) {
         }
         const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
         if (dist > geofenceRadius) {
+          writeAuditLog({
+            action:       "punch.geofence_rejected",
+            actorId:      user.id,
+            resourceType: "punch_record",
+            after: { employeeId: emp.id, punchType, lat, lng },
+            metadata: {
+              employeeId:      emp.id,
+              employeeName:    emp.name,
+              distanceMeters:  Math.round(dist),
+              radiusMeters:    geofenceRadius,
+              attemptedLat:    lat,
+              attemptedLng:    lng,
+              geofenceLat,
+              geofenceLng,
+            },
+          }).catch(() => {});
           return NextResponse.json(
             { error: `Outside geofence — you must be within ${geofenceRadius}m of the designated location to clock in (currently ${Math.round(dist)}m away)` },
             { status: 422 }
