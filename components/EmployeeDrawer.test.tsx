@@ -1,8 +1,27 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EmployeeDrawer from "./EmployeeDrawer";
 import type { Employee, Schedule, AvailabilityRecord } from "../data/types";
+
+// MessageThread (imported by EmployeeDrawer) uses supabase-browser
+vi.mock("@/lib/supabase-browser", () => ({
+  createClient: () => ({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: "manager-123" } },
+        error: null,
+      }),
+    },
+    channel: vi.fn().mockReturnValue({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnValue({}),
+    }),
+    removeChannel: vi.fn(),
+  }),
+}));
+
+afterEach(() => vi.restoreAllMocks());
 
 const employee: Employee = { id: 1, name: "Alice Smith", user_id: "user-abc-123" };
 
@@ -108,13 +127,21 @@ describe("EmployeeDrawer", () => {
     expect(screen.getByText("Message")).toBeInTheDocument();
   });
 
-  it("shows compose area when Message button is clicked", async () => {
+  it("opens message thread when Message button is clicked", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    } as Response);
+
     render(
       <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} />
     );
     await userEvent.click(screen.getByText("Message"));
-    expect(screen.getByPlaceholderText("Write a message…")).toBeInTheDocument();
-    expect(screen.getByText("Send")).toBeInTheDocument();
+
+    // MessageThread drawer opens with the employee name as placeholder
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("Message Alice Smith…")).toBeInTheDocument();
+    });
   });
 
   it("hides Message button when employee has no user_id", () => {
