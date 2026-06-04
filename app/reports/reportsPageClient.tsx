@@ -592,10 +592,10 @@ export default function ReportsPageClient() {
         >
           <button
             onClick={() => router.back()}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0"
             aria-label="Back"
           >
-            ‹
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Reports</span>
         </div>
@@ -607,6 +607,7 @@ export default function ReportsPageClient() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
+            aria-pressed={activeTab === tab}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === tab
                 ? "bg-indigo-600 text-white"
@@ -673,11 +674,15 @@ export default function ReportsPageClient() {
                 Hours — {formatWeekLabel(selectedWeekStart)}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setWeekOffset((o) => o - 1)} className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer text-sm">‹</button>
+                <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Previous week" className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
                 {weekOffset !== 0 && (
                   <button onClick={() => setWeekOffset(0)} className="text-[11px] text-slate-400 bg-card border border-slate-800 rounded-lg px-2 py-1 cursor-pointer">Now</button>
                 )}
-                <button onClick={() => setWeekOffset((o) => o + 1)} className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer text-sm">›</button>
+                <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Next week" className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
               </div>
             </div>
 

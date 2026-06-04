@@ -128,7 +128,7 @@ function EmployeeAvailabilityRow({
         aria-label="Toggle typical week"
         className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none"
       >
-        <span>{expanded ? "▾" : "▸"}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span>Typical Week</span>
       </button>
 
@@ -762,10 +762,10 @@ export default function SettingsPageClient({
         >
           <button
             onClick={() => router.back()}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0"
             aria-label="Back"
           >
-            ‹
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
         </div>
