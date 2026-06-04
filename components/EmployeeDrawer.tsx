@@ -158,14 +158,25 @@ export default function EmployeeDrawer({
   return (
     <>
       {/* Conflict override modal */}
+      <AnimatePresence>
       {conflict && (
-        <div
+        <motion.div
+          key="conflict-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
           className="fixed inset-0 z-[60] flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
           onClick={() => setConflict(null)}
         >
-          <div
-            className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0, y: 8 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.96, opacity: 0, y: 4 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden"
+            style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
@@ -200,9 +211,10 @@ export default function EmployeeDrawer({
                 {saving ? "Saving…" : "Override & Save"}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {open && (
@@ -231,7 +243,7 @@ export default function EmployeeDrawer({
             >
               {!isDesktop && (
                 <div className="flex justify-center pt-3 pb-1">
-                  <div className="w-10 h-1 rounded-full bg-slate-700" />
+                  <div className="w-10 h-[3px] rounded-full bg-slate-700/80" />
                 </div>
               )}
 
@@ -259,12 +271,15 @@ export default function EmployeeDrawer({
                       </div>
                     </div>
                   </div>
-                  <button
+                  <motion.button
                     onClick={onClose}
+                    whileHover={{ scale: 1.1, backgroundColor: "rgba(71,85,105,0.8)" }}
+                    whileTap={{ scale: 0.88 }}
+                    transition={{ type: "spring", stiffness: 450, damping: 25 }}
                     className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
                   >
                     ✕
-                  </button>
+                  </motion.button>
                 </div>
 
                 {/* Availability banner */}
@@ -307,69 +322,96 @@ export default function EmployeeDrawer({
                       <div className="text-xs text-red-400 text-center">{error}</div>
                     )}
 
-                    <button
+                    <motion.button
                       onClick={() => handleSave(false)}
                       disabled={saving}
+                      whileHover={!saving ? { scale: 1.02, boxShadow: "0 6px 24px rgba(139,92,246,0.3)" } : {}}
+                      whileTap={!saving ? { scale: 0.97 } : {}}
+                      transition={{ type: "spring", stiffness: 400, damping: 22 }}
                       className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
                     >
                       {saving ? "Saving…" : "Save Shift"}
-                    </button>
+                    </motion.button>
 
                     {schedule && (
-                      <button
+                      <motion.button
                         onClick={handleMarkOff}
                         disabled={saving}
+                        whileHover={!saving ? { scale: 1.01 } : {}}
+                        whileTap={!saving ? { scale: 0.97 } : {}}
+                        transition={{ type: "spring", stiffness: 400, damping: 22 }}
                         className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
                       >
                         Mark as Off
-                      </button>
+                      </motion.button>
                     )}
 
-                    <button
+                    <motion.button
                       onClick={() => { setEditing(false); setError(null); setConflict(null); }}
                       disabled={saving}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 22 }}
                       className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
                     >
                       Cancel
-                    </button>
+                    </motion.button>
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 gap-2.5 mb-6">
+                    <motion.div
+                      className="grid grid-cols-2 gap-2.5 mb-6"
+                      initial="hidden"
+                      animate="show"
+                      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+                    >
                       {[
                         { label: "Start",      value: schedule ? fmtMinutes(schedule.startMinutes) : "—" },
                         { label: "End",        value: schedule ? fmtMinutes(schedule.endMinutes) : "—" },
                         { label: "Shift Type", value: shiftType ? shiftType.charAt(0).toUpperCase() + shiftType.slice(1) : "—" },
                         { label: "Status",     value: statusLabel },
                       ].map(({ label, value }) => (
-                        <div key={label} className="bg-card rounded-xl px-[14px] py-3">
+                        <motion.div
+                          key={label}
+                          variants={{
+                            hidden: { opacity: 0, y: 6, scale: 0.97 },
+                            show:   { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 340, damping: 26 } },
+                          }}
+                          className="bg-card rounded-xl px-[14px] py-3 border border-white/[0.05]"
+                          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                        >
                           <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1">{label}</div>
                           <div className="text-sm font-semibold text-slate-100">{value}</div>
-                        </div>
+                        </motion.div>
                       ))}
-                    </div>
+                    </motion.div>
 
                     <div className="flex gap-2.5">
                       {isManager && (
-                        <button
+                        <motion.button
                           onClick={() => setEditing(true)}
+                          whileHover={{ scale: 1.02, boxShadow: "0 6px 24px rgba(59,130,246,0.3)" }}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 22 }}
                           className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
                         >
                           {schedule ? "Edit Shift" : "Add Shift"}
-                        </button>
+                        </motion.button>
                       )}
                       {employee.user_id && (
-                        <button
+                        <motion.button
                           onClick={() => { setChatMounted(true); setChatOpen(true); }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 22 }}
                           className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
                         >
                           Message
-                        </button>
+                        </motion.button>
                       )}
                     </div>
 
                     {isManager && onResendInvite && !employee.user_id && employee.email && (
-                      <button
+                      <motion.button
                         onClick={async () => {
                           setSaving(true);
                           try {
@@ -382,10 +424,13 @@ export default function EmployeeDrawer({
                           }
                         }}
                         disabled={saving || inviteSent}
+                        whileHover={!inviteSent ? { scale: 1.01 } : {}}
+                        whileTap={!inviteSent ? { scale: 0.97 } : {}}
+                        transition={{ type: "spring", stiffness: 400, damping: 22 }}
                         className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400"}`}
                       >
                         {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
-                      </button>
+                      </motion.button>
                     )}
                   </>
                 )}
