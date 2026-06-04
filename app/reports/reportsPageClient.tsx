@@ -751,7 +751,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={payrollFrom}
                   onChange={(e) => setPayrollFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
               <div className="flex-1">
@@ -761,7 +761,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={payrollTo}
                   onChange={(e) => setPayrollTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
             </div>
@@ -888,7 +888,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={pendingFrom}
                   onChange={(e) => setPendingFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
               <div className="flex-1">
@@ -898,7 +898,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={pendingTo}
                   onChange={(e) => setPendingTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
             </div>

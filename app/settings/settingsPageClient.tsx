@@ -1387,7 +1387,7 @@ export default function SettingsPageClient({
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark]"
                         />
                         <button
                           disabled={applyingId === tpl.id}
