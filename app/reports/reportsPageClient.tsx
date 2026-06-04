@@ -781,7 +781,8 @@ export default function ReportsPageClient() {
             <button
               onClick={generatePayroll}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
-              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer disabled:opacity-40"
+              aria-busy={payrollLoading}
+              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {payrollLoading ? "Generating…" : "Generate Report"}
             </button>
@@ -969,7 +970,8 @@ export default function ReportsPageClient() {
                 <button
                   onClick={() => fetchAuditPage(auditPage + 1, false)}
                   disabled={auditLoading}
-                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50"
+                  aria-busy={auditLoading}
+                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {auditLoading ? "Loading…" : "Load more"}
                 </button>

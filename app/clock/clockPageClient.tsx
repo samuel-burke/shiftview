@@ -765,6 +765,7 @@ export default function ClockPageClient() {
               <button
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}
+                aria-busy={correctionSaving}
                 className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {correctionSaving ? "Saving…" : "Submit Correction"}

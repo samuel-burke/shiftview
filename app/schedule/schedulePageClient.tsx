@@ -502,6 +502,7 @@ export default function SchedulePageClient() {
         <div className="flex bg-card rounded-xl p-[3px] mt-1">
           <button
             onClick={() => switchView("week")}
+            aria-pressed={view === "week"}
             className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
               view === "week" ? "bg-slate-700 text-slate-100" : "text-slate-400"
             }`}
@@ -510,6 +511,7 @@ export default function SchedulePageClient() {
           </button>
           <button
             onClick={() => switchView("month")}
+            aria-pressed={view === "month"}
             className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
               view === "month" ? "bg-slate-700 text-slate-100" : "text-slate-400"
             }`}
@@ -540,14 +542,14 @@ export default function SchedulePageClient() {
           )}
           <button
             onClick={goToPrev}
-            aria-label="Previous"
+            aria-label={`Previous ${view === "week" ? "week" : "month"}`}
             className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <button
             onClick={goToNext}
-            aria-label="Next"
+            aria-label={`Next ${view === "week" ? "week" : "month"}`}
             className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -665,7 +667,8 @@ export default function SchedulePageClient() {
               <button
                 onClick={handleRequestDayOff}
                 disabled={timeOffStatus === "loading"}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                aria-busy={timeOffStatus === "loading"}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
               </button>
@@ -675,13 +678,14 @@ export default function SchedulePageClient() {
         {canRequestDayOff && (
           <div className="mt-3">
             {timeOffStatus === "success" ? (
-              <div className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
+              <div role="status" aria-live="polite" className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
             ) : (
               <>
                 <button
                   onClick={handleRequestDayOff}
                   disabled={timeOffStatus === "loading"}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
+                  aria-busy={timeOffStatus === "loading"}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>

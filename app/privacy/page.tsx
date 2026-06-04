@@ -18,7 +18,7 @@ function Table({ rows }: { rows: [string, string][] }) {
         <tbody>
           {rows.map(([a, b]) => (
             <tr key={a} className="border-t border-slate-800">
-              <td className="py-2 pr-6 font-medium text-slate-300 whitespace-nowrap">{a}</td>
+              <th scope="row" className="py-2 pr-6 font-medium text-slate-300 whitespace-nowrap text-left">{a}</th>
               <td className="py-2">{b}</td>
             </tr>
           ))}

@@ -224,7 +224,8 @@ export default function AdminPageClient({
                         <button
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
-                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
+                          aria-busy={isToggling}
+                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center disabled:cursor-not-allowed ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr
