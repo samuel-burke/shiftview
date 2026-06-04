@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { motion, LayoutGroup } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -499,24 +500,28 @@ export default function SchedulePageClient() {
             {firstName}
           </div>
         </div>
-        <div className="flex bg-card rounded-xl p-[3px] mt-1">
-          <button
-            onClick={() => switchView("week")}
-            className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-              view === "week" ? "bg-slate-700 text-slate-100" : "text-slate-400"
-            }`}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => switchView("month")}
-            className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-              view === "month" ? "bg-slate-700 text-slate-100" : "text-slate-400"
-            }`}
-          >
-            Month
-          </button>
-        </div>
+        <LayoutGroup id="view-toggle">
+          <div className="flex bg-card rounded-xl p-[3px] mt-1 relative">
+            {(["week", "month"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => switchView(v)}
+                className="relative px-4 py-1.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                style={{ color: view === v ? "#f1f5f9" : "#64748b" }}
+              >
+                {view === v && (
+                  <motion.div
+                    layoutId="view-pill"
+                    className="absolute inset-0 rounded-[9px] bg-slate-700"
+                    style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <span className="relative z-10 capitalize">{v}</span>
+              </button>
+            ))}
+          </div>
+        </LayoutGroup>
       </div>
 
       {/* Range label + prev/next */}
@@ -530,27 +535,36 @@ export default function SchedulePageClient() {
         </button>
         <div className="flex items-center gap-2">
           {!isAtToday && (
-            <button
+            <motion.button
               onClick={goToToday}
+              whileTap={{ scale: 0.93 }}
+              whileHover={{ scale: 1.04 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
               className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-1.5 cursor-pointer"
             >
               Today
-            </button>
+            </motion.button>
           )}
-          <button
+          <motion.button
             onClick={goToPrev}
             aria-label="Previous"
+            whileTap={{ scale: 0.88 }}
+            whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
+            transition={{ type: "spring", stiffness: 450, damping: 25 }}
             className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-lg cursor-pointer"
           >
             ‹
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={goToNext}
             aria-label="Next"
+            whileTap={{ scale: 0.88 }}
+            whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
+            transition={{ type: "spring", stiffness: 450, damping: 25 }}
             className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-lg cursor-pointer"
           >
             ›
-          </button>
+          </motion.button>
         </div>
       </div>
 
