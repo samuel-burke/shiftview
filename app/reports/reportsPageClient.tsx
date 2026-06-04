@@ -309,13 +309,15 @@ export default function ReportsPageClient() {
   const [payrollFrom, setPayrollFrom] = useState(() => {
     const d = new Date(todayKey + "T12:00:00Z");
     const day = d.getUTCDay();
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));
+    // Monday of previous week
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -13 : -6 - (day - 1)));
     return d.toISOString().slice(0, 10);
   });
   const [payrollTo, setPayrollTo] = useState(() => {
     const d = new Date(todayKey + "T12:00:00Z");
     const day = d.getUTCDay();
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? 0 : 7 - day));
+    // Sunday of previous week
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -7 : -day));
     return d.toISOString().slice(0, 10);
   });
   const [payrollFormat, setPayrollFormat] = useState("summary");

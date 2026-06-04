@@ -71,7 +71,10 @@ function computeSegments(punches: PunchRow[]): {
     const t = new Date(p.punched_at).getTime();
     switch (p.punch_type) {
       case "clock_in":
+        segStart = t;
+        break;
       case "break_end":
+        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
         segStart = t;
         break;
       case "break_start":
