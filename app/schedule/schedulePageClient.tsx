@@ -526,6 +526,8 @@ export default function SchedulePageClient() {
         <button
           onClick={() => setPickerOpen(true)}
           aria-label={`${rangeLabel}. Open date picker`}
+          aria-expanded={pickerOpen}
+          aria-haspopup="dialog"
           className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer hover:opacity-80 transition-opacity"
         >
           {rangeLabel}
