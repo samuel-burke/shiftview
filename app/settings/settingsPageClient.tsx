@@ -807,18 +807,18 @@ export default function SettingsPageClient({
                   }`}
                 >
                   {m === "light" && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
                       <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   )}
                   {m === "dark" && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                   {m === "system" && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
                       <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
@@ -1102,7 +1102,7 @@ export default function SettingsPageClient({
                           {gettingLocation ? (
                             <span className="text-xs font-bold">…</span>
                           ) : (
-                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2"/>
                               <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                             </svg>
@@ -1306,7 +1306,7 @@ export default function SettingsPageClient({
                           className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
                           aria-label="Edit name"
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>

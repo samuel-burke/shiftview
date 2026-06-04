@@ -269,7 +269,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
               aria-label="Send message"
               className="size-[42px] rounded-full bg-gradient-to-br from-blue-500 to-violet-500 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 shrink-0 transition-opacity"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M22 2L15 22 11 13 2 9l20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

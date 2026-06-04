@@ -111,7 +111,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
               ) : timeOff?.status === "denied" ? (
                 <TimeOffDeniedIcon size={13} color={TIME_OFF_COLORS.denied} />
               ) : (
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
