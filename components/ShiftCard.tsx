@@ -74,7 +74,7 @@ export default function ShiftCard({
     ? `0 0 0 1.5px rgba(34,197,94,0.45), 0 4px 28px rgba(34,197,94,0.18), inset 0 1px 0 rgba(255,255,255,0.07)`
     : isOnBreak
     ? `0 0 0 1.5px rgba(251,191,36,0.45), 0 4px 20px rgba(251,191,36,0.18), inset 0 1px 0 rgba(255,255,255,0.05)`
-    : `inset 0 1px 0 rgba(255,255,255,0.04)`;
+    : `0 0 18px ${shiftColor}20, inset 0 1px 0 rgba(255,255,255,0.04)`;
 
   const shiftTimeLabel = `${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
   const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
@@ -83,11 +83,11 @@ export default function ShiftCard({
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
-      whileHover={{ y: -1, boxShadow: isActive ? `0 6px 32px ${shiftColor}30` : "0 4px 16px rgba(0,0,0,0.3)" }}
+      whileHover={{ y: -1, boxShadow: isActive ? `0 6px 28px rgba(34,197,94,0.22)` : isOnBreak ? `0 6px 24px rgba(251,191,36,0.22)` : `0 4px 24px ${shiftColor}30` }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       aria-label={cardAriaLabel}
       className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
-      style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
+      style={{ boxShadow: glowShadow }}
     >
       {/* Avatar */}
       <div
