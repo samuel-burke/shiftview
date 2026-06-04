@@ -107,7 +107,7 @@ export default function NotificationBell() {
 
     const sb = getSupabase();
     const channel = sb
-      .channel("notifications")
+      .channel(`notifications:${userId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {

@@ -24,9 +24,9 @@ export default function AppShell({ active, isManager, children }: Props) {
       </div>
       <motion.div
         className="[@media(min-width:900px)]:flex-1 min-w-0 [@media(min-width:900px)]:overflow-y-auto"
-        initial={{ opacity: 0, x: 8 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       >
         {children}
       </motion.div>
