@@ -659,7 +659,7 @@ export default function ReportsPageClient() {
                     { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
                   ].map(({ label, cls }) => (
                     <div key={label} className="flex items-center gap-1">
-                      <div className={`size-3 rounded ${cls}`} />
+                      <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
                       <span className="text-[10px] text-slate-400">{label}</span>
                     </div>
                   ))}
@@ -711,7 +711,7 @@ export default function ReportsPageClient() {
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];
                           return (
-                            <div key={d} className={`text-center text-[11px] font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-700"}`}>
+                            <div key={d} className={`text-center text-[11px] font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
                               {h ? h.toFixed(0) : "-"}
                             </div>
                           );
@@ -798,7 +798,7 @@ export default function ReportsPageClient() {
           {payrollData !== null && payrollData.length === 0 && (
             <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
               <div className="text-slate-400 text-sm font-medium">No punch records in this period</div>
-              <div className="text-slate-600 text-xs mt-1">Employees need to clock in before payroll data is available</div>
+              <div className="text-slate-500 text-xs mt-1">Employees need to clock in before payroll data is available</div>
             </div>
           )}
 
@@ -824,7 +824,7 @@ export default function ReportsPageClient() {
                     <div className="text-right text-[11px] font-semibold text-emerald-400 tabular-nums w-9">
                       {emp.totalRegularHours.toFixed(1)}
                     </div>
-                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-amber-400" : "text-slate-500"}`}>
                       {emp.totalOvertimeHours > 0 ? emp.totalOvertimeHours.toFixed(1) : "—"}
                     </div>
                     <div className="text-right text-[11px] text-slate-500 tabular-nums w-9">
@@ -845,7 +845,7 @@ export default function ReportsPageClient() {
                     <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-800/40 border-t border-slate-700/60">
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Total</div>
                       <div className="text-right text-[11px] font-bold text-emerald-400 tabular-nums w-9">{reg.toFixed(1)}</div>
-                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-amber-400" : "text-slate-500"}`}>
                         {ot > 0 ? ot.toFixed(1) : "—"}
                       </div>
                       <div className="text-right text-[11px] font-bold text-slate-500 tabular-nums w-9">{brk.toFixed(1)}</div>
@@ -934,7 +934,7 @@ export default function ReportsPageClient() {
           ) : auditEntries.length === 0 ? (
             <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
               <div className="text-slate-400 text-sm font-medium">No activity in this period</div>
-              <div className="text-slate-600 text-xs mt-1">Try expanding the date range or changing the category filter</div>
+              <div className="text-slate-500 text-xs mt-1">Try expanding the date range or changing the category filter</div>
             </div>
           ) : (
             <>

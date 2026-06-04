@@ -1315,6 +1315,7 @@ export default function SettingsPageClient({
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
                           className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
                           aria-label={`Edit name for ${emp.name}`}
+                          aria-expanded={editingId === emp.id}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
