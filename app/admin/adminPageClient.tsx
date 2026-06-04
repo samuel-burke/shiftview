@@ -126,18 +126,13 @@ export default function AdminPageClient({
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
           aria-label="Back"
         >
-          <button
-            onClick={() => router.back()}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
-            aria-label="Back"
-          >
-            ‹
-          </button>
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Admin</span>
-        </div>
+          ‹
+        </button>
+        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Admin</span>
+      </div>
       )}
 
       <div className={`${isDesktop ? "max-w-2xl mx-auto px-6 pt-5" : "px-4 pt-5"} flex flex-col gap-5`}>
