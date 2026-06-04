@@ -135,7 +135,7 @@ function EmployeeAvailabilityRow({
       {expanded && (
         <div className="mt-2 pl-1">
           {records === null ? (
-            <div role="status" className="text-xs text-slate-600">Loading…</div>
+            <div role="status" className="text-xs text-slate-500">Loading…</div>
           ) : allFree ? (
             <div className="text-xs text-slate-500">No restrictions set</div>
           ) : (
@@ -187,7 +187,7 @@ function EmployeeAvailabilityRow({
                 );
               })}
               {freeDows.length > 0 && (
-                <div className="text-[11px] text-slate-600">
+                <div className="text-[11px] text-slate-500">
                   {freeDows.map((d) => DAY_SHORT[d]).join(", ")} — no restrictions
                 </div>
               )}
@@ -1168,7 +1168,7 @@ export default function SettingsPageClient({
                               +
                             </button>
                           </div>
-                          <div className="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
+                          <div className="flex justify-between text-[10px] text-slate-500 mt-1 px-0.5" aria-hidden="true">
                             <span>50m</span>
                             <span>5km</span>
                           </div>
@@ -1210,6 +1210,7 @@ export default function SettingsPageClient({
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
+                  aria-pressed={firstDayOfWeek === value}
                   className={`flex-1 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
                     firstDayOfWeek === value
                       ? "bg-slate-600 text-slate-100"
@@ -1308,7 +1309,7 @@ export default function SettingsPageClient({
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
                           className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
-                          aria-label="Edit name"
+                          aria-label={`Edit name for ${emp.name}`}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1316,11 +1317,12 @@ export default function SettingsPageClient({
                           </svg>
                         </button>
                         {emp.user_id === currentUserId ? (
-                          <span className="text-xs text-slate-600 px-3 py-1.5">You</span>
+                          <span className="text-xs text-slate-500 px-3 py-1.5" aria-label="You — cannot remove yourself">You</span>
                         ) : (
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
+                            aria-label={`Remove ${emp.name}`}
                             className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-red-500/20 text-red-300 border-red-500/40"
