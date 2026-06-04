@@ -45,13 +45,13 @@ describe("AdminPageClient", () => {
   it("renders demo employees without hitting the API", async () => {
     const fetchSpy = vi.spyOn(global, "fetch");
     render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
-    await screen.findByText("Alice Smith");
+    await screen.findByText("Jordan Martinez");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("shows Manager badge for demo managers", async () => {
     render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
-    await screen.findByText("Alice Smith");
+    await screen.findByText("Jordan Martinez");
     const managerBadges = screen.getAllByText("Manager");
     expect(managerBadges.length).toBeGreaterThanOrEqual(1);
   });
@@ -59,12 +59,12 @@ describe("AdminPageClient", () => {
   it("optimistically toggles in demo mode without making an API call", async () => {
     const fetchSpy = vi.spyOn(global, "fetch");
     render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
-    await screen.findByText("Bob Jones");
+    await screen.findByText("Casey Lewis");
 
-    await userEvent.click(screen.getByRole("button", { name: /demote bob/i }));
+    await userEvent.click(screen.getByRole("button", { name: /demote casey/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /promote bob/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /promote casey/i })).toBeInTheDocument();
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });

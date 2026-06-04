@@ -40,12 +40,15 @@ describe("GET /api/reports/coverage", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 401 when not authenticated", async () => {
+  it("returns demo coverage data when not authenticated", async () => {
     vi.mocked(createClient).mockResolvedValue(
       makeSupabaseClient({ user: null }) as any
     );
     const res = await callRoute("http://localhost/api/reports/coverage?from=2026-06-01&to=2026-06-07");
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveProperty("days");
+    expect(Array.isArray(json.days)).toBe(true);
   });
 
   it("returns 403 for non-manager", async () => {

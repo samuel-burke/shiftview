@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fmtMinutes } from "../data/types";
+import { DEMO_STORE_HOURS } from "../data/demo-fixtures";
 
 type Props = {
   firstDayOfWeek?: number;
@@ -47,7 +48,8 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
   const [days, setDays] = useState<Record<number, DayData>>(() => {
     const d: Record<number, DayData> = {};
     for (let i = 0; i < 7; i++) {
-      d[i] = { open: DEFAULT_HOURS[i].open, close: DEFAULT_HOURS[i].close, saveStatus: "idle" };
+      const src = isDemo ? DEMO_STORE_HOURS[i] : DEFAULT_HOURS[i];
+      d[i] = { open: src.open, close: src.close, saveStatus: "idle" };
     }
     return d;
   });

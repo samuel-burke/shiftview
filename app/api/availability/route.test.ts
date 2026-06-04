@@ -45,13 +45,13 @@ describe("GET /api/availability", () => {
     expect(await res.json()).toEqual([]);
   });
 
-  it("returns 401 when unauthenticated", async () => {
+  it("returns demo availability data when unauthenticated", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/availability?employeeId=1"));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toMatchObject({ error: expect.stringContaining("authenticated") });
+    expect(Array.isArray(json)).toBe(true);
   });
 
   it("returns 400 if employeeId is missing", async () => {

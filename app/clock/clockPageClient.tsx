@@ -26,6 +26,9 @@ import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
+import { DEMO_EMPLOYEES, DEMO_SETTINGS, DEMO_STORE_HOURS, getDemoSchedulesForDate } from "../../data/demo-fixtures";
+
+const DEMO_EMPLOYEE = DEMO_EMPLOYEES[0]; // Jordan Martinez, id 1
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055 } } };
 const listItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -178,8 +181,22 @@ export default function ClockPageClient() {
     setLoading(true);
     setError(null);
     try {
+      if (isDemo) {
+        setIsManager(true);
+        setEmployeeName(DEMO_EMPLOYEE.name);
+        setEmployeeId(DEMO_EMPLOYEE.id);
+        const scheds = getDemoSchedulesForDate(todayKey);
+        setSchedule(scheds.find((s) => s.employeeId === DEMO_EMPLOYEE.id) ?? null);
+        setPunches([]);
+        setWeeklyHours(DEMO_STORE_HOURS);
+        setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
+        setGpsRequired(DEMO_SETTINGS.gpsRequired);
+        setGeofenceEnabled(DEMO_SETTINGS.geofenceEnabled);
+        return;
+      }
+
       const [meRes, schedRes, punchRes, hoursRes, settingsRes] = await Promise.all([
-        fetch(`/api/me${isDemo ? "?demo=true" : ""}`),
+        fetch("/api/me"),
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
         fetch("/api/store-hours"),
@@ -274,10 +291,30 @@ export default function ClockPageClient() {
     setPendingWarning(null);
   }
 
+  const demoPunchIdRef = useRef(-1);
+
   async function submitPunch(punchType: PunchType) {
     if (actionPending) return;
     setActionPending(true);
     setActionError(null);
+
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 350));
+      const fakePunch: PunchRecord = {
+        id: demoPunchIdRef.current--,
+        employeeId: DEMO_EMPLOYEE.id,
+        scheduleId: schedule?.id ?? null,
+        punchType,
+        punchedAt: new Date().toISOString(),
+        lat: null,
+        lng: null,
+        isManual: false,
+        note: null,
+      };
+      setPunches((prev) => [...prev, fakePunch]);
+      setActionPending(false);
+      return;
+    }
 
     let lat: number | null = null;
     let lng: number | null = null;
@@ -332,6 +369,11 @@ export default function ClockPageClient() {
   async function submitCorrection() {
     if (!correctionNote.trim()) {
       setCorrectionError("A note is required for manual corrections");
+      return;
+    }
+    if (isDemo) {
+      setShowCorrection(false);
+      setCorrectionNote("");
       return;
     }
     setCorrectionSaving(true);
@@ -473,6 +515,12 @@ export default function ClockPageClient() {
   return (
     <AppShell active="clock" isManager={isManager}>
     <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
+      {isDemo && (
+        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+        </div>
+      )}
       {clockHeader}
 
       <div className={isDesktop ? "max-w-[600px] mx-auto px-6 py-4" : ""}>
