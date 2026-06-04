@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
-import { useIsDesktop } from "../hooks/useIsDesktop";
 import { WarningIcon, CalendarIcon, LockIcon } from "./ShiftIcons";
 
 type Props = {
@@ -53,6 +52,9 @@ function NavButton({ onClick, label, children }: { onClick: () => void; label: s
   );
 }
 
+const prevArrow = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const nextArrow = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+
 export default function CoverageHeader({
   date,
   today,
@@ -71,20 +73,7 @@ export default function CoverageHeader({
   userName = null,
   isManager = false,
 }: Props) {
-  const isDesktop = useIsDesktop();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [barHeight, setBarHeight] = useState(0);
-  const topBarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isDesktop || !topBarRef.current) return;
-    const ro = new ResizeObserver(() => {
-      if (topBarRef.current) setBarHeight(topBarRef.current.offsetHeight);
-    });
-    ro.observe(topBarRef.current);
-    setBarHeight(topBarRef.current.offsetHeight);
-    return () => ro.disconnect();
-  }, [isDesktop]);
 
   const dateLabel = date.toLocaleDateString("en-US", {
     month: "long",
@@ -109,12 +98,14 @@ export default function CoverageHeader({
   })();
 
   const alertKey = alertConfig?.message ?? "none";
+  // Past/future alerts are deterministic (date prop always known), show immediately.
+  // Coverage status alerts depend on loaded data, gate on !loading.
+  const showAlert = alertConfig && (!loading || isPast || isFuture);
 
-  const dateNav = (
-    <div className={`flex items-center ${isDesktop ? "gap-4" : "justify-between"}`}>
-      <NavButton onClick={onPrev} label="Previous day">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </NavButton>
+  // Mobile nav: full-width justify-between, large date text, live time below
+  const mobileNav = (
+    <div className="flex items-center justify-between">
+      <NavButton onClick={onPrev} label="Previous day">{prevArrow}</NavButton>
       <motion.button
         onClick={() => setPickerOpen(true)}
         aria-label={`${dateLabel}, ${dayName}. Open date picker`}
@@ -122,9 +113,9 @@ export default function CoverageHeader({
         aria-haspopup="dialog"
         whileTap={{ scale: 0.97 }}
         transition={{ type: "spring", stiffness: 400, damping: 28 }}
-        className={`text-center bg-transparent border-none cursor-pointer ${isDesktop ? "px-2" : "p-0"}`}
+        className="text-center bg-transparent border-none cursor-pointer p-0"
       >
-        <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>
+        <div className="text-2xl font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
           {dateLabel}
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
@@ -134,59 +125,90 @@ export default function CoverageHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
         </div>
-        <div className="text-[13px] text-slate-400 mt-0.5">
-          {dayName}
-          {isToday && isDesktop && <span className="ml-2 text-slate-400">· {timeStr}</span>}
-        </div>
-        {isToday && !isDesktop && (
+        <div className="text-[13px] text-slate-400 mt-0.5">{dayName}</div>
+        {isToday && (
           <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
         )}
       </motion.button>
-      <NavButton onClick={onNext} label="Next day">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </NavButton>
+      <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
     </div>
   );
 
-  const demoBanner = isDemo && (
-    <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-      <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-      <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+  // Desktop nav: compact gap-based, inline time beside day name
+  const desktopNav = (
+    <div className="flex items-center gap-4">
+      <NavButton onClick={onPrev} label="Previous day">{prevArrow}</NavButton>
+      <motion.button
+        onClick={() => setPickerOpen(true)}
+        aria-label={`${dateLabel}, ${dayName}. Open date picker`}
+        aria-expanded={pickerOpen}
+        aria-haspopup="dialog"
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+        className="text-center bg-transparent border-none cursor-pointer px-2"
+      >
+        <div className="text-lg font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
+          {dateLabel}
+          <span className="text-[13px] text-blue-500 font-normal">▾</span>
+        </div>
+        <div className="text-[13px] text-slate-400 mt-0.5">
+          {dayName}
+          {isToday && <span className="ml-2 text-slate-400">· {timeStr}</span>}
+        </div>
+      </motion.button>
+      <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
     </div>
   );
 
-  const alertBanner = !loading && (
-    <AnimatePresence mode="wait">
-      {alertConfig && (
-        <motion.div
-          key={alertKey}
-          initial={{ opacity: 0, y: -6, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -4, scale: 0.98 }}
-          transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className={`px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 ${isDesktop ? "mx-6 mt-3" : "mt-3"}`}
-          style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
-        >
-          {alertConfig.icon}
-          <span>{alertConfig.message}</span>
-        </motion.div>
+  return (
+    <div className="mb-4 [@media(min-width:900px)]:mb-6">
+      {/* Desktop-only demo banner (above the bar) */}
+      {isDemo && (
+        <div className="hidden [@media(min-width:900px)]:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+        </div>
       )}
-    </AnimatePresence>
-  );
 
-  // ── Desktop layout ──────────────────────────────────────────────────────────
-  if (isDesktop) {
-    return (
-      <div className="mb-6">
-        {demoBanner}
-        <div className="bg-bg border-b border-slate-800 px-6 py-[14px] flex items-center gap-6">
-          {/* Date nav — centered */}
-          <div className="flex-1 flex justify-center">
-            {dateNav}
+      {/*
+       * Sticky on mobile (eliminates the JS-measured spacer div that was the main CLS source).
+       * Static on desktop (content scrolls with the page in the desktop layout).
+       * The `[@media(min-width:900px)]:contents` on the inner row makes brand + actions
+       * become direct flex children of this bar on desktop, putting the date nav in the
+       * centre between them.
+       */}
+      <div
+        className="sticky top-0 z-30 bg-bg border-b border-slate-800 px-4 pb-3 header-safe-top
+                   [@media(min-width:900px)]:static [@media(min-width:900px)]:flex
+                   [@media(min-width:900px)]:items-center [@media(min-width:900px)]:gap-6
+                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]"
+      >
+        {/* Mobile-only demo banner (inside bar) */}
+        {isDemo && (
+          <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between [@media(min-width:900px)]:hidden">
+            <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+            <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
+          </div>
+        )}
+
+        {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
+        <div className="flex items-center justify-between mb-3 [@media(min-width:900px)]:contents">
+          <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px] [@media(min-width:900px)]:shrink-0">
+            Shift
+            <span
+              className="bg-clip-text text-transparent animate-gradient"
+              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
+            >
+              View
+            </span>
+          </span>
+
+          {/* Desktop centred date nav — sits between brand and actions in the flex row */}
+          <div className="hidden [@media(min-width:900px)]:flex flex-1 justify-center">
+            {desktopNav}
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 [@media(min-width:900px)]:shrink-0">
             {!isToday && (
               <motion.button
                 onClick={onNow}
@@ -203,60 +225,28 @@ export default function CoverageHeader({
           </div>
         </div>
 
-        {alertBanner}
-
-        <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
-      </div>
-    );
-  }
-
-  // ── Mobile layout ───────────────────────────────────────────────────────────
-  return (
-    <div className="mb-4">
-      <div
-        ref={topBarRef}
-        className="fixed top-0 left-0 right-0 z-30 bg-bg border-b border-slate-800 max-w-[480px] mx-auto px-4 pb-3"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
-      >
-        {isDemo && (
-          <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between">
-            <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-            <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-          </div>
-        )}
-        <div className="flex items-center justify-between mb-3">
-          {/* Animated gradient logo on mobile (matches desktop) */}
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
-            Shift
-            <span
-              className="bg-clip-text text-transparent animate-gradient"
-              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
-            >
-              View
-            </span>
-          </span>
-          <div className="flex items-center gap-2">
-            {!isToday && (
-              <motion.button
-                onClick={onNow}
-                whileTap={{ scale: 0.93 }}
-                whileHover={{ scale: 1.04 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-600 transition-colors"
-              >
-                TODAY
-              </motion.button>
-            )}
-            {!isDemo && <NotificationBell />}
-            <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
-          </div>
+        {/* Mobile-only date nav row */}
+        <div className="mb-1 [@media(min-width:900px)]:hidden">
+          {mobileNav}
         </div>
-        <div className="mb-1">{dateNav}</div>
       </div>
 
-      <div style={{ height: barHeight }} />
-
-      {alertBanner}
+      <AnimatePresence mode="wait">
+        {showAlert && (
+          <motion.div
+            key={alertKey}
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 mt-3 [@media(min-width:900px)]:mx-6"
+            style={{ background: alertConfig!.bg, border: `1px solid ${alertConfig!.border}`, color: alertConfig!.text }}
+          >
+            {alertConfig!.icon}
+            <span>{alertConfig!.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
     </div>

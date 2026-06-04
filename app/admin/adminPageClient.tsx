@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase-browser";
 import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
-import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { motion } from "framer-motion";
 import { DEMO_EMPLOYEES as DEMO_EMPLOYEES_FIXTURE, DEMO_MANAGER_USER_IDS } from "../../data/demo-fixtures";
 
@@ -141,38 +140,31 @@ export default function AdminPageClient({
     }
   }
 
-  const isDesktop = useIsDesktop();
-
   return (
     <AppShell active="admin" isManager>
-    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
+    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
           <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
       )}
-      {isDesktop ? (
-        <div className="border-b border-slate-800 px-6 py-[14px]">
-          <span className="text-xl font-extrabold text-slate-100 tracking-tight">Admin</span>
-        </div>
-      ) : (
       <div
-        className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+        className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
+                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px] [@media(min-width:900px)]:gap-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Admin</span>
+        <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">Admin</span>
       </div>
-      )}
 
-      <div className={`${isDesktop ? "max-w-2xl mx-auto px-6 pt-5" : "px-4 pt-5"} flex flex-col gap-5`}>
+      <div className="px-4 pt-5 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 flex flex-col gap-5">
         <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Roles
@@ -246,7 +238,7 @@ export default function AdminPageClient({
         </section>
       </div>
 
-      {!isDesktop && <BottomNav active="admin" />}
+      <BottomNav active="admin" />
     </main>
     </AppShell>
   );
