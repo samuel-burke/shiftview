@@ -156,13 +156,15 @@ function SwapCard({
       <div className="flex gap-2">
         <button
           onClick={() => onApprove(swap.id)}
-          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none"
+          aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
+          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Approve
         </button>
         <button
           onClick={() => onDeny(swap.id)}
-          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer"
+          aria-label={`Deny swap between ${swap.requesterName} and ${swap.targetName}`}
+          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
         >
           Deny
         </button>

@@ -891,17 +891,19 @@ export default function SettingsPageClient({
                 <button
                   data-testid="coverage-optimal-minus"
                   onClick={() => stepOptimal(-1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Decrease optimal coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   −
                 </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums">
+                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
                   {optimalCoverage}
                 </span>
                 <button
                   data-testid="coverage-optimal-plus"
                   onClick={() => stepOptimal(1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Increase optimal coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   +
                 </button>
@@ -917,17 +919,19 @@ export default function SettingsPageClient({
                 <button
                   data-testid="coverage-min-minus"
                   onClick={() => stepMin(-1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Decrease minimum coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   −
                 </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums">
+                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
                   {minCoverage}
                 </span>
                 <button
                   data-testid="coverage-min-plus"
                   onClick={() => stepMin(1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Increase minimum coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   +
                 </button>
@@ -1140,7 +1144,8 @@ export default function SettingsPageClient({
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
-                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                              aria-label="Decrease geofence radius"
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                             >
                               −
                             </button>
@@ -1150,12 +1155,14 @@ export default function SettingsPageClient({
                               max="5000"
                               step="25"
                               value={geofenceRadius}
+                              aria-label="Geofence radius in meters"
                               onChange={(e) => setGeofenceRadius(Number(e.target.value))}
                               className="flex-1 accent-indigo-500"
                             />
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
-                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                              aria-label="Increase geofence radius"
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                             >
                               +
                             </button>
