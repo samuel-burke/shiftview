@@ -6,7 +6,7 @@ export const DEMO_EMPLOYEES: Employee[] = [
   { id: 3, name: "Alex Rivera",     email: "alex@demo.com",    user_id: null             },
   { id: 4, name: "Sam Kim",         email: "sam@demo.com",     user_id: "demo-user-4"   },
   { id: 5, name: "Morgan Brooks",   email: "morgan@demo.com",  user_id: "demo-user-5"   },
-  { id: 6, name: "Taylor Nguyen",   email: null,               user_id: null             },
+  { id: 6, name: "Taylor Nguyen",                              user_id: null             },
 ];
 
 export const DEMO_MANAGER_USER_IDS = new Set(["demo-manager", "demo-user-2"]);
