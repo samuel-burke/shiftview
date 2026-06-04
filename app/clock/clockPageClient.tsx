@@ -608,42 +608,54 @@ export default function ClockPageClient() {
 
         <div className="grid gap-3">
           {effectiveStatus === "not_clocked_in" && (
-            <button
+            <motion.button
               onClick={() => handlePunchClick("clock_in")}
               disabled={actionPending}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+              whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(34,197,94,0.35)" }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 disabled:opacity-50 cursor-pointer"
             >
               {actionPending ? "…" : "Clock In"}
-            </button>
+            </motion.button>
           )}
 
           {effectiveStatus === "clocked_in" && (
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <motion.button
                 onClick={() => submitPunch("break_start")}
                 disabled={actionPending}
-                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 20px rgba(245,158,11,0.2)" }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 disabled:opacity-50 cursor-pointer"
               >
                 {actionPending ? "…" : "Start Break"}
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => handlePunchClick("clock_out")}
                 disabled={actionPending}
-                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 cursor-pointer"
               >
                 {actionPending ? "…" : "End Shift"}
-              </button>
+              </motion.button>
             </div>
           )}
 
           {effectiveStatus === "on_break" && (
-            <button
+            <motion.button
               onClick={() => submitPunch("break_end")}
               disabled={actionPending}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+              whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(245,158,11,0.35)" }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
             >
               {actionPending ? "…" : "End Break"}
-            </button>
+            </motion.button>
           )}
 
           {effectiveStatus === "clocked_out" && (
