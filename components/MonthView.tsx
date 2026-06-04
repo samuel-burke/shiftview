@@ -103,13 +103,20 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
               const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, dayHours.open, dayHours.close) : null;
               const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
               const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
-              const ariaLabel = timeOff ? TIME_OFF_STATUS_LABELS[timeOff.status] : undefined;
+              const fullDate = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+              const statusText = shiftType
+                ? `${shiftType} shift`
+                : timeOff
+                ? TIME_OFF_STATUS_LABELS[timeOff.status]
+                : "Off";
+              const dayAriaLabel = `${fullDate}. ${statusText}${isToday ? ". Today" : ""}`;
 
               return (
                 <button
                   key={di}
                   onClick={() => onSelectDate(d)}
-                  aria-label={ariaLabel}
+                  aria-label={dayAriaLabel}
+                  aria-pressed={isSelected}
                   className={`h-[52px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
                     isSelected
                       ? "border border-indigo-500 bg-indigo-500/10"

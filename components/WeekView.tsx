@@ -67,10 +67,20 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
         const shiftLabel = shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
         const labelColor = shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "#94a3b8");
 
+        const fullDayLabel = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+        const statusText = shiftType
+          ? `${shiftType} shift, ${shortTime(schedule!.startMinutes)} to ${shortTime(schedule!.endMinutes)}`
+          : timeOff
+          ? `Time off request, ${timeOff.status}`
+          : "Off";
+        const dayAriaLabel = `${fullDayLabel}. ${statusText}${isToday ? ". Today" : ""}`;
+
         return (
           <button
             key={i}
             onClick={() => onSelectDate(d)}
+            aria-label={dayAriaLabel}
+            aria-pressed={isSelected}
             className={`flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 transition-colors cursor-pointer ${
               isSelected
                 ? "border border-indigo-500 bg-indigo-500/10"
