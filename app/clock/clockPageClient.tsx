@@ -29,8 +29,8 @@ import { DEMO_EMPLOYEES, DEMO_SETTINGS, DEMO_STORE_HOURS, getDemoSchedulesForDat
 
 const DEMO_EMPLOYEE = DEMO_EMPLOYEES[0]; // Jordan Martinez, id 1
 
-const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055 } } };
-const listItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
+const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
