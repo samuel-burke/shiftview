@@ -1,8 +1,9 @@
 "use client";
 
 import { downloadCSV } from "../../lib/csv-download";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase-browser";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
@@ -280,6 +281,7 @@ const CATEGORIES = [
 export default function ReportsPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = createClient();
   const isDemo = searchParams.get("demo") === "true";
 
   const today = new Date();
@@ -339,6 +341,83 @@ export default function ReportsPageClient() {
     const weekBase = addDays(todayKey, -diff);
     return addDays(weekBase, weekOffset * 7);
   }, [todayKey, firstDayOfWeek, weekOffset]);
+
+  // Mutable refs so realtime callbacks always see the latest navigation/filter state
+  const selectedWeekStartRef = useRef(selectedWeekStart);
+  selectedWeekStartRef.current = selectedWeekStart;
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const auditFromRef = useRef(auditFrom);
+  auditFromRef.current = auditFrom;
+  const auditToRef = useRef(auditTo);
+  auditToRef.current = auditTo;
+  const auditCategoryRef = useRef(auditCategory);
+  auditCategoryRef.current = auditCategory;
+
+  // Supabase Realtime — live updates for schedules, employees, and audit log
+  useEffect(() => {
+    if (isDemo) return;
+
+    function refetchWeekSchedules() {
+      const ws = selectedWeekStartRef.current;
+      const weekDates = getWeekDates(ws);
+      setWeekLoading(true);
+      Promise.allSettled(
+        weekDates.map((d) =>
+          fetch(`/api/schedules?date=${d}`)
+            .then((r) => r.json())
+            .then((data: any[]) => data.map((s: any) => ({
+              id: s.id, employeeId: s.employeeId, date: s.date,
+              startMinutes: s.startMinutes, endMinutes: s.endMinutes,
+            })))
+        )
+      ).then((results) => {
+        const all: Schedule[] = [];
+        for (const r of results) if (r.status === "fulfilled") all.push(...r.value);
+        setWeekSchedules(all);
+        setWeekLoading(false);
+      });
+    }
+
+    function refetchCoverage() {
+      const from = subtractDays(todayKey, 27);
+      fetch(`/api/reports/coverage?from=${from}&to=${todayKey}`)
+        .then((r) => r.json())
+        .then(({ days }) => { if (days) setCoverageDays(days); })
+        .catch(() => {});
+    }
+
+    function refetchEmployees() {
+      fetch("/api/employees")
+        .then((r) => r.json())
+        .then(setEmployees)
+        .catch(() => {});
+    }
+
+    function handleNewAuditEntry() {
+      if (activeTabRef.current !== "activity") return;
+      const params = new URLSearchParams({ from: auditFromRef.current, to: auditToRef.current, page: "1" });
+      if (auditCategoryRef.current) params.set("category", auditCategoryRef.current);
+      fetch(`/api/audit-log?${params}`)
+        .then((r) => r.json())
+        .then(({ entries, hasMore, total }) => {
+          setAuditEntries(entries ?? []);
+          setAuditHasMore(hasMore ?? false);
+          setAuditPage(1);
+          setAuditTotal(total ?? 0);
+        })
+        .catch(() => {});
+    }
+
+    const channel = supabase
+      .channel("reports-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => { refetchWeekSchedules(); refetchCoverage(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "audit_logs" }, handleNewAuditEntry)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isDemo]);
 
   // Load coverage data once on mount
   useEffect(() => {

@@ -516,6 +516,33 @@ export default function SettingsPageClient({
     );
   }, []);
 
+  // Supabase Realtime — live updates for employees and store hours
+  useEffect(() => {
+    if (isDemo) return;
+
+    function refetchEmployees() {
+      fetch("/api/employees")
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((emps: Employee[]) => setEmployees(emps))
+        .catch(() => {});
+    }
+
+    function refetchStoreHours() {
+      fetch("/api/store-hours")
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+        .catch(() => {});
+    }
+
+    const channel = supabase
+      .channel("settings-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
+      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refetchStoreHours)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isDemo]);
+
   function urlBase64ToUint8Array(base64: string): Uint8Array {
     const padding = "=".repeat((4 - (base64.length % 4)) % 4);
     const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase-browser";
 import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
@@ -28,6 +29,7 @@ export default function AdminPageClient({
   isDemo?: boolean;
 }) {
   const router = useRouter();
+  const supabase = createClient();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -49,6 +51,33 @@ export default function AdminPageClient({
         setManagerUserIds(new Set(ids));
       })
       .catch(() => {});
+  }, [isDemo]);
+
+  // Supabase Realtime — live updates for employees and manager roles
+  useEffect(() => {
+    if (isDemo) return;
+
+    function refetchEmployees() {
+      fetch("/api/employees")
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((emps: Employee[]) => setEmployees(emps))
+        .catch(() => {});
+    }
+
+    function refetchManagers() {
+      fetch("/api/managers")
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then(({ managerUserIds: ids }: { managerUserIds: string[] }) => setManagerUserIds(new Set(ids)))
+        .catch(() => {});
+    }
+
+    const channel = supabase
+      .channel("admin-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
+      .on("postgres_changes", { event: "*", schema: "public", table: "managers" }, refetchManagers)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [isDemo]);
 
   async function toggleRole(emp: Employee) {
