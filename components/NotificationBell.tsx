@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase-browser";
 import {
   CalendarIcon,
@@ -203,7 +204,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-80 max-h-[480px] bg-[#0f1117] border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden">
+        <div className="absolute right-0 top-11 w-80 max-h-[480px] bg-card border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
             <span className="text-sm font-bold text-slate-100">Notifications</span>
@@ -283,12 +284,15 @@ export default function NotificationBell() {
       )}
     </div>
 
-    <MessageThread
-      open={!!chatTarget}
-      otherUserId={chatTarget?.userId ?? ""}
-      otherName={chatTarget?.name ?? ""}
-      onClose={() => setChatTarget(null)}
-    />
+    {createPortal(
+      <MessageThread
+        open={!!chatTarget}
+        otherUserId={chatTarget?.userId ?? ""}
+        otherName={chatTarget?.name ?? ""}
+        onClose={() => setChatTarget(null)}
+      />,
+      document.body
+    )}
     </>
   );
 }

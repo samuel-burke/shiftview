@@ -1,4 +1,5 @@
 "use client";
+import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
@@ -137,12 +138,7 @@ export default function Page() {
     const csvContent = [header, ...rows].join("\n");
     const weekStartDate = capturedDates[0];
     const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `schedule-${weekStartDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadCSV(blob, `schedule-${weekStartDate}.csv`);
 
     setExportLoading(false);
   }

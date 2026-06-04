@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
+const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import InviteSheet from "../../components/InviteSheet";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
 import StoreHoursSection from "../../components/StoreHoursSection";
@@ -12,6 +15,7 @@ import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
+import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -203,6 +207,7 @@ export default function SettingsPageClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [optimalCoverage, setOptimalCoverage] = useState(3);
@@ -731,6 +736,49 @@ export default function SettingsPageClient({
           />
         )}
 
+        {/* Appearance — all users */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Appearance
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="text-sm font-semibold text-slate-200 mb-3">Theme</div>
+            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+              {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setThemeMode(m)}
+                  aria-pressed={themeMode === m}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
+                    themeMode === m
+                      ? "bg-slate-600 text-slate-100"
+                      : "text-slate-400 hover:text-slate-300"
+                  }`}
+                >
+                  {m === "light" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  {m === "dark" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                  {m === "system" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  <span className="capitalize">{m}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Push Notifications — all users */}
         {pushSupported && (
           <section>
@@ -1150,14 +1198,14 @@ export default function SettingsPageClient({
           >
             + Add Employee
           </button>
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+          <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
             ) : (
               employees.map((emp) => (
-                <div key={emp.id} className="flex flex-col">
+                <motion.div key={emp.id} variants={listItem} className="flex flex-col">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
+                    <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     {editingId === emp.id ? (
@@ -1226,10 +1274,10 @@ export default function SettingsPageClient({
                   {isManager && (
                     <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
                   )}
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
+          </motion.div>
         </section>}
 
         {/* Templates — manager only */}
@@ -1238,12 +1286,12 @@ export default function SettingsPageClient({
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Schedule Templates
             </div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+            <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
               {templates.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-slate-500">No templates yet</div>
               ) : (
                 templates.map((tpl) => (
-                  <div key={tpl.id} className="flex flex-col px-4 py-3 gap-2">
+                  <motion.div key={tpl.id} variants={listItem} className="flex flex-col px-4 py-3 gap-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold text-slate-200">{tpl.name}</div>
@@ -1276,7 +1324,7 @@ export default function SettingsPageClient({
                           type="date"
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark]"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100"
                         />
                         <button
                           disabled={applyingId === tpl.id}
@@ -1305,10 +1353,10 @@ export default function SettingsPageClient({
                     {applyError[tpl.id] && (
                       <div className="text-xs text-red-400">{applyError[tpl.id]}</div>
                     )}
-                  </div>
+                  </motion.div>
                 ))
               )}
-            </div>
+            </motion.div>
           </section>
         )}
 

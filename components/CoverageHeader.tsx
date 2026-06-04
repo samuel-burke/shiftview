@@ -122,6 +122,19 @@ export default function CoverageHeader({
         <div className="bg-bg border-b border-slate-800 px-6 py-[14px] flex items-center gap-6">
           {/* Date nav — left-aligned, no brand (SideNav owns it) */}
           <div className="flex-1">
+          {/* Brand */}
+          <span className="text-[22px] font-extrabold text-slate-100 tracking-tight shrink-0">
+            Shift
+            <span
+              className="bg-clip-text text-transparent animate-gradient"
+              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
+            >
+              View
+            </span>
+          </span>
+
+          {/* Date nav — centered */}
+          <div className="flex-1 flex justify-center">
             {dateNav}
           </div>
 
@@ -165,7 +178,7 @@ export default function CoverageHeader({
           </span>
           <div className="flex items-center gap-2">
             {!isToday && (
-              <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2 cursor-pointer">TODAY</button>
+              <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer">TODAY</button>
             )}
             {!isDemo && <NotificationBell />}
             <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
@@ -191,6 +204,6 @@ export default function CoverageHeader({
   );
 }
 
-const navBtn = "size-9 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
 
-const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-[14px] py-2 cursor-pointer";
+const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer";

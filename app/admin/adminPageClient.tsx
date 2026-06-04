@@ -6,6 +6,10 @@ import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
+import { motion } from "framer-motion";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
+const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
 
@@ -116,9 +120,14 @@ export default function AdminPageClient({
           <span className="text-xl font-extrabold text-slate-100 tracking-tight">Admin</span>
         </div>
       ) : (
-        <div
-          className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      <div
+        className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      >
+        <button
+          onClick={() => router.back()}
+          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+          aria-label="Back"
         >
           <button
             onClick={() => router.back()}
@@ -143,7 +152,7 @@ export default function AdminPageClient({
             </div>
           )}
 
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+          <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
             ) : (
@@ -154,8 +163,8 @@ export default function AdminPageClient({
                 const hasError = errorId === emp.id;
 
                 return (
-                  <div key={emp.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
+                  <motion.div key={emp.id} variants={listItem} className="flex items-center gap-3 px-4 py-3">
+                    <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -183,7 +192,7 @@ export default function AdminPageClient({
                         <button
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
-                          className={`text-xs font-semibold py-1.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
+                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr
@@ -196,11 +205,11 @@ export default function AdminPageClient({
                         </button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })
             )}
-          </div>
+          </motion.div>
         </section>
       </div>
 
