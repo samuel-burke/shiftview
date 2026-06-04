@@ -67,7 +67,7 @@ export default function LoginPage() {
               View
             </span>
           </div>
-          <div className="text-xs text-slate-600 mt-1.5" aria-live="polite">
+          <div className="text-xs text-slate-500 mt-1.5" aria-live="polite">
             {step === "email" ? "Sign in to your account" : `Code sent to ${email}`}
           </div>
         </div>

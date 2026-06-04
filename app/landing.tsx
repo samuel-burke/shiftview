@@ -148,7 +148,7 @@ function MockDashboard() {
         ].map(({ label, active, icon: Icon }) => (
           <div
             key={label}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold ${active ? "text-blue-400" : "text-slate-600"}`}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold ${active ? "text-blue-400" : "text-slate-500"}`}
           >
             <Icon active={active} />
             {label}

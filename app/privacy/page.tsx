@@ -43,7 +43,7 @@ export default function PrivacyPage() {
         </Link>
 
         <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-600 mb-10">Last updated: June 3, 2026</p>
+        <p className="text-xs text-slate-500 mb-10">Last updated: June 3, 2026</p>
 
         <div className="text-sm text-slate-400 leading-relaxed space-y-1">
           <Section title="1. Who We Are">
