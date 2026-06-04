@@ -601,6 +601,7 @@ export default function SettingsPageClient({
   const [loading, setLoading] = useState(!isDemo);
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
+  const [myName, setMyName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
 
   type Template = { id: number; name: string; rowCount: number };
@@ -642,9 +643,10 @@ export default function SettingsPageClient({
         .catch(() => {});
       fetch("/api/me")
         .then((r) => r.json())
-        .then(({ isManager: mgr, employeeId: empId }) => {
+        .then(({ isManager: mgr, employeeId: empId, employeeName: eName }) => {
           if (mgr != null) setIsManager(mgr);
           if (empId != null) setEmployeeId(empId);
+          if (eName != null) setMyName(eName);
           if (mgr) {
             fetch("/api/templates")
               .then((r) => r.ok ? r.json() : Promise.reject())
@@ -738,7 +740,14 @@ export default function SettingsPageClient({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <AppShell active="settings" isManager={isManager}>
+    <AppShell
+      active="settings"
+      isManager={isManager}
+      userName={myName}
+      isDemo={isDemo}
+      onSignOut={isDemo ? undefined : handleSignOut}
+      onSignIn={isDemo ? () => router.push("/login") : undefined}
+    >
     <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
       {/* Demo banner */}
       {isDemo && (
@@ -748,20 +757,9 @@ export default function SettingsPageClient({
         </div>
       )}
 
-      {/* Top bar — sticky on mobile, static on desktop; back button hidden on desktop */}
-      <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
-                   [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-      >
-        <button
-          onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
-          aria-label="Back"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">Settings</span>
+      {/* Desktop-only header */}
+      <div className="hidden [@media(min-width:900px)]:flex px-6 py-[14px] border-b border-slate-800 items-center justify-between">
+        <span className="text-xl font-extrabold text-slate-100">Settings</span>
       </div>
 
       {loading ? (

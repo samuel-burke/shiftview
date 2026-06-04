@@ -426,14 +426,12 @@ export default function ClockPageClient() {
 
   const firstName = employeeName ? employeeName.split(" ")[0] : "Clock";
 
+  // Desktop-only header — mobile header is handled by AppShell's TopBar
   const clockHeader = (
-    <div
-      className="sticky top-0 z-20 px-0 pb-3 border-b border-slate-800 bg-bg flex items-center justify-between [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
-      style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-    >
+    <div className="hidden [@media(min-width:900px)]:flex px-6 py-[14px] border-b border-slate-800 items-center justify-between">
       <div>
         <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
-        <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5 [@media(min-width:900px)]:text-xl">{firstName}</div>
+        <div className="text-xl font-extrabold text-slate-100 leading-tight mt-0.5">{firstName}</div>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-sm text-slate-400">
@@ -452,20 +450,19 @@ export default function ClockPageClient() {
 
   const mainClass = "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:px-0 [@media(min-width:900px)]:pb-0";
 
+  const appShellProps = {
+    active: "clock" as const,
+    isManager,
+    userName: employeeName,
+    isDemo,
+    onSignOut: isDemo ? undefined : handleSignOut,
+    onSignIn: isDemo ? () => router.push("/login") : undefined,
+  };
+
   if (loading) {
     return (
-      <AppShell active="clock" isManager={isManager}>
+      <AppShell {...appShellProps}>
         <main className={mainClass}>
-          <div
-            className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
-            style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-          >
-            <div>
-              <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
-              <div className="skeleton h-7 w-28 rounded" />
-            </div>
-            <div className="skeleton h-8 w-28 rounded-xl" />
-          </div>
           <div className="[@media(min-width:900px)]:max-w-[600px] [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6">
             <SkeletonClockBody />
           </div>
@@ -478,16 +475,8 @@ export default function ClockPageClient() {
   // Employee not linked
   if (!employeeId && !isManager) {
     return (
-      <AppShell active="clock" isManager={isManager}>
+      <AppShell {...appShellProps}>
         <main className={mainClass}>
-          <div
-            className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]"
-            style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-          >
-            <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">
-              Time<span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">Clock</span>
-            </span>
-          </div>
           <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
             <div aria-hidden="true" className="text-4xl">🔗</div>
             <div className="text-lg font-bold text-slate-100">Account not linked</div>
@@ -500,7 +489,7 @@ export default function ClockPageClient() {
   }
 
   return (
-    <AppShell active="clock" isManager={isManager}>
+    <AppShell {...appShellProps}>
     <main className={mainClass}>
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
