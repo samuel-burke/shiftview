@@ -860,7 +860,7 @@ export default function SettingsPageClient({
                 </button>
               </div>
               {pushError && (
-                <div className="text-xs text-red-400 mt-2">{pushError}</div>
+                <div role="alert" className="text-xs text-red-400 mt-2">{pushError}</div>
               )}
             </div>
           </section>
@@ -939,7 +939,7 @@ export default function SettingsPageClient({
             </div>
 
             {coverageValidationError && (
-              <div className="text-xs text-red-400" data-testid="coverage-validation-error">
+              <div role="alert" className="text-xs text-red-400" data-testid="coverage-validation-error">
                 {coverageValidationError}
               </div>
             )}
@@ -1177,7 +1177,7 @@ export default function SettingsPageClient({
                     )}
 
                     {geofenceError && (
-                      <div className="text-xs text-red-400">{geofenceError}</div>
+                      <div role="alert" className="text-xs text-red-400">{geofenceError}</div>
                     )}
 
                     <button
@@ -1278,7 +1278,7 @@ export default function SettingsPageClient({
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
                           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
                         />
-                        {editError && <div className="text-xs text-red-400">{editError}</div>}
+                        {editError && <div role="alert" className="text-xs text-red-400">{editError}</div>}
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
@@ -1415,7 +1415,7 @@ export default function SettingsPageClient({
                       </div>
                     )}
                     {applyError[tpl.id] && (
-                      <div className="text-xs text-red-400">{applyError[tpl.id]}</div>
+                      <div role="alert" className="text-xs text-red-400">{applyError[tpl.id]}</div>
                     )}
                   </motion.div>
                 ))

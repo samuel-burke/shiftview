@@ -562,7 +562,7 @@ export default function SchedulePageClient() {
         <SkeletonWeekCalendar />
       ) : scheduleError ? (
         <div className="h-[120px] flex items-center justify-center">
-          <div className="text-sm text-red-400 text-center">{scheduleError}</div>
+          <div role="alert" className="text-sm text-red-400 text-center">{scheduleError}</div>
         </div>
       ) : view === "week" ? (
         <WeekView
@@ -690,7 +690,7 @@ export default function SchedulePageClient() {
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
                 {timeOffStatus === "error" && timeOffError && (
-                  <div className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
+                  <div role="alert" className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
                 )}
               </>
             )}
