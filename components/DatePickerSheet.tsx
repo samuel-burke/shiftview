@@ -195,4 +195,4 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
   }
 }
 
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors";

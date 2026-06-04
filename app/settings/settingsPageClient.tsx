@@ -135,7 +135,7 @@ function EmployeeAvailabilityRow({
       {expanded && (
         <div className="mt-2 pl-1">
           {records === null ? (
-            <div className="text-xs text-slate-600">Loading…</div>
+            <div role="status" className="text-xs text-slate-600">Loading…</div>
           ) : allFree ? (
             <div className="text-xs text-slate-500">No restrictions set</div>
           ) : (
