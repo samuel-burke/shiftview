@@ -20,7 +20,7 @@ function LandingNav() {
       </div>
       <a
         href="/login"
-        className="text-sm font-semibold text-slate-300 border border-slate-700 rounded-xl px-4 py-2 hover:border-slate-500 transition-colors"
+        className="text-sm font-semibold text-slate-300 border border-slate-700 rounded-xl px-4 py-2 hover:border-slate-500 hover:text-slate-100 transition-colors"
       >
         Sign In
       </a>
@@ -52,13 +52,13 @@ function HeroSection() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
           <a
             href="/login"
-            className="bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold px-7 py-3.5 rounded-xl text-sm text-center"
+            className="bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold px-7 py-3.5 rounded-xl text-sm text-center hover:opacity-90 transition-opacity"
           >
             Sign In
           </a>
           <a
             href="/?demo=true"
-            className="border border-slate-700 text-slate-300 font-semibold px-7 py-3.5 rounded-xl text-sm text-center hover:border-slate-500 transition-colors"
+            className="border border-slate-700 text-slate-300 font-semibold px-7 py-3.5 rounded-xl text-sm text-center hover:border-slate-500 hover:text-slate-100 transition-colors"
           >
             View Demo <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="inline-block align-[-1px]"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </a>
