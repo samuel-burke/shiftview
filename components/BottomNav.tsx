@@ -17,7 +17,7 @@ const STORAGE_KEY = "nav-prev-tab";
 export default function BottomNav({ active }: Props) {
   const isDesktop = useIsDesktop();
   const searchParams = useSearchParams();
-  const tabIndex = TABS.indexOf(active);
+  const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
 
   // Read which tab was active last time so the pill slides FROM there, not from 0.
   const [fromIndex] = useState<number>(() => {
