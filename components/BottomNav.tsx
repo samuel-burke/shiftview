@@ -12,7 +12,13 @@ type Props = {
 };
 
 const TABS = ["team", "schedule", "clock"] as const;
-const STORAGE_KEY = "nav-prev-tab";
+
+// Module-level: survives remounts within a session, avoids sessionStorage timing hazards.
+// _prevTabIndex: last tab the user was on before navigating.
+// _animatedToTab: the tab we've already started animating to — prevents duplicate animations
+//   when a page (like Clock) has multiple BottomNav instances in different loading branches.
+let _prevTabIndex: number | null = null;
+let _animatedToTab: number | null = null;
 
 export default function BottomNav({ active }: Props) {
   const isDesktop = useIsDesktop();
@@ -23,19 +29,26 @@ export default function BottomNav({ active }: Props) {
   const pillLeft = useTransform(pillLeftNum, v => `${v}%`);
 
   useLayoutEffect(() => {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    const prev = stored !== null ? parseInt(stored, 10) : tabIndex;
-    // Reposition to previous tab before paint, then spring to current
-    if (prev !== tabIndex) pillLeftNum.set(prev * 33.333);
+    if (_animatedToTab === tabIndex) {
+      // A prior instance on this page already started the animation — just snap into place.
+      pillLeftNum.set(tabIndex * 33.333);
+      return;
+    }
+
+    const fromTab = _prevTabIndex ?? tabIndex;
+    if (fromTab !== tabIndex) pillLeftNum.set(fromTab * 33.333);
+
+    _animatedToTab = tabIndex;
+    _prevTabIndex = tabIndex;
+
     const controls = animate(pillLeftNum, tabIndex * 33.333, {
       type: "spring",
       stiffness: 420,
       damping: 36,
     });
-    sessionStorage.setItem(STORAGE_KEY, String(tabIndex));
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tabIndex]);
 
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
   if (isDesktop) return null;
