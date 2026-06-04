@@ -35,7 +35,7 @@ function fmtMinutes(m: number): string {
 function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; color?: string }) {
   if (cx === undefined || cy === undefined) return null;
   return (
-    <g>
+    <g aria-hidden="true">
       <circle cx={cx} cy={cy} r={4} fill={color} />
       <circle cx={cx} cy={cy} r={4} fill="none" stroke={color} strokeWidth={2}>
         <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />

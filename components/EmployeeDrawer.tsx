@@ -308,14 +308,15 @@ export default function EmployeeDrawer({
                 {editing ? (
                   <div className="flex flex-col gap-3">
                     {[
-                      { label: "Start time", val: startVal, set: setStartVal },
-                      { label: "End time",   val: endVal,   set: setEndVal   },
-                    ].map(({ label, val, set }) => (
+                      { label: "Start time", id: "edit-shift-start", val: startVal, set: setStartVal },
+                      { label: "End time",   id: "edit-shift-end",   val: endVal,   set: setEndVal   },
+                    ].map(({ label, id, val, set }) => (
                       <div key={label}>
-                        <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
+                        <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
                           {label}
-                        </div>
+                        </label>
                         <input
+                          id={id}
                           type="time"
                           value={val}
                           onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}

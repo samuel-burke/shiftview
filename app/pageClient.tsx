@@ -756,7 +756,7 @@ export default function Page() {
       <AppShell active="team" isManager={isManager}>
         <main className="bg-bg min-h-screen">
           <CoverageHeader {...headerProps} />
-          {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+          {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
           {errorBanner}
           <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
             {/* Left: stats + timeline + legend */}
@@ -784,7 +784,7 @@ export default function Page() {
     <AppShell active="team" isManager={isManager}>
       <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
         <CoverageHeader {...headerProps} />
-        {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+        {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
         {errorBanner}
         {statsRow}
         {timeline}
