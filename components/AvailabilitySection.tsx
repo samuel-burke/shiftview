@@ -283,12 +283,14 @@ export default function AvailabilitySection({
                 <span aria-hidden="true" className={`size-2 rounded-full shrink-0 ${dot}`} />
                 {label}
               </span>
-              {cfg.saveStatus === "saving" && (
-                <span className="text-[11px] text-slate-500 shrink-0">Saving…</span>
-              )}
-              {cfg.saveStatus === "error" && (
-                <span className="text-[11px] text-red-400 shrink-0">Error</span>
-              )}
+              <span role="status" aria-live="polite" aria-atomic="true" className="shrink-0">
+                {cfg.saveStatus === "saving" && (
+                  <span className="text-[11px] text-slate-500">Saving…</span>
+                )}
+                {cfg.saveStatus === "error" && (
+                  <span className="text-[11px] text-red-400">Error</span>
+                )}
+              </span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );

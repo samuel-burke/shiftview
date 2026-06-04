@@ -164,7 +164,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
               <span className="flex-1 text-sm text-slate-200">
                 {fmtMinutes(open)} – {fmtMinutes(close)}
               </span>
-              <span data-testid={`store-hours-status-${dow}`} className="shrink-0">
+              <span data-testid={`store-hours-status-${dow}`} role="status" aria-live="polite" aria-atomic="true" className="shrink-0">
                 {saveStatus === "saving" && <span className="text-[11px] text-slate-500">Saving…</span>}
                 {saveStatus === "saved"  && <span className="text-[11px] text-emerald-400">Saved ✓</span>}
                 {saveStatus === "error"  && <span className="text-[11px] text-red-400">Failed to save</span>}
