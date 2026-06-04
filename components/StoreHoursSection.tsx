@@ -169,7 +169,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
                 {saveStatus === "saved"  && <span className="text-[11px] text-emerald-400">Saved ✓</span>}
                 {saveStatus === "error"  && <span className="text-[11px] text-red-400">Failed to save</span>}
               </span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-600 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );
         })}
@@ -192,7 +192,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
             className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${sheetOpen ? "translate-y-0" : "translate-y-full"}`}
           >
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-slate-700" />
+              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
             </div>
 
             <div className="px-5 pb-10 pt-2">
@@ -264,7 +264,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
                         className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
                           copied
                             ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
-                            : "bg-slate-800 border-slate-700 text-slate-300"
+                            : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-slate-200"
                         }`}
                       >
                         {copied ? `✓ ${label} updated` : label}

@@ -280,7 +280,7 @@ export default function AvailabilitySection({
                 {DAY_SHORT[dow]}
               </span>
               <span className={`flex items-center gap-2 flex-1 text-sm ${labelColor}`}>
-                <span className={`size-2 rounded-full shrink-0 ${dot}`} />
+                <span aria-hidden="true" className={`size-2 rounded-full shrink-0 ${dot}`} />
                 {label}
               </span>
               {cfg.saveStatus === "saving" && (
@@ -289,7 +289,7 @@ export default function AvailabilitySection({
               {cfg.saveStatus === "error" && (
                 <span className="text-[11px] text-red-400 shrink-0">Error</span>
               )}
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-600 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );
         })}
@@ -316,7 +316,7 @@ export default function AvailabilitySection({
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-slate-700" />
+              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
             </div>
 
             <div className="px-5 pb-10 pt-2">
