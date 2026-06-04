@@ -210,7 +210,7 @@ export default function Page() {
     const csvContent = [header, ...rows].join("\n");
     const weekStartDate = capturedDates[0];
     const blob = new Blob([csvContent], { type: "text/csv" });
-    await downloadCSV(blob, `schedule-${weekStartDate}.csv`);
+    downloadCSV(blob, `schedule-${weekStartDate}.csv`);
 
     setExportLoading(false);
   }
