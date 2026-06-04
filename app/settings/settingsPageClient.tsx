@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
-import BottomNav from "../../components/BottomNav";
-import AppShell from "../../components/AppShell";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import InviteSheet from "../../components/InviteSheet";
@@ -601,7 +599,6 @@ export default function SettingsPageClient({
   const [loading, setLoading] = useState(!isDemo);
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [myName, setMyName] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
 
   type Template = { id: number; name: string; rowCount: number };
@@ -643,10 +640,9 @@ export default function SettingsPageClient({
         .catch(() => {});
       fetch("/api/me")
         .then((r) => r.json())
-        .then(({ isManager: mgr, employeeId: empId, employeeName: eName }) => {
+        .then(({ isManager: mgr, employeeId: empId }) => {
           if (mgr != null) setIsManager(mgr);
           if (empId != null) setEmployeeId(empId);
-          if (eName != null) setMyName(eName);
           if (mgr) {
             fetch("/api/templates")
               .then((r) => r.ok ? r.json() : Promise.reject())
@@ -740,34 +736,35 @@ export default function SettingsPageClient({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <AppShell
-      active="settings"
-      isManager={isManager}
-      userName={myName}
-      isDemo={isDemo}
-      onBack={() => router.back()}
-      onSignOut={isDemo ? undefined : handleSignOut}
-      onSignIn={isDemo ? () => router.push("/login") : undefined}
+    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm [@media(min-width:900px)]:items-center [@media(min-width:900px)]:justify-center">
+    <main
+      className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
+                 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:max-h-[90vh] [@media(min-width:900px)]:rounded-2xl [@media(min-width:900px)]:shadow-2xl"
+      style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
     >
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
-      {/* Demo banner */}
-      {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
-
-      {/* Desktop-only header */}
-      <div className="hidden [@media(min-width:900px)]:flex px-6 py-[14px] border-b border-slate-800 items-center justify-between">
-        <span className="text-xl font-extrabold text-slate-100">Settings</span>
+      {/* Header */}
+      <div
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      >
+        <button
+          onClick={() => router.back()}
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          aria-label="Back"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
+        {isDemo && <span className="ml-auto text-[11px] text-blue-400/80 font-medium">Demo Mode</span>}
       </div>
 
       {loading ? (
-        <div className="[@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6"><SkeletonSettingsBody isManager={isManager} /></div>
+        <div className="px-4 pt-5"><SkeletonSettingsBody isManager={isManager} /></div>
       ) : null}
 
-      <div className={`px-4 pt-5 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 flex flex-col gap-5${loading ? " hidden" : ""}`}>
+      <div className={`px-4 pt-5 pb-12 flex flex-col gap-5${loading ? " hidden" : ""}`}>
 
         {/* My Availability — shown to all linked employees */}
         {employeeId !== null && (
@@ -1471,7 +1468,6 @@ export default function SettingsPageClient({
         </section>
       </div>
 
-      <BottomNav active="settings" />
 
       <InviteSheet
         open={showInvite}
@@ -1541,6 +1537,6 @@ export default function SettingsPageClient({
         </div>
       )}
     </main>
-    </AppShell>
+    </div>
   );
 }
