@@ -672,15 +672,16 @@ export default function Page() {
     <div
       className="flex-1 bg-card rounded-xl px-2 py-3 text-center"
       style={{ border: `1px solid ${color}33` }}
+      aria-label={loading ? `Loading ${label}` : `${value} ${label}`}
     >
       {loading ? (
-        <div className="flex justify-center mb-1.5">
+        <div aria-hidden="true" className="flex justify-center mb-1.5">
           <div className="skeleton h-7 w-8 rounded-[6px]" />
         </div>
       ) : (
-        <div className="text-[28px] font-extrabold leading-none" style={{ color }}>{value}</div>
+        <div className="text-[28px] font-extrabold leading-none" aria-hidden="true" style={{ color }}>{value}</div>
       )}
-      <div className="text-[11px] text-slate-400 mt-1 font-medium">{label}</div>
+      <div className="text-[11px] text-slate-400 mt-1 font-medium" aria-hidden="true">{label}</div>
     </div>
   );
 
