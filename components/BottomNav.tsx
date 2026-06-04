@@ -98,8 +98,7 @@ function NavTab({
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className="flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200"
-      style={{ color: isActive ? "#e2e8f0" : "#64748b" }}
+      className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200 ${isActive ? "text-slate-100" : "text-slate-500"}`}
     >
       <motion.div
         animate={{

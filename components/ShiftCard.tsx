@@ -71,7 +71,7 @@ export default function ShiftCard({
   const isOnBreak = badge?.label === "On Break";
 
   const glowShadow = isActive
-    ? `0 0 0 1.5px ${shiftColor}55, 0 4px 28px ${shiftColor}30, inset 0 1px 0 rgba(255,255,255,0.07)`
+    ? `0 0 0 1.5px rgba(34,197,94,0.45), 0 4px 28px rgba(34,197,94,0.18), inset 0 1px 0 rgba(255,255,255,0.07)`
     : isOnBreak
     ? `0 0 0 1.5px rgba(251,191,36,0.45), 0 4px 20px rgba(251,191,36,0.18), inset 0 1px 0 rgba(255,255,255,0.05)`
     : `inset 0 1px 0 rgba(255,255,255,0.04)`;
