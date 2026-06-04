@@ -25,10 +25,10 @@ type Props = {
 };
 
 const ATTENDANCE_BADGES: Record<AttendanceStatus, { label: string; className: string }> = {
-  clocked_in:    { label: "Clocked In",    className: "bg-green-500/15 text-green-500" },
-  on_break:      { label: "On Break",      className: "bg-amber-500/15 text-amber-400" },
-  clocked_out:   { label: "Clocked Out",   className: "bg-slate-700/50 text-slate-400" },
-  not_clocked_in:{ label: "Not Here Yet",  className: "bg-red-500/15 text-red-400" },
+  clocked_in:     { label: "Clocked In",    className: "bg-green-500/15 text-green-500" },
+  on_break:       { label: "On Break",      className: "bg-amber-500/15 text-amber-400" },
+  clocked_out:    { label: "Clocked Out",   className: "bg-slate-700/50 text-slate-400" },
+  not_clocked_in: { label: "Not Here Yet",  className: "bg-red-500/15 text-red-400" },
 };
 
 export default function ShiftCard({
@@ -52,12 +52,10 @@ export default function ShiftCard({
     arrivalText = h > 0 ? (m > 0 ? `In ${h}h ${m}m` : `In ${h}h`) : `In ${m}m`;
   }
 
-  // Resolve badge: prefer attendance status when we have real punch data
   let badge: { label: string; className: string } | null = null;
   if (isToday) {
     if (attendanceStatus) {
       if (attendanceStatus === "not_clocked_in") {
-        // Only show "Not Here Yet" after the shift has started
         if (schedule.startMinutes <= nowMinutes) {
           badge = ATTENDANCE_BADGES.not_clocked_in;
         }
@@ -65,16 +63,14 @@ export default function ShiftCard({
         badge = ATTENDANCE_BADGES[attendanceStatus];
       }
     } else if (here) {
-      // No punch data (demo mode or still loading) — time-based fallback
       badge = { label: "Here", className: "bg-green-500/15 text-green-500" };
     }
   }
 
   const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
+  const isOnBreak = badge?.label === "On Break";
 
-  const glowShadow = isActive
-    ? `0 0 0 1px ${shiftColor}30, 0 4px 24px ${shiftColor}22, inset 0 1px 0 rgba(255,255,255,0.07)`
-    : `inset 0 1px 0 rgba(255,255,255,0.04)`;
+  const glowShadow = `0 0 18px ${shiftColor}20, inset 0 1px 0 rgba(255,255,255,0.04)`;
 
   const shiftTimeLabel = `${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
   const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
@@ -83,9 +79,10 @@ export default function ShiftCard({
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -1, boxShadow: `0 4px 24px ${shiftColor}30` }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       aria-label={cardAriaLabel}
-      className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
+      className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
       style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >
       {/* Avatar */}
@@ -128,6 +125,13 @@ export default function ShiftCard({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
+              )}
+              {badge.label === "On Break" && (
+                <motion.span
+                  animate={{ opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                  className="relative flex h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                />
               )}
               {badge.label}
             </span>

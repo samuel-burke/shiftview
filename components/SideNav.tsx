@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { motion, LayoutGroup } from "framer-motion";
 
 type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports";
 
@@ -15,7 +16,12 @@ export default function SideNav({ active, isManager }: Props) {
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
 
   return (
-    <aside className="w-[220px] shrink-0 bg-[#0d1929] border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20">
+    <motion.aside
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="w-[220px] shrink-0 bg-bg border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20"
+    >
       {/* Brand */}
       <div className="px-5 py-[18px] border-b border-slate-800 shrink-0">
         <span className="text-[22px] font-extrabold text-slate-100 tracking-tight">
@@ -28,31 +34,33 @@ export default function SideNav({ active, isManager }: Props) {
 
       {/* Nav links */}
       <nav aria-label="Main navigation" className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
-        <NavLink href={`/${demo}`} label="Team" isActive={active === "team"}>
-          <TeamIcon />
-        </NavLink>
-        <NavLink href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
-          <ScheduleIcon />
-        </NavLink>
-        <NavLink href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
-          <ClockIcon />
-        </NavLink>
-
-        <div className="h-px bg-slate-800 my-2" />
-
-        {isManager && (
-          <NavLink href={`/admin${demo}`} label="Admin" isActive={active === "admin"}>
-            <AdminIcon />
+        <LayoutGroup id="sidenav">
+          <NavLink href={`/${demo}`} label="Team" isActive={active === "team"}>
+            <TeamIcon />
           </NavLink>
-        )}
-        <NavLink href={`/settings${demo}`} label="Settings" isActive={active === "settings"}>
-          <SettingsIcon />
-        </NavLink>
-        <NavLink href={`/reports${demo}`} label="Reports" isActive={active === "reports"}>
-          <ReportsIcon />
-        </NavLink>
+          <NavLink href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
+            <ScheduleIcon />
+          </NavLink>
+          <NavLink href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
+            <ClockIcon />
+          </NavLink>
+
+          <div className="h-px bg-slate-800 my-2" />
+
+          {isManager && (
+            <NavLink href={`/admin${demo}`} label="Admin" isActive={active === "admin"}>
+              <AdminIcon />
+            </NavLink>
+          )}
+          <NavLink href={`/settings${demo}`} label="Settings" isActive={active === "settings"}>
+            <SettingsIcon />
+          </NavLink>
+          <NavLink href={`/reports${demo}`} label="Reports" isActive={active === "reports"}>
+            <ReportsIcon />
+          </NavLink>
+        </LayoutGroup>
       </nav>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -71,14 +79,43 @@ function NavLink({
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold border border-transparent transition-colors ${
         isActive
-          ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
-          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent"
+          ? "text-indigo-300"
+          : "text-slate-400 hover:text-slate-200"
       }`}
     >
-      {children}
-      {label}
+      {/* Animated active background pill */}
+      {isActive && (
+        <motion.div
+          layoutId="sidenav-active"
+          className="absolute inset-0 rounded-xl bg-indigo-600/20 border border-indigo-500/30"
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        />
+      )}
+      {/* Hover background — uses Tailwind so it works in both themes */}
+      {!isActive && (
+        <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-800" />
+      )}
+
+      {/* Icon + label */}
+      <motion.span
+        className="relative z-10 shrink-0"
+        animate={{ scale: isActive ? 1.08 : 1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        {children}
+      </motion.span>
+      <span className="relative z-10">{label}</span>
+
+      {/* Active left accent line */}
+      {isActive && (
+        <motion.div
+          layoutId="sidenav-accent"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-indigo-400"
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        />
+      )}
     </Link>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -60,6 +61,70 @@ function offsetDate(d: Date, days: number) {
   const n = new Date(d);
   n.setDate(n.getDate() + days);
   return n;
+}
+
+function AnimatedStatCard({
+  index,
+  value,
+  label,
+  color,
+  loading,
+  pulse = false,
+}: {
+  index: number;
+  value: number;
+  label: string;
+  color: string;
+  loading: boolean;
+  pulse?: boolean;
+}) {
+  const spring = useSpring(0, { stiffness: 80, damping: 20, restDelta: 0.5 });
+  const display = useTransform(spring, (v) => Math.round(v).toString());
+
+  useEffect(() => {
+    if (!loading) spring.set(value);
+  }, [value, loading, spring]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
+      style={{
+        border: `1px solid ${color}33`,
+        boxShadow: pulse ? `0 0 16px ${color}18` : undefined,
+      }}
+    >
+      {/* Subtle radial glow bg */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
+      />
+
+      {loading ? (
+        <div className="flex justify-center mb-1.5">
+          <div className="skeleton h-7 w-8 rounded-[6px]" />
+        </div>
+      ) : (
+        <div className="relative flex items-center justify-center gap-1.5">
+          {pulse && value > 0 && (
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: color }} />
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: color }} />
+            </span>
+          )}
+          <motion.span
+            className="text-[28px] font-extrabold leading-none tabular-nums"
+            style={{ color }}
+          >
+            {display}
+          </motion.span>
+        </div>
+      )}
+      <div className="text-[11px] text-slate-400 mt-1 font-medium relative">{label}</div>
+    </motion.div>
+  );
 }
 
 export default function Page() {
@@ -668,44 +733,64 @@ export default function Page() {
     />
   );
 
-  const statCard = (value: number, label: string, color: string) => (
-    <div
-      className="flex-1 bg-card rounded-xl px-2 py-3 text-center"
-      style={{ border: `1px solid ${color}33` }}
-      aria-label={loading ? `Loading ${label}` : `${value} ${label}`}
-    >
-      {loading ? (
-        <div aria-hidden="true" className="flex justify-center mb-1.5">
-          <div className="skeleton h-7 w-8 rounded-[6px]" />
-        </div>
-      ) : (
-        <div className="text-[28px] font-extrabold leading-none" aria-hidden="true" style={{ color }}>{value}</div>
-      )}
-      <div className="text-[11px] text-slate-400 mt-1 font-medium" aria-hidden="true">{label}</div>
-    </div>
-  );
-
   const statsRow = (
     <div className="flex gap-2 mb-3">
-      {isToday && statCard(hereNow.length, "Here Now", "#22c55e")}
-      {statCard(scheduled.length, "Scheduled", "#818cf8")}
-      {statCard(off.length, "Off", "#94a3b8")}
+      <AnimatePresence initial={false}>
+        {isToday && (
+          <AnimatedStatCard
+            key="here"
+            index={0}
+            value={hereNow.length}
+            label="Here Now"
+            color="#22c55e"
+            loading={loading}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatedStatCard
+        key="scheduled"
+        index={isToday ? 1 : 0}
+        value={scheduled.length}
+        label="Scheduled"
+        color="#818cf8"
+        loading={loading}
+      />
+      <AnimatedStatCard
+        key="off"
+        index={isToday ? 2 : 1}
+        value={off.length}
+        label="Off"
+        color="#94a3b8"
+        loading={loading}
+      />
     </div>
   );
 
   const legend = (
-    <div className="flex gap-4 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl">
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
+      className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-white/[0.05]"
+      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+    >
       {([
         { label: "Opener", color: SHIFT_COLORS.opener, Icon: SunriseIcon },
         { label: "Mid",    color: SHIFT_COLORS.mid,    Icon: SunIcon },
         { label: "Closer", color: SHIFT_COLORS.closer,  Icon: MoonIcon },
-      ] as const).map(({ label, color, Icon }) => (
-        <div key={label} className="flex items-center gap-1.5">
-          <Icon size={13} color={color} />
-          <span className="text-xs text-slate-400">{label}</span>
-        </div>
+      ] as const).map(({ label, color, Icon }, i) => (
+        <motion.div
+          key={label}
+          initial={{ opacity: 0, x: -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 + i * 0.06, duration: 0.2 }}
+          className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/40"
+        >
+          <Icon size={12} color={color} />
+          <span>{label}</span>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 
   const teamSections = loading ? (
@@ -743,14 +828,17 @@ export default function Page() {
   ) : null;
 
   const exportButton = isManager ? (
-    <button
+    <motion.button
       onClick={handleExportCSV}
       disabled={exportLoading}
       aria-busy={exportLoading}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
       className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {exportLoading ? "Loading…" : "Export CSV"}
-    </button>
+    </motion.button>
   ) : null;
 
   if (isDesktop) {

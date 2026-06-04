@@ -220,7 +220,7 @@ function LandingFooter() {
   return (
     <footer className="border-t border-slate-800/60 py-6 px-6 text-center">
       <p className="text-xs text-slate-500">
-        © {new Date().getFullYear()} ShiftView · Built for fulfillment teams
+        ShiftView · Schedule management for retail &amp; fulfillment teams
       </p>
     </footer>
   );
