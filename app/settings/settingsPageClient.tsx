@@ -1092,7 +1092,7 @@ export default function SettingsPageClient({
                           onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           placeholder="Search address…"
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                         <button
                           onClick={useCurrentLocation}
@@ -1234,7 +1234,7 @@ export default function SettingsPageClient({
               aria-label="Timezone"
               value={timezone}
               onChange={(e) => saveTimezone(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
             >
               {TIMEZONE_OPTIONS.map(({ label, value }) => (
                 <option key={value} value={value}>{label} — {value}</option>
@@ -1276,7 +1276,7 @@ export default function SettingsPageClient({
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                         {editError && <div role="alert" className="text-xs text-red-400">{editError}</div>}
                       </div>

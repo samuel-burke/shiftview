@@ -771,7 +771,7 @@ export default function ReportsPageClient() {
                 id="payroll-format"
                 value={payrollFormat}
                 onChange={(e) => setPayrollFormat(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
               >
                 <option value="summary">Summary CSV — Universal</option>
                 <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
@@ -908,7 +908,7 @@ export default function ReportsPageClient() {
                 id="pending-category"
                 value={pendingCategory}
                 onChange={(e) => setPendingCategory(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>

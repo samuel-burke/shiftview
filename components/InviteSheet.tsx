@@ -165,8 +165,9 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
                   value={val}
                   placeholder={placeholder}
                   autoFocus={autoFocus}
+                  aria-required="true"
                   onChange={(e) => { set(e.target.value); setError(null); }}
-                  className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
+                  className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
                 />
               </div>
             ))}
