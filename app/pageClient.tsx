@@ -768,18 +768,31 @@ export default function Page() {
   );
 
   const legend = (
-    <div className="flex gap-4 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl">
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
+      className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-white/[0.05]"
+      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+    >
       {([
         { label: "Opener", color: SHIFT_COLORS.opener, Icon: SunriseIcon },
         { label: "Mid",    color: SHIFT_COLORS.mid,    Icon: SunIcon },
         { label: "Closer", color: SHIFT_COLORS.closer,  Icon: MoonIcon },
-      ] as const).map(({ label, color, Icon }) => (
-        <div key={label} className="flex items-center gap-1.5">
-          <Icon size={13} color={color} />
-          <span className="text-xs text-slate-400">{label}</span>
-        </div>
+      ] as const).map(({ label, color, Icon }, i) => (
+        <motion.div
+          key={label}
+          initial={{ opacity: 0, x: -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 + i * 0.06, duration: 0.2 }}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+          style={{ borderColor: `${color}30`, background: `${color}09` }}
+        >
+          <Icon size={12} color={color} />
+          <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 
   const teamSections = loading ? (
@@ -817,13 +830,16 @@ export default function Page() {
   ) : null;
 
   const exportButton = isManager ? (
-    <button
+    <motion.button
       onClick={handleExportCSV}
       disabled={exportLoading}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
       className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50"
     >
       {exportLoading ? "Loading…" : "Export CSV"}
-    </button>
+    </motion.button>
   ) : null;
 
   if (isDesktop) {
