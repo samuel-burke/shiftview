@@ -202,7 +202,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
         {/* Messages list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
           {loading && (
-            <div className="text-center text-sm text-slate-500 mt-8">Loading…</div>
+            <div role="status" aria-label="Loading messages" className="text-center text-sm text-slate-500 mt-8">Loading…</div>
           )}
           {!loading && messages.length === 0 && (
             <div className="text-center text-sm text-slate-500 mt-8">
