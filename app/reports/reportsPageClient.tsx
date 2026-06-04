@@ -631,17 +631,18 @@ export default function ReportsPageClient() {
               <div role="status" aria-label="Loading coverage heatmap" className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
             ) : (
               <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
-                <div className="grid grid-cols-7 gap-1 mb-1">
-                  {["S","M","T","W","T","F","S"].map((d, i) => (
-                    <div key={i} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
+                <div className="grid grid-cols-7 gap-1 mb-1" role="row">
+                  {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
+                    <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
                   {heatmapDays.map((day) => {
                     const count = coverageMap[day] ?? 0;
                     const cls = cellClass(count, minCoverage, optimalCoverage);
+                    const dateLabel = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
                     return (
-                      <div key={day} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
+                      <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
                         <span className="text-[11px] font-bold tabular-nums">{count}</span>
                         <span className="text-[9px] mt-0.5 opacity-70">
                           {new Date(day + "T12:00:00Z").getUTCDate()}
@@ -693,7 +694,7 @@ export default function ReportsPageClient() {
                 <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
                   {weekDates.map((d) => (
-                    <div key={d} className="text-[10px] text-slate-500 font-semibold text-center">
+                    <div key={d} className="text-[10px] text-slate-500 font-semibold text-center" title={new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}>
                       {new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" })}
                     </div>
                   ))}
@@ -706,7 +707,7 @@ export default function ReportsPageClient() {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
                       <div key={emp.id} className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
-                        <div className="text-xs text-slate-200 font-medium truncate">{emp.name.split(" ")[0]}</div>
+                        <div className="text-xs text-slate-200 font-medium truncate" title={emp.name}>{emp.name.split(" ")[0]}</div>
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];
                           return (
