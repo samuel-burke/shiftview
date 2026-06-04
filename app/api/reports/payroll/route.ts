@@ -41,6 +41,6 @@ export async function GET(request: Request) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = computePayroll((data ?? []) as PunchRow[]);
+  const rows = computePayroll((data ?? []) as unknown as PunchRow[]);
   return NextResponse.json({ rows, from, to });
 }

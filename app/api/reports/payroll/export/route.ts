@@ -159,7 +159,7 @@ export async function GET(request: Request) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const payroll = computePayroll((data ?? []) as PunchRow[]);
+  const payroll = computePayroll((data ?? []) as unknown as PunchRow[]);
 
   writeAuditLog({
     action:       "payroll.export",
