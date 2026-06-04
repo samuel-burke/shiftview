@@ -313,32 +313,6 @@ export default function SettingsPageClient({
     }
   }
 
-  // ── Email Notifications ─────────────────────────────────────────────────────
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [emailNotifSaving, setEmailNotifSaving] = useState(false);
-  const [emailNotifSaved, setEmailNotifSaved] = useState(false);
-
-  async function saveEmailNotif(newValue: boolean) {
-    setEmailNotifSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setEmailNotifSaving(false);
-      setEmailNotifSaved(true);
-      setTimeout(() => setEmailNotifSaved(false), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emailNotifications: newValue }),
-    });
-    setEmailNotifSaving(false);
-    if (res.ok) {
-      setEmailNotifSaved(true);
-      setTimeout(() => setEmailNotifSaved(false), 2000);
-    }
-  }
-
   // ── Time Clock ─────────────────────────────────────────────────────────────
   const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
   const [gpsRequired, setGpsRequired] = useState(false);
@@ -621,7 +595,6 @@ export default function SettingsPageClient({
           if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
           if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
           if (s.timezone)                setTimezone(s.timezone);
-          if (s.emailNotifications != null) setEmailNotifications(s.emailNotifications);
           if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
           if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
           if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
@@ -672,7 +645,6 @@ export default function SettingsPageClient({
       setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
       setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
       setGpsRequired(DEMO_SETTINGS.gpsRequired);
-      setEmailNotifications(DEMO_SETTINGS.emailNotifications);
     }
   }, [isDemo]);
 
@@ -942,46 +914,6 @@ export default function SettingsPageClient({
               </div>
             )}
             <SaveStatusText status={coverageStatus} testId="coverage-status" />
-          </div>
-        </section>}
-
-        {/* Email Notifications — manager only */}
-        {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Notifications
-          </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-200">Email Notifications</div>
-                <div className="text-xs text-slate-500 mt-0.5">Send nightly shift reminders to employees</div>
-              </div>
-              <button
-                role="switch"
-                aria-label="Email notifications"
-                aria-checked={emailNotifications}
-                disabled={emailNotifSaving}
-                onClick={() => {
-                  const newVal = !emailNotifications;
-                  setEmailNotifications(newVal);
-                  saveEmailNotif(newVal);
-                }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                  emailNotifications ? "bg-indigo-500" : "bg-slate-700"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
-                    emailNotifications ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
-              {emailNotifSaved && (
-                <div className="text-xs text-emerald-400 mt-2">Saved</div>
-              )}
-            </div>
           </div>
         </section>}
 
