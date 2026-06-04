@@ -184,7 +184,7 @@ export default function EmployeeDrawer({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl">
+              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
@@ -293,12 +293,12 @@ export default function EmployeeDrawer({
                   <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
                     {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
                       <>
-                        ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+                        <span aria-hidden="true">⚠</span> Usually unavailable on {DAY_NAMES[dayOfWeek]}s
                         {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
                       </>
                     ) : (
                       <>
-                        ⚠ Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
+                        <span aria-hidden="true">⚠</span> Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
                         {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
                       </>
                     )}

@@ -104,7 +104,7 @@ export default function CoverageHeader({
       >
         <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>
           {dateLabel}
-          <span className="text-[13px] text-blue-500 font-normal">▾</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
         <div className="text-[13px] text-slate-400 mt-0.5">
           {dayName}

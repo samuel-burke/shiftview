@@ -60,7 +60,7 @@ function HeroSection() {
             href="/?demo=true"
             className="border border-slate-700 text-slate-300 font-semibold px-7 py-3.5 rounded-xl text-sm text-center hover:border-slate-500 transition-colors"
           >
-            View Demo →
+            View Demo <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="inline-block align-[-1px]"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </a>
         </div>
 
