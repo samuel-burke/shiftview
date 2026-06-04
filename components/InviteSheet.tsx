@@ -185,7 +185,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             <button
               onClick={onClose}
               disabled={saving}
-              className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-200 transition-colors"
+              className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>

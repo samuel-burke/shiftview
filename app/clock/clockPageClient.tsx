@@ -615,7 +615,7 @@ export default function ClockPageClient() {
             <button
               onClick={() => handlePunchClick("clock_in")}
               disabled={actionPending}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {actionPending ? "…" : "Clock In"}
             </button>
@@ -626,14 +626,14 @@ export default function ClockPageClient() {
               <button
                 onClick={() => submitPunch("break_start")}
                 disabled={actionPending}
-                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {actionPending ? "…" : "Start Break"}
               </button>
               <button
                 onClick={() => handlePunchClick("clock_out")}
                 disabled={actionPending}
-                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {actionPending ? "…" : "End Shift"}
               </button>
@@ -644,7 +644,7 @@ export default function ClockPageClient() {
             <button
               onClick={() => submitPunch("break_end")}
               disabled={actionPending}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 cursor-pointer"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {actionPending ? "…" : "End Break"}
             </button>
@@ -765,7 +765,7 @@ export default function ClockPageClient() {
               <button
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}
-                className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {correctionSaving ? "Saving…" : "Submit Correction"}
               </button>

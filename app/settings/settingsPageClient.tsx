@@ -848,7 +848,7 @@ export default function SettingsPageClient({
                   aria-checked={pushSubscribed}
                   disabled={pushSaving}
                   onClick={togglePush}
-                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                     pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
                   }`}
                 >
@@ -968,7 +968,7 @@ export default function SettingsPageClient({
                   setEmailNotifications(newVal);
                   saveEmailNotif(newVal);
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   emailNotifications ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1007,7 +1007,7 @@ export default function SettingsPageClient({
                   setManualPunchesEnabled(next);
                   saveTimeclockSetting({ manualPunchesEnabled: next });
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1034,7 +1034,7 @@ export default function SettingsPageClient({
                   setGpsRequired(next);
                   saveTimeclockSetting({ gpsRequired: next });
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   gpsRequired ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1067,7 +1067,7 @@ export default function SettingsPageClient({
                       saveTimeclockSetting({ geofenceEnabled: next });
                       if (next && geofenceLat === null) useCurrentLocation();
                     }}
-                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
                     }`}
                   >
@@ -1097,7 +1097,7 @@ export default function SettingsPageClient({
                           onClick={useCurrentLocation}
                           disabled={gettingLocation}
                           title="Use my current location"
-                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           {gettingLocation ? (
                             <span className="text-xs font-bold">…</span>
@@ -1182,7 +1182,7 @@ export default function SettingsPageClient({
                     <button
                       onClick={saveGeofence}
                       disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
-                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
                     >
                       {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
                     </button>
@@ -1370,7 +1370,7 @@ export default function SettingsPageClient({
                             setDeletingTemplateId(null);
                           }}
                           disabled={deletingTemplateId === tpl.id}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {deletingTemplateId === tpl.id ? "…" : "Delete"}
                         </button>
@@ -1402,7 +1402,7 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer disabled:opacity-50"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {applyingId === tpl.id ? "Applying…" : "Confirm"}
                         </button>

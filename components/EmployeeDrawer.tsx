@@ -204,14 +204,14 @@ export default function EmployeeDrawer({
                 onClick={() => setConflict(null)}
                 disabled={saving}
                 autoFocus
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
               >
                 Cancel
               </button>
               <button
                 onClick={handleOverride}
                 disabled={saving}
-                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer bg-transparent border-none"
+                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none"
               >
                 {saving ? "Saving…" : "Override & Save"}
               </button>
