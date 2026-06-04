@@ -280,7 +280,7 @@ export default function EmployeeDrawer({
                   <button
                     onClick={onClose}
                     aria-label="Close"
-                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -331,7 +331,7 @@ export default function EmployeeDrawer({
                     <button
                       onClick={() => handleSave(false)}
                       disabled={saving}
-                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
                     >
                       {saving ? "Saving…" : "Save Shift"}
                     </button>
@@ -340,7 +340,7 @@ export default function EmployeeDrawer({
                       <button
                         onClick={handleMarkOff}
                         disabled={saving}
-                        className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+                        className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-[opacity,background-color] hover:bg-red-500/10 ${saving ? "opacity-70" : "opacity-100"}`}
                       >
                         Mark as Off
                       </button>
@@ -349,7 +349,7 @@ export default function EmployeeDrawer({
                     <button
                       onClick={() => { setEditing(false); setError(null); setConflict(null); }}
                       disabled={saving}
-                      className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
+                      className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-200 transition-colors"
                     >
                       Cancel
                     </button>
@@ -374,7 +374,7 @@ export default function EmployeeDrawer({
                       {isManager && (
                         <button
                           onClick={() => setEditing(true)}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
+                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
                         >
                           {schedule ? "Edit Shift" : "Add Shift"}
                         </button>
@@ -382,7 +382,7 @@ export default function EmployeeDrawer({
                       {employee.user_id && (
                         <button
                           onClick={() => { setChatMounted(true); setChatOpen(true); }}
-                          className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
+                          className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:bg-slate-700 hover:text-slate-200 transition-colors"
                         >
                           Message
                         </button>

@@ -221,6 +221,6 @@ export default function CoverageHeader({
   );
 }
 
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors";
 
-const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer";
+const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-700 transition-colors";
