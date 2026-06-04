@@ -745,6 +745,7 @@ export default function SettingsPageClient({
       isManager={isManager}
       userName={myName}
       isDemo={isDemo}
+      onBack={() => router.back()}
       onSignOut={isDemo ? undefined : handleSignOut}
       onSignIn={isDemo ? () => router.push("/login") : undefined}
     >

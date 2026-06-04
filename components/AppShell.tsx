@@ -11,6 +11,7 @@ type Props = {
   /** When provided, a persistent TopBar is rendered above the animated content on mobile. */
   userName?: string | null;
   isDemo?: boolean;
+  onBack?: () => void;
   onSignOut?: () => void;
   onSignIn?: () => void;
   children: React.ReactNode;
@@ -26,6 +27,7 @@ export default function AppShell({
   isManager,
   userName,
   isDemo,
+  onBack,
   onSignOut,
   onSignIn,
   children,
@@ -45,6 +47,7 @@ export default function AppShell({
           <TopBar
             userName={userName ?? null}
             isDemo={isDemo ?? false}
+            onBack={onBack}
             onSignOut={onSignOut}
             onSignIn={onSignIn}
           />
