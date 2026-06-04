@@ -76,11 +76,15 @@ export default function ShiftCard({
     ? `0 0 0 1px ${shiftColor}30, 0 4px 24px ${shiftColor}22, inset 0 1px 0 rgba(255,255,255,0.07)`
     : `inset 0 1px 0 rgba(255,255,255,0.04)`;
 
+  const shiftTimeLabel = `${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
+  const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
+
   return (
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      aria-label={cardAriaLabel}
       className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5"
       style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >
@@ -119,8 +123,8 @@ export default function ShiftCard({
           )}
           {badge && (
             <span className={`text-[11px] font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 ${badge.className}`}>
-              {badge.label === "Clocked In" && (
-                <span className="relative flex h-2 w-2 shrink-0">
+              {(badge.label === "Clocked In" || badge.label === "Here") && (
+                <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>

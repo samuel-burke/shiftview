@@ -97,6 +97,7 @@ export default function CoverageHeader({
       <button onClick={onPrev} aria-label="Previous day" className={navBtn}>←</button>
       <button
         onClick={() => setPickerOpen(true)}
+        aria-label={`${dateLabel}, ${dayName}. Open date picker`}
         className={`text-center bg-transparent border-none cursor-pointer ${isDesktop ? "px-2" : "p-0"}`}
       >
         <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>

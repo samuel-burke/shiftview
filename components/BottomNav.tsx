@@ -52,6 +52,7 @@ export default function BottomNav({ active }: Props) {
 
         <Link
           href={`/${demo}`}
+          aria-current={active === "team" ? "page" : undefined}
           className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-150 ${active === "team" ? "text-slate-100" : "text-slate-400"}`}
         >
           <motion.div animate={{ scale: active === "team" ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
@@ -66,6 +67,7 @@ export default function BottomNav({ active }: Props) {
 
         <Link
           href={`/schedule${demo}`}
+          aria-current={active === "schedule" ? "page" : undefined}
           className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-150 ${active === "schedule" ? "text-slate-100" : "text-slate-400"}`}
         >
           <motion.div animate={{ scale: active === "schedule" ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
@@ -80,6 +82,7 @@ export default function BottomNav({ active }: Props) {
 
         <Link
           href={`/clock${demo}`}
+          aria-current={active === "clock" ? "page" : undefined}
           className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-150 ${active === "clock" ? "text-slate-100" : "text-slate-400"}`}
         >
           <motion.div animate={{ scale: active === "clock" ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>

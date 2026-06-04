@@ -119,3 +119,10 @@ input, textarea, select {
 .animate-gradient {
   animation: gradient-shift 4s ease infinite;
 }
+
+/* ── Focus-visible ring ───────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}

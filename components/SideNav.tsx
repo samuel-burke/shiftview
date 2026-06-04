@@ -70,6 +70,7 @@ function NavLink({
   return (
     <Link
       href={href}
+      aria-current={isActive ? "page" : undefined}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
         isActive
           ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"

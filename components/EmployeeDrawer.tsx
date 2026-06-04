@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import MessageThread from "./MessageThread";
@@ -82,6 +82,18 @@ export default function EmployeeDrawer({
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      if (conflict) { setConflict(null); return; }
+      if (open) onClose();
+    }
+  }, [open, conflict, onClose]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   useEffect(() => {
     if (open) {
@@ -165,6 +177,9 @@ export default function EmployeeDrawer({
           onClick={() => setConflict(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="conflict-modal-title"
             className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
@@ -173,7 +188,7 @@ export default function EmployeeDrawer({
                 ⚠️
               </div>
               <div>
-                <div className="text-base font-bold text-slate-100">
+                <div id="conflict-modal-title" className="text-base font-bold text-slate-100">
                   {conflict.type === "time_off" ? "Time Off Conflict" : "Availability Conflict"}
                 </div>
                 <div className="text-sm text-slate-400 mt-1.5">{conflict.message}</div>
@@ -218,6 +233,9 @@ export default function EmployeeDrawer({
             />
             <motion.div
               key="panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="employee-drawer-title"
               data-testid="employee-drawer"
               className={`fixed z-50 bg-bg ${
                 isDesktop
@@ -250,7 +268,7 @@ export default function EmployeeDrawer({
                       {getMonogram(employee.name)}
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-slate-100">{employee.name}</div>
+                      <div id="employee-drawer-title" className="text-lg font-bold text-slate-100">{employee.name}</div>
                       <div className="text-xs mt-[3px]">
                         {shiftType && (
                           <span className="capitalize mr-1.5" style={{ color: shiftColor }}>{shiftType}</span>
@@ -261,9 +279,12 @@ export default function EmployeeDrawer({
                   </div>
                   <button
                     onClick={onClose}
+                    aria-label="Close"
                     className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
                   >
-                    ✕
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                    </svg>
                   </button>
                 </div>
 
