@@ -218,7 +218,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
                     <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                       {label}
                     </div>
-                    <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
+                    <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800 focus-within:border-indigo-500/70 transition-colors">
                       <input
                         type="time"
                         aria-label={ariaLabel}
