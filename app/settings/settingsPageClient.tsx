@@ -126,7 +126,7 @@ function EmployeeAvailabilityRow({
         onClick={toggle}
         aria-expanded={expanded}
         aria-label="Toggle typical week"
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none"
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none transition-colors"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span>Typical Week</span>
@@ -1183,6 +1183,7 @@ export default function SettingsPageClient({
                     <button
                       onClick={saveGeofence}
                       disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
+                      aria-busy={geofenceSaving}
                       className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
                     >
                       {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
@@ -1290,7 +1291,8 @@ export default function SettingsPageClient({
                         <button
                           onClick={() => saveEditName(emp.id)}
                           disabled={editSaving}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                          aria-busy={editSaving}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {editSaving ? "…" : "Save"}
                         </button>
@@ -1389,6 +1391,7 @@ export default function SettingsPageClient({
                         />
                         <button
                           disabled={applyingId === tpl.id}
+                          aria-busy={applyingId === tpl.id}
                           onClick={async () => {
                             setApplyingId(tpl.id);
                             setApplyError((prev) => ({ ...prev, [tpl.id]: null }));
@@ -1405,7 +1408,7 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {applyingId === tpl.id ? "Applying…" : "Confirm"}
                         </button>

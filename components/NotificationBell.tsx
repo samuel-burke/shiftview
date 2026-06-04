@@ -219,7 +219,7 @@ export default function NotificationBell() {
               {unread > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
                 >
                   Mark all read
                 </button>
@@ -227,7 +227,7 @@ export default function NotificationBell() {
               {notifications.length > 0 && (
                 <button
                   onClick={clearAll}
-                  className="text-xs text-slate-400 hover:text-red-400 cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-red-400 cursor-pointer transition-colors"
                 >
                   Clear all
                 </button>
@@ -264,7 +264,7 @@ export default function NotificationBell() {
                             setChatTarget({ userId: n.data!.fromUserId as string, name: n.data!.fromName as string || n.title });
                             setOpen(false);
                           }}
-                          className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium flex items-center gap-0.5"
+                          className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium flex items-center gap-0.5 transition-colors"
                         >
                           Reply
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -279,7 +279,7 @@ export default function NotificationBell() {
                     <button
                       onClick={() => dismissOne(n.id)}
                       aria-label={`Dismiss: ${n.title}`}
-                      className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none flex items-center justify-center size-5"
+                      className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none flex items-center justify-center size-5 transition-colors"
                     >
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                     </button>
