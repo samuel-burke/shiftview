@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { getMonogram } from "../data/types";
 
 type Props = {
@@ -34,9 +35,12 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <motion.button
         onClick={() => setOpen((o) => !o)}
         aria-label="User menu"
+        whileHover={{ scale: 1.08, boxShadow: "0 0 14px rgba(99,102,241,0.3)" }}
+        whileTap={{ scale: 0.9 }}
+        transition={{ type: "spring", stiffness: 450, damping: 25 }}
         className="size-9 rounded-full bg-indigo-600/80 border border-indigo-500/40 flex items-center justify-center text-sm font-bold text-white cursor-pointer"
       >
         {monogram ?? (
@@ -45,10 +49,18 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
             <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         )}
-      </button>
+      </motion.button>
 
+      <AnimatePresence>
       {open && (
-        <div className="absolute right-0 top-11 w-40 bg-card border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.96 }}
+          transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="absolute right-0 top-11 w-40 bg-card border border-slate-700 rounded-xl z-50 overflow-hidden"
+          style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)" }}
+        >
           <Link
             href={settingsHref}
             onClick={() => setOpen(false)}
@@ -86,8 +98,9 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
               Sign In
             </button>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
