@@ -211,6 +211,7 @@ export default function EmployeeDrawer({
               <button
                 onClick={handleOverride}
                 disabled={saving}
+                aria-busy={saving}
                 className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none hover:text-amber-300 hover:bg-amber-500/10"
               >
                 {saving ? "Saving…" : "Override & Save"}
@@ -282,7 +283,7 @@ export default function EmployeeDrawer({
                   <button
                     onClick={onClose}
                     aria-label="Close"
-                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors"
+                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -335,6 +336,7 @@ export default function EmployeeDrawer({
                     <button
                       onClick={() => handleSave(false)}
                       disabled={saving}
+                      aria-busy={saving}
                       className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
                     >
                       {saving ? "Saving…" : "Save Shift"}
@@ -407,6 +409,7 @@ export default function EmployeeDrawer({
                           }
                         }}
                         disabled={saving || inviteSent}
+                        aria-busy={saving}
                         className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400 hover:text-slate-200 hover:border-slate-500"}`}
                       >
                         {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}

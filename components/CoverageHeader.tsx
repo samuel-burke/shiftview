@@ -187,7 +187,7 @@ export default function CoverageHeader({
         {isDemo && (
           <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between">
             <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-            <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
+            <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
           </div>
         )}
         <div className="flex items-center justify-between mb-3">
@@ -223,6 +223,6 @@ export default function CoverageHeader({
   );
 }
 
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
-const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-700 transition-colors";
+const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";

@@ -174,7 +174,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                   onClick={() => { onSelect(day); onClose(); }}
                   aria-label={fullLabel}
                   aria-pressed={isSelected}
-                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors ${
+                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
                     isSelected
                       ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold hover:opacity-90"
                       : isToday_
@@ -196,4 +196,4 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
   }
 }
 
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
