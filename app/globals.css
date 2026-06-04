@@ -177,3 +177,17 @@ input, textarea, select {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Safe-area-aware top padding for the sticky mobile header.
+ * Using a CSS class (not an inline style) lets the desktop media query override it
+ * cleanly without inline-style specificity issues.
+ */
+.header-safe-top {
+  padding-top: calc(env(safe-area-inset-top) + 12px);
+}
+@media (min-width: 900px) {
+  .header-safe-top {
+    padding-top: 14px;
+  }
+}

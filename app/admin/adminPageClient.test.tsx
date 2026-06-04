@@ -73,7 +73,7 @@ describe("AdminPageClient", () => {
 
   it("shows the Admin heading", async () => {
     await renderAndWait();
-    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getAllByText("Admin")[0]).toBeInTheDocument();
   });
 
   it("shows the Roles section heading", async () => {

@@ -71,7 +71,7 @@ test.describe("Demo mode — schedule view", () => {
 
   test("shows today's date in the header", async ({ page }) => {
     const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
-    await expect(page.getByText(new RegExp(dayName, "i"))).toBeVisible();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(dayName, "i"))).toBeVisible();
   });
 });
 
@@ -85,24 +85,24 @@ test.describe("Demo mode — date navigation", () => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const prevDay = yesterday.toLocaleDateString("en-US", { weekday: "long" });
-    await page.getByRole("button", { name: "Previous day" }).click();
-    await expect(page.getByText(new RegExp(prevDay, "i"))).toBeVisible();
+    await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(prevDay, "i"))).toBeVisible();
   });
 
   test("navigates to the next day with the forward button", async ({ page }) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextDay = tomorrow.toLocaleDateString("en-US", { weekday: "long" });
-    await page.getByRole("button", { name: "Next day" }).click();
-    await expect(page.getByText(new RegExp(nextDay, "i"))).toBeVisible();
+    await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Next day" }).click();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(nextDay, "i"))).toBeVisible();
   });
 
   test("returns to today when Today button is clicked", async ({ page }) => {
     const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
     // Navigate away then back
-    await page.getByRole("button", { name: "Previous day" }).click();
+    await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
     await page.getByRole("button", { name: /today/i }).click();
-    await expect(page.getByText(new RegExp(dayName, "i"))).toBeVisible();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(dayName, "i"))).toBeVisible();
   });
 });
 

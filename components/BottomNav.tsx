@@ -2,7 +2,6 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useIsDesktop } from "../hooks/useIsDesktop";
 import type { NavItem } from "./AppShell";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -18,7 +17,6 @@ const TABS = ["team", "schedule", "clock"] as const;
 let _lastTabIndex: number | null = null;
 
 export default function BottomNav({ active }: Props) {
-  const isDesktop = useIsDesktop();
   const searchParams = useSearchParams();
   const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
 
@@ -34,12 +32,10 @@ export default function BottomNav({ active }: Props) {
   }, [tabIndex]);
 
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
-  if (isDesktop) return null;
-
   return (
     <nav
       aria-label="Main navigation"
-      className="fixed bottom-0 left-0 right-0 z-30 bg-bg/95 border-t border-slate-800/80 max-w-[480px] mx-auto backdrop-blur-md"
+      className="[@media(min-width:900px)]:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg/95 border-t border-slate-800/80 max-w-[480px] mx-auto backdrop-blur-md"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">

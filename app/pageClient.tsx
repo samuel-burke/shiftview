@@ -38,7 +38,6 @@ import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
-import { useIsDesktop } from "../hooks/useIsDesktop";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 
 function toDateKey(d: Date, tz = "America/New_York") {
@@ -657,7 +656,6 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
-  const isDesktop = useIsDesktop();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -841,48 +839,33 @@ export default function Page() {
     </motion.button>
   ) : null;
 
-  if (isDesktop) {
-    return (
-      <AppShell active="team" isManager={isManager}>
-        <main className="bg-bg min-h-screen">
-          <CoverageHeader {...headerProps} />
-          {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
-          {errorBanner}
-          <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
-            {/* Left: stats + timeline + legend */}
-            <div>
-              {statsRow}
-              {timeline}
-              {legend}
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-                {exportButton}
-              </div>
-            </div>
-            {/* Right: team list */}
-            <div className="sticky top-4">
-              {teamSections}
-            </div>
-          </div>
-          {drawer}
-        </main>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell active="team" isManager={isManager}>
-      <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
+      {/*
+       * Single responsive layout — no JS fork.
+       * Mobile: linear stack inside max-w-[480px], pb-28 for the fixed BottomNav.
+       * Desktop (≥900px): 2-column grid, pb-8, no max-width.
+       * px-4 is on the inner content wrapper (not on <main>) so the sticky
+       * CoverageHeader can span the full width of its parent without fighting
+       * against inherited horizontal padding.
+       */}
+      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
         <CoverageHeader {...headerProps} />
         {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
         {errorBanner}
-        {statsRow}
-        {timeline}
-        {legend}
-        {teamSections}
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-          {exportButton}
+        <div className="px-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_380px] [@media(min-width:900px)]:gap-8 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:pb-8 [@media(min-width:900px)]:items-start">
+          <div>
+            {statsRow}
+            {timeline}
+            {legend}
+            <div className="flex items-center justify-between mt-4 [@media(min-width:900px)]:mt-2">
+              <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
+              {exportButton}
+            </div>
+          </div>
+          <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
+            {teamSections}
+          </div>
         </div>
         {drawer}
         <BottomNav active="team" />

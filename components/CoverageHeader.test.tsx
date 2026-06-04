@@ -32,12 +32,12 @@ describe("CoverageHeader", () => {
 
   it("displays the formatted date", () => {
     render(<CoverageHeader {...baseProps} />);
-    expect(screen.getByText(/May 25, 2026/)).toBeInTheDocument();
+    expect(screen.getAllByText(/May 25, 2026/)[0]).toBeInTheDocument();
   });
 
   it("displays the day name", () => {
     render(<CoverageHeader {...baseProps} />);
-    expect(screen.getByText("Monday")).toBeInTheDocument();
+    expect(screen.getAllByText("Monday")[0]).toBeInTheDocument();
   });
 
   it("shows the live time label when isToday", () => {
@@ -70,8 +70,8 @@ describe("CoverageHeader", () => {
     const onPrev = vi.fn();
     const onNext = vi.fn();
     render(<CoverageHeader {...baseProps} onPrev={onPrev} onNext={onNext} />);
-    await userEvent.click(screen.getByRole("button", { name: "Previous day" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next day" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "Previous day" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Next day" })[0]);
     expect(onPrev).toHaveBeenCalledOnce();
     expect(onNext).toHaveBeenCalledOnce();
   });
