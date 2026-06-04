@@ -11,7 +11,7 @@ export default function LandingPage() {
 
 function LandingNav() {
   return (
-    <nav className="flex items-center justify-between px-6 py-4 lg:px-12 max-w-7xl mx-auto">
+    <nav aria-label="Site navigation" className="flex items-center justify-between px-6 py-4 lg:px-12 max-w-7xl mx-auto">
       <div className="text-xl font-extrabold text-slate-100 tracking-tight">
         Shift
         <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
@@ -210,7 +210,7 @@ function FeatureCard({
   return (
     <div className={`bg-gradient-to-br ${gradient} border ${border} rounded-2xl p-6`}>
       <div className={`mb-4 ${iconColor}`}>{icon}</div>
-      <h3 className="text-base font-bold text-slate-100 mb-2">{title}</h3>
+      <h2 className="text-base font-bold text-slate-100 mb-2">{title}</h2>
       <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
     </div>
   );

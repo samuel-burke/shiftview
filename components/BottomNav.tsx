@@ -35,6 +35,7 @@ export default function BottomNav({ active }: Props) {
   if (isDesktop) return null;
   return (
     <nav
+      aria-label="Main navigation"
       className="fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800 max-w-[480px] mx-auto"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >

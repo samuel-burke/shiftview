@@ -27,7 +27,7 @@ export default function SideNav({ active, isManager }: Props) {
       </div>
 
       {/* Nav links */}
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
+      <nav aria-label="Main navigation" className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
         <NavLink href={`/${demo}`} label="Team" isActive={active === "team"}>
           <TeamIcon />
         </NavLink>
