@@ -179,7 +179,7 @@ export default function AdminPageClient({
           </div>
 
           {errorMsg && (
-            <div className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
+            <div role="alert" className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
               {errorMsg}
             </div>
           )}

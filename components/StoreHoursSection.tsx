@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtMinutes } from "../data/types";
 import { DEMO_STORE_HOURS } from "../data/demo-fixtures";
 
@@ -87,6 +87,15 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
     setTimeout(() => setActiveDow(null), 300);
   }
 
+  const handleEscape = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape" && sheetOpen) closeSheet();
+  }, [sheetOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [handleEscape]);
+
   function scheduleSave(dow: number, updater?: (d: DayData) => DayData) {
     setDays((prev) => {
       const current = prev[dow];
@@ -146,7 +155,8 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
               key={dow}
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
-              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left"
+              aria-label={`Edit ${DAY_FULL[dow]} store hours`}
+              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
             >
               <span className="text-sm font-semibold text-slate-400 w-9 shrink-0">
                 {DAY_SHORT[dow]}
@@ -159,7 +169,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
                 {saveStatus === "saved"  && <span className="text-[11px] text-emerald-400">Saved ✓</span>}
                 {saveStatus === "error"  && <span className="text-[11px] text-red-400">Failed to save</span>}
               </span>
-              <span className="text-slate-600 text-base shrink-0" aria-hidden>›</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-600 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );
         })}
@@ -169,11 +179,15 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
       {activeDow !== null && (
         <>
           <div
+            aria-hidden="true"
             className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="store-hours-sheet-title"
             data-testid="store-hours-sheet"
             className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${sheetOpen ? "translate-y-0" : "translate-y-full"}`}
           >
@@ -184,13 +198,13 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
             <div className="px-5 pb-10 pt-2">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
+                <h3 id="store-hours-sheet-title" className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
                 <button
                   onClick={closeSheet}
                   aria-label="Close"
-                  className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                  className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors"
                 >
-                  ✕
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                 </button>
               </div>
 
@@ -225,7 +239,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
               </div>
 
               {sheetInvalid && (
-                <div className="mt-3 text-sm text-red-400">
+                <div role="alert" className="mt-3 text-sm text-red-400">
                   Close time must be after open time
                 </div>
               )}
@@ -258,7 +272,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
               </div>
 
               {/* Save status */}
-              <div className="mt-5 h-5 text-center">
+              <div aria-live="polite" aria-atomic="true" className="mt-5 h-5 text-center">
                 {sheetDay?.saveStatus === "saving" && (
                   <span className="text-sm text-slate-400">Saving…</span>
                 )}
