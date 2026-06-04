@@ -244,7 +244,6 @@ export default function ClockPageClient() {
     const channel = supabase
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "punch_records" }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, () => loadData())
       .subscribe();
