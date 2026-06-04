@@ -2,13 +2,45 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
+import AppShell from "../../components/AppShell";
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
+const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import InviteSheet from "../../components/InviteSheet";
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
+import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
+import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
+
+type NominatimAddress = {
+  house_number?: string; road?: string;
+  city?: string; town?: string; village?: string; hamlet?: string;
+  suburb?: string; municipality?: string;
+  state?: string; country?: string;
+};
+type NominatimResult = { lat: string; lon: string; display_name: string; address?: NominatimAddress };
+
+function shortAddress(r: NominatimResult): string {
+  const a = r.address;
+  if (!a) return r.display_name.split(", ").slice(0, 3).join(", ");
+  const street = [a.house_number, a.road].filter(Boolean).join(" ");
+  const city   = a.city ?? a.town ?? a.village ?? a.hamlet ?? a.suburb ?? a.municipality;
+  const region = a.state ?? a.country;
+  return [street, city, region].filter(Boolean).join(", ") || r.display_name.split(", ")[0];
+}
+
+const RADIUS_PRESETS = [
+  { label: "50m",  value: 50 },
+  { label: "100m", value: 100 },
+  { label: "250m", value: 250 },
+  { label: "500m", value: 500 },
+  { label: "1km",  value: 1000 },
+];
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -175,6 +207,7 @@ export default function SettingsPageClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [optimalCoverage, setOptimalCoverage] = useState(3);
@@ -314,7 +347,129 @@ export default function SettingsPageClient({
   const [timeclockSaving, setTimeclockSaving] = useState(false);
   const [timeclockSaved, setTimeclockSaved] = useState(false);
 
-  async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean }) {
+  // ── Geofence ────────────────────────────────────────────────────────────────
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [geofenceLat, setGeofenceLat] = useState<number | null>(null);
+  const [geofenceLng, setGeofenceLng] = useState<number | null>(null);
+  const [geofenceRadius, setGeofenceRadius] = useState(100);
+  const [geofenceAddress, setGeofenceAddress] = useState<string | null>(null);
+  const [geofenceZoom, setGeofenceZoom] = useState(15);
+  const [geofenceSaving, setGeofenceSaving] = useState(false);
+  const [geofenceSaved, setGeofenceSaved] = useState(false);
+  const [geofenceError, setGeofenceError] = useState<string | null>(null);
+  const [addressInput, setAddressInput] = useState("");
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<NominatimResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const autocompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleAddressInput(value: string) {
+    setAddressInput(value);
+    setShowSuggestions(false);
+    if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
+    if (!value.trim() || value.length < 2) { setAddressSuggestions([]); return; }
+    const currentLat = geofenceLat;
+    const currentLng = geofenceLng;
+    autocompleteTimerRef.current = setTimeout(async () => {
+      try {
+        const viewbox = currentLat !== null && currentLng !== null
+          ? `&viewbox=${currentLng - 0.5},${currentLat + 0.5},${currentLng + 0.5},${currentLat - 0.5}`
+          : "";
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value.trim())}&format=json&limit=5&addressdetails=1${viewbox}`,
+          { headers: { "Accept-Language": "en" } }
+        );
+        const results: NominatimResult[] = await res.json();
+        setAddressSuggestions(results);
+        if (results.length > 0) setShowSuggestions(true);
+      } catch { /* silent */ }
+    }, 200);
+  }
+
+  function selectSuggestion(result: NominatimResult) {
+    const label = shortAddress(result);
+    setGeofenceLat(parseFloat(result.lat));
+    setGeofenceLng(parseFloat(result.lon));
+    setGeofenceAddress(label);
+    setAddressInput(label);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+    setGeofenceError(null);
+  }
+
+  async function reverseGeocode(lat: number, lon: number): Promise<string> {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const data: NominatimResult = await res.json();
+      return shortAddress(data);
+    } catch {
+      return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    }
+  }
+
+  async function placeAtCoords(lat: number, lon: number) {
+    setGeofenceLat(lat);
+    setGeofenceLng(lon);
+    const label = await reverseGeocode(lat, lon);
+    setGeofenceAddress(label);
+    setAddressInput(label);
+    setGeofenceError(null);
+  }
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setGeofenceError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGettingLocation(true);
+    setGeofenceError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        await placeAtCoords(pos.coords.latitude, pos.coords.longitude);
+        setGettingLocation(false);
+      },
+      () => {
+        setGeofenceError("Location access denied. Enable location in your browser settings.");
+        setGettingLocation(false);
+      },
+      { timeout: 8000 }
+    );
+  }
+
+  async function saveGeofence() {
+    if (geofenceLat === null || geofenceLng === null) return;
+    setGeofenceSaving(true);
+    setGeofenceError(null);
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 250));
+      setGeofenceSaving(false);
+      setGeofenceSaved(true);
+      setTimeout(() => setGeofenceSaved(false), 2000);
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        geofenceLat,
+        geofenceLng,
+        geofenceRadius,
+        geofenceAddress: (geofenceAddress ?? addressInput.trim()) || null,
+      }),
+    });
+    setGeofenceSaving(false);
+    if (res.ok) {
+      setGeofenceSaved(true);
+      setTimeout(() => setGeofenceSaved(false), 2000);
+    } else {
+      setGeofenceError("Failed to save geofence settings.");
+    }
+  }
+
+  async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean; geofenceEnabled?: boolean }) {
     setTimeclockSaving(true);
     if (isDemo) {
       await new Promise((r) => setTimeout(r, 250));
@@ -436,14 +591,22 @@ export default function SettingsPageClient({
     if (!isDemo) {
       fetch("/api/settings")
         .then((r) => r.json())
-        .then(({ firstDayOfWeek: fdw, optimalCoverage: oc, minCoverage: mc, timezone: tz, emailNotifications: en, manualPunchesEnabled: mp, gpsRequired: gps }) => {
-          if (fdw != null) setFirstDayOfWeek(fdw);
-          if (oc  != null) setOptimalCoverage(oc);
-          if (mc  != null) setMinCoverage(mc);
-          if (tz)          setTimezone(tz);
-          if (en  != null) setEmailNotifications(en);
-          if (mp  != null) setManualPunchesEnabled(mp);
-          if (gps != null) setGpsRequired(gps);
+        .then((s) => {
+          if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
+          if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
+          if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
+          if (s.timezone)                setTimezone(s.timezone);
+          if (s.emailNotifications != null) setEmailNotifications(s.emailNotifications);
+          if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
+          if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
+          if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
+          if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
+          if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
+          if (s.geofenceRadius  != null) setGeofenceRadius(s.geofenceRadius);
+          if (s.geofenceAddress != null) {
+            setGeofenceAddress(s.geofenceAddress);
+            setAddressInput(s.geofenceAddress);
+          }
         })
         .catch(() => {});
       fetch("/api/employees")
@@ -531,28 +694,37 @@ export default function SettingsPageClient({
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  const isDesktop = useIsDesktop();
+
   return (
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
+    <AppShell active="settings" isManager={isManager}>
+    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
       {/* Top bar */}
-      <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-      >
-        <button
-          onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
-          aria-label="Back"
+      {isDesktop ? (
+        <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">
+          <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
+        </div>
+      ) : (
+        <div
+          className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
-          ‹
-        </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
-      </div>
+          <button
+            onClick={() => router.back()}
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            aria-label="Back"
+          >
+            ‹
+          </button>
+          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
+        </div>
+      )}
 
       {loading ? (
-        <SkeletonSettingsBody isManager={isManager} />
+        <div className={isDesktop ? "max-w-2xl mx-auto px-6" : ""}><SkeletonSettingsBody isManager={isManager} /></div>
       ) : null}
 
-      <div className={`px-4 pt-5 flex flex-col gap-5${loading ? " hidden" : ""}`}>
+      <div className={`${isDesktop ? "max-w-2xl mx-auto px-6 pt-5" : "px-4 pt-5"} flex flex-col gap-5${loading ? " hidden" : ""}`}>
 
         {/* My Availability — shown to all linked employees */}
         {employeeId !== null && (
@@ -563,6 +735,49 @@ export default function SettingsPageClient({
             isDemo={isDemo}
           />
         )}
+
+        {/* Appearance — all users */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Appearance
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="text-sm font-semibold text-slate-200 mb-3">Theme</div>
+            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+              {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setThemeMode(m)}
+                  aria-pressed={themeMode === m}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
+                    themeMode === m
+                      ? "bg-slate-600 text-slate-100"
+                      : "text-slate-400 hover:text-slate-300"
+                  }`}
+                >
+                  {m === "light" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  {m === "dark" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                  {m === "system" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  <span className="capitalize">{m}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* Push Notifications — all users */}
         {pushSupported && (
@@ -775,6 +990,149 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
+
+            {/* Geofence enforcement — only visible when GPS is required */}
+            {gpsRequired && (
+              <div className="space-y-4 pt-1">
+                <div className="h-px bg-slate-800" />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-200">Enforce Geofence</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Only allow clock-in within a set radius</div>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-label="Enforce geofence"
+                    aria-checked={geofenceEnabled}
+                    disabled={timeclockSaving || geofenceSaving}
+                    data-testid="toggle-geofence-enabled"
+                    onClick={() => {
+                      const next = !geofenceEnabled;
+                      setGeofenceEnabled(next);
+                      saveTimeclockSetting({ geofenceEnabled: next });
+                      if (next && geofenceLat === null) useCurrentLocation();
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                        geofenceEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {geofenceEnabled && (
+                  <div className="space-y-3 pt-1">
+                    {/* Address autocomplete */}
+                    <div className="relative">
+                      <div className="text-xs text-slate-400 mb-1.5">Location</div>
+                      <div className="flex gap-2">
+                        <input
+                          value={addressInput}
+                          onChange={(e) => handleAddressInput(e.target.value)}
+                          onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                          placeholder="Search address…"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+                        />
+                        <button
+                          onClick={useCurrentLocation}
+                          disabled={gettingLocation}
+                          title="Use my current location"
+                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 cursor-pointer hover:bg-slate-600 transition-colors"
+                        >
+                          {gettingLocation ? (
+                            <span className="text-xs font-bold">…</span>
+                          ) : (
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+                              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2"/>
+                              <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                      {showSuggestions && addressSuggestions.length > 0 && (
+                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+                          {addressSuggestions.map((s, i) => (
+                            <button
+                              key={i}
+                              onMouseDown={() => selectSuggestion(s)}
+                              className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0 cursor-pointer leading-snug"
+                            >
+                              {shortAddress(s)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {geofenceLat !== null && geofenceLng !== null && (
+                      <>
+                        <GeofenceMap
+                          lat={geofenceLat}
+                          lng={geofenceLng}
+                          radius={geofenceRadius}
+                          zoom={geofenceZoom}
+                          onLocationChange={(lat, lng) => placeAtCoords(lat, lng)}
+                          onZoomChange={setGeofenceZoom}
+                        />
+
+                        {/* Radius control */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-slate-400">Geofence Radius</span>
+                            <span className="text-xs font-bold text-slate-200 tabular-nums">{geofenceRadius}m</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="range"
+                              min="50"
+                              max="5000"
+                              step="25"
+                              value={geofenceRadius}
+                              onChange={(e) => setGeofenceRadius(Number(e.target.value))}
+                              className="flex-1 accent-indigo-500"
+                            />
+                            <button
+                              onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
+                            <span>50m</span>
+                            <span>5km</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {geofenceError && (
+                      <div className="text-xs text-red-400">{geofenceError}</div>
+                    )}
+
+                    <button
+                      onClick={saveGeofence}
+                      disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                    >
+                      {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {timeclockSaved && (
               <div className="text-xs text-emerald-400 text-right">Saved ✓</div>
             )}
@@ -840,14 +1198,14 @@ export default function SettingsPageClient({
           >
             + Add Employee
           </button>
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+          <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
             ) : (
               employees.map((emp) => (
-                <div key={emp.id} className="flex flex-col">
+                <motion.div key={emp.id} variants={listItem} className="flex flex-col">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300 shrink-0">
+                    <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     {editingId === emp.id ? (
@@ -916,10 +1274,10 @@ export default function SettingsPageClient({
                   {isManager && (
                     <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
                   )}
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
+          </motion.div>
         </section>}
 
         {/* Templates — manager only */}
@@ -928,12 +1286,12 @@ export default function SettingsPageClient({
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Schedule Templates
             </div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+            <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
               {templates.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-slate-500">No templates yet</div>
               ) : (
                 templates.map((tpl) => (
-                  <div key={tpl.id} className="flex flex-col px-4 py-3 gap-2">
+                  <motion.div key={tpl.id} variants={listItem} className="flex flex-col px-4 py-3 gap-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold text-slate-200">{tpl.name}</div>
@@ -966,7 +1324,7 @@ export default function SettingsPageClient({
                           type="date"
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark]"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100"
                         />
                         <button
                           disabled={applyingId === tpl.id}
@@ -995,10 +1353,10 @@ export default function SettingsPageClient({
                     {applyError[tpl.id] && (
                       <div className="text-xs text-red-400">{applyError[tpl.id]}</div>
                     )}
-                  </div>
+                  </motion.div>
                 ))
               )}
-            </div>
+            </motion.div>
           </section>
         )}
 
@@ -1045,7 +1403,7 @@ export default function SettingsPageClient({
         </section>
       </div>
 
-      <BottomNav active="team" />
+      {!isDesktop && <BottomNav active="settings" />}
 
       <InviteSheet
         open={showInvite}
@@ -1110,5 +1468,6 @@ export default function SettingsPageClient({
         </div>
       )}
     </main>
+    </AppShell>
   );
 }

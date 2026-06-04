@@ -48,7 +48,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-40 bg-[#1e2a3a] border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-11 w-40 bg-card border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
           {onSignOut && (
             <Link
               href={settingsHref}
@@ -62,6 +62,16 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
               Settings
             </Link>
           )}
+          <Link
+            href="/privacy"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Privacy Policy
+          </Link>
           {onSignOut && (
             <button
               onClick={() => { setOpen(false); onSignOut(); }}

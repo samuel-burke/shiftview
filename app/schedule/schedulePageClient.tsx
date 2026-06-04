@@ -13,10 +13,12 @@ import {
 import WeekView from "../../components/WeekView";
 import MonthView from "../../components/MonthView";
 import BottomNav from "../../components/BottomNav";
+import AppShell from "../../components/AppShell";
 import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
 import { createClient } from "@/lib/supabase-browser";
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 import {
   SkeletonNextShift,
   SkeletonWeekCalendar,
@@ -127,6 +129,7 @@ export default function SchedulePageClient() {
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  const isDesktop = useIsDesktop();
 
   async function handleApproveManagerTimeOff(id: number) {
     const res = await fetch(`/api/time-off/${id}`, {
@@ -398,274 +401,333 @@ export default function SchedulePageClient() {
   });
   const firstName = employeeName ? employeeName.split(" ")[0] : "Schedule";
 
-  return (
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
-      {/* Top bar */}
-      <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-      >
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
-          Shift
-          <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-            View
-          </span>
-        </span>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400">{todayStr}</span>
-          {!isDemo && <NotificationBell />}
-          <UserMenu
-            name={employeeName}
-            isManager={isManager}
-            onSignOut={isDemo ? undefined : handleSignOut}
-            onSignIn={isDemo ? () => router.push("/login") : undefined}
-          />
+  const calendarSection = (
+    <>
+      {/* MY SCHEDULE label + Week/Month toggle */}
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+            My Schedule
+          </div>
+          <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">
+            {firstName}
+          </div>
+        </div>
+        <div className="flex bg-card rounded-xl p-[3px] mt-1">
+          <button
+            onClick={() => switchView("week")}
+            className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
+              view === "week" ? "bg-slate-700 text-slate-100" : "text-slate-400"
+            }`}
+          >
+            Week
+          </button>
+          <button
+            onClick={() => switchView("month")}
+            className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
+              view === "month" ? "bg-slate-700 text-slate-100" : "text-slate-400"
+            }`}
+          >
+            Month
+          </button>
         </div>
       </div>
 
-      <div className="px-4 pt-4">
-        {/* Next Shift card */}
-        <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
-          <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
-          {nextShift === undefined ? (
-            <SkeletonNextShift />
-          ) : nextShift ? (
-            <>
-              <div className="text-slate-300 font-semibold text-sm">
-                {formatNextShiftDate(nextShift.date, toDateKey(today))}
-              </div>
-              <div className="text-2xl font-extrabold text-slate-100 mt-1">
-                {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
-              </div>
-              {getDaysUntil(nextShift.date, toDateKey(today)) > 1 && (
-                <div className="text-xs text-slate-400 mt-1">
-                  in {getDaysUntil(nextShift.date, toDateKey(today))} days
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+      {/* Range label + prev/next */}
+      <div className="flex items-center justify-between mt-5 mb-4">
+        <button
+          onClick={() => setPickerOpen(true)}
+          className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
+        >
+          {rangeLabel}
+          <span className="text-[12px] text-blue-500 font-normal">▾</span>
+        </button>
+        <div className="flex items-center gap-2">
+          {!isAtToday && (
+            <button
+              onClick={goToToday}
+              className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-1.5 cursor-pointer"
+            >
+              Today
+            </button>
+          )}
+          <button
+            onClick={goToPrev}
+            aria-label="Previous"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-lg cursor-pointer"
+          >
+            ‹
+          </button>
+          <button
+            onClick={goToNext}
+            aria-label="Next"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-lg cursor-pointer"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      {loading ? (
+        <SkeletonWeekCalendar />
+      ) : scheduleError ? (
+        <div className="h-[120px] flex items-center justify-center">
+          <div className="text-sm text-red-400 text-center">{scheduleError}</div>
+        </div>
+      ) : view === "week" ? (
+        <WeekView
+          schedules={schedules}
+          weeklyHours={weeklyHours}
+          firstDayOfWeek={firstDayOfWeek}
+          selectedDate={selectedDate}
+          weekStart={weekStart}
+          onSelectDate={setSelectedDate}
+          today={today}
+          timeOffRequests={timeOffRequests}
+        />
+      ) : (
+        <MonthView
+          schedules={schedules}
+          weeklyHours={weeklyHours}
+          firstDayOfWeek={firstDayOfWeek}
+          selectedDate={selectedDate}
+          navDate={navDate}
+          onSelectDate={setSelectedDate}
+          today={today}
+          timeOffRequests={timeOffRequests}
+        />
+      )}
+    </>
+  );
+
+  const nextShiftCard = (
+    <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
+      <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
+      {nextShift === undefined ? (
+        <SkeletonNextShift />
+      ) : nextShift ? (
+        <>
+          <div className="text-slate-300 font-semibold text-sm">
+            {formatNextShiftDate(nextShift.date, toDateKey(today))}
+          </div>
+          <div className="text-2xl font-extrabold text-slate-100 mt-1">
+            {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
+          </div>
+          {getDaysUntil(nextShift.date, toDateKey(today)) > 1 && (
+            <div className="text-xs text-slate-400 mt-1">
+              in {getDaysUntil(nextShift.date, toDateKey(today))} days
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+      )}
+    </div>
+  );
+
+  const detailSection = (
+    <>
+      {/* Detail card */}
+      {loading ? <SkeletonDetailCard /> : null}
+      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${loading ? " hidden" : ""}`}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm text-slate-400">{selectedDayLabel}</span>
+          {shiftLabel && shiftColor && (
+            <span
+              className="text-xs font-semibold px-3 py-1 rounded-full"
+              style={{ background: `${shiftColor}22`, color: shiftColor }}
+            >
+              {shiftLabel}
+            </span>
           )}
         </div>
-
-        {/* MY SCHEDULE label + Week/Month toggle */}
-        <div className="flex items-start justify-between mb-1">
-          <div>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
-              My Schedule
+        {selectedSchedule ? (
+          <>
+            <div className="text-2xl font-bold text-slate-100 mt-1">
+              {fmtMinutes(selectedSchedule.startMinutes)} – {fmtMinutes(selectedSchedule.endMinutes)}
             </div>
-            <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">
-              {firstName}
+            <div className="text-sm text-slate-400 mt-0.5">
+              {shiftHours} {shiftHours === 1 ? "hr" : "hrs"}
             </div>
-          </div>
-          {/* Toggle */}
-          <div className="flex bg-card rounded-xl p-[3px] mt-1">
-            <button
-              onClick={() => switchView("week")}
-              className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-                view === "week" ? "bg-slate-700 text-slate-100" : "text-slate-400"
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => switchView("month")}
-              className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-                view === "month" ? "bg-slate-700 text-slate-100" : "text-slate-400"
-              }`}
-            >
-              Month
-            </button>
-          </div>
-        </div>
-
-        {/* Range label + prev/next */}
-        <div className="flex items-center justify-between mt-5 mb-4">
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
-          >
-            {rangeLabel}
-            <span className="text-[12px] text-blue-500 font-normal">▾</span>
-          </button>
-          <div className="flex items-center gap-2">
-            {!isAtToday && (
-              <button
-                onClick={goToToday}
-                className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-1.5 cursor-pointer"
-              >
-                Today
-              </button>
-            )}
-            <button
-              onClick={goToPrev}
-              aria-label="Previous"
-              className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-lg cursor-pointer"
-            >
-              ‹
-            </button>
-            <button
-              onClick={goToNext}
-              aria-label="Next"
-              className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-lg cursor-pointer"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-
-        {/* Calendar */}
-        {loading ? (
-          <SkeletonWeekCalendar />
-        ) : scheduleError ? (
-          <div className="h-[120px] flex items-center justify-center">
-            <div className="text-sm text-red-400 text-center">{scheduleError}</div>
-          </div>
-        ) : view === "week" ? (
-          <WeekView
-            schedules={schedules}
-            weeklyHours={weeklyHours}
-            firstDayOfWeek={firstDayOfWeek}
-            selectedDate={selectedDate}
-            weekStart={weekStart}
-            onSelectDate={setSelectedDate}
-            today={today}
-            timeOffRequests={timeOffRequests}
-          />
+          </>
         ) : (
-          <MonthView
-            schedules={schedules}
-            weeklyHours={weeklyHours}
-            firstDayOfWeek={firstDayOfWeek}
-            selectedDate={selectedDate}
-            navDate={navDate}
-            onSelectDate={setSelectedDate}
-            today={today}
-            timeOffRequests={timeOffRequests}
-          />
+          <div className="text-2xl font-bold text-slate-400 mt-1">Day Off</div>
         )}
 
-        {/* Detail card */}
-        {loading ? <SkeletonDetailCard /> : null}
-        <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${loading ? " hidden" : ""}`}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm text-slate-400">{selectedDayLabel}</span>
-            {shiftLabel && shiftColor && (
-              <span
-                className="text-xs font-semibold px-3 py-1 rounded-full"
-                style={{ background: `${shiftColor}22`, color: shiftColor }}
+        {/* Time-off request status or action */}
+        {selectedTimeOff?.status === "pending" && !selectedSchedule && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+            <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
+            <span className="text-sm text-yellow-300 font-semibold">Time-off request pending</span>
+          </div>
+        )}
+        {selectedTimeOff?.status === "approved" && !selectedSchedule && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <TimeOffApprovedIcon size={16} color="rgb(52 211 153)" />
+            <span className="text-sm text-emerald-300 font-semibold">Time off approved</span>
+          </div>
+        )}
+        {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
+          <div className="mt-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
+              <TimeOffDeniedIcon size={16} color="rgb(248 113 113)" />
+              <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
+            </div>
+            {employeeId !== null && !isDemo && (
+              <button
+                onClick={handleRequestDayOff}
+                disabled={timeOffStatus === "loading"}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
               >
-                {shiftLabel}
-              </span>
+                {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
+              </button>
             )}
           </div>
-          {selectedSchedule ? (
-            <>
-              <div className="text-2xl font-bold text-slate-100 mt-1">
-                {fmtMinutes(selectedSchedule.startMinutes)} – {fmtMinutes(selectedSchedule.endMinutes)}
-              </div>
-              <div className="text-sm text-slate-400 mt-0.5">
-                {shiftHours} {shiftHours === 1 ? "hr" : "hrs"}
-              </div>
-            </>
-          ) : (
-            <div className="text-2xl font-bold text-slate-400 mt-1">Day Off</div>
-          )}
-
-          {/* Time-off request status or action */}
-          {selectedTimeOff?.status === "pending" && !selectedSchedule && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-              <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
-              <span className="text-sm text-yellow-300 font-semibold">Time-off request pending</span>
-            </div>
-          )}
-          {selectedTimeOff?.status === "approved" && !selectedSchedule && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-              <TimeOffApprovedIcon size={16} color="rgb(52 211 153)" />
-              <span className="text-sm text-emerald-300 font-semibold">Time off approved</span>
-            </div>
-          )}
-          {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
-            <div className="mt-3">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
-                <TimeOffDeniedIcon size={16} color="rgb(248 113 113)" />
-                <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
-              </div>
-              {employeeId !== null && !isDemo && (
+        )}
+        {canRequestDayOff && (
+          <div className="mt-3">
+            {timeOffStatus === "success" ? (
+              <div className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
+            ) : (
+              <>
                 <button
                   onClick={handleRequestDayOff}
                   disabled={timeOffStatus === "loading"}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
                 >
-                  {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
+                  {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
-              )}
-            </div>
-          )}
-          {canRequestDayOff && (
-            <div className="mt-3">
-              {timeOffStatus === "success" ? (
-                <div className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
-              ) : (
-                <>
-                  <button
-                    onClick={handleRequestDayOff}
-                    disabled={timeOffStatus === "loading"}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50"
-                  >
-                    {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
-                  </button>
-                  {timeOffStatus === "error" && timeOffError && (
-                    <div className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Stats row */}
-        {loading ? <SkeletonStatsRow /> : null}
-        <div className={`flex gap-2${loading ? " hidden" : ""}`}>
-          <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
-            <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
-            <div className="text-xs text-slate-400 mt-1">
-              {view === "week" ? "Shifts this week" : "Shifts this month"}
-            </div>
-          </div>
-          <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
-            <div className="text-3xl font-extrabold text-indigo-400">{totalHoursDisplay}</div>
-            <div className="text-xs text-slate-400 mt-1">
-              {view === "week" ? "Hours" : "Est. hours"}
-            </div>
-          </div>
-          <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
-            <div className="text-3xl font-extrabold text-indigo-400">{daysOff}</div>
-            <div className="text-xs text-slate-400 mt-1">Days off</div>
-          </div>
-        </div>
-
-        {isManager && !isDemo && (
-          <div className="mt-4">
-            <PendingTimeOffSection
-              requests={pendingManagerTimeOff}
-              onApprove={handleApproveManagerTimeOff}
-              onDeny={handleDenyManagerTimeOff}
-            />
+                {timeOffStatus === "error" && timeOffError && (
+                  <div className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
 
-      <DatePickerSheet
-        open={pickerOpen}
-        selected={selectedDate}
-        today={today}
-        firstDayOfWeek={firstDayOfWeek}
-        onSelect={handlePickerSelect}
-        onClose={() => setPickerOpen(false)}
-      />
+      {/* Stats row */}
+      {loading ? <SkeletonStatsRow /> : null}
+      <div className={`flex gap-2${loading ? " hidden" : ""}`}>
+        <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
+          <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
+          <div className="text-xs text-slate-400 mt-1">
+            {view === "week" ? "Shifts this week" : "Shifts this month"}
+          </div>
+        </div>
+        <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
+          <div className="text-3xl font-extrabold text-indigo-400">{totalHoursDisplay}</div>
+          <div className="text-xs text-slate-400 mt-1">
+            {view === "week" ? "Hours" : "Est. hours"}
+          </div>
+        </div>
+        <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
+          <div className="text-3xl font-extrabold text-indigo-400">{daysOff}</div>
+          <div className="text-xs text-slate-400 mt-1">Days off</div>
+        </div>
+      </div>
 
-      <BottomNav active="schedule" />
-    </main>
+      {isManager && !isDemo && (
+        <div className="mt-4">
+          <PendingTimeOffSection
+            requests={pendingManagerTimeOff}
+            onApprove={handleApproveManagerTimeOff}
+            onDeny={handleDenyManagerTimeOff}
+          />
+        </div>
+      )}
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <AppShell active="schedule" isManager={isManager}>
+        <main className="bg-bg min-h-screen">
+          {/* Desktop top bar — no brand (SideNav owns it) */}
+          <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">
+            <div>
+              <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
+              <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-400">{todayStr}</span>
+              {!isDemo && <NotificationBell />}
+              <UserMenu
+                name={employeeName}
+                isManager={isManager}
+                onSignOut={isDemo ? undefined : handleSignOut}
+                onSignIn={isDemo ? () => router.push("/login") : undefined}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[1fr_320px] gap-6 px-6 py-6 items-start">
+            {/* Left: calendar */}
+            <div>{calendarSection}</div>
+            {/* Right: next shift + selected day detail + stats */}
+            <div className="sticky top-6">
+              {nextShiftCard}
+              {detailSection}
+            </div>
+          </div>
+
+          <DatePickerSheet
+            open={pickerOpen}
+            selected={selectedDate}
+            today={today}
+            firstDayOfWeek={firstDayOfWeek}
+            onSelect={handlePickerSelect}
+            onClose={() => setPickerOpen(false)}
+          />
+        </main>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell active="schedule" isManager={isManager}>
+      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
+        {/* Top bar */}
+        <div
+          className="sticky top-0 z-20 px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+        >
+          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
+            Shift
+            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
+              View
+            </span>
+          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-400">{todayStr}</span>
+            {!isDemo && <NotificationBell />}
+            <UserMenu
+              name={employeeName}
+              isManager={isManager}
+              onSignOut={isDemo ? undefined : handleSignOut}
+              onSignIn={isDemo ? () => router.push("/login") : undefined}
+            />
+          </div>
+        </div>
+
+        <div className="px-4 pt-4">
+          {nextShiftCard}
+          {calendarSection}
+          {detailSection}
+        </div>
+
+        <DatePickerSheet
+          open={pickerOpen}
+          selected={selectedDate}
+          today={today}
+          firstDayOfWeek={firstDayOfWeek}
+          onSelect={handlePickerSelect}
+          onClose={() => setPickerOpen(false)}
+        />
+
+        <BottomNav active="schedule" />
+      </main>
+    </AppShell>
   );
 }

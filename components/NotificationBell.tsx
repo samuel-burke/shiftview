@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase-browser";
 import {
   CalendarIcon,
@@ -11,6 +12,7 @@ import {
   MegaphoneIcon,
   BellIcon,
 } from "./ShiftIcons";
+import MessageThread from "./MessageThread";
 
 type Notification = {
   id: number;
@@ -19,8 +21,22 @@ type Notification = {
   body: string;
   read: boolean;
   created_at: string;
-  data?: Record<string, unknown>;
+  data?: { fromUserId?: string; fromName?: string; [key: string]: unknown };
 };
+
+function ChatBubbleIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
   shift_change:       { Icon: CalendarIcon,        color: "#60a5fa" },
@@ -31,7 +47,7 @@ const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string 
   pto_denied:         { Icon: TimeOffDeniedIcon,   color: "#f87171" },
   late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
   schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
-  message:            { Icon: BellIcon,            color: "#94a3b8" },
+  message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
 };
 
 function NotifIcon({ type }: { type: string }) {
@@ -55,6 +71,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [chatTarget, setChatTarget] = useState<{ userId: string; name: string } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Lazily initialised on the client only — never called during SSR / test renders
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -168,6 +185,7 @@ export default function NotificationBell() {
   if (!userId) return null;
 
   return (
+    <>
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => { setOpen((v) => !v); if (!open) markAllRead(); }}
@@ -186,7 +204,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-80 max-h-[480px] bg-[#0f1117] border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden">
+        <div className="absolute right-0 top-11 w-80 max-h-[480px] bg-card border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
             <span className="text-sm font-bold text-slate-100">Notifications</span>
@@ -220,34 +238,61 @@ export default function NotificationBell() {
             {!loading && notifications.length === 0 && (
               <div className="text-center py-10 text-sm text-slate-500">No notifications yet</div>
             )}
-            {notifications.map((n) => (
-              <div
-                key={n.id}
-                className={`px-4 py-3 border-b border-slate-800/50 flex gap-3 ${n.read ? "opacity-60" : ""}`}
-              >
-                <span className="shrink-0 flex items-center pt-0.5"><NotifIcon type={n.type} /></span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-slate-100 truncate">{n.title}</div>
-                  <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
-                  <div className="text-[11px] text-slate-600 mt-1">{timeAgo(n.created_at)}</div>
+            {notifications.map((n) => {
+              const isMsg = n.type === "message" && !!n.data?.fromUserId;
+              return (
+                <div
+                  key={n.id}
+                  className={`px-4 py-3 border-b border-slate-800/50 flex gap-3 ${n.read ? "opacity-60" : ""}`}
+                >
+                  <span className="shrink-0 flex items-center pt-0.5"><NotifIcon type={n.type} /></span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-slate-100 truncate">{n.title}</div>
+                    <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[11px] text-slate-600">{timeAgo(n.created_at)}</span>
+                      {isMsg && (
+                        <button
+                          onClick={() => {
+                            setChatTarget({ userId: n.data!.fromUserId as string, name: n.data!.fromName as string || n.title });
+                            setOpen(false);
+                          }}
+                          className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium"
+                        >
+                          Reply →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    {!n.read && (
+                      <span className="size-2 rounded-full bg-indigo-500" />
+                    )}
+                    <button
+                      onClick={() => dismissOne(n.id)}
+                      aria-label={`Dismiss: ${n.title}`}
+                      className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-col items-center gap-1 shrink-0">
-                  {!n.read && (
-                    <span className="size-2 rounded-full bg-indigo-500" />
-                  )}
-                  <button
-                    onClick={() => dismissOne(n.id)}
-                    aria-label={`Dismiss: ${n.title}`}
-                    className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
     </div>
+
+    {createPortal(
+      <MessageThread
+        open={!!chatTarget}
+        otherUserId={chatTarget?.userId ?? ""}
+        otherName={chatTarget?.name ?? ""}
+        onClose={() => setChatTarget(null)}
+      />,
+      document.body
+    )}
+    </>
   );
 }

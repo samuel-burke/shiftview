@@ -1,5 +1,6 @@
 "use client";
 
+import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -16,11 +17,18 @@ import {
   SHIFT_COLORS,
 } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import AppShell from "../../components/AppShell";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
+import { haversineMeters } from "@/lib/haversine";
+import { motion } from "framer-motion";
+
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055 } } };
+const listItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -116,6 +124,12 @@ export default function ClockPageClient() {
   const [exportTo, setExportTo] = useState(toDateKey(today));
   const [showExport, setShowExport] = useState(false);
 
+  async function handleExportDownload() {
+    const res = await fetch(`/api/punches/export?from=${exportFrom}&to=${exportTo}`);
+    const blob = await res.blob();
+    await downloadCSV(blob, `timesheet_${exportFrom}_to_${exportTo}.csv`);
+  }
+
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"idle" | "acquiring" | "ok" | "denied">("idle");
@@ -127,6 +141,11 @@ export default function ClockPageClient() {
   // Time clock settings
   const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
   const [gpsRequired, setGpsRequired] = useState(false);
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [geofenceLat, setGeofenceLat] = useState<number | null>(null);
+  const [geofenceLng, setGeofenceLng] = useState<number | null>(null);
+  const [geofenceRadius, setGeofenceRadius] = useState(100);
+  const [geofenceAddress, setGeofenceAddress] = useState<string | null>(null);
 
   const todayKey = toDateKey(today);
   const storeHours = weeklyHours[today.getDay()];
@@ -189,6 +208,11 @@ export default function ClockPageClient() {
       const settings = await settingsRes.json();
       if (settings.manualPunchesEnabled != null) setManualPunchesEnabled(settings.manualPunchesEnabled);
       if (settings.gpsRequired != null) setGpsRequired(settings.gpsRequired);
+      if (settings.geofenceEnabled != null) setGeofenceEnabled(settings.geofenceEnabled);
+      if (settings.geofenceLat != null) setGeofenceLat(settings.geofenceLat);
+      if (settings.geofenceLng != null) setGeofenceLng(settings.geofenceLng);
+      if (settings.geofenceRadius != null) setGeofenceRadius(settings.geofenceRadius);
+      if (settings.geofenceAddress != null) setGeofenceAddress(settings.geofenceAddress);
     } catch {
       setError("Failed to load data");
     } finally {
@@ -254,6 +278,18 @@ export default function ClockPageClient() {
       }
       lat = gps.lat;
       lng = gps.lng;
+
+      if (geofenceEnabled && geofenceLat !== null && geofenceLng !== null) {
+        const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
+        if (dist > geofenceRadius) {
+          const place = geofenceAddress ?? "the designated location";
+          setActionError(
+            `You must be within ${geofenceRadius}m of ${place} to clock in. You are currently ${Math.round(dist)}m away.`
+          );
+          setActionPending(false);
+          return;
+        }
+      }
     }
 
     try {
@@ -336,73 +372,97 @@ export default function ClockPageClient() {
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#818cf8";
 
   const firstName = employeeName ? employeeName.split(" ")[0] : "Clock";
+  const isDesktop = useIsDesktop();
+
+  const clockHeader = (
+    <div
+      className={`${isDesktop ? "border-b border-slate-800 px-6 py-[14px]" : "sticky top-0 z-20 px-0 pb-3 border-b border-slate-800 bg-bg"} flex items-center justify-between`}
+      style={isDesktop ? {} : { paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+    >
+      <div>
+        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
+        <div className={`font-extrabold text-slate-100 leading-tight mt-0.5 ${isDesktop ? "text-xl" : "text-[28px]"}`}>{firstName}</div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-slate-400">
+          {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+        </span>
+        {!isDemo && <NotificationBell />}
+        <UserMenu
+          name={employeeName}
+          isManager={isManager}
+          onSignOut={isDemo ? undefined : handleSignOut}
+          onSignIn={isDemo ? () => router.push("/login") : undefined}
+        />
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
-      <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
-        <div
-          className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-        >
-          <div>
-            <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
-            <div className="skeleton h-7 w-28 rounded" />
+      <AppShell active="clock" isManager={isManager}>
+        <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
+          {isDesktop ? (
+            <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">
+              <div>
+                <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
+                <div className="skeleton h-7 w-28 rounded" />
+              </div>
+              <div className="skeleton h-8 w-28 rounded-xl" />
+            </div>
+          ) : (
+            <div className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+              style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}>
+              <div>
+                <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
+                <div className="skeleton h-7 w-28 rounded" />
+              </div>
+              <div className="skeleton h-8 w-28 rounded-xl" />
+            </div>
+          )}
+          <div className={isDesktop ? "max-w-[600px] mx-auto px-6 py-6" : ""}>
+            <SkeletonClockBody />
           </div>
-          <div className="skeleton h-8 w-28 rounded-xl" />
-        </div>
-        <SkeletonClockBody />
-        <BottomNav active="clock" />
-      </main>
+          {!isDesktop && <BottomNav active="clock" />}
+        </main>
+      </AppShell>
     );
   }
 
   // Employee not linked
   if (!employeeId && !isManager) {
     return (
-      <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
-        <div
-          className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-        >
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
-            Time<span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">Clock</span>
-          </span>
-        </div>
-        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center">
-          <div className="text-4xl">🔗</div>
-          <div className="text-lg font-bold text-slate-100">Account not linked</div>
-          <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
-        </div>
-        <BottomNav active="clock" />
-      </main>
+      <AppShell active="clock" isManager={isManager}>
+        <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
+          {isDesktop ? (
+            <div className="border-b border-slate-800 px-6 py-[14px]">
+              <span className="text-xl font-extrabold text-slate-100 tracking-tight">Time Clock</span>
+            </div>
+          ) : (
+            <div className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+              style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}>
+              <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
+                Time<span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">Clock</span>
+              </span>
+            </div>
+          )}
+          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
+            <div className="text-4xl">🔗</div>
+            <div className="text-lg font-bold text-slate-100">Account not linked</div>
+            <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
+          </div>
+          {!isDesktop && <BottomNav active="clock" />}
+        </main>
+      </AppShell>
     );
   }
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
-      {/* Header */}
-      <div
-        className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-      >
-        <div>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
-          <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">{firstName}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">
-            {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-          </span>
-          {!isDemo && <NotificationBell />}
-          <UserMenu
-            name={employeeName}
-            isManager={isManager}
-            onSignOut={isDemo ? undefined : handleSignOut}
-            onSignIn={isDemo ? () => router.push("/login") : undefined}
-          />
-        </div>
-      </div>
+    <AppShell active="clock" isManager={isManager}>
+    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
+      {clockHeader}
 
+      <div className={isDesktop ? "max-w-[600px] mx-auto px-6 py-4" : ""}>
       {error && (
         <div className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
           {error}
@@ -536,11 +596,11 @@ export default function ClockPageClient() {
         {punches.length > 0 && (
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-[0.08em] mb-2">Today&apos;s Punches</div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800">
+            <motion.div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800" variants={listContainer} initial="hidden" animate="show">
               {[...punches]
                 .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime())
                 .map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                  <motion.div key={p.id} variants={listItem} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span
                         className="size-2 rounded-full shrink-0"
@@ -565,9 +625,9 @@ export default function ClockPageClient() {
                       <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt)}</div>
                       {p.note && <div className="text-[11px] text-slate-500 mt-0.5 max-w-[140px] truncate">{p.note}</div>}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -589,7 +649,7 @@ export default function ClockPageClient() {
                   <select
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   >
                     <option value="clock_in">Clock In</option>
                     <option value="clock_out">Clock Out</option>
@@ -603,7 +663,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   />
                 </div>
               </div>
@@ -613,7 +673,7 @@ export default function ClockPageClient() {
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                 />
               </div>
               <div>
@@ -623,7 +683,7 @@ export default function ClockPageClient() {
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   placeholder="Why is this punch being added manually?"
                   rows={2}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 resize-none"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none"
                 />
               </div>
               {correctionError && (
@@ -659,7 +719,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   />
                 </div>
                 <div>
@@ -668,23 +728,23 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
                   />
                 </div>
               </div>
-              <a
-                href={`/api/punches/export?from=${exportFrom}&to=${exportTo}`}
-                download
+              <button
+                onClick={handleExportDownload}
                 className="block w-full py-2.5 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer"
               >
                 Download CSV
-              </a>
+              </button>
             </div>
           )}
         </div>
       </div>
+      </div>
 
-      <BottomNav active="clock" />
+      {!isDesktop && <BottomNav active="clock" />}
 
       {/* Pre-punch warning modal */}
       {pendingWarning && pendingPunchType && (
@@ -728,5 +788,6 @@ export default function ClockPageClient() {
         </div>
       )}
     </main>
+    </AppShell>
   );
 }

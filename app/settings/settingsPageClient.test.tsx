@@ -582,10 +582,10 @@ describe("SettingsPageClient — employee view", () => {
   beforeEach(() => { vi.clearAllMocks(); setupEmployeeFetch(); });
   afterEach(() => vi.restoreAllMocks());
 
-  it("shows the My Typical Week availability section for a linked employee", async () => {
+  it("shows the availability section for a linked employee", async () => {
     render(<SettingsPageClient />);
     await screen.findByTestId("availability-section");
-    expect(screen.getByText("My Typical Week")).toBeInTheDocument();
+    expect(screen.getByText("Availability")).toBeInTheDocument();
   });
 
   it("hides Store Hours from employees", async () => {
