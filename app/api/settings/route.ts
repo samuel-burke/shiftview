@@ -28,6 +28,7 @@ export async function GET() {
     firstDayOfWeek:       parseInt(map.first_day_of_week  ?? "6"),
     optimalCoverage:      parseInt(map.optimal_coverage   ?? "3"),
     minCoverage:          parseInt(map.minimum_coverage   ?? "2"),
+    coverageAlertsEnabled: map.coverage_alerts_enabled !== "false",
     timezone:             map.timezone ?? "America/New_York",
     emailNotifications:   map.email_notifications === "true",
     manualPunchesEnabled: map.manual_punches_enabled !== "false",
@@ -80,6 +81,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
     }
     rows.push({ key: "timezone", value: body.timezone.trim() });
+  }
+
+  if (body.coverageAlertsEnabled !== undefined) {
+    if (typeof body.coverageAlertsEnabled !== "boolean")
+      return NextResponse.json({ error: "coverageAlertsEnabled must be a boolean" }, { status: 400 });
+    rows.push({ key: "coverage_alerts_enabled", value: String(body.coverageAlertsEnabled) });
   }
 
   if (body.emailNotifications !== undefined) {

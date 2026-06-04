@@ -145,6 +145,7 @@ export default function Page() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
+  const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [timezone, setTimezone] = useState("America/New_York");
   const [exportLoading, setExportLoading] = useState(false);
@@ -463,10 +464,11 @@ export default function Page() {
     function refetchSettings() {
       fetch("/api/settings")
         .then((r) => r.json())
-        .then(({ optimalCoverage: oc, minCoverage: mc, timezone: tz }) => {
+        .then(({ optimalCoverage: oc, minCoverage: mc, timezone: tz, coverageAlertsEnabled: ca }) => {
           if (oc != null) setOptimalCoverage(oc);
           if (mc != null) setMinCoverage(mc);
           if (tz) setTimezone(tz);
+          if (ca != null) setCoverageAlertsEnabled(ca);
         })
         .catch(() => {});
     }
@@ -542,9 +544,10 @@ export default function Page() {
         if (!settingsResult.value.ok) {
           console.error("[pageClient] fetch failed: /api/settings returned", settingsResult.value.status);
         } else {
-          settingsResult.value.json().then(({ optimalCoverage, minCoverage, timezone: tz }) => {
+          settingsResult.value.json().then(({ optimalCoverage, minCoverage, timezone: tz, coverageAlertsEnabled: ca }) => {
             if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
             if (minCoverage != null) setMinCoverage(minCoverage);
+            if (ca != null) setCoverageAlertsEnabled(ca);
             if (tz) {
               setTimezone(tz);
               setNowMinutes(getNowMinutes(tz));
@@ -710,7 +713,7 @@ export default function Page() {
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
-    userName, isManager,
+    userName, isManager, coverageAlertsEnabled,
     onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
     onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
     onNow: () => setDate(new Date()),

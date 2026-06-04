@@ -47,6 +47,7 @@ export const DEMO_AVAILABILITY: Record<number, AvailabilityRecord[]> = {
 export const DEMO_SETTINGS = {
   optimalCoverage: 3,
   minCoverage: 2,
+  coverageAlertsEnabled: true,
   firstDayOfWeek: 1,
   timezone: "America/New_York",
   emailNotifications: false,

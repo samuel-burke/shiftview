@@ -208,8 +208,22 @@ export default function SettingsPageClient({
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // ── Coverage ────────────────────────────────────────────────────────────────
+  const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
+  const [coverageAlertsSaving, setCoverageAlertsSaving] = useState(false);
   const [optimalCoverage, setOptimalCoverage] = useState(3);
   const [minCoverage, setMinCoverage] = useState(2);
+
+  async function saveCoverageAlerts(newValue: boolean) {
+    setCoverageAlertsSaving(true);
+    if (!isDemo) {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverageAlertsEnabled: newValue }),
+      });
+    }
+    setCoverageAlertsSaving(false);
+  }
   const [coverageStatus, setCoverageStatus] = useState<SaveStatus>("idle");
   const [coverageValidationError, setCoverageValidationError] = useState<string | null>(null);
   const coverageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -594,6 +608,7 @@ export default function SettingsPageClient({
           if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
           if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
           if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
+          if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
           if (s.timezone)                setTimezone(s.timezone);
           if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
           if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
@@ -640,6 +655,7 @@ export default function SettingsPageClient({
       })));
       setWeeklyHours(DEMO_STORE_HOURS);
       setOptimalCoverage(DEMO_SETTINGS.optimalCoverage);
+      setCoverageAlertsEnabled(DEMO_SETTINGS.coverageAlertsEnabled);
       setMinCoverage(DEMO_SETTINGS.minCoverage);
       setTimezone(DEMO_SETTINGS.timezone);
       setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
@@ -852,6 +868,33 @@ export default function SettingsPageClient({
             Coverage Thresholds
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            {/* Parent toggle */}
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-800">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Coverage Alerts</div>
+                <div className="text-xs text-slate-500 mt-0.5">Show banners when staffing is low</div>
+              </div>
+              <button
+                role="switch"
+                aria-label="Coverage alerts"
+                aria-checked={coverageAlertsEnabled}
+                disabled={coverageAlertsSaving}
+                onClick={() => {
+                  const next = !coverageAlertsEnabled;
+                  setCoverageAlertsEnabled(next);
+                  saveCoverageAlerts(next);
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700"
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                  coverageAlertsEnabled ? "translate-x-5" : "translate-x-0"
+                }`} />
+              </button>
+            </div>
+
+            <div className={`transition-opacity ${coverageAlertsEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Optimal coverage</div>
@@ -914,6 +957,7 @@ export default function SettingsPageClient({
               </div>
             )}
             <SaveStatusText status={coverageStatus} testId="coverage-status" />
+            </div>{/* end threshold controls wrapper */}
           </div>
         </section>}
 

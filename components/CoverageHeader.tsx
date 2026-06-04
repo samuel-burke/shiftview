@@ -25,6 +25,7 @@ type Props = {
   loading?: boolean;
   userName?: string | null;
   isManager?: boolean;
+  coverageAlertsEnabled?: boolean;
 };
 
 function fmtTime(m: number): string {
@@ -72,6 +73,7 @@ export default function CoverageHeader({
   loading = false,
   userName = null,
   isManager = false,
+  coverageAlertsEnabled = true,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -100,7 +102,7 @@ export default function CoverageHeader({
   const alertKey = alertConfig?.message ?? "none";
   // Past/future alerts are deterministic (date prop always known), show immediately.
   // Coverage status alerts depend on loaded data, gate on !loading.
-  const showAlert = alertConfig && (!loading || isPast || isFuture);
+  const showAlert = coverageAlertsEnabled && alertConfig && (!loading || isPast || isFuture);
 
   // Mobile nav: full-width justify-between, large date text, live time below
   const mobileNav = (
