@@ -83,7 +83,7 @@ export default function ShiftCard({
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       aria-label={cardAriaLabel}
       className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
-      style={{ boxShadow: glowShadow }}
+      style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >
       {/* Avatar */}
       <div
