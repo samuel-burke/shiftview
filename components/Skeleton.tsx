@@ -2,7 +2,7 @@
 
 export function SkeletonShiftCard() {
   return (
-    <div className="flex items-center gap-3 w-full bg-card border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
+    <div aria-hidden="true" className="flex items-center gap-3 w-full bg-card border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
       <div className="skeleton size-[38px] rounded-full shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="skeleton h-[13px] w-[55%] rounded" />
@@ -17,8 +17,8 @@ export function SkeletonShiftCard() {
 
 export function SkeletonTeamSection({ count = 4 }: { count?: number }) {
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-2 mb-2.5">
+    <div role="status" aria-label="Loading schedule" className="mb-5">
+      <div aria-hidden="true" className="flex items-center gap-2 mb-2.5">
         <div className="skeleton h-3 w-20 rounded" />
         <div className="skeleton h-[18px] w-7 rounded-full" />
       </div>
@@ -31,7 +31,7 @@ export function SkeletonTeamSection({ count = 4 }: { count?: number }) {
 
 export function SkeletonNextShift() {
   return (
-    <div className="space-y-2">
+    <div role="status" aria-label="Loading next shift" className="space-y-2">
       <div className="skeleton h-[14px] w-24 rounded" />
       <div className="skeleton h-7 w-44 rounded" />
     </div>
@@ -40,7 +40,7 @@ export function SkeletonNextShift() {
 
 export function SkeletonWeekCalendar() {
   return (
-    <div className="flex gap-1.5 mb-3">
+    <div role="status" aria-label="Loading calendar" className="flex gap-1.5 mb-3">
       {Array.from({ length: 7 }, (_, i) => (
         <div key={i} className="flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 border border-slate-800 bg-card">
           <div className="skeleton h-[9px] w-5 rounded mb-1.5" />
@@ -56,7 +56,7 @@ export function SkeletonWeekCalendar() {
 
 export function SkeletonDetailCard() {
   return (
-    <div className="bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60">
+    <div role="status" aria-label="Loading shift details" className="bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60">
       <div className="skeleton h-[13px] w-28 rounded mb-2" />
       <div className="skeleton h-8 w-44 rounded mt-1" />
       <div className="skeleton h-[10px] w-12 rounded mt-2" />
@@ -66,7 +66,7 @@ export function SkeletonDetailCard() {
 
 export function SkeletonStatsRow() {
   return (
-    <div className="flex gap-2">
+    <div role="status" aria-label="Loading stats" className="flex gap-2">
       {Array.from({ length: 3 }, (_, i) => (
         <div key={i} className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
           <div className="skeleton h-8 w-10 rounded mb-1" />
@@ -79,7 +79,7 @@ export function SkeletonStatsRow() {
 
 export function SkeletonClockBody() {
   return (
-    <div className="mt-4 space-y-3">
+    <div role="status" aria-label="Loading clock" className="mt-4 space-y-3">
       <div className="bg-card rounded-2xl px-4 py-4 border-l-[3px] border border-slate-800/60">
         <div className="flex items-center justify-between mb-1.5">
           <div className="skeleton h-[10px] w-24 rounded" />
@@ -100,7 +100,7 @@ export function SkeletonClockBody() {
 export function SkeletonSettingsBody({ isManager }: { isManager?: boolean }) {
   const sectionCount = isManager ? 5 : 2;
   return (
-    <div className="px-4 pt-5 flex flex-col gap-5">
+    <div role="status" aria-label="Loading settings" className="px-4 pt-5 flex flex-col gap-5">
       {Array.from({ length: sectionCount }, (_, i) => (
         <div key={i}>
           <div className="skeleton h-[10px] w-28 rounded mb-2 ml-1" />
@@ -134,7 +134,7 @@ export function SkeletonSettingsBody({ isManager }: { isManager?: boolean }) {
 
 export function SkeletonTimeline() {
   return (
-    <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
+    <div role="status" aria-label="Loading coverage timeline" className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
       <div className="skeleton h-[11px] w-40 rounded mb-4 ml-1.5" />
       <div className="flex flex-col justify-end gap-1 h-[150px] pb-[10px]">
         <div className="flex items-end gap-[3px] h-full px-2 pt-7 pb-5">

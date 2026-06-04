@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
@@ -41,12 +42,22 @@ export default function SwapRequestsDrawer({
 }: Props) {
   const isDesktop = useIsDesktop();
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape" && open) onClose();
+  }, [open, onClose]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <AnimatePresence>
       {open && (
         <>
           <motion.div
             key="backdrop"
+            aria-hidden="true"
             className="fixed inset-0 bg-black/60 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -56,6 +67,9 @@ export default function SwapRequestsDrawer({
           />
           <motion.div
             key="panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="swap-drawer-title"
             data-testid="swap-requests-drawer"
             className={`fixed z-50 bg-bg ${
               isDesktop
@@ -69,7 +83,7 @@ export default function SwapRequestsDrawer({
           >
             {!isDesktop && (
               <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-slate-700" />
+                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
               </div>
             )}
 
@@ -77,16 +91,20 @@ export default function SwapRequestsDrawer({
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <div className="text-lg font-bold text-slate-100">Swap Requests</div>
+                  <div id="swap-drawer-title" className="text-lg font-bold text-slate-100">Swap Requests</div>
                   <div className="text-xs text-slate-400 mt-0.5">
                     {swaps.length} pending
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                  aria-label="Close"
+                  autoFocus
+                  className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
-                  ✕
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                  </svg>
                 </button>
               </div>
 
@@ -134,19 +152,21 @@ function SwapCard({
       </div>
       <div className="flex gap-2 text-xs text-slate-400 mb-3">
         <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.requesterName}: {swap.scheduleATime}</span>
-        <span className="text-slate-600">⇄</span>
+        <span className="text-slate-600" aria-hidden="true">⇄</span>
         <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.targetName}: {swap.scheduleBTime}</span>
       </div>
       <div className="flex gap-2">
         <button
           onClick={() => onApprove(swap.id)}
-          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none"
+          aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
+          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Approve
         </button>
         <button
           onClick={() => onDeny(swap.id)}
-          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer"
+          aria-label={`Deny swap between ${swap.requesterName} and ${swap.targetName}`}
+          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
         >
           Deny
         </button>

@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useRef, useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
   AreaChart,
   Area,
@@ -35,7 +36,7 @@ function fmtMinutes(m: number): string {
 function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; color?: string }) {
   if (cx === undefined || cy === undefined) return null;
   return (
-    <g>
+    <g aria-hidden="true">
       <circle cx={cx} cy={cy} r={4} fill={color} />
       <circle cx={cx} cy={cy} r={4} fill="none" stroke={color} strokeWidth={2}>
         <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
@@ -191,21 +192,39 @@ export default function CoverageTimeline({
   const lineTop = chartRect ? chartRect.top + 28 : null; // 28 = margin.top
 
   return (
-    <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
-      <div className="flex items-center justify-between mb-3 pl-1.5 pr-1">
+    <motion.div
+      role="img"
+      aria-label={`Coverage timeline from ${fmtMinutes(openMinutes)} to ${fmtMinutes(closeMinutes)}. ${isToday ? `Current time: ${fmtMinutes(nowMinutes)}.` : ""}`}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
+      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+    >
+      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
         </p>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[10px] text-slate-400">
-            <span className="inline-block w-3 h-0.5 rounded bg-blue-500" />
+        <div className="flex items-center gap-2">
+          <motion.span
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.15, duration: 0.25 }}
+            className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40"
+          >
+            <span className="inline-block w-2.5 h-0.5 rounded-full bg-blue-500" />
             Scheduled
-          </span>
+          </motion.span>
           {actualByPoint && (
-            <span className="flex items-center gap-1 text-[10px] text-slate-400">
-              <span className="inline-block w-3 h-0.5 rounded bg-green-500" />
+            <motion.span
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.22, duration: 0.25 }}
+              className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40"
+            >
+              <span className="inline-block w-2.5 h-0.5 rounded-full bg-green-500" />
               Clocked In
-            </span>
+            </motion.span>
           )}
         </div>
       </div>
@@ -305,6 +324,7 @@ export default function CoverageTimeline({
         {/* Time badge — positioned above the now line */}
         {isToday && lineLeft !== null && lineTop !== null && (
           <div
+            aria-hidden="true"
             className="absolute bg-slate-800 border border-slate-700 rounded-md px-[7px] py-[2px] text-[11px] font-bold text-slate-200 whitespace-nowrap pointer-events-none -translate-x-1/2"
             style={{ left: lineLeft, top: lineTop - 24 }}
           >
@@ -312,6 +332,6 @@ export default function CoverageTimeline({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

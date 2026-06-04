@@ -105,9 +105,8 @@ describe("EmployeeDrawer", () => {
     render(
       <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onClose={onClose} />
     );
-    // MessageThread also renders a ✕ button (off-screen), so scope to the drawer
     const drawer = screen.getByTestId("employee-drawer");
-    await userEvent.click(within(drawer).getByText("✕"));
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 

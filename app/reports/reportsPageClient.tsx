@@ -100,7 +100,7 @@ function cellClass(count: number, min: number, optimal: number) {
   if (count >= optimal) return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
   if (count >= min)     return "bg-amber-500/20  text-amber-400  border border-amber-500/30";
   if (count > 0)        return "bg-red-500/20    text-red-400    border border-red-500/30";
-  return "bg-slate-800 text-slate-600 border border-slate-700";
+  return "bg-slate-800 text-slate-500 border border-slate-700";
 }
 
 // ─── Audit helpers ────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ function auditDetail(entry: AuditEntry): string | null {
       const as_ = a.startMinutes as number | null;
       const ae  = a.endMinutes   as number | null;
       if (bs != null && be != null && as_ != null && ae != null)
-        return `${date} · ${fmtMins(bs)}–${fmtMins(be)} → ${fmtMins(as_)}–${fmtMins(ae)}`;
+        return `${date} · ${fmtMins(bs)}–${fmtMins(be)} to ${fmtMins(as_)}–${fmtMins(ae)}`;
       return date ?? null;
     }
     case "schedule.delete": {
@@ -179,7 +179,7 @@ function auditDetail(entry: AuditEntry): string | null {
       return null;
     }
     case "schedule.copy":
-      return `${m.fromDate} → ${m.toDate} · ${m.copied} copied, ${m.skipped} skipped`;
+      return `${m.fromDate} to ${m.toDate} · ${m.copied} copied, ${m.skipped} skipped`;
     case "employee.invite":
     case "employee.delete":
     case "employee.reinvite":
@@ -193,7 +193,7 @@ function auditDetail(entry: AuditEntry): string | null {
     case "swap.deny": {
       const req = m.requesterName as string | null;
       const tgt = m.targetName   as string | null;
-      if (req && tgt) return `${req} ↔ ${tgt}`;
+      if (req && tgt) return `${req} and ${tgt}`;
       return null;
     }
     case "punch.correction": {
@@ -592,10 +592,10 @@ export default function ReportsPageClient() {
         >
           <button
             onClick={() => router.back()}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
             aria-label="Back"
           >
-            ‹
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Reports</span>
         </div>
@@ -607,10 +607,11 @@ export default function ReportsPageClient() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
+            aria-pressed={activeTab === tab}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === tab
                 ? "bg-indigo-600 text-white"
-                : "bg-card border border-slate-800 text-slate-400"
+                : "bg-card border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : "Activity"}
@@ -627,20 +628,21 @@ export default function ReportsPageClient() {
               Coverage — Last 4 Weeks
             </div>
             {loading ? (
-              <div className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
+              <div role="status" aria-label="Loading coverage heatmap" className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
             ) : (
               <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
-                <div className="grid grid-cols-7 gap-1 mb-1">
-                  {["S","M","T","W","T","F","S"].map((d, i) => (
-                    <div key={i} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
+                <div className="grid grid-cols-7 gap-1 mb-1" role="row">
+                  {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
+                    <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
                   {heatmapDays.map((day) => {
                     const count = coverageMap[day] ?? 0;
                     const cls = cellClass(count, minCoverage, optimalCoverage);
+                    const dateLabel = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
                     return (
-                      <div key={day} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
+                      <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
                         <span className="text-[11px] font-bold tabular-nums">{count}</span>
                         <span className="text-[9px] mt-0.5 opacity-70">
                           {new Date(day + "T12:00:00Z").getUTCDate()}
@@ -657,7 +659,7 @@ export default function ReportsPageClient() {
                     { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
                   ].map(({ label, cls }) => (
                     <div key={label} className="flex items-center gap-1">
-                      <div className={`size-3 rounded ${cls}`} />
+                      <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
                       <span className="text-[10px] text-slate-400">{label}</span>
                     </div>
                   ))}
@@ -673,22 +675,26 @@ export default function ReportsPageClient() {
                 Hours — {formatWeekLabel(selectedWeekStart)}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setWeekOffset((o) => o - 1)} className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer text-sm">‹</button>
+                <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Previous week" className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
                 {weekOffset !== 0 && (
-                  <button onClick={() => setWeekOffset(0)} className="text-[11px] text-slate-400 bg-card border border-slate-800 rounded-lg px-2 py-1 cursor-pointer">Now</button>
+                  <button onClick={() => setWeekOffset(0)} className="text-[11px] text-slate-400 bg-card border border-slate-800 rounded-lg px-2 py-1 cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">Now</button>
                 )}
-                <button onClick={() => setWeekOffset((o) => o + 1)} className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer text-sm">›</button>
+                <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Next week" className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
               </div>
             </div>
 
             {weekLoading ? (
-              <div className="h-32 bg-slate-800 rounded-2xl animate-pulse" />
+              <div role="status" aria-label="Loading hours table" className="h-32 bg-slate-800 rounded-2xl animate-pulse" />
             ) : (
               <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
                   {weekDates.map((d) => (
-                    <div key={d} className="text-[10px] text-slate-500 font-semibold text-center">
+                    <div key={d} className="text-[10px] text-slate-500 font-semibold text-center" title={new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}>
                       {new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" })}
                     </div>
                   ))}
@@ -701,11 +707,11 @@ export default function ReportsPageClient() {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
                       <div key={emp.id} className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
-                        <div className="text-xs text-slate-200 font-medium truncate">{emp.name.split(" ")[0]}</div>
+                        <div className="text-xs text-slate-200 font-medium truncate" title={emp.name}>{emp.name.split(" ")[0]}</div>
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];
                           return (
-                            <div key={d} className={`text-center text-[11px] font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-700"}`}>
+                            <div key={d} className={`text-center text-[11px] font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
                               {h ? h.toFixed(0) : "-"}
                             </div>
                           );
@@ -725,7 +731,7 @@ export default function ReportsPageClient() {
           <section>
             <button
               onClick={exportCSV}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer"
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
             >
               Export CSV
             </button>
@@ -740,30 +746,33 @@ export default function ReportsPageClient() {
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">From</div>
+                <label htmlFor="payroll-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
                 <input
+                  id="payroll-from"
                   type="date"
                   value={payrollFrom}
                   onChange={(e) => setPayrollFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">To</div>
+                <label htmlFor="payroll-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
                 <input
+                  id="payroll-to"
                   type="date"
                   value={payrollTo}
                   onChange={(e) => setPayrollTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">Export Format</div>
+              <label htmlFor="payroll-format" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Export Format</label>
               <select
+                id="payroll-format"
                 value={payrollFormat}
                 onChange={(e) => setPayrollFormat(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
               >
                 <option value="summary">Summary CSV — Universal</option>
                 <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
@@ -773,14 +782,15 @@ export default function ReportsPageClient() {
             <button
               onClick={generatePayroll}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
-              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer disabled:opacity-40"
+              aria-busy={payrollLoading}
+              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {payrollLoading ? "Generating…" : "Generate Report"}
             </button>
           </div>
 
           {payrollError && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
+            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
               {payrollError}
             </div>
           )}
@@ -788,7 +798,7 @@ export default function ReportsPageClient() {
           {payrollData !== null && payrollData.length === 0 && (
             <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
               <div className="text-slate-400 text-sm font-medium">No punch records in this period</div>
-              <div className="text-slate-600 text-xs mt-1">Employees need to clock in before payroll data is available</div>
+              <div className="text-slate-500 text-xs mt-1">Employees need to clock in before payroll data is available</div>
             </div>
           )}
 
@@ -798,23 +808,23 @@ export default function ReportsPageClient() {
               <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9">Reg</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9">OT</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9">Brk</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9" title="Regular hours">Reg</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9" title="Overtime hours">OT</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9" title="Break hours">Brk</div>
                   <div className="text-[10px] text-slate-500 font-semibold text-right w-10">Total</div>
                 </div>
                 {payrollData.map((emp) => (
                   <div key={emp.employeeId} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
-                    <div className="text-xs text-slate-200 font-medium truncate flex items-center gap-1">
+                    <div className="text-xs text-slate-200 font-medium truncate flex items-center gap-1" title={emp.employeeName}>
                       {emp.employeeName.split(" ")[0]}
                       {emp.weeks.some((w) => w.hasIncomplete) && (
-                        <span className="text-amber-400 text-[10px]" title="Incomplete punch pair">⚠</span>
+                        <span className="text-amber-400 text-[10px]" aria-label="Incomplete punch pair" role="img">⚠</span>
                       )}
                     </div>
                     <div className="text-right text-[11px] font-semibold text-emerald-400 tabular-nums w-9">
                       {emp.totalRegularHours.toFixed(1)}
                     </div>
-                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-amber-400" : "text-slate-500"}`}>
                       {emp.totalOvertimeHours > 0 ? emp.totalOvertimeHours.toFixed(1) : "—"}
                     </div>
                     <div className="text-right text-[11px] text-slate-500 tabular-nums w-9">
@@ -835,7 +845,7 @@ export default function ReportsPageClient() {
                     <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-800/40 border-t border-slate-700/60">
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Total</div>
                       <div className="text-right text-[11px] font-bold text-emerald-400 tabular-nums w-9">{reg.toFixed(1)}</div>
-                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-amber-400" : "text-slate-500"}`}>
                         {ot > 0 ? ot.toFixed(1) : "—"}
                       </div>
                       <div className="text-right text-[11px] font-bold text-slate-500 tabular-nums w-9">{brk.toFixed(1)}</div>
@@ -847,13 +857,13 @@ export default function ReportsPageClient() {
 
               {payrollData.some((e) => e.weeks.some((w) => w.hasIncomplete)) && (
                 <div className="text-[11px] text-amber-400/80 px-1 leading-snug">
-                  ⚠ Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
+                  <span aria-hidden="true">⚠</span> Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
                 </div>
               )}
 
               <button
                 onClick={downloadPayroll}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-sm cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
               >
                 {payrollFormat === "qb-iif"
                   ? "Download QuickBooks Desktop (.iif)"
@@ -873,30 +883,33 @@ export default function ReportsPageClient() {
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">From</div>
+                <label htmlFor="pending-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
                 <input
+                  id="pending-from"
                   type="date"
                   value={pendingFrom}
                   onChange={(e) => setPendingFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">To</div>
+                <label htmlFor="pending-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
                 <input
+                  id="pending-to"
                   type="date"
                   value={pendingTo}
                   onChange={(e) => setPendingTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
                 />
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">Category</div>
+              <label htmlFor="pending-category" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Category</label>
               <select
+                id="pending-category"
                 value={pendingCategory}
                 onChange={(e) => setPendingCategory(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -905,7 +918,7 @@ export default function ReportsPageClient() {
             </div>
             <button
               onClick={applyFilters}
-              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer"
+              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors"
             >
               Apply filters
             </button>
@@ -913,15 +926,15 @@ export default function ReportsPageClient() {
 
           {/* Results */}
           {auditLoading && auditEntries.length === 0 ? (
-            <div className="flex flex-col gap-3">
+            <div role="status" aria-label="Loading activity log" className="flex flex-col gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-16 bg-slate-800 rounded-2xl animate-pulse" />
+                <div key={i} aria-hidden="true" className="h-16 bg-slate-800 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : auditEntries.length === 0 ? (
             <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
               <div className="text-slate-400 text-sm font-medium">No activity in this period</div>
-              <div className="text-slate-600 text-xs mt-1">Try expanding the date range or changing the category filter</div>
+              <div className="text-slate-500 text-xs mt-1">Try expanding the date range or changing the category filter</div>
             </div>
           ) : (
             <>
@@ -958,7 +971,8 @@ export default function ReportsPageClient() {
                 <button
                   onClick={() => fetchAuditPage(auditPage + 1, false)}
                   disabled={auditLoading}
-                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50"
+                  aria-busy={auditLoading}
+                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-colors"
                 >
                   {auditLoading ? "Loading…" : "Load more"}
                 </button>

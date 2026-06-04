@@ -72,10 +72,10 @@ type Employee = { id: number; name: string; email: string | null; user_id: strin
 
 function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string }) {
   return (
-    <div data-testid={testId}>
+    <div data-testid={testId} aria-live="polite">
       {status === "saving" && <div className="text-xs text-slate-400 mt-2 text-right">Saving…</div>}
       {status === "saved"  && <div className="text-xs text-emerald-400 mt-2 text-right">Saved ✓</div>}
-      {status === "error"  && <div className="text-xs text-red-400 mt-2 text-right">Failed to save</div>}
+      {status === "error"  && <div role="alert" className="text-xs text-red-400 mt-2 text-right">Failed to save</div>}
     </div>
   );
 }
@@ -126,16 +126,16 @@ function EmployeeAvailabilityRow({
         onClick={toggle}
         aria-expanded={expanded}
         aria-label="Toggle typical week"
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none"
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none transition-colors"
       >
-        <span>{expanded ? "▾" : "▸"}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span>Typical Week</span>
       </button>
 
       {expanded && (
         <div className="mt-2 pl-1">
           {records === null ? (
-            <div className="text-xs text-slate-600">Loading…</div>
+            <div role="status" className="text-xs text-slate-500">Loading…</div>
           ) : allFree ? (
             <div className="text-xs text-slate-500">No restrictions set</div>
           ) : (
@@ -187,7 +187,7 @@ function EmployeeAvailabilityRow({
                 );
               })}
               {freeDows.length > 0 && (
-                <div className="text-[11px] text-slate-600">
+                <div className="text-[11px] text-slate-500">
                   {freeDows.map((d) => DAY_SHORT[d]).join(", ")} — no restrictions
                 </div>
               )}
@@ -762,10 +762,10 @@ export default function SettingsPageClient({
         >
           <button
             onClick={() => router.back()}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
             aria-label="Back"
           >
-            ‹
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
         </div>
@@ -807,18 +807,18 @@ export default function SettingsPageClient({
                   }`}
                 >
                   {m === "light" && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
                       <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   )}
                   {m === "dark" && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                   {m === "system" && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
                       <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
@@ -847,8 +847,9 @@ export default function SettingsPageClient({
                   aria-label="Push notifications"
                   aria-checked={pushSubscribed}
                   disabled={pushSaving}
+                  aria-busy={pushSaving}
                   onClick={togglePush}
-                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                     pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
                   }`}
                 >
@@ -860,7 +861,7 @@ export default function SettingsPageClient({
                 </button>
               </div>
               {pushError && (
-                <div className="text-xs text-red-400 mt-2">{pushError}</div>
+                <div role="alert" className="text-xs text-red-400 mt-2">{pushError}</div>
               )}
             </div>
           </section>
@@ -891,17 +892,19 @@ export default function SettingsPageClient({
                 <button
                   data-testid="coverage-optimal-minus"
                   onClick={() => stepOptimal(-1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Decrease optimal coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   −
                 </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums">
+                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
                   {optimalCoverage}
                 </span>
                 <button
                   data-testid="coverage-optimal-plus"
                   onClick={() => stepOptimal(1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Increase optimal coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   +
                 </button>
@@ -917,17 +920,19 @@ export default function SettingsPageClient({
                 <button
                   data-testid="coverage-min-minus"
                   onClick={() => stepMin(-1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Decrease minimum coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   −
                 </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums">
+                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
                   {minCoverage}
                 </span>
                 <button
                   data-testid="coverage-min-plus"
                   onClick={() => stepMin(1)}
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none"
+                  aria-label="Increase minimum coverage"
+                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   +
                 </button>
@@ -935,7 +940,7 @@ export default function SettingsPageClient({
             </div>
 
             {coverageValidationError && (
-              <div className="text-xs text-red-400" data-testid="coverage-validation-error">
+              <div role="alert" className="text-xs text-red-400" data-testid="coverage-validation-error">
                 {coverageValidationError}
               </div>
             )}
@@ -964,7 +969,7 @@ export default function SettingsPageClient({
                   setEmailNotifications(newVal);
                   saveEmailNotif(newVal);
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   emailNotifications ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -975,9 +980,11 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
-            {emailNotifSaved && (
-              <div className="text-xs text-emerald-400 mt-2 text-right">Saved</div>
-            )}
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
+              {emailNotifSaved && (
+                <div className="text-xs text-emerald-400 mt-2">Saved</div>
+              )}
+            </div>
           </div>
         </section>}
 
@@ -1003,7 +1010,7 @@ export default function SettingsPageClient({
                   setManualPunchesEnabled(next);
                   saveTimeclockSetting({ manualPunchesEnabled: next });
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1030,7 +1037,7 @@ export default function SettingsPageClient({
                   setGpsRequired(next);
                   saveTimeclockSetting({ gpsRequired: next });
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   gpsRequired ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1063,7 +1070,7 @@ export default function SettingsPageClient({
                       saveTimeclockSetting({ geofenceEnabled: next });
                       if (next && geofenceLat === null) useCurrentLocation();
                     }}
-                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
                     }`}
                   >
@@ -1082,23 +1089,24 @@ export default function SettingsPageClient({
                       <div className="text-xs text-slate-400 mb-1.5">Location</div>
                       <div className="flex gap-2">
                         <input
+                          aria-label="Search geofence address"
                           value={addressInput}
                           onChange={(e) => handleAddressInput(e.target.value)}
                           onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           placeholder="Search address…"
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                         <button
                           onClick={useCurrentLocation}
                           disabled={gettingLocation}
                           title="Use my current location"
-                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           {gettingLocation ? (
                             <span className="text-xs font-bold">…</span>
                           ) : (
-                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2"/>
                               <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                             </svg>
@@ -1140,7 +1148,8 @@ export default function SettingsPageClient({
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
-                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                              aria-label="Decrease geofence radius"
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                             >
                               −
                             </button>
@@ -1150,17 +1159,19 @@ export default function SettingsPageClient({
                               max="5000"
                               step="25"
                               value={geofenceRadius}
+                              aria-label="Geofence radius in meters"
                               onChange={(e) => setGeofenceRadius(Number(e.target.value))}
                               className="flex-1 accent-indigo-500"
                             />
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
-                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none"
+                              aria-label="Increase geofence radius"
+                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                             >
                               +
                             </button>
                           </div>
-                          <div className="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
+                          <div className="flex justify-between text-[10px] text-slate-500 mt-1 px-0.5" aria-hidden="true">
                             <span>50m</span>
                             <span>5km</span>
                           </div>
@@ -1169,13 +1180,14 @@ export default function SettingsPageClient({
                     )}
 
                     {geofenceError && (
-                      <div className="text-xs text-red-400">{geofenceError}</div>
+                      <div role="alert" className="text-xs text-red-400">{geofenceError}</div>
                     )}
 
                     <button
                       onClick={saveGeofence}
                       disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
-                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                      aria-busy={geofenceSaving}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
                     >
                       {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
                     </button>
@@ -1184,9 +1196,11 @@ export default function SettingsPageClient({
               </div>
             )}
 
-            {timeclockSaved && (
-              <div className="text-xs text-emerald-400 text-right">Saved ✓</div>
-            )}
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
+              {timeclockSaved && (
+                <div className="text-xs text-emerald-400">Saved ✓</div>
+              )}
+            </div>
           </div>
         </section>}
 
@@ -1201,6 +1215,7 @@ export default function SettingsPageClient({
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
+                  aria-pressed={firstDayOfWeek === value}
                   className={`flex-1 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
                     firstDayOfWeek === value
                       ? "bg-slate-600 text-slate-100"
@@ -1225,7 +1240,7 @@ export default function SettingsPageClient({
               aria-label="Timezone"
               value={timezone}
               onChange={(e) => saveTimezone(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
             >
               {TIMEZONE_OPTIONS.map(({ label, value }) => (
                 <option key={value} value={value}>{label} — {value}</option>
@@ -1263,17 +1278,18 @@ export default function SettingsPageClient({
                       <div className="flex-1 flex flex-col gap-1 min-w-0">
                         <input
                           autoFocus
+                          aria-label={`Edit name for ${emp.name}`}
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100"
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
-                        {editError && <div className="text-xs text-red-400">{editError}</div>}
+                        {editError && <div role="alert" className="text-xs text-red-400">{editError}</div>}
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
-                        {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                        <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
+                        {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
                       </div>
                     )}
                     {editingId === emp.id ? (
@@ -1281,13 +1297,14 @@ export default function SettingsPageClient({
                         <button
                           onClick={() => saveEditName(emp.id)}
                           disabled={editSaving}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                          aria-busy={editSaving}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {editSaving ? "…" : "Save"}
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1297,20 +1314,22 @@ export default function SettingsPageClient({
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
                           className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
-                          aria-label="Edit name"
+                          aria-label={`Edit name for ${emp.name}`}
+                          aria-expanded={editingId === emp.id}
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
                         {emp.user_id === currentUserId ? (
-                          <span className="text-xs text-slate-600 px-3 py-1.5">You</span>
+                          <span className="text-xs text-slate-500 px-3 py-1.5" aria-label="You — cannot remove yourself">You</span>
                         ) : (
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            aria-label={`Remove ${emp.name}`}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-red-500/20 text-red-300 border-red-500/40"
                                 : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
@@ -1351,6 +1370,8 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : new Date().toISOString().slice(0, 10) }))}
+                          aria-label={`Apply ${tpl.name} template`}
+                          aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
                         >
                           Apply
@@ -1363,7 +1384,9 @@ export default function SettingsPageClient({
                             setDeletingTemplateId(null);
                           }}
                           disabled={deletingTemplateId === tpl.id}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50"
+                          aria-label={`Delete ${tpl.name} template`}
+                          aria-busy={deletingTemplateId === tpl.id}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {deletingTemplateId === tpl.id ? "…" : "Delete"}
                         </button>
@@ -1373,12 +1396,14 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-2">
                         <input
                           type="date"
+                          aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                         <button
                           disabled={applyingId === tpl.id}
+                          aria-busy={applyingId === tpl.id}
                           onClick={async () => {
                             setApplyingId(tpl.id);
                             setApplyError((prev) => ({ ...prev, [tpl.id]: null }));
@@ -1395,14 +1420,14 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer disabled:opacity-50"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {applyingId === tpl.id ? "Applying…" : "Confirm"}
                         </button>
                       </div>
                     )}
                     {applyError[tpl.id] && (
-                      <div className="text-xs text-red-400">{applyError[tpl.id]}</div>
+                      <div role="alert" className="text-xs text-red-400">{applyError[tpl.id]}</div>
                     )}
                   </motion.div>
                 ))
@@ -1482,20 +1507,24 @@ export default function SettingsPageClient({
       {/* Delete confirmation modal */}
       {confirmDeleteEmployee && (
         <div
+          aria-hidden="true"
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
           onClick={() => setConfirmDeleteEmployee(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-heading"
             className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl">
+              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
-                <div className="text-base font-bold text-slate-100">Delete {confirmDeleteEmployee.name}?</div>
+                <div id="confirm-delete-heading" className="text-base font-bold text-slate-100">Delete {confirmDeleteEmployee.name}?</div>
                 <div className="text-sm text-slate-400 mt-1">
                   This will permanently delete their account and all of their shifts. This cannot be undone.
                 </div>
@@ -1504,6 +1533,7 @@ export default function SettingsPageClient({
             <div className="flex border-t border-slate-800">
               <button
                 onClick={() => setConfirmDeleteEmployee(null)}
+                autoFocus
                 className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800"
               >
                 Cancel
