@@ -39,13 +39,7 @@ export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }
       )}
       <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
         Shift
-        <span
-          className="bg-clip-text text-transparent animate-gradient"
-          style={{
-            backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)",
-            backgroundSize: "200% auto",
-          }}
-        >
+        <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
           View
         </span>
       </span>
