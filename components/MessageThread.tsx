@@ -260,7 +260,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
               placeholder={`Message ${otherName}…`}
               aria-label={`Message to ${otherName}`}
               rows={1}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none outline-none focus:border-slate-600 transition-colors"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-indigo-500/70 transition-colors"
               style={{ maxHeight: 120 }}
             />
             <button

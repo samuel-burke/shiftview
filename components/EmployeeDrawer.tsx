@@ -203,6 +203,7 @@ export default function EmployeeDrawer({
               <button
                 onClick={() => setConflict(null)}
                 disabled={saving}
+                autoFocus
                 className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
               >
                 Cancel
@@ -308,9 +309,9 @@ export default function EmployeeDrawer({
                 {editing ? (
                   <div className="flex flex-col gap-3">
                     {[
-                      { label: "Start time", id: "edit-shift-start", val: startVal, set: setStartVal },
-                      { label: "End time",   id: "edit-shift-end",   val: endVal,   set: setEndVal   },
-                    ].map(({ label, id, val, set }) => (
+                      { label: "Start time", id: "edit-shift-start", val: startVal, set: setStartVal, autoFocus: true },
+                      { label: "End time",   id: "edit-shift-end",   val: endVal,   set: setEndVal,   autoFocus: false },
+                    ].map(({ label, id, val, set, autoFocus }) => (
                       <div key={label}>
                         <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
                           {label}
@@ -319,6 +320,7 @@ export default function EmployeeDrawer({
                           id={id}
                           type="time"
                           value={val}
+                          autoFocus={autoFocus}
                           onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
                           className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
                         />
