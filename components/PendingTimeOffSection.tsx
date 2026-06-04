@@ -79,19 +79,23 @@ function RequestRow({
         <button
           onClick={handleDeny}
           disabled={loading !== null}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 transition-colors"
+          aria-label={`Deny ${request.employeeName}'s time off request`}
+          aria-busy={loading === "deny"}
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {loading === "deny"
-            ? <div className="size-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
+            ? <div aria-hidden="true" className="size-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
             : <><TimeOffDeniedIcon size={12} color="currentColor" />Deny</>}
         </button>
         <button
           onClick={handleApprove}
           disabled={loading !== null}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
+          aria-label={`Approve ${request.employeeName}'s time off request`}
+          aria-busy={loading === "approve"}
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {loading === "approve"
-            ? <div className="size-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            ? <div aria-hidden="true" className="size-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
             : <><TimeOffApprovedIcon size={12} color="currentColor" />Approve</>}
         </button>
       </div>

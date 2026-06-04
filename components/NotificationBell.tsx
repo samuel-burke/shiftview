@@ -26,7 +26,7 @@ type Notification = {
 
 function ChatBubbleIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
         stroke={color}
@@ -141,16 +141,21 @@ export default function NotificationBell() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [fetchNotifications]);
 
-  // Close on outside click
+  // Close on outside click or Escape key
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    const onMouseDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   async function dismissOne(id: number) {
@@ -190,21 +195,30 @@ export default function NotificationBell() {
       <button
         onClick={() => { setOpen((v) => !v); if (!open) markAllRead(); }}
         className="relative size-9 flex items-center justify-center rounded-xl bg-card border border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
-        aria-label="Notifications"
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls="notifications-panel"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-5-5.917V4a1 1 0 10-2 0v1.083A6 6 0 006 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
             stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span aria-hidden="true" className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-80 max-h-[480px] bg-card border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden">
+        <div
+          id="notifications-panel"
+          role="dialog"
+          aria-modal="false"
+          aria-label="Notifications"
+          className="absolute right-0 top-11 w-80 max-h-[480px] bg-card border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden"
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
             <span className="text-sm font-bold text-slate-100">Notifications</span>
@@ -212,7 +226,7 @@ export default function NotificationBell() {
               {unread > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
                 >
                   Mark all read
                 </button>
@@ -220,7 +234,7 @@ export default function NotificationBell() {
               {notifications.length > 0 && (
                 <button
                   onClick={clearAll}
-                  className="text-xs text-slate-400 hover:text-red-400 cursor-pointer"
+                  className="text-xs text-slate-400 hover:text-red-400 cursor-pointer transition-colors"
                 >
                   Clear all
                 </button>
@@ -232,7 +246,7 @@ export default function NotificationBell() {
           <div className="overflow-y-auto flex-1">
             {loading && notifications.length === 0 && (
               <div className="flex items-center justify-center py-8">
-                <div className="spinner" />
+                <div aria-hidden="true" className="spinner" />
               </div>
             )}
             {!loading && notifications.length === 0 && (
@@ -250,30 +264,31 @@ export default function NotificationBell() {
                     <div className="text-sm font-semibold text-slate-100 truncate">{n.title}</div>
                     <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] text-slate-600">{timeAgo(n.created_at)}</span>
+                      <span className="text-[11px] text-slate-500">{timeAgo(n.created_at)}</span>
                       {isMsg && (
                         <button
                           onClick={() => {
                             setChatTarget({ userId: n.data!.fromUserId as string, name: n.data!.fromName as string || n.title });
                             setOpen(false);
                           }}
-                          className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium"
+                          className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium flex items-center gap-0.5 transition-colors"
                         >
-                          Reply →
+                          Reply
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </button>
                       )}
                     </div>
                   </div>
                   <div className="flex flex-col items-center gap-1 shrink-0">
                     {!n.read && (
-                      <span className="size-2 rounded-full bg-indigo-500" />
+                      <span aria-hidden="true" className="size-2 rounded-full bg-indigo-500" />
                     )}
                     <button
                       onClick={() => dismissOne(n.id)}
                       aria-label={`Dismiss: ${n.title}`}
-                      className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none"
+                      className="text-slate-400 hover:text-slate-200 cursor-pointer leading-none flex items-center justify-center size-5 transition-colors"
                     >
-                      ×
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                     </button>
                   </div>
                 </div>

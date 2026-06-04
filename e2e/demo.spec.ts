@@ -65,8 +65,8 @@ test.describe("Demo mode — schedule view", () => {
 
   test("shows a Sign In option in the user menu in demo mode (not Sign Out)", async ({ page }) => {
     await page.getByRole("button", { name: "User menu" }).click();
-    await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /sign out/i })).not.toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /sign out/i })).not.toBeVisible();
   });
 
   test("shows today's date in the header", async ({ page }) => {
@@ -129,7 +129,7 @@ test.describe("Demo mode — employee drawer", () => {
     await page.getByText("Alice S.").first().click();
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("6:00 AM")).toBeVisible();
-    await drawer.getByText("✕").click();
+    await drawer.getByRole("button", { name: "Close" }).click();
     await expect(drawer.getByText("6:00 AM")).not.toBeVisible();
   });
 

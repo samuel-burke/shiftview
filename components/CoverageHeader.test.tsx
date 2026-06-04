@@ -70,11 +70,8 @@ describe("CoverageHeader", () => {
     const onPrev = vi.fn();
     const onNext = vi.fn();
     render(<CoverageHeader {...baseProps} onPrev={onPrev} onNext={onNext} />);
-    // getAllByText since the date picker sheet also renders ← and → for month nav
-    const prevBtns = screen.getAllByText("←");
-    const nextBtns = screen.getAllByText("→");
-    await userEvent.click(prevBtns[0]);
-    await userEvent.click(nextBtns[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Previous day" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next day" }));
     expect(onPrev).toHaveBeenCalledOnce();
     expect(onNext).toHaveBeenCalledOnce();
   });

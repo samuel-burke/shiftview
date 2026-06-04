@@ -94,14 +94,19 @@ export default function CoverageHeader({
 
   const dateNav = (
     <div className={`flex items-center ${isDesktop ? "gap-4" : "justify-between"}`}>
-      <button onClick={onPrev} aria-label="Previous day" className={navBtn}>←</button>
+      <button onClick={onPrev} aria-label="Previous day" className={navBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
       <button
         onClick={() => setPickerOpen(true)}
-        className={`text-center bg-transparent border-none cursor-pointer ${isDesktop ? "px-2" : "p-0"}`}
+        aria-label={`${dateLabel}, ${dayName}. Open date picker`}
+        aria-expanded={pickerOpen}
+        aria-haspopup="dialog"
+        className={`text-center bg-transparent border-none cursor-pointer hover:opacity-80 transition-opacity ${isDesktop ? "px-2" : "p-0"}`}
       >
         <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>
           {dateLabel}
-          <span className="text-[13px] text-blue-500 font-normal">▾</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
         <div className="text-[13px] text-slate-400 mt-0.5">
           {dayName}
@@ -111,7 +116,9 @@ export default function CoverageHeader({
           <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
         )}
       </button>
-      <button onClick={onNext} aria-label="Next day" className={navBtn}>→</button>
+      <button onClick={onNext} aria-label="Next day" className={navBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
     </div>
   );
 
@@ -180,7 +187,7 @@ export default function CoverageHeader({
         {isDemo && (
           <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between">
             <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-            <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
+            <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
           </div>
         )}
         <div className="flex items-center justify-between mb-3">
@@ -190,7 +197,7 @@ export default function CoverageHeader({
           </span>
           <div className="flex items-center gap-2">
             {!isToday && (
-              <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer">TODAY</button>
+              <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-600 transition-colors">TODAY</button>
             )}
             {!isDemo && <NotificationBell />}
             <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
@@ -216,6 +223,6 @@ export default function CoverageHeader({
   );
 }
 
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
+const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
-const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer";
+const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";

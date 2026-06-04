@@ -18,7 +18,7 @@ function Table({ rows }: { rows: [string, string][] }) {
         <tbody>
           {rows.map(([a, b]) => (
             <tr key={a} className="border-t border-slate-800">
-              <td className="py-2 pr-6 font-medium text-slate-300 whitespace-nowrap">{a}</td>
+              <th scope="row" className="py-2 pr-6 font-medium text-slate-300 whitespace-nowrap text-left">{a}</th>
               <td className="py-2">{b}</td>
             </tr>
           ))}
@@ -36,14 +36,14 @@ export default function PrivacyPage() {
           href="/"
           className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-8"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M19 12H5M5 12l7-7M5 12l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back
         </Link>
 
         <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-600 mb-10">Last updated: June 3, 2026</p>
+        <p className="text-xs text-slate-500 mb-10">Last updated: June 3, 2026</p>
 
         <div className="text-sm text-slate-400 leading-relaxed space-y-1">
           <Section title="1. Who We Are">

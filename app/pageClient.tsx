@@ -672,15 +672,16 @@ export default function Page() {
     <div
       className="flex-1 bg-card rounded-xl px-2 py-3 text-center"
       style={{ border: `1px solid ${color}33` }}
+      aria-label={loading ? `Loading ${label}` : `${value} ${label}`}
     >
       {loading ? (
-        <div className="flex justify-center mb-1.5">
+        <div aria-hidden="true" className="flex justify-center mb-1.5">
           <div className="skeleton h-7 w-8 rounded-[6px]" />
         </div>
       ) : (
-        <div className="text-[28px] font-extrabold leading-none" style={{ color }}>{value}</div>
+        <div className="text-[28px] font-extrabold leading-none" aria-hidden="true" style={{ color }}>{value}</div>
       )}
-      <div className="text-[11px] text-slate-400 mt-1 font-medium">{label}</div>
+      <div className="text-[11px] text-slate-400 mt-1 font-medium" aria-hidden="true">{label}</div>
     </div>
   );
 
@@ -736,7 +737,7 @@ export default function Page() {
   );
 
   const errorBanner = error ? (
-    <div className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+    <div role="alert" className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
       {error}
     </div>
   ) : null;
@@ -745,7 +746,8 @@ export default function Page() {
     <button
       onClick={handleExportCSV}
       disabled={exportLoading}
-      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50"
+      aria-busy={exportLoading}
+      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {exportLoading ? "Loading…" : "Export CSV"}
     </button>
@@ -756,7 +758,7 @@ export default function Page() {
       <AppShell active="team" isManager={isManager}>
         <main className="bg-bg min-h-screen">
           <CoverageHeader {...headerProps} />
-          {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+          {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
           {errorBanner}
           <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
             {/* Left: stats + timeline + legend */}
@@ -784,7 +786,7 @@ export default function Page() {
     <AppShell active="team" isManager={isManager}>
       <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
         <CoverageHeader {...headerProps} />
-        {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+        {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
         {errorBanner}
         {statsRow}
         {timeline}

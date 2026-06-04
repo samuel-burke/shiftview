@@ -150,15 +150,28 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }
 
+  // Escape key to close
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && open) onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   return (
     <>
       <div
         onClick={onClose}
+        aria-hidden="true"
         className={`fixed inset-0 bg-black/60 z-[60] transition-opacity duration-200 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Message thread with ${otherName}`}
         className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
@@ -177,16 +190,19 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           </div>
           <button
             onClick={onClose}
-            className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0"
+            aria-label="Close"
+            className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
-            ✕
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
 
         {/* Messages list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
           {loading && (
-            <div className="text-center text-sm text-slate-500 mt-8">Loading…</div>
+            <div role="status" aria-label="Loading messages" className="text-center text-sm text-slate-500 mt-8">Loading…</div>
           )}
           {!loading && messages.length === 0 && (
             <div className="text-center text-sm text-slate-500 mt-8">
@@ -203,13 +219,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             return (
               <div key={msg.id}>
                 {showTime && (
-                  <div className="text-center text-[11px] text-slate-600 my-2">
+                  <div className="text-center text-[11px] text-slate-500 my-2">
                     {timeLabel(msg.created_at)}
                   </div>
                 )}
                 <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                   {!isMine && (
-                    <div className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
+                    <div aria-hidden="true" className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
                       {initials(otherName)}
                     </div>
                   )}
@@ -242,23 +258,25 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
               onKeyDown={handleKeyDown}
               onInput={autoResize}
               placeholder={`Message ${otherName}…`}
+              aria-label={`Message to ${otherName}`}
               rows={1}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none outline-none focus:border-slate-600 transition-colors"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-indigo-500/70 transition-colors"
               style={{ maxHeight: 120 }}
             />
             <button
               onClick={handleSend}
               disabled={!body.trim() || sending}
               aria-label="Send message"
-              className="size-[42px] rounded-full bg-gradient-to-br from-blue-500 to-violet-500 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 shrink-0 transition-opacity"
+              aria-busy={sending}
+              className="size-[42px] rounded-full bg-gradient-to-br from-blue-500 to-violet-500 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M22 2L15 22 11 13 2 9l20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
-          <div className="text-[10px] text-slate-600 mt-1.5 text-center">
+          <div className="text-[10px] text-slate-500 mt-1.5 text-center">
             Enter to send · Shift+Enter for new line
           </div>
         </div>

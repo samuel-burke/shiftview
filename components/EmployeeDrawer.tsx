@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import MessageThread from "./MessageThread";
@@ -82,6 +82,18 @@ export default function EmployeeDrawer({
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      if (conflict) { setConflict(null); return; }
+      if (open) onClose();
+    }
+  }, [open, conflict, onClose]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   useEffect(() => {
     if (open) {
@@ -165,15 +177,18 @@ export default function EmployeeDrawer({
           onClick={() => setConflict(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="conflict-modal-title"
             className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl">
+              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
-                <div className="text-base font-bold text-slate-100">
+                <div id="conflict-modal-title" className="text-base font-bold text-slate-100">
                   {conflict.type === "time_off" ? "Time Off Conflict" : "Availability Conflict"}
                 </div>
                 <div className="text-sm text-slate-400 mt-1.5">{conflict.message}</div>
@@ -188,14 +203,16 @@ export default function EmployeeDrawer({
               <button
                 onClick={() => setConflict(null)}
                 disabled={saving}
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
+                autoFocus
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0 hover:bg-slate-800/50 hover:text-slate-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleOverride}
                 disabled={saving}
-                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer bg-transparent border-none"
+                aria-busy={saving}
+                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none hover:text-amber-300 hover:bg-amber-500/10"
               >
                 {saving ? "Saving…" : "Override & Save"}
               </button>
@@ -209,6 +226,7 @@ export default function EmployeeDrawer({
           <>
             <motion.div
               key="backdrop"
+              aria-hidden="true"
               className="fixed inset-0 bg-black/60 z-40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -218,6 +236,9 @@ export default function EmployeeDrawer({
             />
             <motion.div
               key="panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="employee-drawer-title"
               data-testid="employee-drawer"
               className={`fixed z-50 bg-bg ${
                 isDesktop
@@ -231,7 +252,7 @@ export default function EmployeeDrawer({
             >
               {!isDesktop && (
                 <div className="flex justify-center pt-3 pb-1">
-                  <div className="w-10 h-1 rounded-full bg-slate-700" />
+                  <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
                 </div>
               )}
 
@@ -250,7 +271,7 @@ export default function EmployeeDrawer({
                       {getMonogram(employee.name)}
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-slate-100">{employee.name}</div>
+                      <div id="employee-drawer-title" className="text-lg font-bold text-slate-100">{employee.name}</div>
                       <div className="text-xs mt-[3px]">
                         {shiftType && (
                           <span className="capitalize mr-1.5" style={{ color: shiftColor }}>{shiftType}</span>
@@ -261,9 +282,12 @@ export default function EmployeeDrawer({
                   </div>
                   <button
                     onClick={onClose}
-                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                    aria-label="Close"
+                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                   >
-                    ✕
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                    </svg>
                   </button>
                 </div>
 
@@ -272,12 +296,12 @@ export default function EmployeeDrawer({
                   <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
                     {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
                       <>
-                        ⚠ Usually unavailable on {DAY_NAMES[dayOfWeek]}s
+                        <span aria-hidden="true">⚠</span> Usually unavailable on {DAY_NAMES[dayOfWeek]}s
                         {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
                       </>
                     ) : (
                       <>
-                        ⚠ Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
+                        <span aria-hidden="true">⚠</span> Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
                         {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
                       </>
                     )}
@@ -287,30 +311,33 @@ export default function EmployeeDrawer({
                 {editing ? (
                   <div className="flex flex-col gap-3">
                     {[
-                      { label: "Start time", val: startVal, set: setStartVal },
-                      { label: "End time",   val: endVal,   set: setEndVal   },
-                    ].map(({ label, val, set }) => (
+                      { label: "Start time", id: "edit-shift-start", val: startVal, set: setStartVal, autoFocus: true },
+                      { label: "End time",   id: "edit-shift-end",   val: endVal,   set: setEndVal,   autoFocus: false },
+                    ].map(({ label, id, val, set, autoFocus }) => (
                       <div key={label}>
-                        <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
+                        <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
                           {label}
-                        </div>
+                        </label>
                         <input
+                          id={id}
                           type="time"
                           value={val}
+                          autoFocus={autoFocus}
                           onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
-                          className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
+                          className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                       </div>
                     ))}
 
                     {error && (
-                      <div className="text-xs text-red-400 text-center">{error}</div>
+                      <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
                     )}
 
                     <button
                       onClick={() => handleSave(false)}
                       disabled={saving}
-                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+                      aria-busy={saving}
+                      className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
                     >
                       {saving ? "Saving…" : "Save Shift"}
                     </button>
@@ -319,7 +346,7 @@ export default function EmployeeDrawer({
                       <button
                         onClick={handleMarkOff}
                         disabled={saving}
-                        className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+                        className="py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-[opacity,background-color] hover:bg-red-500/10"
                       >
                         Mark as Off
                       </button>
@@ -328,7 +355,7 @@ export default function EmployeeDrawer({
                     <button
                       onClick={() => { setEditing(false); setError(null); setConflict(null); }}
                       disabled={saving}
-                      className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
+                      className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:text-slate-200 transition-colors"
                     >
                       Cancel
                     </button>
@@ -353,7 +380,7 @@ export default function EmployeeDrawer({
                       {isManager && (
                         <button
                           onClick={() => setEditing(true)}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer"
+                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
                         >
                           {schedule ? "Edit Shift" : "Add Shift"}
                         </button>
@@ -361,7 +388,7 @@ export default function EmployeeDrawer({
                       {employee.user_id && (
                         <button
                           onClick={() => { setChatMounted(true); setChatOpen(true); }}
-                          className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
+                          className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:bg-slate-700 hover:text-slate-200 transition-colors"
                         >
                           Message
                         </button>
@@ -382,7 +409,8 @@ export default function EmployeeDrawer({
                           }
                         }}
                         disabled={saving || inviteSent}
-                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400"}`}
+                        aria-busy={saving}
+                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400 hover:text-slate-200 hover:border-slate-500"}`}
                       >
                         {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
                       </button>

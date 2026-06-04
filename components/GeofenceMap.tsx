@@ -229,6 +229,8 @@ export default function GeofenceMap({
       style={{ height: MAP_HEIGHT }}
     >
       <div
+        role="application"
+        aria-label="Geofence map — drag to reposition the pin"
         className="absolute inset-0 touch-none cursor-grab"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -254,6 +256,7 @@ export default function GeofenceMap({
           style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
           width={mapWidth}
           height={MAP_HEIGHT}
+          aria-hidden="true"
         >
           <circle cx={cx} cy={cy} r={radiusPx} fill="rgba(99,102,241,0.18)" stroke="#6366f1" strokeWidth={2} />
           <circle cx={cx} cy={cy} r={8} fill="#6366f1" />
@@ -264,15 +267,19 @@ export default function GeofenceMap({
       <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10">
         <button
           onClick={(e) => { e.stopPropagation(); onZoomChange(Math.min(MAX_ZOOM, zoom + 1)); }}
-          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform"
+          aria-label="Zoom in"
+          disabled={zoom >= MAX_ZOOM}
+          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          +
+          <span aria-hidden="true">+</span>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onZoomChange(Math.max(MIN_ZOOM, zoom - 1)); }}
-          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform"
+          aria-label="Zoom out"
+          disabled={zoom <= MIN_ZOOM}
+          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          −
+          <span aria-hidden="true">−</span>
         </button>
       </div>
 
