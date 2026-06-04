@@ -42,6 +42,7 @@ export default function BottomNav({ active }: Props) {
       <div className="flex relative">
         {/* Sliding pill indicator */}
         <motion.div
+          aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
           style={{ width: "33.333%" }}
           initial={{ left: `${fromIndex * 33.333}%` }}

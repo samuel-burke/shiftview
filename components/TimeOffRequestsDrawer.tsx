@@ -180,9 +180,7 @@ export default function TimeOffRequestsDrawer({
                           disabled={acting === req.id}
                           aria-busy={acting === req.id}
                           aria-label={`Approve ${req.employeeName}'s time off request`}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-opacity bg-gradient-to-r from-blue-500 to-violet-500 text-white ${
-                            acting === req.id ? "opacity-50" : "hover:brightness-110"
-                          }`}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-opacity bg-gradient-to-r from-blue-500 to-violet-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
                         >
                           {acting === req.id ? "…" : "Approve"}
                         </button>
@@ -191,9 +189,7 @@ export default function TimeOffRequestsDrawer({
                           disabled={acting === req.id}
                           aria-busy={acting === req.id}
                           aria-label={`Deny ${req.employeeName}'s time off request`}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-500/30 cursor-pointer transition-[opacity,background-color] bg-transparent text-red-400 ${
-                            acting === req.id ? "opacity-50" : "hover:bg-red-500/20 hover:border-red-500/50"
-                          }`}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-500/30 cursor-pointer transition-[opacity,background-color] bg-transparent text-red-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-500/20 hover:border-red-500/50"
                         >
                           {acting === req.id ? "…" : "Deny"}
                         </button>
