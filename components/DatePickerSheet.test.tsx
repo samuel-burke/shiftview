@@ -27,15 +27,15 @@ describe("DatePickerSheet", () => {
     expect(screen.getByText("1")).toBeInTheDocument();
   });
 
-  it("navigates to the previous month on ← click", async () => {
+  it("navigates to the previous month on prev-month click", async () => {
     render(<DatePickerSheet {...baseProps} />);
-    await userEvent.click(screen.getByText("←"));
+    await userEvent.click(screen.getByRole("button", { name: /previous month/i }));
     expect(screen.getByText("April 2026")).toBeInTheDocument();
   });
 
-  it("navigates to the next month on → click", async () => {
+  it("navigates to the next month on next-month click", async () => {
     render(<DatePickerSheet {...baseProps} />);
-    await userEvent.click(screen.getByText("→"));
+    await userEvent.click(screen.getByRole("button", { name: /next month/i }));
     expect(screen.getByText("June 2026")).toBeInTheDocument();
   });
 
@@ -47,7 +47,7 @@ describe("DatePickerSheet", () => {
         today={new Date(2026, 0, 15)}
       />
     );
-    await userEvent.click(screen.getByText("←"));
+    await userEvent.click(screen.getByRole("button", { name: /previous month/i }));
     expect(screen.getByText("December 2025")).toBeInTheDocument();
   });
 
@@ -59,7 +59,7 @@ describe("DatePickerSheet", () => {
         today={new Date(2026, 11, 15)}
       />
     );
-    await userEvent.click(screen.getByText("→"));
+    await userEvent.click(screen.getByRole("button", { name: /next month/i }));
     expect(screen.getByText("January 2027")).toBeInTheDocument();
   });
 

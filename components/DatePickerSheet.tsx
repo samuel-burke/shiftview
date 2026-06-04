@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
@@ -52,6 +52,15 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape" && open) onClose();
+  }, [open, onClose]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   function prevMonth() {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
     else setViewMonth(m => m - 1);
@@ -81,6 +90,9 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
           {isDesktop ? (
             <motion.div
               key="panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Date picker — ${MONTHS[viewMonth]} ${viewYear}`}
               className="fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7"
               initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
               animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
@@ -92,6 +104,9 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
           ) : (
             <motion.div
               key="panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Date picker — ${MONTHS[viewMonth]} ${viewYear}`}
               className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -114,11 +129,23 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
       <>
         {/* Month nav */}
         <div className="flex items-center justify-between mb-5">
-          <button onClick={prevMonth} className={navBtn}>←</button>
-          <span className="text-base font-bold text-slate-100">
+          <button
+            onClick={prevMonth}
+            aria-label={`Previous month, ${viewMonth === 0 ? MONTHS[11] : MONTHS[viewMonth - 1]} ${viewMonth === 0 ? viewYear - 1 : viewYear}`}
+            className={navBtn}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <span className="text-base font-bold text-slate-100" aria-live="polite">
             {MONTHS[viewMonth]} {viewYear}
           </span>
-          <button onClick={nextMonth} className={navBtn}>→</button>
+          <button
+            onClick={nextMonth}
+            aria-label={`Next month, ${viewMonth === 11 ? MONTHS[0] : MONTHS[viewMonth + 1]} ${viewMonth === 11 ? viewYear + 1 : viewYear}`}
+            className={navBtn}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
         </div>
 
         {/* Weekday headers */}
@@ -138,10 +165,14 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
             const isSelected = sameDay(day, selected);
             const isToday_ = sameDay(day, today);
 
+            const fullLabel = day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
             return (
               <div key={i} className="flex flex-col items-center gap-[3px]">
                 <button
                   onClick={() => { onSelect(day); onClose(); }}
+                  aria-label={fullLabel}
+                  aria-pressed={isSelected}
                   className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
                     isSelected
                       ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold"

@@ -24,8 +24,15 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
     function onOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   if (!onSignOut && !onSignIn) return null;
@@ -37,7 +44,9 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="User menu"
-        className="size-9 rounded-full bg-indigo-600/80 border border-indigo-500/40 flex items-center justify-center text-sm font-bold text-white cursor-pointer"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="size-9 rounded-full bg-indigo-600/80 border border-indigo-500/40 flex items-center justify-center text-sm font-bold text-white cursor-pointer hover:bg-indigo-500/80 hover:border-indigo-400/60 transition-colors"
       >
         {monogram ?? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -48,9 +57,10 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-40 bg-card border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div role="menu" className="absolute right-0 top-11 w-40 bg-card border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
           <Link
             href={settingsHref}
+            role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
           >
@@ -62,6 +72,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
           </Link>
           <Link
             href="/privacy"
+            role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
           >
@@ -72,6 +83,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
           </Link>
           {onSignOut && (
             <button
+              role="menuitem"
               onClick={() => { setOpen(false); onSignOut(); }}
               className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 cursor-pointer transition-colors"
             >
@@ -80,6 +92,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
           )}
           {onSignIn && (
             <button
+              role="menuitem"
               onClick={() => { setOpen(false); onSignIn(); }}
               className="w-full text-left px-4 py-3 text-sm text-blue-400 hover:bg-slate-700/50 cursor-pointer transition-colors"
             >
