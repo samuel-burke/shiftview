@@ -212,11 +212,11 @@ export default function AdminPageClient({
                         {isMgr ? "Manager" : "Employee"}
                       </span>
                       {!emp.user_id ? (
-                        <span className="text-xs text-slate-600 w-20 py-1.5 text-center">No account</span>
+                        <span className="text-xs text-slate-500 w-20 py-1.5 text-center">No account</span>
                       ) : isSelf ? (
                         <span
-                          className="text-xs text-slate-600 w-20 py-1.5 text-center"
-                          title="You cannot change your own role"
+                          className="text-xs text-slate-500 w-20 py-1.5 text-center"
+                          aria-label="You — cannot change your own role"
                         >
                           You
                         </span>
@@ -225,7 +225,7 @@ export default function AdminPageClient({
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
                           aria-busy={isToggling}
-                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center disabled:cursor-not-allowed ${
+                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center disabled:opacity-50 disabled:cursor-not-allowed ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr

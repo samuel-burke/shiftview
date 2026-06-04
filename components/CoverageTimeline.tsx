@@ -196,7 +196,7 @@ export default function CoverageTimeline({
       role="img"
       aria-label={`Coverage timeline from ${fmtMinutes(openMinutes)} to ${fmtMinutes(closeMinutes)}. ${isToday ? `Current time: ${fmtMinutes(nowMinutes)}.` : ""}`}
     >
-      <div className="flex items-center justify-between mb-3 pl-1.5 pr-1">
+      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
         </p>
@@ -309,6 +309,7 @@ export default function CoverageTimeline({
         {/* Time badge — positioned above the now line */}
         {isToday && lineLeft !== null && lineTop !== null && (
           <div
+            aria-hidden="true"
             className="absolute bg-slate-800 border border-slate-700 rounded-md px-[7px] py-[2px] text-[11px] font-bold text-slate-200 whitespace-nowrap pointer-events-none -translate-x-1/2"
             style={{ left: lineLeft, top: lineTop - 24 }}
           >
