@@ -269,7 +269,7 @@ export default function GeofenceMap({
           onClick={(e) => { e.stopPropagation(); onZoomChange(Math.min(MAX_ZOOM, zoom + 1)); }}
           aria-label="Zoom in"
           disabled={zoom >= MAX_ZOOM}
-          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <span aria-hidden="true">+</span>
         </button>
@@ -277,7 +277,7 @@ export default function GeofenceMap({
           onClick={(e) => { e.stopPropagation(); onZoomChange(Math.max(MIN_ZOOM, zoom - 1)); }}
           aria-label="Zoom out"
           disabled={zoom <= MIN_ZOOM}
-          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <span aria-hidden="true">−</span>
         </button>

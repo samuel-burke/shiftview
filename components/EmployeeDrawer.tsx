@@ -204,14 +204,14 @@ export default function EmployeeDrawer({
                 onClick={() => setConflict(null)}
                 disabled={saving}
                 autoFocus
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0"
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0 hover:bg-slate-800/50 hover:text-slate-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleOverride}
                 disabled={saving}
-                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none"
+                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none hover:text-amber-300 hover:bg-amber-500/10"
               >
                 {saving ? "Saving…" : "Override & Save"}
               </button>
@@ -406,7 +406,7 @@ export default function EmployeeDrawer({
                           }
                         }}
                         disabled={saving || inviteSent}
-                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400"}`}
+                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400 hover:text-slate-200 hover:border-slate-500"}`}
                       >
                         {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
                       </button>

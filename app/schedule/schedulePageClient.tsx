@@ -526,7 +526,7 @@ export default function SchedulePageClient() {
         <button
           onClick={() => setPickerOpen(true)}
           aria-label={`${rangeLabel}. Open date picker`}
-          className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
+          className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer hover:opacity-80 transition-opacity"
         >
           {rangeLabel}
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>

@@ -971,7 +971,7 @@ export default function ReportsPageClient() {
                   onClick={() => fetchAuditPage(auditPage + 1, false)}
                   disabled={auditLoading}
                   aria-busy={auditLoading}
-                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-colors"
                 >
                   {auditLoading ? "Loading…" : "Load more"}
                 </button>

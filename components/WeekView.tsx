@@ -83,8 +83,8 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             aria-pressed={isSelected}
             className={`flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 transition-colors cursor-pointer ${
               isSelected
-                ? "border border-indigo-500 bg-indigo-500/10"
-                : "border border-slate-800 bg-card"
+                ? "border border-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/20"
+                : "border border-slate-800 bg-card hover:bg-slate-800/60"
             }`}
           >
             <div className="text-[9px] text-slate-400 font-semibold tracking-wider mb-1.5">

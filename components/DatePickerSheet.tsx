@@ -173,12 +173,12 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                   onClick={() => { onSelect(day); onClose(); }}
                   aria-label={fullLabel}
                   aria-pressed={isSelected}
-                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center ${
+                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors ${
                     isSelected
-                      ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold"
+                      ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold hover:opacity-90"
                       : isToday_
-                      ? "bg-transparent text-blue-500 font-bold"
-                      : "bg-transparent text-slate-400 font-normal"
+                      ? "bg-transparent text-blue-500 font-bold hover:bg-blue-500/10"
+                      : "bg-transparent text-slate-400 font-normal hover:bg-slate-800 hover:text-slate-200"
                   }`}
                 >
                   {day.getDate()}

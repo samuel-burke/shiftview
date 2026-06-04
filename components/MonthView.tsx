@@ -119,8 +119,8 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
                   aria-pressed={isSelected}
                   className={`h-[52px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
                     isSelected
-                      ? "border border-indigo-500 bg-indigo-500/10"
-                      : "border border-slate-800/50 bg-card"
+                      ? "border border-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/20"
+                      : "border border-slate-800/50 bg-card hover:bg-slate-800/60"
                   }`}
                 >
                   <div
