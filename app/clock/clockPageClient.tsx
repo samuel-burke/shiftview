@@ -502,7 +502,7 @@ export default function ClockPageClient() {
             </div>
           )}
           <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
-            <div className="text-4xl">🔗</div>
+            <div aria-hidden="true" className="text-4xl">🔗</div>
             <div className="text-lg font-bold text-slate-100">Account not linked</div>
             <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
           </div>
