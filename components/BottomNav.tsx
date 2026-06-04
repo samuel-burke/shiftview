@@ -2,20 +2,22 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useIsDesktop } from "../hooks/useIsDesktop";
+import type { NavItem } from "./AppShell";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
 type Props = {
-  active: "team" | "schedule" | "clock";
+  active: NavItem;
 };
 
 const TABS = ["team", "schedule", "clock"] as const;
 const STORAGE_KEY = "nav-prev-tab";
 
 export default function BottomNav({ active }: Props) {
+  const isDesktop = useIsDesktop();
   const searchParams = useSearchParams();
-  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
-  const tabIndex = TABS.indexOf(active);
+  const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
 
   // Read which tab was active last time so the pill slides FROM there, not from 0.
   const [fromIndex] = useState<number>(() => {
@@ -29,6 +31,8 @@ export default function BottomNav({ active }: Props) {
     sessionStorage.setItem(STORAGE_KEY, String(tabIndex));
   }, [tabIndex]);
 
+  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
+  if (isDesktop) return null;
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800 max-w-[480px] mx-auto"

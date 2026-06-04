@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 import BottomNav from "../../components/BottomNav";
-
+import AppShell from "../../components/AppShell";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import InviteSheet from "../../components/InviteSheet";
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
@@ -693,28 +694,37 @@ export default function SettingsPageClient({
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  const isDesktop = useIsDesktop();
+
   return (
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
+    <AppShell active="settings" isManager={isManager}>
+    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
       {/* Top bar */}
-      <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-      >
-        <button
-          onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
-          aria-label="Back"
+      {isDesktop ? (
+        <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">
+          <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
+        </div>
+      ) : (
+        <div
+          className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
-          ‹
-        </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
-      </div>
+          <button
+            onClick={() => router.back()}
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+            aria-label="Back"
+          >
+            ‹
+          </button>
+          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Settings</span>
+        </div>
+      )}
 
       {loading ? (
-        <SkeletonSettingsBody isManager={isManager} />
+        <div className={isDesktop ? "max-w-2xl mx-auto px-6" : ""}><SkeletonSettingsBody isManager={isManager} /></div>
       ) : null}
 
-      <div className={`px-4 pt-5 flex flex-col gap-5${loading ? " hidden" : ""}`}>
+      <div className={`${isDesktop ? "max-w-2xl mx-auto px-6 pt-5" : "px-4 pt-5"} flex flex-col gap-5${loading ? " hidden" : ""}`}>
 
         {/* My Availability — shown to all linked employees */}
         {employeeId !== null && (
@@ -1393,7 +1403,7 @@ export default function SettingsPageClient({
         </section>
       </div>
 
-      <BottomNav active="team" />
+      {!isDesktop && <BottomNav active="settings" />}
 
       <InviteSheet
         open={showInvite}
@@ -1458,5 +1468,6 @@ export default function SettingsPageClient({
         </div>
       )}
     </main>
+    </AppShell>
   );
 }
