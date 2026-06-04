@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { motion, LayoutGroup } from "framer-motion";
+import { useState } from "react";
 
 type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports";
 
@@ -15,7 +17,12 @@ export default function SideNav({ active, isManager }: Props) {
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
 
   return (
-    <aside className="w-[220px] shrink-0 bg-[#0d1929] border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20">
+    <motion.aside
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="w-[220px] shrink-0 bg-[#0d1929] border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20"
+    >
       {/* Brand */}
       <div className="px-5 py-[18px] border-b border-slate-800 shrink-0">
         <span className="text-[22px] font-extrabold text-slate-100 tracking-tight">
@@ -28,31 +35,33 @@ export default function SideNav({ active, isManager }: Props) {
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
-        <NavLink href={`/${demo}`} label="Team" isActive={active === "team"}>
-          <TeamIcon />
-        </NavLink>
-        <NavLink href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
-          <ScheduleIcon />
-        </NavLink>
-        <NavLink href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
-          <ClockIcon />
-        </NavLink>
-
-        <div className="h-px bg-slate-800 my-2" />
-
-        {isManager && (
-          <NavLink href={`/admin${demo}`} label="Admin" isActive={active === "admin"}>
-            <AdminIcon />
+        <LayoutGroup id="sidenav">
+          <NavLink href={`/${demo}`} label="Team" isActive={active === "team"}>
+            <TeamIcon />
           </NavLink>
-        )}
-        <NavLink href={`/settings${demo}`} label="Settings" isActive={active === "settings"}>
-          <SettingsIcon />
-        </NavLink>
-        <NavLink href={`/reports${demo}`} label="Reports" isActive={active === "reports"}>
-          <ReportsIcon />
-        </NavLink>
+          <NavLink href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
+            <ScheduleIcon />
+          </NavLink>
+          <NavLink href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
+            <ClockIcon />
+          </NavLink>
+
+          <div className="h-px bg-slate-800 my-2" />
+
+          {isManager && (
+            <NavLink href={`/admin${demo}`} label="Admin" isActive={active === "admin"}>
+              <AdminIcon />
+            </NavLink>
+          )}
+          <NavLink href={`/settings${demo}`} label="Settings" isActive={active === "settings"}>
+            <SettingsIcon />
+          </NavLink>
+          <NavLink href={`/reports${demo}`} label="Reports" isActive={active === "reports"}>
+            <ReportsIcon />
+          </NavLink>
+        </LayoutGroup>
       </nav>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -67,17 +76,62 @@ function NavLink({
   isActive: boolean;
   children: React.ReactNode;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-        isActive
-          ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
-          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent"
-      }`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-transparent"
+      style={{
+        color: isActive ? "#a5b4fc" : hovered ? "#e2e8f0" : "#94a3b8",
+        boxShadow: isActive
+          ? "0 0 0 1px rgba(99,102,241,0.25), inset 0 1px 0 rgba(255,255,255,0.06)"
+          : hovered
+          ? "0 0 12px rgba(99,102,241,0.08)"
+          : "none",
+      }}
     >
-      {children}
-      {label}
+      {/* Animated background pill */}
+      {isActive && (
+        <motion.div
+          layoutId="sidenav-active"
+          className="absolute inset-0 rounded-xl"
+          style={{ background: "rgba(99,102,241,0.14)", border: "1px solid rgba(99,102,241,0.28)" }}
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        />
+      )}
+      {/* Hover background */}
+      {!isActive && hovered && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.12 }}
+          className="absolute inset-0 rounded-xl bg-slate-800/60"
+        />
+      )}
+
+      {/* Icon + label */}
+      <motion.span
+        className="relative z-10 shrink-0"
+        animate={{ scale: isActive ? 1.08 : 1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      >
+        {children}
+      </motion.span>
+      <span className="relative z-10">{label}</span>
+
+      {/* Active left accent line */}
+      {isActive && (
+        <motion.div
+          layoutId="sidenav-accent"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
+          style={{ background: "linear-gradient(180deg, #818cf8, #6366f1)" }}
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        />
+      )}
     </Link>
   );
 }
