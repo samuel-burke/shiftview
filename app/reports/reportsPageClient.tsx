@@ -745,8 +745,9 @@ export default function ReportsPageClient() {
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">From</div>
+                <label htmlFor="payroll-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
                 <input
+                  id="payroll-from"
                   type="date"
                   value={payrollFrom}
                   onChange={(e) => setPayrollFrom(e.target.value)}
@@ -754,8 +755,9 @@ export default function ReportsPageClient() {
                 />
               </div>
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">To</div>
+                <label htmlFor="payroll-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
                 <input
+                  id="payroll-to"
                   type="date"
                   value={payrollTo}
                   onChange={(e) => setPayrollTo(e.target.value)}
@@ -764,8 +766,9 @@ export default function ReportsPageClient() {
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">Export Format</div>
+              <label htmlFor="payroll-format" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Export Format</label>
               <select
+                id="payroll-format"
                 value={payrollFormat}
                 onChange={(e) => setPayrollFormat(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
@@ -878,8 +881,9 @@ export default function ReportsPageClient() {
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">From</div>
+                <label htmlFor="pending-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
                 <input
+                  id="pending-from"
                   type="date"
                   value={pendingFrom}
                   onChange={(e) => setPendingFrom(e.target.value)}
@@ -887,8 +891,9 @@ export default function ReportsPageClient() {
                 />
               </div>
               <div className="flex-1">
-                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">To</div>
+                <label htmlFor="pending-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
                 <input
+                  id="pending-to"
                   type="date"
                   value={pendingTo}
                   onChange={(e) => setPendingTo(e.target.value)}
@@ -897,8 +902,9 @@ export default function ReportsPageClient() {
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">Category</div>
+              <label htmlFor="pending-category" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Category</label>
               <select
+                id="pending-category"
                 value={pendingCategory}
                 onChange={(e) => setPendingCategory(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
