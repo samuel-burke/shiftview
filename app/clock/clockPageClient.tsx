@@ -703,7 +703,7 @@ export default function ClockPageClient() {
             onClick={() => setShowCorrection((v) => !v)}
             aria-expanded={showCorrection}
             aria-controls="correction-form"
-            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer"
+            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
           >
             <span className="text-sm font-semibold text-slate-300">Report Missed Punch</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showCorrection ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -780,7 +780,7 @@ export default function ClockPageClient() {
             onClick={() => setShowExport((v) => !v)}
             aria-expanded={showExport}
             aria-controls="export-form"
-            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer"
+            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
           >
             <span className="text-sm font-semibold text-slate-300">Export Timesheet</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -812,7 +812,7 @@ export default function ClockPageClient() {
               </div>
               <button
                 onClick={handleExportDownload}
-                className="block w-full py-2.5 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer"
+                className="block w-full py-2.5 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer hover:bg-indigo-500/30 transition-colors"
               >
                 Download CSV
               </button>

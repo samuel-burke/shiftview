@@ -504,7 +504,7 @@ export default function SchedulePageClient() {
             onClick={() => switchView("week")}
             aria-pressed={view === "week"}
             className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-              view === "week" ? "bg-slate-700 text-slate-100" : "text-slate-400"
+              view === "week" ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"
             }`}
           >
             Week
@@ -513,7 +513,7 @@ export default function SchedulePageClient() {
             onClick={() => switchView("month")}
             aria-pressed={view === "month"}
             className={`px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-              view === "month" ? "bg-slate-700 text-slate-100" : "text-slate-400"
+              view === "month" ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"
             }`}
           >
             Month
@@ -535,7 +535,7 @@ export default function SchedulePageClient() {
           {!isAtToday && (
             <button
               onClick={goToToday}
-              className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-1.5 cursor-pointer"
+              className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-1.5 cursor-pointer hover:bg-slate-600 transition-colors"
             >
               Today
             </button>
@@ -543,14 +543,14 @@ export default function SchedulePageClient() {
           <button
             onClick={goToPrev}
             aria-label={`Previous ${view === "week" ? "week" : "month"}`}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <button
             onClick={goToNext}
             aria-label={`Next ${view === "week" ? "week" : "month"}`}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>

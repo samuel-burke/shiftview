@@ -746,7 +746,7 @@ export default function Page() {
       onClick={handleExportCSV}
       disabled={exportLoading}
       aria-busy={exportLoading}
-      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {exportLoading ? "Loading…" : "Export CSV"}
     </button>
