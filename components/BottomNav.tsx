@@ -4,8 +4,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import type { NavItem } from "./AppShell";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { useLayoutEffect } from "react";
 
 type Props = {
   active: NavItem;
@@ -19,15 +19,23 @@ export default function BottomNav({ active }: Props) {
   const searchParams = useSearchParams();
   const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
 
-  const [fromIndex] = useState<number>(() => {
-    if (typeof window === "undefined") return tabIndex;
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    return stored !== null ? parseInt(stored, 10) : tabIndex;
-  });
+  const pillLeftNum = useMotionValue(tabIndex * 33.333);
+  const pillLeft = useTransform(pillLeftNum, v => `${v}%`);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    const prev = stored !== null ? parseInt(stored, 10) : tabIndex;
+    // Reposition to previous tab before paint, then spring to current
+    if (prev !== tabIndex) pillLeftNum.set(prev * 33.333);
+    const controls = animate(pillLeftNum, tabIndex * 33.333, {
+      type: "spring",
+      stiffness: 420,
+      damping: 36,
+    });
     sessionStorage.setItem(STORAGE_KEY, String(tabIndex));
-  }, [tabIndex]);
+    return () => controls.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
   if (isDesktop) return null;
@@ -43,10 +51,7 @@ export default function BottomNav({ active }: Props) {
         <motion.div
           aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
-          style={{ width: "33.333%" }}
-          initial={{ left: `${fromIndex * 33.333}%` }}
-          animate={{ left: `${tabIndex * 33.333}%` }}
-          transition={{ type: "spring", stiffness: 420, damping: 36 }}
+          style={{ width: "33.333%", left: pillLeft }}
         >
           <div
             className="h-full w-8 rounded-full"
