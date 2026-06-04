@@ -126,3 +126,25 @@ input, textarea, select {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ── Reduced-motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    opacity: 0.6;
+  }
+  .skeleton {
+    animation: none;
+    background: var(--color-card);
+  }
+  .animate-gradient {
+    animation: none;
+    background-position: 0% center;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

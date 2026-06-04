@@ -64,7 +64,7 @@ function HeroSection() {
           </a>
         </div>
 
-        <p className="mt-4 text-xs text-slate-600">
+        <p className="mt-4 text-xs text-slate-500">
           No credit card required · Demo uses sample data
         </p>
       </div>
@@ -219,7 +219,7 @@ function FeatureCard({
 function LandingFooter() {
   return (
     <footer className="border-t border-slate-800/60 py-6 px-6 text-center">
-      <p className="text-xs text-slate-700">
+      <p className="text-xs text-slate-500">
         © {new Date().getFullYear()} ShiftView · Built for fulfillment teams
       </p>
     </footer>

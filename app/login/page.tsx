@@ -141,8 +141,8 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-700 mt-6">
-          <Link href="/privacy" className="hover:text-slate-500 transition-colors">
+        <p className="text-center text-xs text-slate-500 mt-6">
+          <Link href="/privacy" className="hover:text-slate-300 transition-colors">
             Privacy Policy
           </Link>
         </p>
