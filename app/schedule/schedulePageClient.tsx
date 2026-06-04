@@ -668,7 +668,7 @@ export default function SchedulePageClient() {
                 onClick={handleRequestDayOff}
                 disabled={timeOffStatus === "loading"}
                 aria-busy={timeOffStatus === "loading"}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
               >
                 {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
               </button>
@@ -685,7 +685,7 @@ export default function SchedulePageClient() {
                   onClick={handleRequestDayOff}
                   disabled={timeOffStatus === "loading"}
                   aria-busy={timeOffStatus === "loading"}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
