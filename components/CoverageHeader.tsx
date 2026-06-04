@@ -226,7 +226,7 @@ export default function CoverageHeader({
         </div>
 
         {/* Mobile-only date nav row */}
-        <div className="mb-1 [@media(min-width:900px)]:hidden">
+        <div data-testid="mobile-date-nav" className="mb-1 [@media(min-width:900px)]:hidden">
           {mobileNav}
         </div>
       </div>
