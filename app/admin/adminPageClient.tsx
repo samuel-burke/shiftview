@@ -7,18 +7,20 @@ import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { motion } from "framer-motion";
+import { DEMO_EMPLOYEES as DEMO_EMPLOYEES_FIXTURE, DEMO_MANAGER_USER_IDS } from "../../data/demo-fixtures";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
 
-const DEMO_EMPLOYEES: Employee[] = [
-  { id: 1, name: "Alice Smith",  email: "alice@example.com", user_id: "demo-manager" },
-  { id: 2, name: "Bob Jones",    email: "bob@example.com",   user_id: "demo-bob" },
-  { id: 3, name: "Carol White",  email: "carol@example.com", user_id: null },
-];
-const DEMO_MANAGER_IDS = new Set(["demo-manager", "demo-bob"]);
+const DEMO_EMPLOYEES: Employee[] = DEMO_EMPLOYEES_FIXTURE.map(e => ({
+  id: e.id,
+  name: e.name,
+  email: e.email ?? null,
+  user_id: e.user_id ?? null,
+}));
+const DEMO_MANAGER_IDS = DEMO_MANAGER_USER_IDS;
 
 export default function AdminPageClient({
   currentUserId,
@@ -115,6 +117,12 @@ export default function AdminPageClient({
   return (
     <AppShell active="admin" isManager>
     <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
+      {isDemo && (
+        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+        </div>
+      )}
       {isDesktop ? (
         <div className="border-b border-slate-800 px-6 py-[14px]">
           <span className="text-xl font-extrabold text-slate-100 tracking-tight">Admin</span>

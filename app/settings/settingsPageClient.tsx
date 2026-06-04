@@ -16,6 +16,7 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
+import { DEMO_EMPLOYEES, DEMO_STORE_HOURS, DEMO_SETTINGS } from "../../data/demo-fixtures";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -632,7 +633,22 @@ export default function SettingsPageClient({
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
-      setIsManager(true); // demo mode is always manager
+      setIsManager(true);
+      setCurrentUserId("demo-manager");
+      setEmployees(DEMO_EMPLOYEES.map(e => ({
+        id: e.id,
+        name: e.name,
+        email: e.email ?? null,
+        user_id: e.user_id ?? null,
+      })));
+      setWeeklyHours(DEMO_STORE_HOURS);
+      setOptimalCoverage(DEMO_SETTINGS.optimalCoverage);
+      setMinCoverage(DEMO_SETTINGS.minCoverage);
+      setTimezone(DEMO_SETTINGS.timezone);
+      setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
+      setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
+      setGpsRequired(DEMO_SETTINGS.gpsRequired);
+      setEmailNotifications(DEMO_SETTINGS.emailNotifications);
     }
   }, [isDemo]);
 
@@ -699,6 +715,14 @@ export default function SettingsPageClient({
   return (
     <AppShell active="settings" isManager={isManager}>
     <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
+      {/* Demo banner */}
+      {isDemo && (
+        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+        </div>
+      )}
+
       {/* Top bar */}
       {isDesktop ? (
         <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { DEMO_AVAILABILITY } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export async function GET(request: Request) {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!user) {
+    const records = DEMO_AVAILABILITY[employeeId] ?? [];
+    return NextResponse.json(records);
+  }
 
   const { data, error } = await supabase
     .from("availability")

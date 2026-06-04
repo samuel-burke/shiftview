@@ -24,12 +24,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    const { data, error } = await supabase.from("employees_demo").select("id, name");
-    if (error) {
-      console.error("[api/employees]", error);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-    return NextResponse.json(sortByName(data ?? []));
+    return NextResponse.json(sortByName(DEMO_EMPLOYEES));
   }
 
   const { data, error } = await supabase.from("employees").select("id, name, email, user_id");
