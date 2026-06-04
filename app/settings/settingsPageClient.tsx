@@ -1086,6 +1086,7 @@ export default function SettingsPageClient({
                       <div className="text-xs text-slate-400 mb-1.5">Location</div>
                       <div className="flex gap-2">
                         <input
+                          aria-label="Search geofence address"
                           value={addressInput}
                           onChange={(e) => handleAddressInput(e.target.value)}
                           onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
@@ -1270,6 +1271,7 @@ export default function SettingsPageClient({
                       <div className="flex-1 flex flex-col gap-1 min-w-0">
                         <input
                           autoFocus
+                          aria-label={`Edit name for ${emp.name}`}
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
@@ -1380,6 +1382,7 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-2">
                         <input
                           type="date"
+                          aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
                           className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100"
