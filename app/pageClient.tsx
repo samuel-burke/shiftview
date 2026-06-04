@@ -744,7 +744,6 @@ export default function Page() {
             label="Here Now"
             color="#22c55e"
             loading={loading}
-            pulse
           />
         )}
       </AnimatePresence>
@@ -785,11 +784,10 @@ export default function Page() {
           initial={{ opacity: 0, x: -4 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 + i * 0.06, duration: 0.2 }}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
-          style={{ borderColor: `${color}30`, background: `${color}09` }}
+          className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/40"
         >
           <Icon size={12} color={color} />
-          <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+          <span>{label}</span>
         </motion.div>
       ))}
     </motion.div>

@@ -180,17 +180,6 @@ export default function CoverageHeader({
       <div className="mb-6">
         {demoBanner}
         <div className="bg-bg border-b border-slate-800 px-6 py-[14px] flex items-center gap-6">
-          {/* Brand */}
-          <span className="text-[22px] font-extrabold text-slate-100 tracking-tight shrink-0">
-            Shift
-            <span
-              className="bg-clip-text text-transparent animate-gradient"
-              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
-            >
-              View
-            </span>
-          </span>
-
           {/* Date nav — centered */}
           <div className="flex-1 flex justify-center">
             {dateNav}

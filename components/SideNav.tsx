@@ -20,7 +20,7 @@ export default function SideNav({ active, isManager }: Props) {
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="w-[220px] shrink-0 bg-[#0d1929] border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20"
+      className="w-[220px] shrink-0 bg-bg border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20"
     >
       {/* Brand */}
       <div className="px-5 py-[18px] border-b border-slate-800 shrink-0">
