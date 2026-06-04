@@ -1321,7 +1321,7 @@ export default function SettingsPageClient({
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-red-500/20 text-red-300 border-red-500/40"
                                 : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
@@ -1495,11 +1495,15 @@ export default function SettingsPageClient({
       {/* Delete confirmation modal */}
       {confirmDeleteEmployee && (
         <div
+          aria-hidden="true"
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
           onClick={() => setConfirmDeleteEmployee(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-heading"
             className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1508,7 +1512,7 @@ export default function SettingsPageClient({
                 ⚠️
               </div>
               <div>
-                <div className="text-base font-bold text-slate-100">Delete {confirmDeleteEmployee.name}?</div>
+                <div id="confirm-delete-heading" className="text-base font-bold text-slate-100">Delete {confirmDeleteEmployee.name}?</div>
                 <div className="text-sm text-slate-400 mt-1">
                   This will permanently delete their account and all of their shifts. This cannot be undone.
                 </div>
@@ -1517,6 +1521,7 @@ export default function SettingsPageClient({
             <div className="flex border-t border-slate-800">
               <button
                 onClick={() => setConfirmDeleteEmployee(null)}
+                autoFocus
                 className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800"
               >
                 Cancel

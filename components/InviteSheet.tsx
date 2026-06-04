@@ -74,6 +74,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
         <>
           <motion.div
             key="backdrop"
+            aria-hidden="true"
             className="fixed inset-0 bg-black/60 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

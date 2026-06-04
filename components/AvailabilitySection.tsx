@@ -351,7 +351,7 @@ export default function AvailabilitySection({
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
                       className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors cursor-pointer border-none min-h-[44px] ${
-                        isActive ? activeClass : "text-slate-500 bg-transparent"
+                        isActive ? activeClass : "text-slate-500 bg-transparent hover:text-slate-300 hover:bg-slate-800/50"
                       }`}
                       aria-pressed={isActive}
                     >
