@@ -525,7 +525,7 @@ export default function ClockPageClient() {
 
       <div className={isDesktop ? "max-w-[600px] mx-auto px-6 py-4" : ""}>
       {error && (
-        <div className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+        <div role="alert" className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
           {error}
         </div>
       )}
@@ -605,7 +605,7 @@ export default function ClockPageClient() {
 
         {/* Action buttons */}
         {actionError && (
-          <div className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+          <div role="alert" className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
             {actionError}
           </div>
         )}
@@ -759,7 +759,7 @@ export default function ClockPageClient() {
                 />
               </div>
               {correctionError && (
-                <div className="text-xs text-red-400">{correctionError}</div>
+                <div role="alert" className="text-xs text-red-400">{correctionError}</div>
               )}
               <button
                 onClick={submitCorrection}

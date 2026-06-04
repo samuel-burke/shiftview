@@ -146,7 +146,7 @@ export default function TimeOffRequestsDrawer({
               </div>
 
               {error && (
-                <div className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+                <div role="alert" className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
                   {error}
                 </div>
               )}

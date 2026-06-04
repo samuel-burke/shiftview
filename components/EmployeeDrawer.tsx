@@ -325,7 +325,7 @@ export default function EmployeeDrawer({
                     ))}
 
                     {error && (
-                      <div className="text-xs text-red-400 text-center">{error}</div>
+                      <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
                     )}
 
                     <button
