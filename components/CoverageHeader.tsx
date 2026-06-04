@@ -100,6 +100,8 @@ export default function CoverageHeader({
       <button
         onClick={() => setPickerOpen(true)}
         aria-label={`${dateLabel}, ${dayName}. Open date picker`}
+        aria-expanded={pickerOpen}
+        aria-haspopup="dialog"
         className={`text-center bg-transparent border-none cursor-pointer hover:opacity-80 transition-opacity ${isDesktop ? "px-2" : "p-0"}`}
       >
         <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>
