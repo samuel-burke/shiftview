@@ -1369,6 +1369,8 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : new Date().toISOString().slice(0, 10) }))}
+                          aria-label={`Apply ${tpl.name} template`}
+                          aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
                         >
                           Apply
@@ -1381,6 +1383,8 @@ export default function SettingsPageClient({
                             setDeletingTemplateId(null);
                           }}
                           disabled={deletingTemplateId === tpl.id}
+                          aria-label={`Delete ${tpl.name} template`}
+                          aria-busy={deletingTemplateId === tpl.id}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {deletingTemplateId === tpl.id ? "…" : "Delete"}
