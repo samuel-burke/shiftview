@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
@@ -35,6 +36,21 @@ function fmtTime(m: number): string {
   return min === 0
     ? `${h12}:00 ${ampm}`
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
+}
+
+function NavButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      aria-label={label}
+      whileTap={{ scale: 0.88 }}
+      whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
+      transition={{ type: "spring", stiffness: 450, damping: 25 }}
+      className="size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0"
+    >
+      {children}
+    </motion.button>
+  );
 }
 
 export default function CoverageHeader({
@@ -92,16 +108,26 @@ export default function CoverageHeader({
     return null;
   })();
 
+  const alertKey = alertConfig?.message ?? "none";
+
   const dateNav = (
     <div className={`flex items-center ${isDesktop ? "gap-4" : "justify-between"}`}>
-      <button onClick={onPrev} aria-label="Previous day" className={navBtn}>←</button>
-      <button
+      <NavButton onClick={onPrev} label="Previous day">←</NavButton>
+      <motion.button
         onClick={() => setPickerOpen(true)}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 400, damping: 28 }}
         className={`text-center bg-transparent border-none cursor-pointer ${isDesktop ? "px-2" : "p-0"}`}
       >
         <div className={`font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5 ${isDesktop ? "text-lg" : "text-2xl"}`}>
           {dateLabel}
-          <span className="text-[13px] text-blue-500 font-normal">▾</span>
+          <motion.span
+            animate={{ rotate: pickerOpen ? 180 : 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 22 }}
+            className="text-[13px] text-blue-500 font-normal inline-block"
+          >
+            ▾
+          </motion.span>
         </div>
         <div className="text-[13px] text-slate-400 mt-0.5">
           {dayName}
@@ -110,8 +136,8 @@ export default function CoverageHeader({
         {isToday && !isDesktop && (
           <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
         )}
-      </button>
-      <button onClick={onNext} aria-label="Next day" className={navBtn}>→</button>
+      </motion.button>
+      <NavButton onClick={onNext} label="Next day">→</NavButton>
     </div>
   );
 
@@ -120,6 +146,25 @@ export default function CoverageHeader({
       <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
       <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
     </div>
+  );
+
+  const alertBanner = !loading && (
+    <AnimatePresence mode="wait">
+      {alertConfig && (
+        <motion.div
+          key={alertKey}
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+          transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className={`px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 ${isDesktop ? "mx-6 mt-3" : "mt-3"}`}
+          style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
+        >
+          {alertConfig.icon}
+          <span>{alertConfig.message}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 
   // ── Desktop layout ──────────────────────────────────────────────────────────
@@ -147,22 +192,22 @@ export default function CoverageHeader({
           {/* Actions */}
           <div className="flex items-center gap-2 shrink-0">
             {!isToday && (
-              <button onClick={onNow} className={actionBtn}>TODAY</button>
+              <motion.button
+                onClick={onNow}
+                whileTap={{ scale: 0.93 }}
+                whileHover={{ scale: 1.04 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer"
+              >
+                TODAY
+              </motion.button>
             )}
             {!isDemo && <NotificationBell />}
             <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
 
-        {alertConfig && !loading && (
-          <div
-            className="mx-6 mt-3 px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
-            style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
-          >
-            {alertConfig.icon}
-            <span>{alertConfig.message}</span>
-          </div>
-        )}
+        {alertBanner}
 
         <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
       </div>
@@ -184,13 +229,27 @@ export default function CoverageHeader({
           </div>
         )}
         <div className="flex items-center justify-between mb-3">
+          {/* Animated gradient logo on mobile (matches desktop) */}
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
             Shift
-            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">View</span>
+            <span
+              className="bg-clip-text text-transparent animate-gradient"
+              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
+            >
+              View
+            </span>
           </span>
           <div className="flex items-center gap-2">
             {!isToday && (
-              <button onClick={onNow} className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer">TODAY</button>
+              <motion.button
+                onClick={onNow}
+                whileTap={{ scale: 0.93 }}
+                whileHover={{ scale: 1.04 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer"
+              >
+                TODAY
+              </motion.button>
             )}
             {!isDemo && <NotificationBell />}
             <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
@@ -201,21 +260,9 @@ export default function CoverageHeader({
 
       <div style={{ height: barHeight }} />
 
-      {alertConfig && !loading && (
-        <div
-          className="mt-3 px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
-          style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
-        >
-          {alertConfig.icon}
-          <span>{alertConfig.message}</span>
-        </div>
-      )}
+      {alertBanner}
 
       <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
     </div>
   );
 }
-
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0";
-
-const actionBtn = "text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-2.5 cursor-pointer";
