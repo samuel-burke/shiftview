@@ -839,7 +839,7 @@ export default function ClockPageClient() {
           >
             <div className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-2" />
             <div className="text-center">
-              <div className="text-2xl mb-1">
+              <div className="text-2xl mb-1" aria-hidden="true">
                 {pendingWarning.diffMinutes > 0 ? "⏰" : "⚡"}
               </div>
               <div id="punch-warning-heading" className="text-lg font-extrabold text-slate-100">
@@ -850,14 +850,15 @@ export default function ClockPageClient() {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={cancelPunch}
-                className="py-3.5 rounded-2xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 active:scale-[0.98] transition-transform cursor-pointer"
+                autoFocus
+                className="py-3.5 rounded-2xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 active:scale-[0.98] transition-[transform,colors] cursor-pointer hover:bg-slate-700"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmPunch}
                 data-testid="confirm-punch-btn"
-                className="py-3.5 rounded-2xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30 active:scale-[0.98] transition-transform cursor-pointer"
+                className="py-3.5 rounded-2xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30 active:scale-[0.98] transition-[transform,colors] cursor-pointer hover:bg-green-500/30"
               >
                 {pendingPunchType === "clock_in" ? "Clock In Anyway" : "End Shift Anyway"}
               </button>
