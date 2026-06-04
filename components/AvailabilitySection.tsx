@@ -325,6 +325,7 @@ export default function AvailabilitySection({
                 <h3 id="avail-sheet-title" className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
                 <button
                   onClick={closeSheet}
+                  autoFocus
                   aria-label="Close"
                   className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors"
                 >

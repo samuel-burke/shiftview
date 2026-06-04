@@ -152,9 +152,9 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
         ) : (
           <div className="flex flex-col gap-3">
             {[
-              { label: "Full Name", id: "invite-name",  val: name, set: setName, type: "text", placeholder: "Alice Smith" },
-              { label: "Email",     id: "invite-email", val: email, set: setEmail, type: "email", placeholder: "alice@example.com" },
-            ].map(({ label, id, val, set, type, placeholder }) => (
+              { label: "Full Name", id: "invite-name",  val: name, set: setName, type: "text",  placeholder: "Alice Smith",       autoFocus: true  },
+              { label: "Email",     id: "invite-email", val: email, set: setEmail, type: "email", placeholder: "alice@example.com", autoFocus: false },
+            ].map(({ label, id, val, set, type, placeholder, autoFocus }) => (
               <div key={label}>
                 <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
                   {label}
@@ -164,6 +164,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
                   type={type}
                   value={val}
                   placeholder={placeholder}
+                  autoFocus={autoFocus}
                   onChange={(e) => { set(e.target.value); setError(null); }}
                   className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark]"
                 />
