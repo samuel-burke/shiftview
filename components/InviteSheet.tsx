@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
@@ -32,6 +32,15 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
       setSent(false);
     }
   }, [open]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape" && open) onClose();
+  }, [open, onClose]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   async function handleSubmit() {
     if (!name.trim()) { setError("Name is required."); return; }
@@ -75,6 +84,9 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
           {isDesktop ? (
             <motion.div
               key="panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="invite-sheet-title"
               className="fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[420px]"
               initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
               animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
@@ -86,6 +98,9 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
           ) : (
             <motion.div
               key="panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="invite-sheet-title"
               className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -108,12 +123,15 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
     return (
       <div className={padding}>
         <div className="flex items-center justify-between mb-6">
-          <div className="text-lg font-bold text-slate-100">Add Employee</div>
+          <div id="invite-sheet-title" className="text-lg font-bold text-slate-100">Add Employee</div>
           <button
             onClick={onClose}
-            className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+            aria-label="Close"
+            className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors"
           >
-            ✕
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
 
@@ -126,7 +144,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             </div>
             <button
               onClick={onClose}
-              className="px-8 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer"
+              className="px-8 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:bg-slate-700 hover:text-slate-200 transition-colors"
             >
               Done
             </button>
@@ -134,14 +152,15 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
         ) : (
           <div className="flex flex-col gap-3">
             {[
-              { label: "Full Name", val: name, set: setName, type: "text", placeholder: "Alice Smith" },
-              { label: "Email",     val: email, set: setEmail, type: "email", placeholder: "alice@example.com" },
-            ].map(({ label, val, set, type, placeholder }) => (
+              { label: "Full Name", id: "invite-name",  val: name, set: setName, type: "text", placeholder: "Alice Smith" },
+              { label: "Email",     id: "invite-email", val: email, set: setEmail, type: "email", placeholder: "alice@example.com" },
+            ].map(({ label, id, val, set, type, placeholder }) => (
               <div key={label}>
-                <div className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5">
+                <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
                   {label}
-                </div>
+                </label>
                 <input
+                  id={id}
                   type={type}
                   value={val}
                   placeholder={placeholder}
@@ -152,13 +171,13 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             ))}
 
             {error && (
-              <div className="text-xs text-red-400 text-center">{error}</div>
+              <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
             )}
 
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity ${saving ? "opacity-70" : "opacity-100"}`}
+              className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
             >
               {saving ? "Sending…" : "Send Invite"}
             </button>
@@ -166,7 +185,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             <button
               onClick={onClose}
               disabled={saving}
-              className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer"
+              className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-200 transition-colors"
             >
               Cancel
             </button>

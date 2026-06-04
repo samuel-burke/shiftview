@@ -191,7 +191,11 @@ export default function CoverageTimeline({
   const lineTop = chartRect ? chartRect.top + 28 : null; // 28 = margin.top
 
   return (
-    <div className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
+    <div
+      className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
+      role="img"
+      aria-label={`Coverage timeline from ${fmtMinutes(openMinutes)} to ${fmtMinutes(closeMinutes)}. ${isToday ? `Current time: ${fmtMinutes(nowMinutes)}.` : ""}`}
+    >
       <div className="flex items-center justify-between mb-3 pl-1.5 pr-1">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
