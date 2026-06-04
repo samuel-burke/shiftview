@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase-browser";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
-import { useIsDesktop } from "../../hooks/useIsDesktop";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -567,11 +566,9 @@ export default function ReportsPageClient() {
     await downloadCSV(blob, `shift-report-${selectedWeekStart}.csv`);
   }
 
-  const isDesktop = useIsDesktop();
-
   return (
     <AppShell active="reports" isManager>
-    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
+    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
       {/* Demo banner */}
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
@@ -580,29 +577,24 @@ export default function ReportsPageClient() {
         </div>
       )}
 
-      {/* Top bar */}
-      {isDesktop ? (
-        <div className="border-b border-slate-800 px-6 py-[14px]">
-          <span className="text-xl font-extrabold text-slate-100 tracking-tight">Reports</span>
-        </div>
-      ) : (
-        <div
-          className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      {/* Top bar — sticky on mobile, static on desktop */}
+      <div
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
+                   [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px] [@media(min-width:900px)]:gap-0"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      >
+        <button
+          onClick={() => router.back()}
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+          aria-label="Back"
         >
-          <button
-            onClick={() => router.back()}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-            aria-label="Back"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Reports</span>
-        </div>
-      )}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">Reports</span>
+      </div>
 
       {/* Tab bar */}
-      <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-4 flex gap-2`}>
+      <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex gap-2">
         {(["coverage", "payroll", "activity"] as const).map((tab) => (
           <button
             key={tab}
@@ -621,7 +613,7 @@ export default function ReportsPageClient() {
 
       {/* ── Coverage tab ── */}
       {activeTab === "coverage" && (
-        <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-5 flex flex-col gap-5`}>
+        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-5 flex flex-col gap-5">
           {/* Coverage heatmap */}
           <section>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
@@ -878,7 +870,7 @@ export default function ReportsPageClient() {
 
       {/* ── Activity Log tab ── */}
       {activeTab === "activity" && (
-        <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-4 flex flex-col gap-4`}>
+        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
           {/* Filters */}
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
@@ -982,7 +974,7 @@ export default function ReportsPageClient() {
         </div>
       )}
 
-      {!isDesktop && <BottomNav active="reports" />}
+      <BottomNav active="reports" />
     </main>
     </AppShell>
   );

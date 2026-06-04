@@ -19,7 +19,6 @@ import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
 import { createClient } from "@/lib/supabase-browser";
-import { useIsDesktop } from "../../hooks/useIsDesktop";
 import {
   SkeletonNextShift,
   SkeletonWeekCalendar,
@@ -142,7 +141,6 @@ export default function SchedulePageClient() {
   timezoneRef.current = timezone;
   const isManagerRef = useRef(isManager);
   isManagerRef.current = isManager;
-  const isDesktop = useIsDesktop();
 
   async function handleApproveManagerTimeOff(id: number) {
     const res = await fetch(`/api/time-off/${id}`, {
@@ -746,57 +744,12 @@ export default function SchedulePageClient() {
     </>
   );
 
-  if (isDesktop) {
-    return (
-      <AppShell active="schedule" isManager={isManager}>
-        <main className="bg-bg min-h-screen">
-          {/* Desktop top bar — no brand (SideNav owns it) */}
-          <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">
-            <div>
-              <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
-              <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">{todayStr}</span>
-              {!isDemo && <NotificationBell />}
-              <UserMenu
-                name={employeeName}
-                isManager={isManager}
-                onSignOut={isDemo ? undefined : handleSignOut}
-                onSignIn={isDemo ? () => router.push("/login") : undefined}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-[1fr_320px] gap-6 px-6 py-6 items-start">
-            {/* Left: calendar */}
-            <div>{calendarSection}</div>
-            {/* Right: next shift + selected day detail + stats */}
-            <div className="sticky top-6">
-              {nextShiftCard}
-              {detailSection}
-            </div>
-          </div>
-
-          <DatePickerSheet
-            open={pickerOpen}
-            selected={selectedDate}
-            today={today}
-            firstDayOfWeek={firstDayOfWeek}
-            onSelect={handlePickerSelect}
-            onClose={() => setPickerOpen(false)}
-          />
-        </main>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell active="schedule" isManager={isManager}>
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen">
-        {/* Top bar */}
+      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
+        {/* Mobile header (sticky; hidden on desktop) */}
         <div
-          className="sticky top-0 z-20 px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
+          className="sticky top-0 z-20 px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg [@media(min-width:900px)]:hidden"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
@@ -817,10 +770,44 @@ export default function SchedulePageClient() {
           </div>
         </div>
 
-        <div className="px-4 pt-4">
-          {nextShiftCard}
-          {calendarSection}
-          {detailSection}
+        {/* Desktop header (hidden on mobile) */}
+        <div className="hidden [@media(min-width:900px)]:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
+          <div>
+            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
+            <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-400">{todayStr}</span>
+            {!isDemo && <NotificationBell />}
+            <UserMenu
+              name={employeeName}
+              isManager={isManager}
+              onSignOut={isDemo ? undefined : handleSignOut}
+              onSignIn={isDemo ? () => router.push("/login") : undefined}
+            />
+          </div>
+        </div>
+
+        {/*
+         * Content: single DOM tree, CSS-responsive layout.
+         * Mobile: vertical stack (nextShift → calendar → detail).
+         * Desktop: 2-column grid — explicit col/row placement reorders without
+         * duplicating React elements (which would cause double state/effects).
+         * nextShiftCard and detailSection go in col 2; calendarSection fills col 1.
+         */}
+        <div className="flex flex-col px-4 pt-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_320px] [@media(min-width:900px)]:gap-6 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6 [@media(min-width:900px)]:items-start">
+          {/* Mobile: 1st. Desktop: col 2, row 1 (sticky) */}
+          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-6">
+            {nextShiftCard}
+          </div>
+          {/* Mobile: 2nd. Desktop: col 1, rows 1–2 */}
+          <div className="[@media(min-width:900px)]:col-start-1 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:row-span-2">
+            {calendarSection}
+          </div>
+          {/* Mobile: 3rd. Desktop: col 2, row 2 */}
+          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-2">
+            {detailSection}
+          </div>
         </div>
 
         <DatePickerSheet

@@ -20,7 +20,6 @@ import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
-import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
@@ -427,16 +426,15 @@ export default function ClockPageClient() {
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#818cf8";
 
   const firstName = employeeName ? employeeName.split(" ")[0] : "Clock";
-  const isDesktop = useIsDesktop();
 
   const clockHeader = (
     <div
-      className={`${isDesktop ? "border-b border-slate-800 px-6 py-[14px]" : "sticky top-0 z-20 px-0 pb-3 border-b border-slate-800 bg-bg"} flex items-center justify-between`}
-      style={isDesktop ? {} : { paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+      className="sticky top-0 z-20 px-0 pb-3 border-b border-slate-800 bg-bg flex items-center justify-between [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
     >
       <div>
         <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
-        <div className={`font-extrabold text-slate-100 leading-tight mt-0.5 ${isDesktop ? "text-xl" : "text-[28px]"}`}>{firstName}</div>
+        <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5 [@media(min-width:900px)]:text-xl">{firstName}</div>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-sm text-slate-400">
@@ -453,32 +451,26 @@ export default function ClockPageClient() {
     </div>
   );
 
+  const mainClass = "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:px-0 [@media(min-width:900px)]:pb-0";
+
   if (loading) {
     return (
       <AppShell active="clock" isManager={isManager}>
-        <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
-          {isDesktop ? (
-            <div className="border-b border-slate-800 px-6 py-[14px] flex items-center justify-between">
-              <div>
-                <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
-                <div className="skeleton h-7 w-28 rounded" />
-              </div>
-              <div className="skeleton h-8 w-28 rounded-xl" />
+        <main className={mainClass}>
+          <div
+            className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
+            style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+          >
+            <div>
+              <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
+              <div className="skeleton h-7 w-28 rounded" />
             </div>
-          ) : (
-            <div className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
-              style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}>
-              <div>
-                <div className="skeleton h-[10px] w-20 rounded mb-1.5" />
-                <div className="skeleton h-7 w-28 rounded" />
-              </div>
-              <div className="skeleton h-8 w-28 rounded-xl" />
-            </div>
-          )}
-          <div className={isDesktop ? "max-w-[600px] mx-auto px-6 py-6" : ""}>
+            <div className="skeleton h-8 w-28 rounded-xl" />
+          </div>
+          <div className="[@media(min-width:900px)]:max-w-[600px] [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6">
             <SkeletonClockBody />
           </div>
-          {!isDesktop && <BottomNav active="clock" />}
+          <BottomNav active="clock" />
         </main>
       </AppShell>
     );
@@ -488,25 +480,21 @@ export default function ClockPageClient() {
   if (!employeeId && !isManager) {
     return (
       <AppShell active="clock" isManager={isManager}>
-        <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
-          {isDesktop ? (
-            <div className="border-b border-slate-800 px-6 py-[14px]">
-              <span className="text-xl font-extrabold text-slate-100 tracking-tight">Time Clock</span>
-            </div>
-          ) : (
-            <div className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg"
-              style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}>
-              <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
-                Time<span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">Clock</span>
-              </span>
-            </div>
-          )}
+        <main className={mainClass}>
+          <div
+            className="sticky top-0 z-20 px-0 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]"
+            style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+          >
+            <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">
+              Time<span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">Clock</span>
+            </span>
+          </div>
           <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
             <div aria-hidden="true" className="text-4xl">🔗</div>
             <div className="text-lg font-bold text-slate-100">Account not linked</div>
             <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
           </div>
-          {!isDesktop && <BottomNav active="clock" />}
+          <BottomNav active="clock" />
         </main>
       </AppShell>
     );
@@ -514,7 +502,7 @@ export default function ClockPageClient() {
 
   return (
     <AppShell active="clock" isManager={isManager}>
-    <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen"}`}>
+    <main className={mainClass}>
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
           <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
@@ -523,7 +511,7 @@ export default function ClockPageClient() {
       )}
       {clockHeader}
 
-      <div className={isDesktop ? "max-w-[600px] mx-auto px-6 py-4" : ""}>
+      <div className="[@media(min-width:900px)]:max-w-[600px] [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-4">
       {error && (
         <div role="alert" className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
           {error}
@@ -838,7 +826,7 @@ export default function ClockPageClient() {
       </div>
       </div>
 
-      {!isDesktop && <BottomNav active="clock" />}
+      <BottomNav active="clock" />
 
       {/* Pre-punch warning modal */}
       {pendingWarning && pendingPunchType && (
