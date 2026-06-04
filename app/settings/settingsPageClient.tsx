@@ -847,6 +847,7 @@ export default function SettingsPageClient({
                   aria-label="Push notifications"
                   aria-checked={pushSubscribed}
                   disabled={pushSaving}
+                  aria-busy={pushSaving}
                   onClick={togglePush}
                   className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                     pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
@@ -979,9 +980,11 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
-            {emailNotifSaved && (
-              <div className="text-xs text-emerald-400 mt-2 text-right">Saved</div>
-            )}
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
+              {emailNotifSaved && (
+                <div className="text-xs text-emerald-400 mt-2">Saved</div>
+              )}
+            </div>
           </div>
         </section>}
 
@@ -1193,9 +1196,11 @@ export default function SettingsPageClient({
               </div>
             )}
 
-            {timeclockSaved && (
-              <div className="text-xs text-emerald-400 text-right">Saved ✓</div>
-            )}
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
+              {timeclockSaved && (
+                <div className="text-xs text-emerald-400">Saved ✓</div>
+              )}
+            </div>
           </div>
         </section>}
 
