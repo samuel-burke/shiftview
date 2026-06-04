@@ -581,10 +581,14 @@ export default function ClockPageClient() {
 
           {(effectiveStatus === "clocked_in" || effectiveStatus === "on_break" || effectiveStatus === "clocked_out") && (
             <>
-              <div className="text-4xl font-mono font-extrabold text-slate-100 tabular-nums">
+              <div
+                className="text-4xl font-mono font-extrabold text-slate-100 tabular-nums"
+                aria-live="polite"
+                aria-label={`Total time worked today: ${fmtElapsed(elapsed)}`}
+              >
                 {fmtElapsed(elapsed)}
               </div>
-              <div className="text-xs text-slate-400 mt-1">Total time worked today</div>
+              <div className="text-xs text-slate-400 mt-1" aria-hidden="true">Total time worked today</div>
             </>
           )}
 
@@ -664,6 +668,7 @@ export default function ClockPageClient() {
                   <motion.div key={p.id} variants={listItem} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span
+                        aria-hidden="true"
                         className="size-2 rounded-full shrink-0"
                         style={{
                           background:
@@ -696,18 +701,21 @@ export default function ClockPageClient() {
         {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-slate-800/60">
           <button
             onClick={() => setShowCorrection((v) => !v)}
+            aria-expanded={showCorrection}
+            aria-controls="correction-form"
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer"
           >
             <span className="text-sm font-semibold text-slate-300">Report Missed Punch</span>
-            <span className="text-slate-500 text-lg">{showCorrection ? "▴" : "▾"}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showCorrection ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
 
           {showCorrection && (
-            <div className="px-4 pb-4 space-y-3 border-t border-slate-800">
+            <div id="correction-form" className="px-4 pb-4 space-y-3 border-t border-slate-800">
               <div className="grid grid-cols-2 gap-3 pt-3">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Punch Type</label>
+                  <label htmlFor="correction-type" className="text-xs text-slate-400 block mb-1">Punch Type</label>
                   <select
+                    id="correction-type"
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100"
@@ -719,8 +727,9 @@ export default function ClockPageClient() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Date</label>
+                  <label htmlFor="correction-date" className="text-xs text-slate-400 block mb-1">Date</label>
                   <input
+                    id="correction-date"
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
@@ -729,8 +738,9 @@ export default function ClockPageClient() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Time</label>
+                <label htmlFor="correction-time" className="text-xs text-slate-400 block mb-1">Time</label>
                 <input
+                  id="correction-time"
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
@@ -738,8 +748,9 @@ export default function ClockPageClient() {
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Reason <span className="text-red-400">*</span></label>
+                <label htmlFor="correction-note" className="text-xs text-slate-400 block mb-1">Reason <span className="text-red-400" aria-label="required">*</span></label>
                 <textarea
+                  id="correction-note"
                   value={correctionNote}
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   placeholder="Why is this punch being added manually?"
@@ -765,18 +776,21 @@ export default function ClockPageClient() {
         <div className="bg-card rounded-2xl border border-slate-800/60">
           <button
             onClick={() => setShowExport((v) => !v)}
+            aria-expanded={showExport}
+            aria-controls="export-form"
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer"
           >
             <span className="text-sm font-semibold text-slate-300">Export Timesheet</span>
-            <span className="text-slate-500 text-lg">{showExport ? "▴" : "▾"}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
 
           {showExport && (
-            <div className="px-4 pb-4 border-t border-slate-800 pt-3 space-y-3">
+            <div id="export-form" className="px-4 pb-4 border-t border-slate-800 pt-3 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">From</label>
+                  <label htmlFor="export-from" className="text-xs text-slate-400 block mb-1">From</label>
                   <input
+                    id="export-from"
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
@@ -784,8 +798,9 @@ export default function ClockPageClient() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">To</label>
+                  <label htmlFor="export-to" className="text-xs text-slate-400 block mb-1">To</label>
                   <input
+                    id="export-to"
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
