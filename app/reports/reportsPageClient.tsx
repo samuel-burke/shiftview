@@ -611,7 +611,7 @@ export default function ReportsPageClient() {
             className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === tab
                 ? "bg-indigo-600 text-white"
-                : "bg-card border border-slate-800 text-slate-400"
+                : "bg-card border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : "Activity"}
@@ -628,7 +628,7 @@ export default function ReportsPageClient() {
               Coverage — Last 4 Weeks
             </div>
             {loading ? (
-              <div className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
+              <div role="status" aria-label="Loading coverage heatmap" className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
             ) : (
               <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
                 <div className="grid grid-cols-7 gap-1 mb-1">
@@ -687,7 +687,7 @@ export default function ReportsPageClient() {
             </div>
 
             {weekLoading ? (
-              <div className="h-32 bg-slate-800 rounded-2xl animate-pulse" />
+              <div role="status" aria-label="Loading hours table" className="h-32 bg-slate-800 rounded-2xl animate-pulse" />
             ) : (
               <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
@@ -925,9 +925,9 @@ export default function ReportsPageClient() {
 
           {/* Results */}
           {auditLoading && auditEntries.length === 0 ? (
-            <div className="flex flex-col gap-3">
+            <div role="status" aria-label="Loading activity log" className="flex flex-col gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-16 bg-slate-800 rounded-2xl animate-pulse" />
+                <div key={i} aria-hidden="true" className="h-16 bg-slate-800 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : auditEntries.length === 0 ? (
