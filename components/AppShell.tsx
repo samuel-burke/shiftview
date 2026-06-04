@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import SideNav from "./SideNav";
 import TopBar from "./TopBar";
 
@@ -51,13 +50,7 @@ export default function AppShell({
           />
         )}
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-        >
-          {children}
-        </motion.div>
+        <div>{children}</div>
       </div>
     </div>
   );
