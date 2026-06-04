@@ -94,7 +94,9 @@ export default function CoverageHeader({
 
   const dateNav = (
     <div className={`flex items-center ${isDesktop ? "gap-4" : "justify-between"}`}>
-      <button onClick={onPrev} aria-label="Previous day" className={navBtn}>←</button>
+      <button onClick={onPrev} aria-label="Previous day" className={navBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
       <button
         onClick={() => setPickerOpen(true)}
         aria-label={`${dateLabel}, ${dayName}. Open date picker`}
@@ -112,7 +114,9 @@ export default function CoverageHeader({
           <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
         )}
       </button>
-      <button onClick={onNext} aria-label="Next day" className={navBtn}>→</button>
+      <button onClick={onNext} aria-label="Next day" className={navBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
     </div>
   );
 

@@ -141,16 +141,21 @@ export default function NotificationBell() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [fetchNotifications]);
 
-  // Close on outside click
+  // Close on outside click or Escape key
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    const onMouseDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   async function dismissOne(id: number) {
@@ -190,7 +195,9 @@ export default function NotificationBell() {
       <button
         onClick={() => { setOpen((v) => !v); if (!open) markAllRead(); }}
         className="relative size-9 flex items-center justify-center rounded-xl bg-card border border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
-        aria-label="Notifications"
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+        aria-expanded={open}
+        aria-haspopup="true"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-5-5.917V4a1 1 0 10-2 0v1.083A6 6 0 006 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"

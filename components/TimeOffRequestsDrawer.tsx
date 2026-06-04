@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
@@ -55,6 +55,15 @@ export default function TimeOffRequestsDrawer({
     }
   }, [open]);
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape" && open) onClose();
+  }, [open, onClose]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   async function handleApprove(id: number) {
     setActing(id);
     setError(null);
@@ -94,6 +103,9 @@ export default function TimeOffRequestsDrawer({
           />
           <motion.div
             key="panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeoff-drawer-title"
             data-testid="time-off-drawer"
             className={`fixed z-50 bg-bg ${
               isDesktop
@@ -115,7 +127,7 @@ export default function TimeOffRequestsDrawer({
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <div className="text-lg font-bold text-slate-100">Time Off Requests</div>
+                  <div id="timeoff-drawer-title" className="text-lg font-bold text-slate-100">Time Off Requests</div>
                   <div className="text-xs text-slate-400 mt-0.5">
                     {requests.length === 0
                       ? "No pending requests"
@@ -124,9 +136,12 @@ export default function TimeOffRequestsDrawer({
                 </div>
                 <button
                   onClick={onClose}
+                  aria-label="Close"
                   className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
                 >
-                  ✕
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                  </svg>
                 </button>
               </div>
 
