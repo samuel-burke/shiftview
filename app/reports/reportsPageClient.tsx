@@ -500,6 +500,10 @@ export default function ReportsPageClient() {
   }
 
   async function generatePayroll() {
+    if (isDemo) {
+      setPayrollData([]);
+      return;
+    }
     setPayrollLoading(true);
     setPayrollError(null);
     try {
@@ -568,6 +572,14 @@ export default function ReportsPageClient() {
   return (
     <AppShell active="reports" isManager>
     <main className={`${isDesktop ? "bg-bg min-h-screen" : "max-w-[480px] mx-auto pb-28 bg-bg min-h-screen"}`}>
+      {/* Demo banner */}
+      {isDemo && (
+        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+        </div>
+      )}
+
       {/* Top bar */}
       {isDesktop ? (
         <div className="border-b border-slate-800 px-6 py-[14px]">

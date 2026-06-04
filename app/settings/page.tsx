@@ -11,7 +11,7 @@ export default async function SettingsPage({
   const params = await searchParams;
   const isDemo = params.demo === "true";
 
-  let isManagerInitial = false;
+  let isManagerInitial = isDemo; // demo always shows manager view
   if (!isDemo) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

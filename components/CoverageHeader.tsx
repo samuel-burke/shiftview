@@ -115,10 +115,18 @@ export default function CoverageHeader({
     </div>
   );
 
+  const demoBanner = isDemo && (
+    <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
+      <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+      <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+    </div>
+  );
+
   // ── Desktop layout ──────────────────────────────────────────────────────────
   if (isDesktop) {
     return (
       <div className="mb-6">
+        {demoBanner}
         <div className="bg-bg border-b border-slate-800 px-6 py-[14px] flex items-center gap-6">
           {/* Brand */}
           <span className="text-[22px] font-extrabold text-slate-100 tracking-tight shrink-0">
@@ -169,6 +177,12 @@ export default function CoverageHeader({
         className="fixed top-0 left-0 right-0 z-30 bg-bg border-b border-slate-800 max-w-[480px] mx-auto px-4 pb-3"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
+        {isDemo && (
+          <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between">
+            <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+            <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-3">
           <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
             Shift

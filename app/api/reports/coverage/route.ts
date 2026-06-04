@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,6 @@ function daysBetween(from: string, to: string): string[] {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
-  if (authError)
-    return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
-
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
@@ -40,6 +36,22 @@ export async function GET(request: Request) {
   const rangeDays = Math.round(rangeMs / (1000 * 60 * 60 * 24));
   if (rangeDays > 90)
     return NextResponse.json({ error: "Date range must not exceed 90 days" }, { status: 400 });
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    const allDates = daysBetween(from, to);
+    const days = allDates.map((date) => ({
+      date,
+      count: getDemoSchedulesForDate(date).length,
+    }));
+    return NextResponse.json({ days });
+  }
+
+  const { error: authError } = await requireManager(supabase);
+  if (authError)
+    return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data, error } = await supabase
     .from("schedules")
