@@ -730,7 +730,7 @@ export default function SettingsPageClient({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
-    <motion.main
+    <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
                  [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:max-h-[90vh] [@media(min-width:900px)]:rounded-2xl [@media(min-width:900px)]:shadow-2xl"
       style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
@@ -1520,7 +1520,7 @@ export default function SettingsPageClient({
           </div>
         </div>
       )}
-    </motion.main>
+    </motion.div>
     </motion.div>
   );
 }
