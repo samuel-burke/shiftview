@@ -100,7 +100,7 @@ function cellClass(count: number, min: number, optimal: number) {
   if (count >= optimal) return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
   if (count >= min)     return "bg-amber-500/20  text-amber-400  border border-amber-500/30";
   if (count > 0)        return "bg-red-500/20    text-red-400    border border-red-500/30";
-  return "bg-slate-800 text-slate-600 border border-slate-700";
+  return "bg-slate-800 text-slate-500 border border-slate-700";
 }
 
 // ─── Audit helpers ────────────────────────────────────────────────────────────

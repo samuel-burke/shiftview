@@ -115,7 +115,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
               transition={{ type: "spring", damping: 32, stiffness: 300 }}
             >
               <div className="flex justify-center mb-5">
-                <div className="w-10 h-1 rounded-full bg-slate-700" />
+                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
               </div>
               {sheetContent()}
             </motion.div>
