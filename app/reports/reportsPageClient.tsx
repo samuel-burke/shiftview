@@ -167,7 +167,7 @@ function auditDetail(entry: AuditEntry): string | null {
       const as_ = a.startMinutes as number | null;
       const ae  = a.endMinutes   as number | null;
       if (bs != null && be != null && as_ != null && ae != null)
-        return `${date} · ${fmtMins(bs)}–${fmtMins(be)} → ${fmtMins(as_)}–${fmtMins(ae)}`;
+        return `${date} · ${fmtMins(bs)}–${fmtMins(be)} to ${fmtMins(as_)}–${fmtMins(ae)}`;
       return date ?? null;
     }
     case "schedule.delete": {
@@ -179,7 +179,7 @@ function auditDetail(entry: AuditEntry): string | null {
       return null;
     }
     case "schedule.copy":
-      return `${m.fromDate} → ${m.toDate} · ${m.copied} copied, ${m.skipped} skipped`;
+      return `${m.fromDate} to ${m.toDate} · ${m.copied} copied, ${m.skipped} skipped`;
     case "employee.invite":
     case "employee.delete":
     case "employee.reinvite":
@@ -193,7 +193,7 @@ function auditDetail(entry: AuditEntry): string | null {
     case "swap.deny": {
       const req = m.requesterName as string | null;
       const tgt = m.targetName   as string | null;
-      if (req && tgt) return `${req} ↔ ${tgt}`;
+      if (req && tgt) return `${req} and ${tgt}`;
       return null;
     }
     case "punch.correction": {
@@ -813,7 +813,7 @@ export default function ReportsPageClient() {
                     <div className="text-xs text-slate-200 font-medium truncate flex items-center gap-1">
                       {emp.employeeName.split(" ")[0]}
                       {emp.weeks.some((w) => w.hasIncomplete) && (
-                        <span className="text-amber-400 text-[10px]" title="Incomplete punch pair">⚠</span>
+                        <span className="text-amber-400 text-[10px]" aria-label="Incomplete punch pair" role="img">⚠</span>
                       )}
                     </div>
                     <div className="text-right text-[11px] font-semibold text-emerald-400 tabular-nums w-9">
@@ -852,7 +852,7 @@ export default function ReportsPageClient() {
 
               {payrollData.some((e) => e.weeks.some((w) => w.hasIncomplete)) && (
                 <div className="text-[11px] text-amber-400/80 px-1 leading-snug">
-                  ⚠ Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
+                  <span aria-hidden="true">⚠</span> Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
                 </div>
               )}
 

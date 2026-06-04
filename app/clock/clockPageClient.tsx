@@ -748,9 +748,10 @@ export default function ClockPageClient() {
                 />
               </div>
               <div>
-                <label htmlFor="correction-note" className="text-xs text-slate-400 block mb-1">Reason <span className="text-red-400" aria-label="required">*</span></label>
+                <label htmlFor="correction-note" className="text-xs text-slate-400 block mb-1">Reason <span className="text-red-400" aria-hidden="true">*</span></label>
                 <textarea
                   id="correction-note"
+                  aria-required="true"
                   value={correctionNote}
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   placeholder="Why is this punch being added manually?"
