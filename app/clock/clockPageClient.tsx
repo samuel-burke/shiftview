@@ -615,7 +615,8 @@ export default function ClockPageClient() {
             <button
               onClick={() => handlePunchClick("clock_in")}
               disabled={actionPending}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              aria-busy={actionPending}
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-[0.98] transition-[transform,background-color] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-green-600"
             >
               {actionPending ? "…" : "Clock In"}
             </button>
@@ -626,14 +627,16 @@ export default function ClockPageClient() {
               <button
                 onClick={() => submitPunch("break_start")}
                 disabled={actionPending}
-                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                aria-busy={actionPending}
+                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 active:scale-[0.98] transition-[transform,background-color] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-500/30"
               >
                 {actionPending ? "…" : "Start Break"}
               </button>
               <button
                 onClick={() => handlePunchClick("clock_out")}
                 disabled={actionPending}
-                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                aria-busy={actionPending}
+                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 active:scale-[0.98] transition-[transform,background-color] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600"
               >
                 {actionPending ? "…" : "End Shift"}
               </button>
@@ -644,7 +647,8 @@ export default function ClockPageClient() {
             <button
               onClick={() => submitPunch("break_end")}
               disabled={actionPending}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              aria-busy={actionPending}
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-[transform,background-color] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-600"
             >
               {actionPending ? "…" : "End Break"}
             </button>
