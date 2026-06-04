@@ -1,7 +1,7 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -90,6 +90,14 @@ export default function Page() {
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
   const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
+
+  // Mutable refs so subscription callbacks always see the latest date/timezone/role
+  const dateRef = useRef(date);
+  dateRef.current = date;
+  const timezoneRef = useRef(timezone);
+  timezoneRef.current = timezone;
+  const isManagerRef = useRef(isManager);
+  isManagerRef.current = isManager;
 
   // Compute Mon–Sun week dates for the week containing `date`
   const weekDatesForExport = useMemo((): string[] => {
@@ -353,6 +361,63 @@ export default function Page() {
       clearInterval(t);
     };
   }, [isDemo, isManager, date, timezone]);
+
+  // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
+  useEffect(() => {
+    if (isDemo) return;
+
+    function refetchSchedules() {
+      const dk = toDateKey(dateRef.current, timezoneRef.current);
+      apiFetch(`/api/schedules?date=${dk}`)
+        .then((r) => r.json())
+        .then(setSchedules)
+        .catch(() => {});
+    }
+
+    function refetchEmployees() {
+      apiFetch("/api/employees")
+        .then((r) => r.json())
+        .then(setEmployees)
+        .catch(() => {});
+    }
+
+    function refetchTimeOff() {
+      if (!isManagerRef.current) return;
+      fetch("/api/time-off")
+        .then((r) => r.json())
+        .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
+        .catch(() => {});
+    }
+
+    function refetchStoreHours() {
+      fetch("/api/store-hours")
+        .then((r) => r.json())
+        .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+        .catch(() => {});
+    }
+
+    function refetchSettings() {
+      fetch("/api/settings")
+        .then((r) => r.json())
+        .then(({ optimalCoverage: oc, minCoverage: mc, timezone: tz }) => {
+          if (oc != null) setOptimalCoverage(oc);
+          if (mc != null) setMinCoverage(mc);
+          if (tz) setTimezone(tz);
+        })
+        .catch(() => {});
+    }
+
+    const channel = supabase
+      .channel("main-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
+      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refetchStoreHours)
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refetchSettings)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isDemo]);
 
   // Fetch employees, manager status, store hours, and settings in parallel on mount
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { downloadCSV } from "../../lib/csv-download";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
@@ -221,6 +221,19 @@ export default function ClockPageClient() {
   }, [todayKey, isDemo]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Supabase Realtime — reload when schedule, punches, settings, or store hours change
+  useEffect(() => {
+    if (isDemo) return;
+    const channel = supabase
+      .channel("clock-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "punch_records" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [isDemo, loadData]);
 
   async function getGps(): Promise<{ lat: number; lng: number } | null> {
     if (!navigator.geolocation) return null;

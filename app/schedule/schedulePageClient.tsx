@@ -129,6 +129,18 @@ export default function SchedulePageClient() {
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+
+  // Mutable refs so realtime callbacks always see the latest navigation state
+  const navDateRef = useRef(navDate);
+  navDateRef.current = navDate;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const firstDayOfWeekRef = useRef(firstDayOfWeek);
+  firstDayOfWeekRef.current = firstDayOfWeek;
+  const timezoneRef = useRef(timezone);
+  timezoneRef.current = timezone;
+  const isManagerRef = useRef(isManager);
+  isManagerRef.current = isManager;
   const isDesktop = useIsDesktop();
 
   async function handleApproveManagerTimeOff(id: number) {
@@ -288,6 +300,80 @@ export default function SchedulePageClient() {
     }
     return () => { cancelled = true; };
   }, [schedules, loading]);
+
+  // Supabase Realtime — live updates for schedule, time-off, store hours, settings
+  useEffect(() => {
+    if (isDemo) return;
+
+    function refetchSchedule() {
+      const nd = navDateRef.current;
+      const v = viewRef.current;
+      const fdw = firstDayOfWeekRef.current;
+      const tz = timezoneRef.current;
+      let from: Date, to: Date;
+      if (v === "week") {
+        const ws = getWeekStart(nd, fdw);
+        from = ws;
+        to = offsetDays(ws, 6);
+      } else {
+        from = new Date(nd.getFullYear(), nd.getMonth(), 1);
+        to = new Date(nd.getFullYear(), nd.getMonth() + 1, 0);
+      }
+      fetch(`/api/my-schedule?from=${toDateKey(from, tz)}&to=${toDateKey(to, tz)}`)
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((data) => setSchedules(data.schedules ?? []))
+        .catch(() => {});
+    }
+
+    function refetchTimeOff() {
+      fetch("/api/time-off?mine=true")
+        .then((r) => r.json())
+        .then(({ requests }) => {
+          if (Array.isArray(requests)) {
+            setTimeOffRequests(requests.map((r: { id: number; date: string; status: string; note?: string }) => ({
+              id: r.id,
+              date: r.date,
+              status: r.status as TimeOffRequest["status"],
+              note: r.note,
+            })));
+          }
+        })
+        .catch(() => {});
+      if (isManagerRef.current) {
+        fetch("/api/time-off")
+          .then((r) => r.json())
+          .then(({ requests }) => { if (Array.isArray(requests)) setPendingManagerTimeOff(requests); })
+          .catch(() => {});
+      }
+    }
+
+    function refetchStoreHours() {
+      fetch("/api/store-hours")
+        .then((r) => r.json())
+        .then((data: Record<number, StoreHours>) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+        .catch(() => {});
+    }
+
+    function refetchSettings() {
+      fetch("/api/settings")
+        .then((r) => r.json())
+        .then(({ firstDayOfWeek: fdw, timezone: tz }: { firstDayOfWeek?: number; timezone?: string }) => {
+          if (fdw != null) setFirstDayOfWeek(fdw);
+          if (tz) setTimezone(tz);
+        })
+        .catch(() => {});
+    }
+
+    const channel = supabase
+      .channel("schedule-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
+      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refetchStoreHours)
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refetchSettings)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isDemo]);
 
   function goToPrev() {
     if (view === "week") {
