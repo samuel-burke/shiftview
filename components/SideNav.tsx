@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
-import { useState } from "react";
 
 type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports";
 
@@ -76,41 +75,26 @@ function NavLink({
   isActive: boolean;
   children: React.ReactNode;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <Link
       href={href}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-transparent"
-      style={{
-        color: isActive ? "#a5b4fc" : hovered ? "#e2e8f0" : "#94a3b8",
-        boxShadow: isActive
-          ? "0 0 0 1px rgba(99,102,241,0.25), inset 0 1px 0 rgba(255,255,255,0.06)"
-          : hovered
-          ? "0 0 12px rgba(99,102,241,0.08)"
-          : "none",
-      }}
+      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold border border-transparent transition-colors ${
+        isActive
+          ? "text-indigo-300"
+          : "text-slate-400 hover:text-slate-200"
+      }`}
     >
-      {/* Animated background pill */}
+      {/* Animated active background pill */}
       {isActive && (
         <motion.div
           layoutId="sidenav-active"
-          className="absolute inset-0 rounded-xl"
-          style={{ background: "rgba(99,102,241,0.14)", border: "1px solid rgba(99,102,241,0.28)" }}
+          className="absolute inset-0 rounded-xl bg-indigo-600/20 border border-indigo-500/30"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
-      {/* Hover background */}
-      {!isActive && hovered && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.12 }}
-          className="absolute inset-0 rounded-xl bg-slate-800/60"
-        />
+      {/* Hover background — uses Tailwind so it works in both themes */}
+      {!isActive && (
+        <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-800" />
       )}
 
       {/* Icon + label */}
@@ -127,8 +111,7 @@ function NavLink({
       {isActive && (
         <motion.div
           layoutId="sidenav-accent"
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
-          style={{ background: "linear-gradient(180deg, #818cf8, #6366f1)" }}
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-indigo-400"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
