@@ -264,7 +264,7 @@ export default function NotificationBell() {
                     <div className="text-sm font-semibold text-slate-100 truncate">{n.title}</div>
                     <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] text-slate-600">{timeAgo(n.created_at)}</span>
+                      <span className="text-[11px] text-slate-500">{timeAgo(n.created_at)}</span>
                       {isMsg && (
                         <button
                           onClick={() => {
@@ -286,7 +286,7 @@ export default function NotificationBell() {
                     <button
                       onClick={() => dismissOne(n.id)}
                       aria-label={`Dismiss: ${n.title}`}
-                      className="text-slate-600 hover:text-slate-300 cursor-pointer leading-none flex items-center justify-center size-5 transition-colors"
+                      className="text-slate-400 hover:text-slate-200 cursor-pointer leading-none flex items-center justify-center size-5 transition-colors"
                     >
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                     </button>

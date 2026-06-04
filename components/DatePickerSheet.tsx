@@ -185,7 +185,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                   {day.getDate()}
                 </button>
                 {isToday_ && !isSelected && (
-                  <div className="size-1 rounded-full bg-blue-500" />
+                  <div aria-hidden="true" className="size-1 rounded-full bg-blue-500" />
                 )}
               </div>
             );

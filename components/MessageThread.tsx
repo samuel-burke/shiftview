@@ -219,7 +219,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             return (
               <div key={msg.id}>
                 {showTime && (
-                  <div className="text-center text-[11px] text-slate-600 my-2">
+                  <div className="text-center text-[11px] text-slate-500 my-2">
                     {timeLabel(msg.created_at)}
                   </div>
                 )}
@@ -275,7 +275,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
               </svg>
             </button>
           </div>
-          <div className="text-[10px] text-slate-600 mt-1.5 text-center">
+          <div className="text-[10px] text-slate-500 mt-1.5 text-center">
             Enter to send · Shift+Enter for new line
           </div>
         </div>

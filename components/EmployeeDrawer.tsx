@@ -335,7 +335,7 @@ export default function EmployeeDrawer({
                     <button
                       onClick={() => handleSave(false)}
                       disabled={saving}
-                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
+                      className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
                     >
                       {saving ? "Saving…" : "Save Shift"}
                     </button>
@@ -344,7 +344,7 @@ export default function EmployeeDrawer({
                       <button
                         onClick={handleMarkOff}
                         disabled={saving}
-                        className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer disabled:cursor-not-allowed transition-[opacity,background-color] hover:bg-red-500/10 ${saving ? "opacity-70" : "opacity-100"}`}
+                        className="py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-[opacity,background-color] hover:bg-red-500/10"
                       >
                         Mark as Off
                       </button>
