@@ -4,8 +4,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import type { NavItem } from "./AppShell";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { useLayoutEffect } from "react";
+import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 type Props = {
   active: NavItem;
@@ -13,41 +13,24 @@ type Props = {
 
 const TABS = ["team", "schedule", "clock"] as const;
 
-// Module-level: survives remounts within a session, avoids sessionStorage timing hazards.
-// _prevTabIndex: last tab the user was on before navigating.
-// _animatedToTab: the tab we've already started animating to — prevents duplicate animations
-//   when a page (like Clock) has multiple BottomNav instances in different loading branches.
-let _prevTabIndex: number | null = null;
-let _animatedToTab: number | null = null;
+// Written only on unmount so the clock page's loading-branch instances
+// don't overwrite the "from" position before the main instance reads it.
+let _lastTabIndex: number | null = null;
 
 export default function BottomNav({ active }: Props) {
   const isDesktop = useIsDesktop();
   const searchParams = useSearchParams();
   const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
 
-  const pillLeftNum = useMotionValue(tabIndex * 33.333);
-  const pillLeft = useTransform(pillLeftNum, v => `${v}%`);
+  // Initialise from the previous page's tab; effect nudges to the current tab,
+  // causing the CSS transition to slide the pill across.
+  const [pillIndex, setPillIndex] = useState<number>(() => _lastTabIndex ?? tabIndex);
 
-  useLayoutEffect(() => {
-    if (_animatedToTab === tabIndex) {
-      // A prior instance on this page already started the animation — just snap into place.
-      pillLeftNum.set(tabIndex * 33.333);
-      return;
-    }
-
-    const fromTab = _prevTabIndex ?? tabIndex;
-    if (fromTab !== tabIndex) pillLeftNum.set(fromTab * 33.333);
-
-    _animatedToTab = tabIndex;
-    _prevTabIndex = tabIndex;
-
-    const controls = animate(pillLeftNum, tabIndex * 33.333, {
-      type: "spring",
-      stiffness: 420,
-      damping: 36,
-    });
-    return () => controls.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setPillIndex(tabIndex);
+    return () => {
+      _lastTabIndex = tabIndex;
+    };
   }, [tabIndex]);
 
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
@@ -60,11 +43,15 @@ export default function BottomNav({ active }: Props) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">
-        {/* Sliding pill indicator */}
-        <motion.div
+        {/* Sliding pill — CSS transition avoids Framer Motion lifecycle issues */}
+        <div
           aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
-          style={{ width: "33.333%", left: pillLeft }}
+          style={{
+            width: "33.333%",
+            left: `${pillIndex * 33.333}%`,
+            transition: "left 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+          }}
         >
           <div
             className="h-full w-8 rounded-full"
@@ -73,27 +60,15 @@ export default function BottomNav({ active }: Props) {
               boxShadow: "0 0 10px #6366f1aa, 0 0 20px #6366f155",
             }}
           />
-        </motion.div>
+        </div>
 
-        <NavTab
-          href={`/${demo}`}
-          label="Team"
-          isActive={active === "team"}
-        >
+        <NavTab href={`/${demo}`} label="Team" isActive={active === "team"}>
           <TeamIcon />
         </NavTab>
-        <NavTab
-          href={`/schedule${demo}`}
-          label="Schedule"
-          isActive={active === "schedule"}
-        >
+        <NavTab href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
           <ScheduleIcon />
         </NavTab>
-        <NavTab
-          href={`/clock${demo}`}
-          label="Clock"
-          isActive={active === "clock"}
-        >
+        <NavTab href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
           <ClockIcon />
         </NavTab>
       </div>
