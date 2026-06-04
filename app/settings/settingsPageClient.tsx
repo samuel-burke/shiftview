@@ -1282,8 +1282,8 @@ export default function SettingsPageClient({
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
-                        {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                        <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
+                        {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
                       </div>
                     )}
                     {editingId === emp.id ? (

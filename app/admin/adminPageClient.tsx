@@ -200,8 +200,8 @@ export default function AdminPageClient({
                       {getMonogram(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
-                      {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                      <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
+                      {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs font-semibold py-1.5 rounded-lg w-20 text-center border ${
