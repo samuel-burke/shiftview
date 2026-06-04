@@ -15,6 +15,34 @@ type DayCount = { date: string; count: number };
 type Employee = { id: number; name: string };
 type Schedule = { id: number; employeeId: number; date: string; startMinutes: number; endMinutes: number };
 
+type PayrollDay = {
+  date: string;
+  dayName: string;
+  workedHours: number;
+  breakHours: number;
+  hasIncomplete: boolean;
+};
+
+type PayrollWeek = {
+  weekStart: string;
+  regularHours: number;
+  overtimeHours: number;
+  breakHours: number;
+  totalWorkedHours: number;
+  hasIncomplete: boolean;
+  days: PayrollDay[];
+};
+
+type PayrollEmployee = {
+  employeeId: number;
+  employeeName: string;
+  weeks: PayrollWeek[];
+  totalRegularHours: number;
+  totalOvertimeHours: number;
+  totalBreakHours: number;
+  totalWorkedHours: number;
+};
+
 type AuditEntry = {
   id: number;
   action: string;
@@ -103,6 +131,7 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.break_end":      return `Break ended — ${empName}`;
     case "punch.correction":     return `Punch correction for ${empName}`;
     case "punch.export":         return `Exported punch records`;
+    case "payroll.export":       return `Exported payroll report`;
     case "availability.upsert":  return `Updated availability for ${empName}`;
     case "availability.delete":  return `Removed availability for ${empName}`;
     case "settings.update":      return `Updated app settings`;
@@ -177,6 +206,10 @@ function auditDetail(entry: AuditEntry): string | null {
     }
     case "punch.export":
       return `${m.from} to ${m.to} · ${m.rowCount} rows`;
+    case "payroll.export": {
+      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", "qb-iif": "QuickBooks IIF" };
+      return `${m.from} to ${m.to} · ${fmtLabel[m.format as string] ?? m.format} · ${m.employeeCount} employees`;
+    }
     case "availability.upsert":
     case "availability.delete":
       return (m.dayName as string | null) ?? null;
@@ -252,7 +285,7 @@ export default function ReportsPageClient() {
   const today = new Date();
   const todayKey = toDateKey(today);
 
-  const [activeTab, setActiveTab] = useState<"coverage" | "activity">("coverage");
+  const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll">("coverage");
 
   // ── Coverage state ──
   const [loading, setLoading] = useState(true);
@@ -278,6 +311,26 @@ export default function ReportsPageClient() {
   const [pendingFrom, setPendingFrom] = useState(subtractDays(todayKey, 13));
   const [pendingTo, setPendingTo] = useState(todayKey);
   const [pendingCategory, setPendingCategory] = useState("");
+
+  // ── Payroll state ──
+  const [payrollFrom, setPayrollFrom] = useState(() => {
+    const d = new Date(todayKey + "T12:00:00Z");
+    const day = d.getUTCDay();
+    // Monday of previous week
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -13 : -6 - (day - 1)));
+    return d.toISOString().slice(0, 10);
+  });
+  const [payrollTo, setPayrollTo] = useState(() => {
+    const d = new Date(todayKey + "T12:00:00Z");
+    const day = d.getUTCDay();
+    // Sunday of previous week
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -7 : -day));
+    return d.toISOString().slice(0, 10);
+  });
+  const [payrollFormat, setPayrollFormat] = useState("summary");
+  const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  const [payrollError, setPayrollError] = useState<string | null>(null);
 
   const selectedWeekStart = useMemo(() => {
     const base = new Date(todayKey + "T12:00:00Z");
@@ -367,6 +420,29 @@ export default function ReportsPageClient() {
     setAuditCategory(pendingCategory);
   }
 
+  async function generatePayroll() {
+    setPayrollLoading(true);
+    setPayrollError(null);
+    try {
+      const res = await fetch(`/api/reports/payroll?from=${payrollFrom}&to=${payrollTo}`);
+      const json = await res.json();
+      if (!res.ok) { setPayrollError(json.error ?? "Failed to generate report"); return; }
+      setPayrollData(json.rows ?? []);
+    } catch {
+      setPayrollError("Network error — please try again");
+    } finally {
+      setPayrollLoading(false);
+    }
+  }
+
+  function downloadPayroll() {
+    const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
+    const a = document.createElement("a");
+    a.href = `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`;
+    a.download = `payroll_${payrollFrom}_to_${payrollTo}.${ext}`;
+    a.click();
+  }
+
   // ── Coverage heatmap data ──
   const heatmapDays = useMemo(() => {
     const from = subtractDays(todayKey, 27);
@@ -436,17 +512,17 @@ export default function ReportsPageClient() {
 
       {/* Tab bar */}
       <div className={`${isDesktop ? "px-6 max-w-4xl mx-auto" : "px-4"} pt-4 flex gap-2`}>
-        {(["coverage", "activity"] as const).map((tab) => (
+        {(["coverage", "payroll", "activity"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === tab
                 ? "bg-indigo-600 text-white"
                 : "bg-card border border-slate-800 text-slate-400"
             }`}
           >
-            {tab === "coverage" ? "Coverage" : "Activity Log"}
+            {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : "Activity"}
           </button>
         ))}
       </div>
@@ -563,6 +639,139 @@ export default function ReportsPageClient() {
               Export CSV
             </button>
           </section>
+        </div>
+      )}
+
+      {/* ── Payroll tab ── */}
+      {activeTab === "payroll" && (
+        <div className="px-4 pt-4 flex flex-col gap-4">
+          {/* Controls */}
+          <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">From</div>
+                <input
+                  type="date"
+                  value={payrollFrom}
+                  onChange={(e) => setPayrollFrom(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">To</div>
+                <input
+                  type="date"
+                  value={payrollTo}
+                  onChange={(e) => setPayrollTo(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">Export Format</div>
+              <select
+                value={payrollFormat}
+                onChange={(e) => setPayrollFormat(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="summary">Summary CSV — Universal</option>
+                <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
+                <option value="qb-iif">QuickBooks Desktop (.iif)</option>
+              </select>
+            </div>
+            <button
+              onClick={generatePayroll}
+              disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
+              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer disabled:opacity-40"
+            >
+              {payrollLoading ? "Generating…" : "Generate Report"}
+            </button>
+          </div>
+
+          {payrollError && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
+              {payrollError}
+            </div>
+          )}
+
+          {payrollData !== null && payrollData.length === 0 && (
+            <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
+              <div className="text-slate-400 text-sm font-medium">No punch records in this period</div>
+              <div className="text-slate-600 text-xs mt-1">Employees need to clock in before payroll data is available</div>
+            </div>
+          )}
+
+          {payrollData !== null && payrollData.length > 0 && (
+            <>
+              {/* Preview table */}
+              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+                  <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9">Reg</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9">OT</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9">Brk</div>
+                  <div className="text-[10px] text-slate-500 font-semibold text-right w-10">Total</div>
+                </div>
+                {payrollData.map((emp) => (
+                  <div key={emp.employeeId} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                    <div className="text-xs text-slate-200 font-medium truncate flex items-center gap-1">
+                      {emp.employeeName.split(" ")[0]}
+                      {emp.weeks.some((w) => w.hasIncomplete) && (
+                        <span className="text-amber-400 text-[10px]" title="Incomplete punch pair">⚠</span>
+                      )}
+                    </div>
+                    <div className="text-right text-[11px] font-semibold text-emerald-400 tabular-nums w-9">
+                      {emp.totalRegularHours.toFixed(1)}
+                    </div>
+                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                      {emp.totalOvertimeHours > 0 ? emp.totalOvertimeHours.toFixed(1) : "—"}
+                    </div>
+                    <div className="text-right text-[11px] text-slate-500 tabular-nums w-9">
+                      {emp.totalBreakHours.toFixed(1)}
+                    </div>
+                    <div className="text-right text-[11px] font-bold text-slate-200 tabular-nums w-10">
+                      {emp.totalWorkedHours.toFixed(1)}
+                    </div>
+                  </div>
+                ))}
+                {/* Totals */}
+                {(() => {
+                  const reg  = payrollData.reduce((s, e) => s + e.totalRegularHours, 0);
+                  const ot   = payrollData.reduce((s, e) => s + e.totalOvertimeHours, 0);
+                  const brk  = payrollData.reduce((s, e) => s + e.totalBreakHours, 0);
+                  const tot  = payrollData.reduce((s, e) => s + e.totalWorkedHours, 0);
+                  return (
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-800/40 border-t border-slate-700/60">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Total</div>
+                      <div className="text-right text-[11px] font-bold text-emerald-400 tabular-nums w-9">{reg.toFixed(1)}</div>
+                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-amber-400" : "text-slate-700"}`}>
+                        {ot > 0 ? ot.toFixed(1) : "—"}
+                      </div>
+                      <div className="text-right text-[11px] font-bold text-slate-500 tabular-nums w-9">{brk.toFixed(1)}</div>
+                      <div className="text-right text-[11px] font-bold text-white tabular-nums w-10">{tot.toFixed(1)}</div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {payrollData.some((e) => e.weeks.some((w) => w.hasIncomplete)) && (
+                <div className="text-[11px] text-amber-400/80 px-1 leading-snug">
+                  ⚠ Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
+                </div>
+              )}
+
+              <button
+                onClick={downloadPayroll}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-sm cursor-pointer"
+              >
+                {payrollFormat === "qb-iif"
+                  ? "Download QuickBooks Desktop (.iif)"
+                  : payrollFormat === "daily"
+                  ? "Download Daily Detail CSV"
+                  : "Download Summary CSV"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
