@@ -211,9 +211,9 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
               {/* Open / Close time inputs */}
               <div className="flex flex-col gap-4 w-full">
                 {([
-                  { label: "Open",  field: "open"  as const, ariaLabel: `${DAY_FULL[activeDow]} open time`  },
-                  { label: "Close", field: "close" as const, ariaLabel: `${DAY_FULL[activeDow]} close time` },
-                ] as const).map(({ label, field, ariaLabel }) => (
+                  { label: "Open",  field: "open"  as const, ariaLabel: `${DAY_FULL[activeDow]} open time`,  isClose: false },
+                  { label: "Close", field: "close" as const, ariaLabel: `${DAY_FULL[activeDow]} close time`, isClose: true  },
+                ] as const).map(({ label, field, ariaLabel, isClose }) => (
                   <div key={field} className="min-w-0 w-full">
                     <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                       {label}
@@ -222,6 +222,8 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
                       <input
                         type="time"
                         aria-label={ariaLabel}
+                        aria-describedby={isClose && sheetInvalid ? "store-hours-error" : undefined}
+                        aria-invalid={isClose && sheetInvalid ? true : undefined}
                         value={minutesToTimeStr(sheetDay![field])}
                         onChange={(e) => {
                           const mins = timeStrToMinutes(e.target.value);
@@ -239,7 +241,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
               </div>
 
               {sheetInvalid && (
-                <div role="alert" className="mt-3 text-sm text-red-400">
+                <div id="store-hours-error" role="alert" className="mt-3 text-sm text-red-400">
                   Close time must be after open time
                 </div>
               )}

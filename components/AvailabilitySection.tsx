@@ -369,11 +369,11 @@ export default function AvailabilitySection({
 
                   <div className="flex flex-col gap-3">
                     {[
-                      { label: "From", val: sheetDay.startVal, ariaLabel: `${DAY_FULL[activeDow]} start time`,
+                      { label: "From", val: sheetDay.startVal, ariaLabel: `${DAY_FULL[activeDow]} start time`, isEnd: false,
                         onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], startVal: v } })) },
-                      { label: "To",   val: sheetDay.endVal,   ariaLabel: `${DAY_FULL[activeDow]} end time`,
+                      { label: "To",   val: sheetDay.endVal,   ariaLabel: `${DAY_FULL[activeDow]} end time`, isEnd: true,
                         onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], endVal: v } })) },
-                    ].map(({ label, val, ariaLabel, onChange }) => (
+                    ].map(({ label, val, ariaLabel, onChange, isEnd }) => (
                       <div key={label} className="min-w-0 w-full">
                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                           {label}
@@ -386,6 +386,8 @@ export default function AvailabilitySection({
                             onBlur={() => handleTimeBlur(activeDow)}
                             className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base [color-scheme:dark] outline-none"
                             aria-label={ariaLabel}
+                            aria-describedby={isEnd && sheetInvalid ? "avail-time-error" : undefined}
+                            aria-invalid={isEnd && sheetInvalid ? true : undefined}
                           />
                         </div>
                       </div>
@@ -393,7 +395,7 @@ export default function AvailabilitySection({
                   </div>
 
                   {sheetInvalid && (
-                    <div role="alert" className="text-sm text-red-400">End time must be after start time</div>
+                    <div id="avail-time-error" role="alert" className="text-sm text-red-400">End time must be after start time</div>
                   )}
 
                   {sheetShowBar && sheetStartMins !== null && sheetEndMins !== null && (
