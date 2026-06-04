@@ -150,15 +150,28 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }
 
+  // Escape key to close
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && open) onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   return (
     <>
       <div
         onClick={onClose}
+        aria-hidden="true"
         className={`fixed inset-0 bg-black/60 z-[60] transition-opacity duration-200 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Message thread with ${otherName}`}
         className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
@@ -177,9 +190,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           </div>
           <button
             onClick={onClose}
-            className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0"
+            aria-label="Close"
+            className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors"
           >
-            ✕
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
 
@@ -209,7 +225,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
                 )}
                 <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                   {!isMine && (
-                    <div className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
+                    <div aria-hidden="true" className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
                       {initials(otherName)}
                     </div>
                   )}
@@ -242,6 +258,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
               onKeyDown={handleKeyDown}
               onInput={autoResize}
               placeholder={`Message ${otherName}…`}
+              aria-label={`Message to ${otherName}`}
               rows={1}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none outline-none focus:border-slate-600 transition-colors"
               style={{ maxHeight: 120 }}
