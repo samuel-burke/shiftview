@@ -1,7 +1,8 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import {
   Employee,
@@ -60,6 +61,70 @@ function offsetDate(d: Date, days: number) {
   const n = new Date(d);
   n.setDate(n.getDate() + days);
   return n;
+}
+
+function AnimatedStatCard({
+  index,
+  value,
+  label,
+  color,
+  loading,
+  pulse = false,
+}: {
+  index: number;
+  value: number;
+  label: string;
+  color: string;
+  loading: boolean;
+  pulse?: boolean;
+}) {
+  const spring = useSpring(0, { stiffness: 80, damping: 20, restDelta: 0.5 });
+  const display = useTransform(spring, (v) => Math.round(v).toString());
+
+  useEffect(() => {
+    if (!loading) spring.set(value);
+  }, [value, loading, spring]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
+      style={{
+        border: `1px solid ${color}33`,
+        boxShadow: pulse ? `0 0 16px ${color}18` : undefined,
+      }}
+    >
+      {/* Subtle radial glow bg */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
+      />
+
+      {loading ? (
+        <div className="flex justify-center mb-1.5">
+          <div className="skeleton h-7 w-8 rounded-[6px]" />
+        </div>
+      ) : (
+        <div className="relative flex items-center justify-center gap-1.5">
+          {pulse && value > 0 && (
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: color }} />
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: color }} />
+            </span>
+          )}
+          <motion.span
+            className="text-[28px] font-extrabold leading-none tabular-nums"
+            style={{ color }}
+          >
+            {display}
+          </motion.span>
+        </div>
+      )}
+      <div className="text-[11px] text-slate-400 mt-1 font-medium relative">{label}</div>
+    </motion.div>
+  );
 }
 
 export default function Page() {
@@ -668,27 +733,37 @@ export default function Page() {
     />
   );
 
-  const statCard = (value: number, label: string, color: string) => (
-    <div
-      className="flex-1 bg-card rounded-xl px-2 py-3 text-center"
-      style={{ border: `1px solid ${color}33` }}
-    >
-      {loading ? (
-        <div className="flex justify-center mb-1.5">
-          <div className="skeleton h-7 w-8 rounded-[6px]" />
-        </div>
-      ) : (
-        <div className="text-[28px] font-extrabold leading-none" style={{ color }}>{value}</div>
-      )}
-      <div className="text-[11px] text-slate-400 mt-1 font-medium">{label}</div>
-    </div>
-  );
-
   const statsRow = (
     <div className="flex gap-2 mb-3">
-      {isToday && statCard(hereNow.length, "Here Now", "#22c55e")}
-      {statCard(scheduled.length, "Scheduled", "#818cf8")}
-      {statCard(off.length, "Off", "#94a3b8")}
+      <AnimatePresence initial={false}>
+        {isToday && (
+          <AnimatedStatCard
+            key="here"
+            index={0}
+            value={hereNow.length}
+            label="Here Now"
+            color="#22c55e"
+            loading={loading}
+            pulse
+          />
+        )}
+      </AnimatePresence>
+      <AnimatedStatCard
+        key="scheduled"
+        index={isToday ? 1 : 0}
+        value={scheduled.length}
+        label="Scheduled"
+        color="#818cf8"
+        loading={loading}
+      />
+      <AnimatedStatCard
+        key="off"
+        index={isToday ? 2 : 1}
+        value={off.length}
+        label="Off"
+        color="#94a3b8"
+        loading={loading}
+      />
     </div>
   );
 
