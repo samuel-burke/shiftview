@@ -36,7 +36,7 @@ function fmtMinutes(m: number): string {
 function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; color?: string }) {
   if (cx === undefined || cy === undefined) return null;
   return (
-    <g>
+    <g aria-hidden="true">
       <circle cx={cx} cy={cy} r={4} fill={color} />
       <circle cx={cx} cy={cy} r={4} fill="none" stroke={color} strokeWidth={2}>
         <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
@@ -193,13 +193,15 @@ export default function CoverageTimeline({
 
   return (
     <motion.div
+      role="img"
+      aria-label={`Coverage timeline from ${fmtMinutes(openMinutes)} to ${fmtMinutes(closeMinutes)}. ${isToday ? `Current time: ${fmtMinutes(nowMinutes)}.` : ""}`}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
-      <div className="flex items-center justify-between mb-3 pl-1.5 pr-1">
+      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
         </p>
@@ -322,6 +324,7 @@ export default function CoverageTimeline({
         {/* Time badge — positioned above the now line */}
         {isToday && lineLeft !== null && lineTop !== null && (
           <div
+            aria-hidden="true"
             className="absolute bg-slate-800 border border-slate-700 rounded-md px-[7px] py-[2px] text-[11px] font-bold text-slate-200 whitespace-nowrap pointer-events-none -translate-x-1/2"
             style={{ left: lineLeft, top: lineTop - 24 }}
           >

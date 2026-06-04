@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AvailabilityRecord, fmtMinutes } from "../data/types";
 
 type Props = {
@@ -91,6 +91,15 @@ export default function AvailabilitySection({
     setSheetOpen(false);
     setTimeout(() => setActiveDow(null), 300);
   }
+
+  const handleEscape = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape" && sheetOpen) closeSheet();
+  }, [sheetOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [handleEscape]);
 
   const timerRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
@@ -264,22 +273,25 @@ export default function AvailabilitySection({
               key={dow}
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
-              className="flex items-center w-full py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left"
+              aria-label={`Edit availability for ${DAY_FULL[dow]}`}
+              className="flex items-center w-full py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
             >
               <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
               <span className={`flex items-center gap-2 flex-1 text-sm ${labelColor}`}>
-                <span className={`size-2 rounded-full shrink-0 ${dot}`} />
+                <span aria-hidden="true" className={`size-2 rounded-full shrink-0 ${dot}`} />
                 {label}
               </span>
-              {cfg.saveStatus === "saving" && (
-                <span className="text-[11px] text-slate-500 shrink-0">Saving…</span>
-              )}
-              {cfg.saveStatus === "error" && (
-                <span className="text-[11px] text-red-400 shrink-0">Error</span>
-              )}
-              <span className="text-slate-600 text-base shrink-0" aria-hidden>›</span>
+              <span role="status" aria-live="polite" aria-atomic="true" className="shrink-0">
+                {cfg.saveStatus === "saving" && (
+                  <span className="text-[11px] text-slate-500">Saving…</span>
+                )}
+                {cfg.saveStatus === "error" && (
+                  <span className="text-[11px] text-red-400">Error</span>
+                )}
+              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );
         })}
@@ -291,30 +303,35 @@ export default function AvailabilitySection({
         <>
           {/* Backdrop */}
           <div
+            aria-hidden="true"
             className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
           {/* Sheet panel */}
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="avail-sheet-title"
             data-testid="availability-sheet"
             className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${sheetOpen ? "translate-y-0" : "translate-y-full"}`}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-slate-700" />
+              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
             </div>
 
             <div className="px-5 pb-10 pt-2">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
+                <h3 id="avail-sheet-title" className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
                 <button
                   onClick={closeSheet}
+                  autoFocus
                   aria-label="Close"
-                  className="size-8 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                  className="size-8 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
-                  ✕
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                 </button>
               </div>
 
@@ -336,7 +353,7 @@ export default function AvailabilitySection({
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
                       className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors cursor-pointer border-none min-h-[44px] ${
-                        isActive ? activeClass : "text-slate-500 bg-transparent"
+                        isActive ? activeClass : "text-slate-500 bg-transparent hover:text-slate-300 hover:bg-slate-800/50"
                       }`}
                       aria-pressed={isActive}
                     >
@@ -355,16 +372,16 @@ export default function AvailabilitySection({
 
                   <div className="flex flex-col gap-3">
                     {[
-                      { label: "From", val: sheetDay.startVal, ariaLabel: `${DAY_FULL[activeDow]} start time`,
+                      { label: "From", val: sheetDay.startVal, ariaLabel: `${DAY_FULL[activeDow]} start time`, isEnd: false,
                         onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], startVal: v } })) },
-                      { label: "To",   val: sheetDay.endVal,   ariaLabel: `${DAY_FULL[activeDow]} end time`,
+                      { label: "To",   val: sheetDay.endVal,   ariaLabel: `${DAY_FULL[activeDow]} end time`, isEnd: true,
                         onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], endVal: v } })) },
-                    ].map(({ label, val, ariaLabel, onChange }) => (
+                    ].map(({ label, val, ariaLabel, onChange, isEnd }) => (
                       <div key={label} className="min-w-0 w-full">
                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                           {label}
                         </div>
-                        <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
+                        <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800 focus-within:border-indigo-500/70 transition-colors">
                           <input
                             type="time"
                             value={val}
@@ -372,6 +389,8 @@ export default function AvailabilitySection({
                             onBlur={() => handleTimeBlur(activeDow)}
                             className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base [color-scheme:dark] outline-none"
                             aria-label={ariaLabel}
+                            aria-describedby={isEnd && sheetInvalid ? "avail-time-error" : undefined}
+                            aria-invalid={isEnd && sheetInvalid ? true : undefined}
                           />
                         </div>
                       </div>
@@ -379,7 +398,7 @@ export default function AvailabilitySection({
                   </div>
 
                   {sheetInvalid && (
-                    <div className="text-sm text-red-400">End time must be after start time</div>
+                    <div id="avail-time-error" role="alert" className="text-sm text-red-400">End time must be after start time</div>
                   )}
 
                   {sheetShowBar && sheetStartMins !== null && sheetEndMins !== null && (
@@ -421,7 +440,7 @@ export default function AvailabilitySection({
               )}
 
               {/* Save status */}
-              <div className="mt-5 h-5 text-center">
+              <div aria-live="polite" aria-atomic="true" className="mt-5 h-5 text-center">
                 {sheetDay?.saveStatus === "saving" && (
                   <span className="text-sm text-slate-400">Saving…</span>
                 )}

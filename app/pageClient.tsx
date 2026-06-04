@@ -824,7 +824,7 @@ export default function Page() {
   );
 
   const errorBanner = error ? (
-    <div className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+    <div role="alert" className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
       {error}
     </div>
   ) : null;
@@ -833,10 +833,11 @@ export default function Page() {
     <motion.button
       onClick={handleExportCSV}
       disabled={exportLoading}
+      aria-busy={exportLoading}
       whileHover={{ scale: 1.03 }}
       whileTap={{ scale: 0.96 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer disabled:opacity-50"
+      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {exportLoading ? "Loading…" : "Export CSV"}
     </motion.button>
@@ -847,7 +848,7 @@ export default function Page() {
       <AppShell active="team" isManager={isManager}>
         <main className="bg-bg min-h-screen">
           <CoverageHeader {...headerProps} />
-          {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+          {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
           {errorBanner}
           <div className="grid grid-cols-[1fr_380px] gap-8 px-6 pb-8 items-start">
             {/* Left: stats + timeline + legend */}
@@ -875,7 +876,7 @@ export default function Page() {
     <AppShell active="team" isManager={isManager}>
       <main className="max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen">
         <CoverageHeader {...headerProps} />
-        {refreshing && <div className="flex justify-center py-2"><div className="spinner" /></div>}
+        {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
         {errorBanner}
         {statsRow}
         {timeline}

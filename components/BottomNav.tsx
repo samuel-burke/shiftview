@@ -34,12 +34,14 @@ export default function BottomNav({ active }: Props) {
 
   return (
     <nav
+      aria-label="Main navigation"
       className="fixed bottom-0 left-0 right-0 z-30 bg-bg/95 border-t border-slate-800/80 max-w-[480px] mx-auto backdrop-blur-md"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">
         {/* Sliding pill indicator */}
         <motion.div
+          aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
           style={{ width: "33.333%" }}
           initial={{ left: `${fromIndex * 33.333}%` }}
@@ -95,6 +97,7 @@ function NavTab({
   return (
     <Link
       href={href}
+      aria-current={isActive ? "page" : undefined}
       className="flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200"
       style={{ color: isActive ? "#e2e8f0" : "#64748b" }}
     >

@@ -149,15 +149,31 @@ input, textarea, select {
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
-/* ── Card hover lift ─────────────────────────────────────── */
-@keyframes float-up {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-1px); }
+/* ── Focus-visible ring ───────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* ── Focus ring consistency ───────────────────────────────── */
-:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.6);
-  outline-offset: 2px;
-  border-radius: 6px;
+/* ── Reduced-motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    opacity: 0.6;
+  }
+  .skeleton {
+    animation: none;
+    background: var(--color-card);
+  }
+  .animate-gradient {
+    animation: none;
+    background-position: 0% center;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

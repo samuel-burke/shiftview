@@ -163,10 +163,10 @@ export default function AdminPageClient({
       >
         <button
           onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center text-xl cursor-pointer shrink-0"
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           aria-label="Back"
         >
-          ‹
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
         <span className="text-2xl font-extrabold text-slate-100 tracking-tight">Admin</span>
       </div>
@@ -179,7 +179,7 @@ export default function AdminPageClient({
           </div>
 
           {errorMsg && (
-            <div className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
+            <div role="alert" className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
               {errorMsg}
             </div>
           )}
@@ -200,8 +200,8 @@ export default function AdminPageClient({
                       {getMonogram(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-slate-200 truncate">{emp.name}</div>
-                      {emp.email && <div className="text-xs text-slate-500 truncate">{emp.email}</div>}
+                      <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
+                      {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs font-semibold py-1.5 rounded-lg w-20 text-center border ${
@@ -212,11 +212,11 @@ export default function AdminPageClient({
                         {isMgr ? "Manager" : "Employee"}
                       </span>
                       {!emp.user_id ? (
-                        <span className="text-xs text-slate-600 w-20 py-1.5 text-center">No account</span>
+                        <span className="text-xs text-slate-500 w-20 py-1.5 text-center">No account</span>
                       ) : isSelf ? (
                         <span
-                          className="text-xs text-slate-600 w-20 py-1.5 text-center"
-                          title="You cannot change your own role"
+                          className="text-xs text-slate-500 w-20 py-1.5 text-center"
+                          aria-label="You — cannot change your own role"
                         >
                           You
                         </span>
@@ -224,7 +224,8 @@ export default function AdminPageClient({
                         <button
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
-                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center ${
+                          aria-busy={isToggling}
+                          className={`text-xs font-semibold py-2.5 rounded-lg border transition-colors cursor-pointer w-20 text-center disabled:opacity-50 disabled:cursor-not-allowed ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr

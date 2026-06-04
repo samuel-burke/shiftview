@@ -112,9 +112,14 @@ export default function CoverageHeader({
 
   const dateNav = (
     <div className={`flex items-center ${isDesktop ? "gap-4" : "justify-between"}`}>
-      <NavButton onClick={onPrev} label="Previous day">←</NavButton>
+      <NavButton onClick={onPrev} label="Previous day">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </NavButton>
       <motion.button
         onClick={() => setPickerOpen(true)}
+        aria-label={`${dateLabel}, ${dayName}. Open date picker`}
+        aria-expanded={pickerOpen}
+        aria-haspopup="dialog"
         whileTap={{ scale: 0.97 }}
         transition={{ type: "spring", stiffness: 400, damping: 28 }}
         className={`text-center bg-transparent border-none cursor-pointer ${isDesktop ? "px-2" : "p-0"}`}
@@ -124,9 +129,9 @@ export default function CoverageHeader({
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
-            className="text-[13px] text-blue-500 font-normal inline-block"
+            className="inline-block"
           >
-            ▾
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
         </div>
         <div className="text-[13px] text-slate-400 mt-0.5">
@@ -137,7 +142,9 @@ export default function CoverageHeader({
           <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
         )}
       </motion.button>
-      <NavButton onClick={onNext} label="Next day">→</NavButton>
+      <NavButton onClick={onNext} label="Next day">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </NavButton>
     </div>
   );
 
@@ -225,7 +232,7 @@ export default function CoverageHeader({
         {isDemo && (
           <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between">
             <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-            <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
+            <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
           </div>
         )}
         <div className="flex items-center justify-between mb-3">
@@ -246,7 +253,7 @@ export default function CoverageHeader({
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.04 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer"
+                className="text-[13px] font-bold text-slate-100 bg-slate-700 border-none rounded-[10px] px-4 py-2.5 cursor-pointer hover:bg-slate-600 transition-colors"
               >
                 TODAY
               </motion.button>

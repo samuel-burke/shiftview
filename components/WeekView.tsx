@@ -67,14 +67,24 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
         const shiftLabel = shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
         const labelColor = shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "#94a3b8");
 
+        const fullDayLabel = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+        const statusText = shiftType
+          ? `${shiftType} shift, ${shortTime(schedule!.startMinutes)} to ${shortTime(schedule!.endMinutes)}`
+          : timeOff
+          ? `Time off request, ${timeOff.status}`
+          : "Off";
+        const dayAriaLabel = `${fullDayLabel}. ${statusText}${isToday ? ". Today" : ""}`;
+
         return (
           <button
             key={i}
             onClick={() => onSelectDate(d)}
+            aria-label={dayAriaLabel}
+            aria-pressed={isSelected}
             className={`flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 transition-colors cursor-pointer ${
               isSelected
-                ? "border border-indigo-500 bg-indigo-500/10"
-                : "border border-slate-800 bg-card"
+                ? "border border-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/20"
+                : "border border-slate-800 bg-card hover:bg-slate-800/60"
             }`}
           >
             <div className="text-[9px] text-slate-400 font-semibold tracking-wider mb-1.5">
@@ -101,7 +111,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
               ) : timeOff?.status === "denied" ? (
                 <TimeOffDeniedIcon size={13} color={TIME_OFF_COLORS.denied} />
               ) : (
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}

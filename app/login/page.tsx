@@ -67,7 +67,7 @@ export default function LoginPage() {
               View
             </span>
           </div>
-          <div className="text-xs text-slate-600 mt-1.5">
+          <div className="text-xs text-slate-500 mt-1.5" aria-live="polite">
             {step === "email" ? "Sign in to your account" : `Code sent to ${email}`}
           </div>
         </div>
@@ -75,26 +75,29 @@ export default function LoginPage() {
         <div className="flex flex-col gap-3">
           {step === "email" ? (
             <>
+              <label htmlFor="login-email" className="sr-only">Email address</label>
               <input
+                id="login-email"
                 type="email"
                 placeholder="Email"
+                aria-describedby={error ? "login-error" : undefined}
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm outline-none [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
               />
-              {error && <div className="text-xs text-red-400 text-center">{error}</div>}
+              {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
               <button
                 onClick={handleSendCode}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? "Sending…" : "Send Code"}
               </button>
               <button
                 onClick={() => router.push("/?demo=true")}
-                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer"
+                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
               >
                 View Demo
               </button>
@@ -104,30 +107,33 @@ export default function LoginPage() {
               <div className="text-[13px] text-slate-500 text-center mb-1">
                 Enter the 6-digit code from your email
               </div>
+              <label htmlFor="login-code" className="sr-only">6-digit verification code</label>
               <input
+                id="login-code"
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 autoComplete="one-time-code"
                 placeholder="000000"
+                aria-describedby={error ? "login-error" : undefined}
                 value={code}
                 maxLength={6}
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] outline-none [color-scheme:dark] caret-transparent"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark] caret-transparent"
               />
-              {error && <div className="text-xs text-red-400 text-center">{error}</div>}
+              {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
               <button
                 onClick={handleVerify}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? "Verifying…" : "Verify"}
               </button>
               <button
                 onClick={() => { setStep("email"); setCode(""); setError(null); }}
-                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer"
+                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
               >
                 Back
               </button>
@@ -135,8 +141,8 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-700 mt-6">
-          <Link href="/privacy" className="hover:text-slate-500 transition-colors">
+        <p className="text-center text-xs text-slate-500 mt-6">
+          <Link href="/privacy" className="hover:text-slate-300 transition-colors">
             Privacy Policy
           </Link>
         </p>
