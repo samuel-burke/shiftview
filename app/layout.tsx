@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

@@ -17,8 +17,6 @@ const STORAGE_KEY = "nav-prev-tab";
 export default function BottomNav({ active }: Props) {
   const isDesktop = useIsDesktop();
   const searchParams = useSearchParams();
-  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
-  if (isDesktop) return null;
   const tabIndex = TABS.indexOf(active);
 
   // Read which tab was active last time so the pill slides FROM there, not from 0.
@@ -32,6 +30,9 @@ export default function BottomNav({ active }: Props) {
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, String(tabIndex));
   }, [tabIndex]);
+
+  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
+  if (isDesktop) return null;
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800 max-w-[480px] mx-auto"
