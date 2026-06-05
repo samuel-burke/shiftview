@@ -27,7 +27,7 @@ const mockNotifyManagers = vi.mocked(notifyManagers);
  */
 function makeBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "eq", "gte", "lte", "order", "limit", "upsert"]) {
+  for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -74,17 +74,16 @@ function makePunchClient({
         // The insert query ends with .single()
         // We distinguish them by returning a builder that tracks calls:
         // first call = state-machine read, second call = insert.
-        let callCount = 0;
         const b: any = {};
-        for (const m of ["select", "insert", "eq", "gte", "lte", "order", "limit", "upsert"]) {
+        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
           b[m] = vi.fn().mockReturnValue(b);
         }
+        // Both maybeSingle calls (today's state-machine + missed-punch check) return lastPunch.
+        // For most tests lastPunch is null or clock_out, so the missed-punch check passes.
         b.maybeSingle = vi.fn().mockResolvedValue({ data: lastPunch, error: lastPunchError });
         b.single = vi.fn().mockResolvedValue({ data: insertData, error: insertError });
-        b.then = (resolve: any, _reject: any) => {
-          callCount++;
-          return Promise.resolve({ data: insertData, error: insertError }).then(resolve, _reject);
-        };
+        b.then = (resolve: any, _reject: any) =>
+          Promise.resolve({ data: insertData, error: insertError }).then(resolve, _reject);
         return b;
       }
       if (table === "schedules") return makeBuilder({ data: null, error: null });
@@ -270,9 +269,10 @@ describe("POST /api/punches — state-machine guard", () => {
     expect(res.status).toBe(409);
   });
 
-  it("applies no time window — last punch is found regardless of when it occurred", async () => {
-    // A clock-in from hours ago (simulating 9pm EST = 1am UTC next day scenario)
-    // must still be visible so clock-out is allowed.
+  it("scopes state machine to current local day — uses gte/lte date filter", async () => {
+    // The day-scoped state machine uses gte/lte to restrict the look-up to today's
+    // local-timezone bounds. A 9pm EST clock-in (= 1am UTC next day) is still
+    // within the local day window so clock-out succeeds.
     let gteCallCount = 0;
     const client = makePunchClient({ lastPunch: { punch_type: "clock_in" } });
     const origFrom = (client as any).from.bind(client);
@@ -287,8 +287,8 @@ describe("POST /api/punches — state-machine guard", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "clock_out" }));
     expect(res.status).toBe(201);
-    // No date filter applied to the state-machine query
-    expect(gteCallCount).toBe(0);
+    // One gte call — the state-machine query uses a local-day date filter
+    expect(gteCallCount).toBe(1);
   });
 
   it("returns 500 when last-punch query fails", async () => {
@@ -349,7 +349,7 @@ function makeTimezoneClockInClient({
       if (table === "schedules")   return buildSimple({ start_minutes: scheduleStartMinutes, date: "2026-05-26", employee_id: 1 });
       if (table === "punch_records") {
         const b: any = {};
-        for (const m of ["select", "insert", "eq", "gte", "lte", "order", "limit"]) {
+        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit"]) {
           b[m] = vi.fn().mockReturnValue(b);
         }
         b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
@@ -678,5 +678,132 @@ describe("GET /api/punches — timezone-aware day filtering", () => {
     const { gte } = client._getCaptured();
     // Fallback to America/New_York (EDT = UTC-4 in June)
     expect(gte).toBe("2026-06-01T04:00:00.000Z");
+  });
+});
+
+// ── POST /api/punches — missed punch detection ────────────────────────────────
+
+/**
+ * Builds a client where today's state-machine query returns `todayLastPunch`
+ * and the previous-day missed-punch query returns `prevDayLastPunch`.
+ * Counter increments across all builders from the same client instance so the
+ * two `maybeSingle()` calls on separate `from("punch_records")` invocations
+ * get the right value.
+ */
+function makeMissedPunchClient({
+  todayLastPunch = null as { punch_type: string } | null,
+  prevDayLastPunch = null as { punch_type: string; punched_at: string } | null,
+} = {}) {
+  let maybeSingleCallCount = 0;
+  const insertData = {
+    id: 1, employee_id: 1, schedule_id: null, punch_type: "clock_in",
+    punched_at: new Date().toISOString(), lat: null, lng: null, is_manual: false, note: null,
+  };
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "managers")   return makeBuilder({ data: null, error: null });
+      if (table === "employees")  return makeBuilder({ data: { id: 1, name: "Alice" }, error: null });
+      if (table === "app_settings") return makeBuilder({ data: null, error: null });
+      if (table === "schedules")  return makeBuilder({ data: null, error: null });
+      if (table === "punch_records") {
+        const b: any = {};
+        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+          b[m] = vi.fn().mockReturnValue(b);
+        }
+        b.maybeSingle = vi.fn().mockImplementation(() => {
+          maybeSingleCallCount++;
+          if (maybeSingleCallCount === 1)
+            return Promise.resolve({ data: todayLastPunch, error: null });
+          // Second call is the missed-punch check (only for clock_in)
+          return Promise.resolve({ data: prevDayLastPunch, error: null });
+        });
+        b.single   = vi.fn().mockResolvedValue({ data: insertData, error: null });
+        b.then     = (resolve: any, _rej: any) =>
+          Promise.resolve({ data: insertData, error: null }).then(resolve, _rej);
+        return b;
+      }
+      return makeBuilder({ data: null, error: null });
+    }),
+  };
+}
+
+describe("POST /api/punches — missed punch detection", () => {
+  it("blocks clock_in when the most recent previous-day punch is clock_in (missed clock_out)", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeMissedPunchClient({
+        todayLastPunch: null,
+        prevDayLastPunch: { punch_type: "clock_in", punched_at: "2026-06-04T22:00:00.000Z" },
+      }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("missed_punch");
+    expect(body.missedPunch).toBeDefined();
+    expect(body.missedPunch.suggestedPunchType).toBe("clock_out");
+  });
+
+  it("blocks clock_in when the previous day ended with break_start", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeMissedPunchClient({
+        todayLastPunch: null,
+        prevDayLastPunch: { punch_type: "break_start", punched_at: "2026-06-04T20:00:00.000Z" },
+      }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("missed_punch");
+  });
+
+  it("allows clock_in when the most recent previous-day punch is clock_out", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeMissedPunchClient({
+        todayLastPunch: null,
+        prevDayLastPunch: { punch_type: "clock_out", punched_at: "2026-06-04T22:00:00.000Z" },
+      }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(201);
+  });
+
+  it("allows clock_in when there are no previous punches at all", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeMissedPunchClient({
+        todayLastPunch: null,
+        prevDayLastPunch: null,
+      }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(201);
+  });
+
+  it("does not run missed-punch check for clock_out (only for clock_in)", async () => {
+    // Previous day has an open session, but since we're clocking OUT (same-day session),
+    // the missed-punch check is not triggered.
+    mockCreateClient.mockResolvedValue(
+      makeMissedPunchClient({
+        todayLastPunch: { punch_type: "clock_in" },
+        prevDayLastPunch: { punch_type: "clock_in", punched_at: "2026-06-04T22:00:00.000Z" },
+      }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_out" }));
+    expect(res.status).toBe(201);
+  });
+
+  it("error response includes a human-readable message with the missed date", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeMissedPunchClient({
+        todayLastPunch: null,
+        prevDayLastPunch: { punch_type: "clock_in", punched_at: "2026-06-04T22:00:00.000Z" },
+      }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    const body = await res.json();
+    expect(body.error).toMatch(/open shift/i);
+    expect(body.missedPunch.date).toBeTruthy();
   });
 });
