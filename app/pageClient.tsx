@@ -789,7 +789,14 @@ export default function Page() {
   ) : null;
 
   return (
-    <AppShell active="team" isManager={isManager}>
+    <AppShell
+      active="team"
+      isManager={isManager}
+      userName={userName}
+      isDemo={isDemo}
+      onSignOut={isDemo ? undefined : handleSignOut}
+      onSignIn={isDemo ? () => router.push("/login") : undefined}
+    >
       {/*
        * Single responsive layout — no JS fork.
        * Mobile: linear stack inside max-w-[480px], pb-28 for the fixed BottomNav.
@@ -799,7 +806,7 @@ export default function Page() {
        * against inherited horizontal padding.
        */}
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
-        <CoverageHeader {...headerProps} />
+        <CoverageHeader {...headerProps} hideMobileBrand />
         {errorBanner}
         <div className="px-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_380px] [@media(min-width:900px)]:gap-8 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:pb-8 [@media(min-width:900px)]:items-start">
           <div>

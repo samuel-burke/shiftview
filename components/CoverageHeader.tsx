@@ -26,6 +26,7 @@ type Props = {
   userName?: string | null;
   isManager?: boolean;
   coverageAlertsEnabled?: boolean;
+  hideMobileBrand?: boolean;
 };
 
 function fmtTime(m: number): string {
@@ -74,6 +75,7 @@ export default function CoverageHeader({
   userName = null,
   isManager = false,
   coverageAlertsEnabled = true,
+  hideMobileBrand = false,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -186,7 +188,7 @@ export default function CoverageHeader({
         )}
 
         {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
-        <div className="flex items-center justify-between mb-3 [@media(min-width:900px)]:contents">
+        <div className={`flex items-center justify-between mb-3 [@media(min-width:900px)]:contents${hideMobileBrand ? " [@media(max-width:899px)]:hidden" : ""}`}>
           <div className="[@media(min-width:900px)]:shrink-0">
             <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px]">
               Shift
