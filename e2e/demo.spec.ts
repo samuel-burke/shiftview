@@ -37,6 +37,9 @@ async function interceptAPIs(page: Page) {
   await page.route("**/api/store-hours**", (route) =>
     route.fulfill({ json: MOCK_STORE_HOURS })
   );
+  await page.route("**/api/settings**", (route) =>
+    route.fulfill({ json: { firstDayOfWeek: 6, optimalCoverage: 3, minCoverage: 2, coverageAlertsEnabled: true, timezone: "America/New_York", emailNotifications: false, manualPunchesEnabled: true, gpsRequired: false, geofenceEnabled: false, geofenceLat: null, geofenceLng: null, geofenceRadius: 100, geofenceAddress: null } })
+  );
 }
 
 test.describe("Demo mode — schedule view", () => {
