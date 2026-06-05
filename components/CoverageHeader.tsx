@@ -174,10 +174,11 @@ export default function CoverageHeader({
        * centre between them.
        */}
       <div
-        className="sticky top-0 z-30 bg-bg border-b border-slate-800 px-4 pb-3 header-safe-top
+        className={`bg-bg border-b border-slate-800 px-4 pb-3
                    [@media(min-width:900px)]:static [@media(min-width:900px)]:flex
                    [@media(min-width:900px)]:items-center [@media(min-width:900px)]:gap-6
-                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]"
+                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]
+                   ${hideMobileBrand ? "pt-3" : "sticky top-0 z-30 header-safe-top"}`}
       >
         {/* Mobile-only demo banner (inside bar) */}
         {isDemo && (
