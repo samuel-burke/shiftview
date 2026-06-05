@@ -153,6 +153,22 @@ export function getTotalClockedSeconds(punches: PunchRecord[], now = Date.now())
   return Math.floor(total / 1000);
 }
 
+export function getBreakElapsedSeconds(punches: PunchRecord[], now = Date.now()): number {
+  const sorted = [...punches].sort(
+    (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()
+  );
+  let breakStart: number | null = null;
+  for (const p of sorted) {
+    if (p.punchType === "break_start") {
+      breakStart = new Date(p.punchedAt).getTime();
+    } else if (p.punchType === "break_end") {
+      breakStart = null;
+    }
+  }
+  if (breakStart === null) return 0;
+  return Math.floor((now - breakStart) / 1000);
+}
+
 export function fmtElapsed(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
