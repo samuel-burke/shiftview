@@ -549,16 +549,9 @@ export default function Page() {
     [schedules, dateKey],
   );
   const scheduled = daySchedules;
-  const off = useMemo(
-    () => employees.filter((emp) => !daySchedules.some((s) => s.employeeId === emp.id)),
-    [employees, daySchedules],
-  );
-  const sortedScheduled = useMemo(
-    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
-    [scheduled],
-  );
 
   // Build a map from employeeId → AttendanceStatus using real punch records.
+  // Covers both scheduled employees and unscheduled walk-ins.
   // Only populated once punch data has loaded so we don't flash "Not Here Yet"
   // before the fetch completes.
   const attendanceMap = useMemo((): Record<number, AttendanceStatus> => {
@@ -568,18 +561,58 @@ export default function Page() {
       const empPunches = punchRecords.filter((p) => p.employeeId === sch.employeeId);
       map[sch.employeeId] = getAttendanceStatus(empPunches);
     }
+    // Also cover unscheduled employees who have punched in today
+    for (const p of punchRecords) {
+      if (!(p.employeeId in map)) {
+        const empPunches = punchRecords.filter((q) => q.employeeId === p.employeeId);
+        map[p.employeeId] = getAttendanceStatus(empPunches);
+      }
+    }
     return map;
   }, [punchRecords, scheduled, punchesLoaded]);
 
-  // Split sortedScheduled into the three attendance-based sub-groups.
+  // Synthetic Schedule stubs for unscheduled employees who have punched in today.
+  // startMinutes = -1 signals ShiftCard to render them as "Walk-in" without shift times.
+  const walkInSchedules = useMemo((): Schedule[] => {
+    if (!isToday || !punchesLoaded) return [];
+    const scheduledIds = new Set(daySchedules.map((s) => s.employeeId));
+    const seen = new Set<number>();
+    const result: Schedule[] = [];
+    for (const p of punchRecords) {
+      if (scheduledIds.has(p.employeeId) || seen.has(p.employeeId)) continue;
+      seen.add(p.employeeId);
+      result.push({ id: -(p.employeeId), employeeId: p.employeeId, date: dateKey, startMinutes: -1, endMinutes: -1 });
+    }
+    return result;
+  }, [isToday, punchesLoaded, punchRecords, daySchedules, dateKey]);
+
+  const off = useMemo(() => {
+    const walkInIds = new Set(walkInSchedules.map((s) => s.employeeId));
+    return employees.filter(
+      (emp) => !daySchedules.some((s) => s.employeeId === emp.id) && !walkInIds.has(emp.id),
+    );
+  }, [employees, daySchedules, walkInSchedules]);
+
+  const sortedScheduled = useMemo(
+    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
+    [scheduled],
+  );
+
+  // Split sortedScheduled (plus walk-ins) into the three attendance-based sub-groups.
   // When attendanceMap is empty (!punchesLoaded), all shifts fall into scheduledRemaining.
   const hereNowSchedules = useMemo(
-    () => sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
-    [sortedScheduled, attendanceMap],
+    () => [
+      ...sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
+      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
+    ],
+    [sortedScheduled, walkInSchedules, attendanceMap],
   );
   const onBreakSchedules = useMemo(
-    () => sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "on_break"),
-    [sortedScheduled, attendanceMap],
+    () => [
+      ...sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "on_break"),
+      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "on_break"),
+    ],
+    [sortedScheduled, walkInSchedules, attendanceMap],
   );
   const scheduledRemaining = useMemo(
     () => sortedScheduled.filter((s) => {

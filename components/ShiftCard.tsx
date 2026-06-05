@@ -40,12 +40,13 @@ export default function ShiftCard({
   attendanceStatus,
   onClick,
 }: Props) {
-  const shiftType = getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close);
-  const here = isToday && isHere(schedule, nowMinutes);
+  const isWalkIn = schedule.startMinutes < 0;
+  const shiftType = isWalkIn ? null : getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close);
+  const here = isToday && !isWalkIn && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
 
   let arrivalText: string | null = null;
-  if (isToday && !here && schedule.startMinutes > nowMinutes) {
+  if (!isWalkIn && isToday && !here && schedule.startMinutes > nowMinutes) {
     const diff = schedule.startMinutes - nowMinutes;
     const h = Math.floor(diff / 60);
     const m = diff % 60;
@@ -102,18 +103,20 @@ export default function ShiftCard({
         <div className={`font-semibold text-sm truncate ${isActive ? "text-slate-100" : "text-slate-400"}`}>
           {formatDisplayName(employee.name)}
         </div>
-        {shiftType && (
+        {(shiftType || isWalkIn) && (
           <div className="text-[11px] mt-0.5 capitalize" style={{ color: shiftColor }}>
-            {shiftType}
+            {isWalkIn ? "Walk-in" : shiftType}
           </div>
         )}
       </div>
 
       {/* Right side */}
       <div className="text-right shrink-0">
-        <div className="text-xs text-slate-400 whitespace-nowrap">
-          {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
-        </div>
+        {!isWalkIn && (
+          <div className="text-xs text-slate-400 whitespace-nowrap">
+            {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
+          </div>
+        )}
         <div className="mt-[5px] flex justify-end items-center gap-1.5">
           {arrivalText && !badge && (
             <span className="text-xs text-slate-400">{arrivalText}</span>
