@@ -640,9 +640,6 @@ export default function Page() {
     return scheduled.filter((s) => isHere(s, nowMinutes));
   }, [scheduled, nowMinutes, isToday, punchesLoaded, attendanceMap]);
 
-  const lastUpdated = lastFetchedAt
-    ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
-    : null;
 
   const storeHours = weeklyHours[date.getDay()];
 
@@ -659,56 +656,6 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
-  const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    let startY: number | null = null;
-    let startX: number | null = null;
-
-    function onTouchStart(e: TouchEvent) {
-      startY = e.touches[0].clientY;
-      startX = e.touches[0].clientX;
-    }
-
-    async function onTouchEnd(e: TouchEvent) {
-      if (startY === null || startX === null) return;
-      const diffY = e.changedTouches[0].clientY - startY;
-      const diffX = startX - e.changedTouches[0].clientX;
-
-      // Pull to refresh — only when at top of page and pulling down
-      if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
-        setRefreshing(true);
-        const dateKey = toDateKey(date, timezone);
-        const isViewingToday = dateKey === toDateKey(today, timezone);
-        try {
-          await Promise.all([
-            apiFetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
-              .then((r) => r.json())
-              .then(setEmployees),
-            apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, { cache: "no-store" })
-              .then((r) => r.json())
-              .then(setSchedules),
-            ...(isViewingToday && !isDemo
-              ? [apiFetch(`/api/punches?date=${dateKey}`, { cache: "no-store" })
-                  .then((r) => r.json())
-                  .then((d) => { setPunchRecords(Array.isArray(d) ? d : []); setPunchesLoaded(true); })
-                  .catch(() => {})]
-              : []),
-          ]);
-          setLastFetchedAt(new Date());
-        } finally {
-          setRefreshing(false);
-        }
-      }
-    }
-
-    window.addEventListener("touchstart", onTouchStart);
-    window.addEventListener("touchend", onTouchEnd);
-    return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [date, isDemo, timezone]);
 
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
@@ -853,7 +800,6 @@ export default function Page() {
        */}
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
         <CoverageHeader {...headerProps} />
-        {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
         {errorBanner}
         <div className="px-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_380px] [@media(min-width:900px)]:gap-8 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:pb-8 [@media(min-width:900px)]:items-start">
           <div>
