@@ -138,10 +138,13 @@ export default function Page() {
 
   const {
     me, storeHours: weeklyHoursCtx, settings, sharedLoading,
-    employees, refreshEmployees,
+    employees: cachedEmployees, cacheEmployees,
     scheduleCache, setScheduleCache,
     punchCache, setPunchCache,
   } = useAppData();
+
+  // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
+  const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
   const { isManager, employeeName: userName } = me;
   const { optimalCoverage, minCoverage, coverageAlertsEnabled, timezone } = settings;
   const weeklyHours = weeklyHoursCtx;
@@ -431,6 +434,13 @@ export default function Page() {
         .catch(() => {});
     }
 
+    function refetchEmployees() {
+      apiFetch("/api/employees")
+        .then(r => r.json())
+        .then((data: Employee[]) => { if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); } })
+        .catch(() => {});
+    }
+
     function refetchTimeOff() {
       if (!isManagerRef.current) return;
       fetch("/api/time-off")
@@ -442,12 +452,26 @@ export default function Page() {
     const channel = supabase
       .channel("main-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [isDemo]);
 
+
+  // Fetch employees directly — reliable primary source.
+  // If context already has employees (return visit), start with those and refresh in background.
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetch(`/api/employees?demo=${isDemo}`, { signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data: Employee[]) => {
+        if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); }
+      })
+      .catch(err => { if (err?.name !== "AbortError") console.error("[pageClient] /api/employees failed", err); });
+    return () => controller.abort();
+  }, [isDemo]);
 
   // Load pending time-off requests once we know the user is a manager
   useEffect(() => {
@@ -574,8 +598,8 @@ export default function Page() {
   }, [isToday, isStoreOpen, hereNow.length]);
 
 
-  // Stay in skeleton until both page data (schedules) and shared context (employees/me) are ready.
-  // On return visits sharedLoading is already false, so cache hits still render instantly.
+  // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
+  // employees has its own local state so it no longer blocks the skeleton.
   const isLoading = loading || sharedLoading;
 
   const headerProps = {

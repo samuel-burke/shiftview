@@ -18,8 +18,8 @@ vi.mock("../lib/AppDataContext", () => ({
     refreshMe: vi.fn(),
     refreshStoreHours: vi.fn(),
     refreshSettings: vi.fn(),
-    employees: [{ id: 1, name: "Alice" }],
-    refreshEmployees: vi.fn(),
+    employees: [],
+    cacheEmployees: vi.fn(),
     scheduleCache: {},
     setScheduleCache: vi.fn(),
     punchCache: {},
@@ -108,19 +108,18 @@ describe("pageClient attendance", () => {
 });
 
 describe("pageClient mount fetches", () => {
-  it("fetches schedules on mount (employees/me/store-hours/settings come from AppDataContext)", async () => {
+  it("fetches employees and schedules on mount", async () => {
     render(<Page />);
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]: [string]) => url);
       expect(urls.some((u) => u.includes("/api/schedules"))).toBe(true);
-      // employees now come from context, not a direct fetch
-      expect(urls.some((u) => u.includes("/api/employees"))).toBe(false);
+      expect(urls.some((u) => u.includes("/api/employees"))).toBe(true);
     });
   });
 
-  it("renders employees from context without fetching /api/employees", async () => {
-    // The mock context provides [{ id: 1, name: "Alice" }] as employees
+  it("fetches employees directly and renders them", async () => {
     mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/employees")) return makeJsonResponse([{ id: 1, name: "Alice" }]);
       if (url.includes("/api/schedules")) return makeJsonResponse([]);
       return makeJsonResponse({});
     });

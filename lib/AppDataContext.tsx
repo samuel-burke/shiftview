@@ -61,8 +61,9 @@ type AppDataContextValue = {
   refreshStoreHours: () => void;
   refreshSettings: () => void;
   // Team page cache — survives navigation so remounting Team is instant
+  // employees is written by pageClient after each direct fetch; context is cache-only
   employees: Employee[];
-  refreshEmployees: () => void;
+  cacheEmployees: (data: Employee[]) => void;
   scheduleCache: Record<string, Schedule[]>;
   setScheduleCache: (dateKey: string, schedules: Schedule[]) => void;
   punchCache: Record<string, PunchRecord[]>;
@@ -81,7 +82,7 @@ const AppDataContext = createContext<AppDataContextValue>({
   refreshStoreHours: () => {},
   refreshSettings: () => {},
   employees: [],
-  refreshEmployees: () => {},
+  cacheEmployees: () => {},
   scheduleCache: {},
   setScheduleCache: () => {},
   punchCache: {},
@@ -119,12 +120,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, [isDemo]);
 
-  const refreshEmployees = useCallback(() => {
-    fetch(`/api/employees?demo=${isDemo}`)
-      .then(r => r.json())
-      .then((data: Employee[]) => { if (Array.isArray(data)) setEmployees(data); })
-      .catch(() => {});
-  }, [isDemo]);
+  const cacheEmployees = useCallback((data: Employee[]) => {
+    setEmployees(data);
+  }, []);
 
   const setScheduleCache = useCallback((dateKey: string, schedules: Schedule[]) => {
     setScheduleCacheState(prev => ({ ...prev, [dateKey]: schedules }));
@@ -158,12 +156,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then(r => r.json()),
       fetch("/api/store-hours").then(r => r.json()),
       fetch("/api/settings").then(r => r.json()),
-      fetch(`/api/employees?demo=${isDemo}`).then(r => r.json()),
-    ]).then(([meResult, hoursResult, settingsResult, empsResult]) => {
+    ]).then(([meResult, hoursResult, settingsResult]) => {
       if (meResult.status === "fulfilled") applyMe(meResult.value);
       if (hoursResult.status === "fulfilled") setStoreHours(prev => ({ ...prev, ...hoursResult.value }));
       if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
-      if (empsResult.status === "fulfilled" && Array.isArray(empsResult.value)) setEmployees(empsResult.value);
     }).finally(() => setSharedLoading(false));
   }, [isDemo]);
 
@@ -173,16 +169,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .channel("app-data-shared")
       .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refreshStoreHours)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refreshSettings)
-      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refreshEmployees)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo, refreshStoreHours, refreshSettings, refreshEmployees]);
+  }, [isDemo, refreshStoreHours, refreshSettings]);
 
   return (
     <AppDataContext.Provider value={{
       me, storeHours, settings, sharedLoading,
       refreshMe, refreshStoreHours, refreshSettings,
-      employees, refreshEmployees,
+      employees, cacheEmployees,
       scheduleCache, setScheduleCache,
       punchCache, setPunchCache,
       myScheduleCache, setMyScheduleCache,
