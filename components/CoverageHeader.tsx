@@ -106,21 +106,21 @@ export default function CoverageHeader({
   // Coverage status alerts depend on loaded data, gate on !loading.
   const showAlert = coverageAlertsEnabled && alertConfig && (!loading || isPast || isFuture);
 
-  // Mobile nav: full-width justify-between, large date text, live time below
+  // Mobile nav: full-width justify-between, pill-style date button, TODAY shortcut
   const mobileNav = (
-    <div className="flex items-center justify-between">
-      <NavButton onClick={onPrev} label="Previous day">{prevArrow}</NavButton>
-      <motion.button
-        onClick={() => setPickerOpen(true)}
-        aria-label={`${dateLabel}, ${dayName}. Open date picker`}
-        aria-expanded={pickerOpen}
-        aria-haspopup="dialog"
-        whileTap={{ scale: 0.97 }}
-        transition={{ type: "spring", stiffness: 400, damping: 28 }}
-        className="text-center bg-transparent border-none cursor-pointer p-0"
-      >
-        <div className="text-2xl font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
-          {dateLabel}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <NavButton onClick={onPrev} label="Previous day">{prevArrow}</NavButton>
+        <motion.button
+          onClick={() => setPickerOpen(true)}
+          aria-label={`${dateLabel}, ${dayName}. Open date picker`}
+          aria-expanded={pickerOpen}
+          aria-haspopup="dialog"
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 py-2 cursor-pointer"
+        >
+          <span className="text-base font-bold text-slate-100 tracking-tight">{dateLabel}</span>
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
@@ -128,9 +128,19 @@ export default function CoverageHeader({
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
-        </div>
-      </motion.button>
-      <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
+        </motion.button>
+        <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
+      </div>
+      {!isToday && (
+        <motion.button
+          onClick={onNow}
+          whileTap={{ scale: 0.93 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="w-full py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+        >
+          Back to Today
+        </motion.button>
+      )}
     </div>
   );
 
