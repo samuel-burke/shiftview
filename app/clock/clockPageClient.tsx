@@ -3,12 +3,12 @@
 import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAppData } from "@/lib/AppDataContext";
 import {
   Schedule,
   PunchRecord,
   PunchType,
   AttendanceStatus,
-  StoreHours,
   getAttendanceStatus,
   getTotalClockedSeconds,
   fmtElapsed,
@@ -25,7 +25,7 @@ import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
-import { DEMO_EMPLOYEES, DEMO_SETTINGS, DEMO_STORE_HOURS, getDemoSchedulesForDate } from "../../data/demo-fixtures";
+import { DEMO_EMPLOYEES, getDemoSchedulesForDate } from "../../data/demo-fixtures";
 
 const DEMO_EMPLOYEE = DEMO_EMPLOYEES[0]; // Jordan Martinez, id 1
 
@@ -99,18 +99,10 @@ export default function ClockPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [elapsed, setElapsed] = useState(0);
-  const [employeeName, setEmployeeName] = useState<string | null>(null);
-  const [isManager, setIsManager] = useState(false);
-  const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>({
-    0: { open: 480, close: 1200 },
-    1: { open: 360, close: 1320 },
-    2: { open: 360, close: 1320 },
-    3: { open: 360, close: 1320 },
-    4: { open: 360, close: 1320 },
-    5: { open: 360, close: 1320 },
-    6: { open: 360, close: 1320 },
-  });
+
+  const { me, storeHours: weeklyHours, settings } = useAppData();
+  const { isManager, employeeId, employeeName } = me;
+  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
 
   // Correction form state
   const [showCorrection, setShowCorrection] = useState(false);
@@ -140,15 +132,6 @@ export default function ClockPageClient() {
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
   const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
 
-  // Time clock settings
-  const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
-  const [gpsRequired, setGpsRequired] = useState(false);
-  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
-  const [geofenceLat, setGeofenceLat] = useState<number | null>(null);
-  const [geofenceLng, setGeofenceLng] = useState<number | null>(null);
-  const [geofenceRadius, setGeofenceRadius] = useState(100);
-  const [geofenceAddress, setGeofenceAddress] = useState<string | null>(null);
-
   const todayKey = toDateKey(today);
   const storeHours = weeklyHours[today.getDay()];
 
@@ -176,59 +159,35 @@ export default function ClockPageClient() {
     return () => clearInterval(t);
   }, []);
 
+  // employeeId from context, but we need it in loadData which is a callback
+  const employeeIdRef = useRef(employeeId);
+  employeeIdRef.current = employeeId;
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       if (isDemo) {
-        setIsManager(true);
-        setEmployeeName(DEMO_EMPLOYEE.name);
-        setEmployeeId(DEMO_EMPLOYEE.id);
         const scheds = getDemoSchedulesForDate(todayKey);
         setSchedule(scheds.find((s) => s.employeeId === DEMO_EMPLOYEE.id) ?? null);
         setPunches([]);
-        setWeeklyHours(DEMO_STORE_HOURS);
-        setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
-        setGpsRequired(DEMO_SETTINGS.gpsRequired);
-        setGeofenceEnabled(DEMO_SETTINGS.geofenceEnabled);
         return;
       }
 
-      const [meRes, schedRes, punchRes, hoursRes, settingsRes] = await Promise.all([
-        fetch("/api/me"),
+      const [schedRes, punchRes] = await Promise.all([
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
-        fetch("/api/store-hours"),
-        fetch("/api/settings"),
       ]);
 
-      const me = await meRes.json();
-      setIsManager(!!me.isManager);
-      setEmployeeName(me.employeeName ?? null);
-      setEmployeeId(me.employeeId ?? null);
-
       const scheds: Schedule[] = await schedRes.json();
-      const emp = me.employeeId;
-      setSchedule(emp ? (scheds.find((s) => s.employeeId === emp) ?? null) : null);
+      const empId = employeeIdRef.current;
+      setSchedule(empId ? (scheds.find((s) => s.employeeId === empId) ?? null) : null);
 
       const punchData: PunchRecord[] = await punchRes.json();
-      const empId = me.employeeId;
       const myPunches = Array.isArray(punchData)
         ? empId ? punchData.filter((p) => p.employeeId === empId) : []
         : [];
       setPunches(myPunches);
-
-      const hours = await hoursRes.json();
-      setWeeklyHours((prev) => ({ ...prev, ...hours }));
-
-      const settings = await settingsRes.json();
-      if (settings.manualPunchesEnabled != null) setManualPunchesEnabled(settings.manualPunchesEnabled);
-      if (settings.gpsRequired != null) setGpsRequired(settings.gpsRequired);
-      if (settings.geofenceEnabled != null) setGeofenceEnabled(settings.geofenceEnabled);
-      if (settings.geofenceLat != null) setGeofenceLat(settings.geofenceLat);
-      if (settings.geofenceLng != null) setGeofenceLng(settings.geofenceLng);
-      if (settings.geofenceRadius != null) setGeofenceRadius(settings.geofenceRadius);
-      if (settings.geofenceAddress != null) setGeofenceAddress(settings.geofenceAddress);
     } catch {
       setError("Failed to load data");
     } finally {
@@ -238,14 +197,12 @@ export default function ClockPageClient() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Supabase Realtime — reload when schedule, punches, settings, or store hours change
+  // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
   useEffect(() => {
     if (isDemo) return;
     const channel = supabase
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, () => loadData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [isDemo, loadData]);

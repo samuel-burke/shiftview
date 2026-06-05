@@ -1,7 +1,9 @@
 import "./globals.css";
+import { Suspense } from "react";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "../components/ThemeProvider";
+import { AppDataProvider } from "../lib/AppDataContext";
 
 export const metadata = {
   title: "ShiftView",
@@ -43,7 +45,11 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider>
-          {children}
+          <Suspense>
+            <AppDataProvider>
+              {children}
+            </AppDataProvider>
+          </Suspense>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
         <SpeedInsights />
