@@ -475,9 +475,7 @@ export default function SchedulePageClient() {
       : new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0).getDate();
   const daysOff = Math.max(0, daysInRange - totalShifts);
 
-  const totalHoursDisplay = Number.isInteger(totalHours)
-    ? `${totalHours} hrs`
-    : `${totalHours.toFixed(1)} hrs`;
+  const totalHoursDisplay = Math.round(totalHours);
 
   const todayStr = today.toLocaleDateString("en-US", {
     weekday: "short",
@@ -650,7 +648,7 @@ export default function SchedulePageClient() {
               {fmtMinutes(selectedSchedule.startMinutes)} – {fmtMinutes(selectedSchedule.endMinutes)}
             </div>
             <div className="text-sm text-slate-400 mt-0.5">
-              {shiftHours} {shiftHours === 1 ? "hr" : "hrs"}
+              {shiftHours === 1 ? `${shiftHours} hr` : `${shiftHours} hrs`}
             </div>
           </>
         ) : (
