@@ -100,7 +100,7 @@ export default function ClockPageClient() {
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [elapsed, setElapsed] = useState(0);
 
-  const { me, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache } = useAppData();
+  const { me, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, sharedLoading } = useAppData();
   const { isManager, employeeId, employeeName } = me;
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
 
@@ -430,7 +430,7 @@ export default function ClockPageClient() {
     onSignIn: isDemo ? () => router.push("/login") : undefined,
   };
 
-  if (loading) {
+  if (loading || sharedLoading) {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>

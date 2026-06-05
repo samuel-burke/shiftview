@@ -574,9 +574,13 @@ export default function Page() {
   }, [isToday, isStoreOpen, hereNow.length]);
 
 
+  // Stay in skeleton until both page data (schedules) and shared context (employees/me) are ready.
+  // On return visits sharedLoading is already false, so cache hits still render instantly.
+  const isLoading = loading || sharedLoading;
+
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
-    nowMinutes, coverageStatus, isDemo, loading,
+    nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
     onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
     onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
@@ -586,7 +590,7 @@ export default function Page() {
     onSignIn: isDemo ? () => router.push("/login") : undefined,
   };
 
-  const timeline = loading ? <SkeletonTimeline /> : (
+  const timeline = isLoading ? <SkeletonTimeline /> : (
     <CoverageTimeline
       schedules={daySchedules}
       nowMinutes={nowMinutes}
@@ -608,7 +612,7 @@ export default function Page() {
             value={hereNow.length}
             label="Here Now"
             color="#22c55e"
-            loading={loading}
+            loading={isLoading}
           />
         )}
       </AnimatePresence>
@@ -618,7 +622,7 @@ export default function Page() {
         value={scheduled.length}
         label="Scheduled"
         color="#818cf8"
-        loading={loading}
+        loading={isLoading}
       />
       <AnimatedStatCard
         key="off"
@@ -626,7 +630,7 @@ export default function Page() {
         value={off.length}
         label="Off"
         color="#94a3b8"
-        loading={loading}
+        loading={isLoading}
       />
     </div>
   );
@@ -658,7 +662,7 @@ export default function Page() {
     </motion.div>
   );
 
-  const teamSections = loading ? (
+  const teamSections = isLoading ? (
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>
