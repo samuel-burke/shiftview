@@ -778,7 +778,6 @@ export default function SettingsPageClient({
             Appearance
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-            <div className="text-sm font-semibold text-slate-200 mb-3">Theme</div>
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
                 <button
