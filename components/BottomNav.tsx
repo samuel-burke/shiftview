@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { NavItem } from "./AppShell";
 import { motion } from "framer-motion";
+import { haptic } from "../lib/haptic";
 
 type Props = {
   active: NavItem;
@@ -68,6 +69,7 @@ function NavTab({
       href={href}
       aria-current={isActive ? "page" : undefined}
       className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200 ${isActive ? "text-slate-100" : "text-slate-500"}`}
+      onClick={() => { if (!isActive) haptic(6); }}
     >
       <motion.div
         animate={{

@@ -26,6 +26,7 @@ import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
+import { haptic } from "@/lib/haptic";
 import { DEMO_EMPLOYEES, getDemoSchedulesForDate } from "../../data/demo-fixtures";
 
 const DEMO_EMPLOYEE = DEMO_EMPLOYEES[0]; // Jordan Martinez, id 1
@@ -305,6 +306,7 @@ export default function ClockPageClient() {
 
   async function submitPunch(punchType: PunchType) {
     if (actionPending) return;
+    haptic();
     setActionPending(true);
     setActionError(null);
 
