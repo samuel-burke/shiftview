@@ -43,6 +43,7 @@ describe("GET /api/settings", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      coverageAlertsEnabled: true,
       emailNotifications: false,
       firstDayOfWeek: 1,
       optimalCoverage: 4,
@@ -74,6 +75,7 @@ describe("GET /api/settings", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      coverageAlertsEnabled: true,
       emailNotifications: false,
       firstDayOfWeek: 6,
       optimalCoverage: 3,
