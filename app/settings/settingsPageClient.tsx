@@ -557,8 +557,21 @@ export default function SettingsPageClient({
         }
         setPushSubscribed(false);
       } else {
+        if ("Notification" in window && Notification.permission === "default") {
+          const result = await Notification.requestPermission();
+          if (result !== "granted") {
+            setPushError("Permission denied. Enable notifications in your device Settings.");
+            setPushSaving(false);
+            return;
+          }
+        }
+        if ("Notification" in window && Notification.permission === "denied") {
+          setPushError("Permission denied. Enable notifications in your device Settings.");
+          setPushSaving(false);
+          return;
+        }
         const keyRes = await fetch("/api/push/vapid-key");
-        if (!keyRes.ok) { setPushError("Push notifications are not configured on this server."); return; }
+        if (!keyRes.ok) { setPushError("Push notifications are not configured on this server."); setPushSaving(false); return; }
         const { publicKey } = await keyRes.json();
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.subscribe({
