@@ -11,6 +11,7 @@ import {
   AttendanceStatus,
   getAttendanceStatus,
   getTotalClockedSeconds,
+  getBreakElapsedSeconds,
   fmtElapsed,
   fmtMinutes,
   getShiftType,
@@ -98,6 +99,7 @@ export default function ClockPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [elapsed, setElapsed] = useState(0);
+  const [breakElapsed, setBreakElapsed] = useState(0);
 
   const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, sharedLoading } = useAppData();
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
@@ -175,6 +177,15 @@ export default function ClockPageClient() {
     setElapsed(getTotalClockedSeconds(punches));
     if (status === "clocked_in") {
       const t = setInterval(() => setElapsed(getTotalClockedSeconds(punches)), 1000);
+      return () => clearInterval(t);
+    }
+  }, [punches, status]);
+
+  // Break duration timer — ticks every second while on break
+  useEffect(() => {
+    setBreakElapsed(getBreakElapsedSeconds(punches));
+    if (status === "on_break") {
+      const t = setInterval(() => setBreakElapsed(getBreakElapsedSeconds(punches)), 1000);
       return () => clearInterval(t);
     }
   }, [punches, status]);
@@ -566,14 +577,36 @@ export default function ClockPageClient() {
 
           {(effectiveStatus === "clocked_in" || effectiveStatus === "on_break" || effectiveStatus === "clocked_out") && (
             <>
-              <div
-                className="text-4xl font-mono font-extrabold text-slate-100 tabular-nums"
-                aria-live="polite"
-                aria-label={`Total time worked today: ${fmtElapsed(elapsed)}`}
-              >
-                {fmtElapsed(elapsed)}
-              </div>
-              <div className="text-xs text-slate-400 mt-1" aria-hidden="true">Total time worked today</div>
+              {effectiveStatus === "on_break" ? (
+                <>
+                  <div
+                    className="text-4xl font-mono font-extrabold tabular-nums"
+                    style={{ color: STATUS_COLORS["on_break"] }}
+                    aria-live="polite"
+                    aria-label={`Current break duration: ${fmtElapsed(breakElapsed)}`}
+                  >
+                    {fmtElapsed(breakElapsed)}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1" aria-hidden="true">Current break duration</div>
+                  <div className="mt-3 pt-3 border-t border-slate-800/60">
+                    <div className="text-xl font-mono font-bold text-slate-500 tabular-nums">
+                      {fmtElapsed(elapsed)}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5" aria-hidden="true">Total time worked today</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="text-4xl font-mono font-extrabold text-slate-100 tabular-nums"
+                    aria-live="polite"
+                    aria-label={`Total time worked today: ${fmtElapsed(elapsed)}`}
+                  >
+                    {fmtElapsed(elapsed)}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1" aria-hidden="true">Total time worked today</div>
+                </>
+              )}
             </>
           )}
 
