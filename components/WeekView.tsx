@@ -87,7 +87,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
                 : "border border-slate-800 bg-card hover:bg-slate-800/60"
             }`}
           >
-            <div className="text-[9px] text-slate-400 font-semibold tracking-wider mb-1.5">
+            <div className="text-[9px] text-slate-400 font-semibold tracking-wider mb-1.5 select-none">
               {DAY_LABELS[i]}
             </div>
             <div

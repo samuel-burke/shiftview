@@ -406,7 +406,7 @@ export default function EmployeeDrawer({
                           className="bg-card rounded-xl px-[14px] py-3 border border-white/[0.05]"
                           style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
                         >
-                          <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1">{label}</div>
+                          <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1 select-none">{label}</div>
                           <div className="text-sm font-semibold text-slate-100">{value}</div>
                         </motion.div>
                       ))}
