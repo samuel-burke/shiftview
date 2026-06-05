@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import MessageThread from "./MessageThread";
 import {
@@ -68,6 +68,7 @@ export default function EmployeeDrawer({
   isManager,
 }: Props) {
   const isDesktop = useIsDesktop();
+  const dragControls = useDragControls();
   const [editing, setEditing] = useState(false);
   const [startVal, setStartVal] = useState("");
   const [endVal, setEndVal] = useState("");
@@ -261,9 +262,21 @@ export default function EmployeeDrawer({
               animate={isDesktop ? { x: 0 } : { y: 0 }}
               exit={isDesktop ? { x: "100%" } : { y: "100%" }}
               transition={{ type: "spring", damping: 32, stiffness: 300 }}
+              drag={isDesktop ? false : "y"}
+              dragListener={false}
+              dragControls={dragControls}
+              dragConstraints={{ top: 0 }}
+              dragElastic={{ top: 0 }}
+              onDragEnd={(_, info) => {
+                if (!isDesktop && (info.offset.y > 80 || info.velocity.y > 500)) onClose();
+              }}
             >
               {!isDesktop && (
-                <div className="flex justify-center pt-3 pb-1">
+                <div
+                  className="flex justify-center pt-3 pb-1 cursor-grab"
+                  style={{ touchAction: "none" }}
+                  onPointerDown={(e) => dragControls.start(e)}
+                >
                   <div aria-hidden="true" className="w-10 h-[3px] rounded-full bg-slate-700/80" />
                 </div>
               )}

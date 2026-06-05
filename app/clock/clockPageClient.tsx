@@ -30,6 +30,12 @@ import { DEMO_EMPLOYEES, getDemoSchedulesForDate } from "../../data/demo-fixture
 
 const DEMO_EMPLOYEE = DEMO_EMPLOYEES[0]; // Jordan Martinez, id 1
 
+function haptic(pattern: number | number[] = 10) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(pattern);
+  }
+}
+
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
 
@@ -305,6 +311,7 @@ export default function ClockPageClient() {
 
   async function submitPunch(punchType: PunchType) {
     if (actionPending) return;
+    haptic();
     setActionPending(true);
     setActionError(null);
 
