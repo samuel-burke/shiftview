@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Schedule, PunchRecord } from "../data/types";
+import { useTheme } from "./ThemeProvider";
 
 type Props = {
   schedules: Schedule[];
@@ -55,6 +56,10 @@ export default function CoverageTimeline({
   punchRecords,
   timezone = "America/New_York",
 }: Props) {
+  const { mode } = useTheme();
+  const isLight = mode === "light" ||
+    (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
+
   const range = closeMinutes - openMinutes;
 
   const STEP = 15;
@@ -273,11 +278,11 @@ export default function CoverageTimeline({
             <Tooltip
               wrapperStyle={showTooltip ? undefined : { display: "none" }}
               contentStyle={{
-                background: "#0f172a",
-                border: "1px solid #334155",
+                background: isLight ? "#ffffff" : "#0f172a",
+                border: isLight ? "1px solid #e2e8f0" : "1px solid #334155",
                 borderRadius: 8,
                 fontSize: 12,
-                color: "#f1f5f9",
+                color: isLight ? "#0f172a" : "#f1f5f9",
               }}
               formatter={(v, name) => {
                 if (name === "staff") return [`${v} scheduled`, "Scheduled"];
