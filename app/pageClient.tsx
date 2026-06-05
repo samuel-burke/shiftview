@@ -221,8 +221,7 @@ export default function Page() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -319,7 +318,7 @@ export default function Page() {
   useEffect(() => {
     if (isDemo) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") router.push("/login");
+      if (event === "SIGNED_OUT") window.location.href = "/login";
     });
     return () => subscription.unsubscribe();
   }, [isDemo]);

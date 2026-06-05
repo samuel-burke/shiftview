@@ -160,8 +160,7 @@ export default function SchedulePageClient() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   // Load pending time-off once manager status is known
