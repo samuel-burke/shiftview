@@ -1301,29 +1301,33 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
-                          className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                          className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
                           aria-label={`Edit name for ${emp.name}`}
                           aria-expanded={editingId === emp.id}
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
                         {emp.user_id === currentUserId ? (
-                          <span className="text-xs text-slate-500 px-3 py-1.5" aria-label="You — cannot remove yourself">You</span>
+                          <div className="size-8 flex items-center justify-center">
+                            <span className="text-xs text-slate-600 font-medium" aria-label="You — cannot remove yourself">You</span>
+                          </div>
                         ) : (
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
                             aria-label={`Remove ${emp.name}`}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`size-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-red-500/20 text-red-300 border-red-500/40"
                                 : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
                             }`}
                           >
-                            {deletingId === emp.id ? "…" : deleteErrorId === emp.id ? "Error" : "Remove"}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
                           </button>
                         )}
                       </div>
