@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { haptic } from "../lib/haptic";
 import MessageThread from "./MessageThread";
 import {
   Employee,
@@ -150,6 +151,7 @@ export default function EmployeeDrawer({
   }
 
   async function handleOverride() {
+    haptic([10, 50, 10]);
     await handleSave(true);
   }
 
@@ -268,7 +270,10 @@ export default function EmployeeDrawer({
               dragConstraints={{ top: 0 }}
               dragElastic={{ top: 0 }}
               onDragEnd={(_, info) => {
-                if (!isDesktop && (info.offset.y > 80 || info.velocity.y > 500)) onClose();
+                if (!isDesktop && (info.offset.y > 80 || info.velocity.y > 500)) {
+                  haptic(15);
+                  onClose();
+                }
               }}
             >
               {!isDesktop && (
