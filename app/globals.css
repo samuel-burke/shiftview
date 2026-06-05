@@ -98,6 +98,12 @@ header {
   -webkit-touch-callout: none;
 }
 
+/* Extend Tailwind's select-none to cover iOS WebKit */
+.select-none {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* ── Scrollbar ────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;

@@ -49,7 +49,7 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
   return (
     <div className="mb-3">
       {/* Legend */}
-      <div className="flex flex-col gap-2 mb-3 px-3 py-2 bg-card rounded-xl border border-slate-800/60">
+      <div className="flex flex-col gap-2 mb-3 px-3 py-2 bg-card rounded-xl border border-slate-800/60 select-none">
         <div className="flex gap-3 flex-wrap">
           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">Shifts</span>
           {([
@@ -82,7 +82,7 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
       {/* Day-of-week headers */}
       <div className="grid grid-cols-7 mb-1.5">
         {DAY_LABELS.map((d) => (
-          <div key={d} className="text-center text-[10px] text-slate-400 font-semibold tracking-wider py-1">
+          <div key={d} className="text-center text-[10px] text-slate-400 font-semibold tracking-wider py-1 select-none">
             {d}
           </div>
         ))}
