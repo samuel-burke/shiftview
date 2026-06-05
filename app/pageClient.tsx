@@ -9,26 +9,14 @@ import {
   Schedule,
   PunchRecord,
   AttendanceStatus,
-  StoreHours,
   AvailabilityRecord,
   isHere,
-  OPTIMAL_COVERAGE,
-  MINIMUM_COVERAGE,
   CoverageStatus,
   getAttendanceStatus,
   fmtMinutes,
   SHIFT_COLORS,
 } from "../data/types";
-
-const DEFAULT_HOURS: Record<number, StoreHours> = {
-  0: { open: 480, close: 1200 },
-  1: { open: 360, close: 1320 },
-  2: { open: 360, close: 1320 },
-  3: { open: 360, close: 1320 },
-  4: { open: 360, close: 1320 },
-  5: { open: 360, close: 1320 },
-  6: { open: 360, close: 1320 },
-};
+import { useAppData } from "../lib/AppDataContext";
 import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
@@ -136,18 +124,10 @@ export default function Page() {
   } | null>(null);
   const [availabilityRecords, setAvailabilityRecords] = useState<AvailabilityRecord[]>([]);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isManager, setIsManager] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
-  const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
-  const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
-  const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
-  const [timezone, setTimezone] = useState("America/New_York");
   const [exportLoading, setExportLoading] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
@@ -155,6 +135,19 @@ export default function Page() {
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
   const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
+
+  const {
+    me, storeHours: weeklyHoursCtx, settings, sharedLoading,
+    employees: cachedEmployees, cacheEmployees,
+    scheduleCache, setScheduleCache,
+    punchCache, setPunchCache,
+  } = useAppData();
+
+  // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
+  const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
+  const { isManager, employeeName: userName } = me;
+  const { optimalCoverage, minCoverage, coverageAlertsEnabled, timezone } = settings;
+  const weeklyHours = weeklyHoursCtx;
 
   // Mutable refs so subscription callbacks always see the latest date/timezone/role
   const dateRef = useRef(date);
@@ -258,6 +251,7 @@ export default function Page() {
     const dateKey = toDateKey(date, timezone);
     const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
+    setScheduleCache(dateKey, data);
     setLastFetchedAt(new Date());
   }
 
@@ -288,6 +282,7 @@ export default function Page() {
     }
     const data2 = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data2);
+    setScheduleCache(dateKey, data2);
     setLastFetchedAt(new Date());
   }
 
@@ -435,14 +430,14 @@ export default function Page() {
       const dk = toDateKey(dateRef.current, timezoneRef.current);
       apiFetch(`/api/schedules?date=${dk}`)
         .then((r) => r.json())
-        .then(setSchedules)
+        .then((data) => { setSchedules(data); setScheduleCache(dk, data); })
         .catch(() => {});
     }
 
     function refetchEmployees() {
       apiFetch("/api/employees")
-        .then((r) => r.json())
-        .then(setEmployees)
+        .then(r => r.json())
+        .then((data: Employee[]) => { if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); } })
         .catch(() => {});
     }
 
@@ -454,128 +449,73 @@ export default function Page() {
         .catch(() => {});
     }
 
-    function refetchStoreHours() {
-      fetch("/api/store-hours")
-        .then((r) => r.json())
-        .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-        .catch(() => {});
-    }
-
-    function refetchSettings() {
-      fetch("/api/settings")
-        .then((r) => r.json())
-        .then(({ optimalCoverage: oc, minCoverage: mc, timezone: tz, coverageAlertsEnabled: ca }) => {
-          if (oc != null) setOptimalCoverage(oc);
-          if (mc != null) setMinCoverage(mc);
-          if (tz) setTimezone(tz);
-          if (ca != null) setCoverageAlertsEnabled(ca);
-        })
-        .catch(() => {});
-    }
-
     const channel = supabase
       .channel("main-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
       .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
-      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refetchStoreHours)
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refetchSettings)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [isDemo]);
 
-  // Fetch employees, manager status, store hours, and settings in parallel on mount
+
+  // Fetch employees directly — reliable primary source.
+  // If context already has employees (return visit), start with those and refresh in background.
   useEffect(() => {
     const controller = new AbortController();
-    const { signal } = controller;
-
-    Promise.allSettled([
-      apiFetch(`/api/employees?demo=${isDemo}`, { signal }),
-      apiFetch(`/api/me${isDemo ? "?demo=true" : ""}`, { signal }),
-      apiFetch("/api/store-hours", { signal }),
-      apiFetch("/api/settings", { signal }),
-    ]).then(([empsResult, meResult, hoursResult, settingsResult]) => {
-      if (empsResult.status === "fulfilled") {
-        if (!empsResult.value.ok) {
-          console.error("[pageClient] fetch failed: /api/employees returned", empsResult.value.status);
-          setError("Failed to load employees");
-        } else {
-          empsResult.value.json().then(setEmployees);
-        }
-      } else {
-        if (empsResult.reason?.name !== "AbortError") {
-          console.error("[pageClient] fetch failed:", empsResult.reason);
-          setError("Failed to load employees");
-        }
-      }
-      if (meResult.status === "fulfilled") {
-        if (!meResult.value.ok) {
-          console.error("[pageClient] fetch failed: /api/me returned", meResult.value.status);
-        } else {
-          meResult.value.json().then(({ isManager: mgr, employeeName }) => {
-            setIsManager(mgr);
-            setUserName(employeeName ?? null);
-            if (mgr && !isDemo) {
-              fetch("/api/time-off")
-                .then((r) => r.json())
-                .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
-                .catch(() => {});
-            }
-          });
-        }
-      } else {
-        if (meResult.reason?.name !== "AbortError") {
-          console.error("[pageClient] fetch failed:", meResult.reason);
-        }
-      }
-      if (hoursResult.status === "fulfilled") {
-        if (!hoursResult.value.ok) {
-          console.error("[pageClient] fetch failed: /api/store-hours returned", hoursResult.value.status);
-        } else {
-          hoursResult.value.json().then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })));
-        }
-      } else {
-        if (hoursResult.reason?.name !== "AbortError") {
-          console.error("[pageClient] fetch failed:", hoursResult.reason);
-        }
-      }
-      if (settingsResult.status === "fulfilled") {
-        if (!settingsResult.value.ok) {
-          console.error("[pageClient] fetch failed: /api/settings returned", settingsResult.value.status);
-        } else {
-          settingsResult.value.json().then(({ optimalCoverage, minCoverage, timezone: tz, coverageAlertsEnabled: ca }) => {
-            if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
-            if (minCoverage != null) setMinCoverage(minCoverage);
-            if (ca != null) setCoverageAlertsEnabled(ca);
-            if (tz) {
-              setTimezone(tz);
-              setNowMinutes(getNowMinutes(tz));
-            }
-          });
-        }
-      } else {
-        if (settingsResult.reason?.name !== "AbortError") {
-          console.error("[pageClient] fetch failed:", settingsResult.reason);
-        }
-      }
-    });
-
+    apiFetch(`/api/employees?demo=${isDemo}`, { signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data: Employee[]) => {
+        if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); }
+      })
+      .catch(err => { if (err?.name !== "AbortError") console.error("[pageClient] /api/employees failed", err); });
     return () => controller.abort();
-  }, []);
+  }, [isDemo]);
 
-  // Fetch schedules (and punch records for today) whenever date changes
+  // Load pending time-off requests once we know the user is a manager
+  useEffect(() => {
+    if (!isManager || isDemo) return;
+    fetch("/api/time-off")
+      .then(r => r.json())
+      .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
+      .catch(() => {});
+  }, [isManager, isDemo]);
+
+  // Fetch schedules (and punch records for today) whenever date changes.
+  // If the cache already has data for this date, apply it immediately so the
+  // page renders without a loading skeleton, then refresh in the background.
   useEffect(() => {
     const dateKey = toDateKey(date, timezone);
-    setLoading(true);
-    setError(null);
     const isViewingToday = dateKey === toDateKey(today, timezone);
-    setPunchesLoaded(false);
+    setError(null);
+
+    const cachedSchedules = scheduleCache[dateKey];
+    const cachedPunches = isViewingToday ? punchCache[dateKey] : undefined;
+
+    if (cachedSchedules) {
+      // Instant render from cache
+      setSchedules(cachedSchedules);
+      setLastFetchedAt(new Date());
+      setLoading(false);
+      if (isViewingToday) {
+        if (cachedPunches) { setPunchRecords(cachedPunches); setPunchesLoaded(true); }
+        else { setPunchesLoaded(false); }
+      } else {
+        setPunchRecords([]); setPunchesLoaded(false);
+      }
+    } else {
+      setLoading(true);
+      setPunchesLoaded(false);
+    }
+
+    // Always fetch fresh data (background refresh if cache hit, primary fetch if not)
     const fetches: Promise<void>[] = [
       apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
         .then((r) => r.json())
         .then((data) => {
           setSchedules(data);
+          setScheduleCache(dateKey, data);
           setLastFetchedAt(new Date());
         }),
     ];
@@ -584,20 +524,21 @@ export default function Page() {
         apiFetch(`/api/punches?date=${dateKey}`)
           .then((r) => r.json())
           .then((data) => {
-            setPunchRecords(Array.isArray(data) ? data : []);
+            const punches = Array.isArray(data) ? data : [];
+            setPunchRecords(punches);
+            setPunchCache(dateKey, punches);
             setPunchesLoaded(true);
           })
           .catch(() => { setPunchRecords([]); setPunchesLoaded(true); })
       );
-    } else {
+    } else if (!isViewingToday) {
       setPunchRecords([]);
       setPunchesLoaded(false);
     }
     Promise.all(fetches)
       .then(() => setLoading(false))
       .catch(() => {
-        setError("Failed to load schedules");
-        setLoading(false);
+        if (!cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
       });
   }, [date, timezone]);
 
@@ -657,9 +598,13 @@ export default function Page() {
   }, [isToday, isStoreOpen, hereNow.length]);
 
 
+  // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
+  // employees has its own local state so it no longer blocks the skeleton.
+  const isLoading = loading || sharedLoading;
+
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
-    nowMinutes, coverageStatus, isDemo, loading,
+    nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
     onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
     onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
@@ -669,7 +614,7 @@ export default function Page() {
     onSignIn: isDemo ? () => router.push("/login") : undefined,
   };
 
-  const timeline = loading ? <SkeletonTimeline /> : (
+  const timeline = isLoading ? <SkeletonTimeline /> : (
     <CoverageTimeline
       schedules={daySchedules}
       nowMinutes={nowMinutes}
@@ -691,7 +636,7 @@ export default function Page() {
             value={hereNow.length}
             label="Here Now"
             color="#22c55e"
-            loading={loading}
+            loading={isLoading}
           />
         )}
       </AnimatePresence>
@@ -701,7 +646,7 @@ export default function Page() {
         value={scheduled.length}
         label="Scheduled"
         color="#818cf8"
-        loading={loading}
+        loading={isLoading}
       />
       <AnimatedStatCard
         key="off"
@@ -709,7 +654,7 @@ export default function Page() {
         value={off.length}
         label="Off"
         color="#94a3b8"
-        loading={loading}
+        loading={isLoading}
       />
     </div>
   );
@@ -741,7 +686,7 @@ export default function Page() {
     </motion.div>
   );
 
-  const teamSections = loading ? (
+  const teamSections = isLoading ? (
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : (
     <>

@@ -11,6 +11,7 @@ import {
   fmtMinutes,
   SHIFT_COLORS,
 } from "../../data/types";
+import { useAppData } from "@/lib/AppDataContext";
 import WeekView from "../../components/WeekView";
 import MonthView from "../../components/MonthView";
 import BottomNav from "../../components/BottomNav";
@@ -65,15 +66,6 @@ export function getDaysUntil(dateStr: string, todayKey: string): number {
   return Math.round((a - b) / 86400000);
 }
 
-const DEFAULT_HOURS: Record<number, StoreHours> = {
-  0: { open: 480, close: 1200 },
-  1: { open: 360, close: 1320 },
-  2: { open: 360, close: 1320 },
-  3: { open: 360, close: 1320 },
-  4: { open: 360, close: 1320 },
-  5: { open: 360, close: 1320 },
-  6: { open: 360, close: 1320 },
-};
 
 function toDateKey(d: Date, tz = "America/New_York") {
   return d.toLocaleDateString("en-CA", { timeZone: tz });
@@ -114,13 +106,11 @@ export default function SchedulePageClient() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [navDate, setNavDate] = useState(today);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [employeeName, setEmployeeName] = useState<string | null>(null);
-  const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [isManager, setIsManager] = useState(false);
-  const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
-  const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
-  const [timezone, setTimezone] = useState("America/New_York");
   const [loading, setLoading] = useState(true);
+
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache } = useAppData();
+  const { isManager, employeeId, employeeName } = me;
+  const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -174,48 +164,33 @@ export default function SchedulePageClient() {
     router.refresh();
   }
 
+  // Load pending time-off once manager status is known
   useEffect(() => {
-    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
+    if (isManager && !isDemo) {
+      fetch("/api/time-off")
+        .then((r) => r.json())
+        .then(({ requests }) => { if (Array.isArray(requests)) setPendingManagerTimeOff(requests); })
+        .catch(() => {});
+    }
+  }, [isManager, isDemo]);
+
+  // Load user's own time-off requests on mount
+  useEffect(() => {
+    if (isDemo) return;
+    fetch("/api/time-off?mine=true")
       .then((r) => r.json())
-      .then(({ employeeName, isManager, employeeId }) => {
-        setEmployeeName(employeeName ?? null);
-        setIsManager(!!isManager);
-        setEmployeeId(employeeId ?? null);
-        if (isManager && !isDemo) {
-          fetch("/api/time-off")
-            .then((r) => r.json())
-            .then(({ requests }) => { if (Array.isArray(requests)) setPendingManagerTimeOff(requests); })
-            .catch(() => {});
+      .then(({ requests }) => {
+        if (Array.isArray(requests)) {
+          setTimeOffRequests(requests.map((r: { id: number; date: string; status: string; note?: string }) => ({
+            id: r.id,
+            date: r.date,
+            status: r.status as TimeOffRequest["status"],
+            note: r.note,
+          })));
         }
       })
       .catch(() => {});
-    fetch("/api/store-hours")
-      .then((r) => r.json())
-      .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-      .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then(({ firstDayOfWeek, timezone: tz }) => {
-        if (firstDayOfWeek != null) setFirstDayOfWeek(firstDayOfWeek);
-        if (tz) setTimezone(tz);
-      })
-      .catch(() => {});
-    if (!isDemo) {
-      fetch("/api/time-off?mine=true")
-        .then((r) => r.json())
-        .then(({ requests }) => {
-          if (Array.isArray(requests)) {
-            setTimeOffRequests(requests.map((r: { id: number; date: string; status: string; note?: string }) => ({
-              id: r.id,
-              date: r.date,
-              status: r.status as TimeOffRequest["status"],
-              note: r.note,
-            })));
-          }
-        })
-        .catch(() => {});
-    }
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     let from: Date, to: Date;
@@ -227,15 +202,28 @@ export default function SchedulePageClient() {
       from = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
       to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
     }
-    setLoading(true);
+    const fromKey = toDateKey(from, timezone);
+    const toKey = toDateKey(to, timezone);
+    const rangeKey = `${fromKey}:${toKey}`;
     setScheduleError(null);
-    fetch(`/api/my-schedule?from=${toDateKey(from, timezone)}&to=${toDateKey(to, timezone)}${isDemo ? "&demo=true" : ""}`)
+
+    const cached = myScheduleCache[rangeKey];
+    if (cached) {
+      setSchedules(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    fetch(`/api/my-schedule?from=${fromKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
-        setSchedules(data.schedules ?? []);
+        const scheds = data.schedules ?? [];
+        setSchedules(scheds);
+        setMyScheduleCache(rangeKey, scheds);
         setLoading(false);
       })
-      .catch(() => { setScheduleError("Failed to load schedule"); setLoading(false); });
+      .catch(() => { if (!cached) { setScheduleError("Failed to load schedule"); setLoading(false); } });
   }, [view, navDate, firstDayOfWeek, timezone]);
 
   // Reset time-off request status when selected date changes
@@ -318,9 +306,15 @@ export default function SchedulePageClient() {
         from = new Date(nd.getFullYear(), nd.getMonth(), 1);
         to = new Date(nd.getFullYear(), nd.getMonth() + 1, 0);
       }
-      fetch(`/api/my-schedule?from=${toDateKey(from, tz)}&to=${toDateKey(to, tz)}`)
+      const fk = toDateKey(from, tz);
+      const tk = toDateKey(to, tz);
+      fetch(`/api/my-schedule?from=${fk}&to=${tk}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((data) => setSchedules(data.schedules ?? []))
+        .then((data) => {
+          const scheds = data.schedules ?? [];
+          setSchedules(scheds);
+          setMyScheduleCache(`${fk}:${tk}`, scheds);
+        })
         .catch(() => {});
     }
 
@@ -346,29 +340,10 @@ export default function SchedulePageClient() {
       }
     }
 
-    function refetchStoreHours() {
-      fetch("/api/store-hours")
-        .then((r) => r.json())
-        .then((data: Record<number, StoreHours>) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-        .catch(() => {});
-    }
-
-    function refetchSettings() {
-      fetch("/api/settings")
-        .then((r) => r.json())
-        .then(({ firstDayOfWeek: fdw, timezone: tz }: { firstDayOfWeek?: number; timezone?: string }) => {
-          if (fdw != null) setFirstDayOfWeek(fdw);
-          if (tz) setTimezone(tz);
-        })
-        .catch(() => {});
-    }
-
     const channel = supabase
       .channel("schedule-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
-      .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refetchStoreHours)
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refetchSettings)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
