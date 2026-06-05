@@ -16,7 +16,8 @@ export default function SideNav({ active, isManager }: Props) {
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
 
   return (
-    <motion.aside
+    <motion.div
+      role="complementary"
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -60,7 +61,7 @@ export default function SideNav({ active, isManager }: Props) {
           </NavLink>
         </LayoutGroup>
       </nav>
-    </motion.aside>
+    </motion.div>
   );
 }
 

@@ -12,7 +12,7 @@ const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type DayCount = { date: string; count: number };
-type Employee = { id: number; name: string };
+type Employee = { id: number; name: string; user_id?: string | null };
 type Schedule = { id: number; employeeId: number; date: string; startMinutes: number; endMinutes: number };
 
 type PayrollDay = {
@@ -308,10 +308,12 @@ export default function ReportsPageClient() {
   const [auditFrom, setAuditFrom] = useState(subtractDays(todayKey, 13));
   const [auditTo, setAuditTo] = useState(todayKey);
   const [auditCategory, setAuditCategory] = useState("");
+  const [auditActorId, setAuditActorId] = useState("");
   // pending = what's in the filter inputs before Apply is clicked
   const [pendingFrom, setPendingFrom] = useState(subtractDays(todayKey, 13));
   const [pendingTo, setPendingTo] = useState(todayKey);
   const [pendingCategory, setPendingCategory] = useState("");
+  const [pendingActorId, setPendingActorId] = useState("");
 
   // ── Payroll state ──
   const [payrollFrom, setPayrollFrom] = useState(() => {
@@ -352,6 +354,8 @@ export default function ReportsPageClient() {
   auditToRef.current = auditTo;
   const auditCategoryRef = useRef(auditCategory);
   auditCategoryRef.current = auditCategory;
+  const auditActorIdRef = useRef(auditActorId);
+  auditActorIdRef.current = auditActorId;
 
   // Supabase Realtime — live updates for schedules, employees, and audit log
   useEffect(() => {
@@ -397,6 +401,7 @@ export default function ReportsPageClient() {
       if (activeTabRef.current !== "activity") return;
       const params = new URLSearchParams({ from: auditFromRef.current, to: auditToRef.current, page: "1" });
       if (auditCategoryRef.current) params.set("category", auditCategoryRef.current);
+      if (auditActorIdRef.current)  params.set("actorId", auditActorIdRef.current);
       fetch(`/api/audit-log?${params}`)
         .then((r) => r.json())
         .then(({ entries, hasMore, total }) => {
@@ -474,12 +479,13 @@ export default function ReportsPageClient() {
   useEffect(() => {
     if (activeTab !== "activity") return;
     fetchAuditPage(1, true);
-  }, [activeTab, auditFrom, auditTo, auditCategory]);
+  }, [activeTab, auditFrom, auditTo, auditCategory, auditActorId]);
 
   function fetchAuditPage(page: number, replace: boolean) {
     setAuditLoading(true);
     const params = new URLSearchParams({ from: auditFrom, to: auditTo, page: String(page) });
     if (auditCategory) params.set("category", auditCategory);
+    if (auditActorId)  params.set("actorId", auditActorId);
     fetch(`/api/audit-log?${params}`)
       .then((r) => r.json())
       .then(({ entries, hasMore, total }) => {
@@ -496,6 +502,7 @@ export default function ReportsPageClient() {
     setAuditFrom(pendingFrom);
     setAuditTo(pendingTo);
     setAuditCategory(pendingCategory);
+    setAuditActorId(pendingActorId);
   }
 
   async function generatePayroll() {
@@ -895,18 +902,36 @@ export default function ReportsPageClient() {
                 />
               </div>
             </div>
-            <div>
-              <label htmlFor="pending-category" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Category</label>
-              <select
-                id="pending-category"
-                value={pendingCategory}
-                onChange={(e) => setPendingCategory(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label htmlFor="pending-category" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Category</label>
+                <select
+                  id="pending-category"
+                  value={pendingCategory}
+                  onChange={(e) => setPendingCategory(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label htmlFor="pending-actor" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">User</label>
+                <select
+                  id="pending-actor"
+                  value={pendingActorId}
+                  onChange={(e) => setPendingActorId(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                >
+                  <option value="">All users</option>
+                  {employees
+                    .filter((e) => e.user_id)
+                    .map((e) => (
+                      <option key={e.user_id} value={e.user_id!}>{e.name}</option>
+                    ))}
+                </select>
+              </div>
             </div>
             <button
               onClick={applyFilters}

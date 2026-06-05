@@ -25,6 +25,8 @@ type Props = {
   loading?: boolean;
   userName?: string | null;
   isManager?: boolean;
+  coverageAlertsEnabled?: boolean;
+  hideMobileBrand?: boolean;
 };
 
 function fmtTime(m: number): string {
@@ -72,6 +74,8 @@ export default function CoverageHeader({
   loading = false,
   userName = null,
   isManager = false,
+  coverageAlertsEnabled = true,
+  hideMobileBrand = false,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -100,23 +104,24 @@ export default function CoverageHeader({
   const alertKey = alertConfig?.message ?? "none";
   // Past/future alerts are deterministic (date prop always known), show immediately.
   // Coverage status alerts depend on loaded data, gate on !loading.
-  const showAlert = alertConfig && (!loading || isPast || isFuture);
+  const showAlert = coverageAlertsEnabled && alertConfig && (!loading || isPast || isFuture);
 
-  // Mobile nav: full-width justify-between, large date text, live time below
+  // Mobile nav: full-width justify-between, pill-style date button, TODAY shortcut
   const mobileNav = (
-    <div className="flex items-center justify-between">
-      <NavButton onClick={onPrev} label="Previous day">{prevArrow}</NavButton>
-      <motion.button
-        onClick={() => setPickerOpen(true)}
-        aria-label={`${dateLabel}, ${dayName}. Open date picker`}
-        aria-expanded={pickerOpen}
-        aria-haspopup="dialog"
-        whileTap={{ scale: 0.97 }}
-        transition={{ type: "spring", stiffness: 400, damping: 28 }}
-        className="text-center bg-transparent border-none cursor-pointer p-0"
-      >
-        <div className="text-2xl font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
-          {dateLabel}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <NavButton onClick={onPrev} label="Previous day">{prevArrow}</NavButton>
+        <motion.button
+          onClick={() => setPickerOpen(true)}
+          aria-label={`${dateLabel}, ${dayName}. Open date picker`}
+          aria-expanded={pickerOpen}
+          aria-haspopup="dialog"
+          whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 py-2 cursor-pointer"
+        >
+          <span className="text-base font-bold text-slate-100 tracking-tight">{dateLabel}</span>
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
@@ -124,13 +129,21 @@ export default function CoverageHeader({
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
-        </div>
-        <div className="text-[13px] text-slate-400 mt-0.5">{dayName}</div>
-        {isToday && (
-          <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
-        )}
-      </motion.button>
-      <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
+        </motion.button>
+        <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
+      </div>
+      {!isToday && (
+        <motion.button
+          onClick={onNow}
+          whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(99,102,241,0.35)" }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="w-full py-2 rounded-xl text-sm font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 cursor-pointer"
+          style={{ boxShadow: "0 0 12px rgba(99,102,241,0.12)" }}
+        >
+          Back to Today
+        </motion.button>
+      )}
     </div>
   );
 
@@ -150,10 +163,6 @@ export default function CoverageHeader({
         <div className="text-lg font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
           {dateLabel}
           <span className="text-[13px] text-blue-500 font-normal">▾</span>
-        </div>
-        <div className="text-[13px] text-slate-400 mt-0.5">
-          {dayName}
-          {isToday && <span className="ml-2 text-slate-400">· {timeStr}</span>}
         </div>
       </motion.button>
       <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
@@ -177,11 +186,20 @@ export default function CoverageHeader({
        * become direct flex children of this bar on desktop, putting the date nav in the
        * centre between them.
        */}
+      {/* Mobile-only bare date nav (when TopBar owns the header) */}
+      {hideMobileBrand && (
+        <div data-testid="mobile-date-nav" className="[@media(min-width:900px)]:hidden px-4 py-3 border-b border-slate-800">
+          {mobileNav}
+        </div>
+      )}
+
+      {/* Full header bar (desktop always; mobile only when brand is shown) */}
       <div
-        className="sticky top-0 z-30 bg-bg border-b border-slate-800 px-4 pb-3 header-safe-top
+        className={`bg-bg border-b border-slate-800 px-4 pb-3
                    [@media(min-width:900px)]:static [@media(min-width:900px)]:flex
                    [@media(min-width:900px)]:items-center [@media(min-width:900px)]:gap-6
-                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]"
+                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]
+                   ${hideMobileBrand ? "hidden [@media(min-width:900px)]:flex" : "sticky top-0 z-30 header-safe-top"}`}
       >
         {/* Mobile-only demo banner (inside bar) */}
         {isDemo && (
@@ -193,15 +211,17 @@ export default function CoverageHeader({
 
         {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
         <div className="flex items-center justify-between mb-3 [@media(min-width:900px)]:contents">
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px] [@media(min-width:900px)]:shrink-0">
-            Shift
-            <span
-              className="bg-clip-text text-transparent animate-gradient"
-              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
-            >
-              View
+          <div className="[@media(min-width:900px)]:shrink-0">
+            <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px]">
+              Shift
+              <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
+                View
+              </span>
             </span>
-          </span>
+            <div className="[@media(min-width:900px)]:hidden text-[11px] text-slate-400 mt-0.5">
+              {dayName} · {dateLabel}
+            </div>
+          </div>
 
           {/* Desktop centred date nav — sits between brand and actions in the flex row */}
           <div className="hidden [@media(min-width:900px)]:flex flex-1 justify-center">
@@ -225,10 +245,12 @@ export default function CoverageHeader({
           </div>
         </div>
 
-        {/* Mobile-only date nav row */}
-        <div data-testid="mobile-date-nav" className="mb-1 [@media(min-width:900px)]:hidden">
-          {mobileNav}
-        </div>
+        {/* Mobile-only date nav row (only when brand is in this bar) */}
+        {!hideMobileBrand && (
+          <div data-testid="mobile-date-nav" className="mb-1 [@media(min-width:900px)]:hidden">
+            {mobileNav}
+          </div>
+        )}
       </div>
 
       <AnimatePresence mode="wait">

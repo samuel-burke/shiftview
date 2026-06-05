@@ -475,9 +475,7 @@ export default function SchedulePageClient() {
       : new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0).getDate();
   const daysOff = Math.max(0, daysInRange - totalShifts);
 
-  const totalHoursDisplay = Number.isInteger(totalHours)
-    ? `${totalHours} hrs`
-    : `${totalHours.toFixed(1)} hrs`;
+  const totalHoursDisplay = Math.round(totalHours);
 
   const todayStr = today.toLocaleDateString("en-US", {
     weekday: "short",
@@ -650,7 +648,7 @@ export default function SchedulePageClient() {
               {fmtMinutes(selectedSchedule.startMinutes)} – {fmtMinutes(selectedSchedule.endMinutes)}
             </div>
             <div className="text-sm text-slate-400 mt-0.5">
-              {shiftHours} {shiftHours === 1 ? "hr" : "hrs"}
+              {shiftHours === 1 ? `${shiftHours} hr` : `${shiftHours} hrs`}
             </div>
           </>
         ) : (
@@ -745,31 +743,15 @@ export default function SchedulePageClient() {
   );
 
   return (
-    <AppShell active="schedule" isManager={isManager}>
+    <AppShell
+      active="schedule"
+      isManager={isManager}
+      userName={employeeName}
+      isDemo={isDemo}
+      onSignOut={isDemo ? undefined : handleSignOut}
+      onSignIn={isDemo ? () => router.push("/login") : undefined}
+    >
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
-        {/* Mobile header (sticky; hidden on desktop) */}
-        <div
-          className="sticky top-0 z-20 px-4 pb-3 flex items-center justify-between border-b border-slate-800 bg-bg [@media(min-width:900px)]:hidden"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-        >
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
-            Shift
-            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-              View
-            </span>
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">{todayStr}</span>
-            {!isDemo && <NotificationBell />}
-            <UserMenu
-              name={employeeName}
-              isManager={isManager}
-              onSignOut={isDemo ? undefined : handleSignOut}
-              onSignIn={isDemo ? () => router.push("/login") : undefined}
-            />
-          </div>
-        </div>
-
         {/* Desktop header (hidden on mobile) */}
         <div className="hidden [@media(min-width:900px)]:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>

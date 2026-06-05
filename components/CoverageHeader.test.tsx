@@ -35,14 +35,15 @@ describe("CoverageHeader", () => {
     expect(screen.getAllByText(/May 25, 2026/)[0]).toBeInTheDocument();
   });
 
-  it("displays the day name", () => {
+  it("displays the day name in the brand sub-line", () => {
     render(<CoverageHeader {...baseProps} />);
-    expect(screen.getAllByText("Monday")[0]).toBeInTheDocument();
+    // Day name appears in the "Monday · June 2, 2026" sub-line under the logo
+    expect(screen.getByText(/Monday/)).toBeInTheDocument();
   });
 
-  it("shows the live time label when isToday", () => {
+  it("does not show the live time label (removed from UI)", () => {
     render(<CoverageHeader {...baseProps} />);
-    expect(screen.getByText(/Live:/)).toBeInTheDocument();
+    expect(screen.queryByText(/Live:/)).not.toBeInTheDocument();
   });
 
   it("does not show TODAY button when viewing today", () => {

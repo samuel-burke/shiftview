@@ -56,9 +56,9 @@ function RequestRow({
   }
 
   return (
-    <div className="bg-card border border-white/[0.08] border-l-[3px] border-l-amber-500/50 rounded-xl px-4 py-3 mb-2">
+    <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 mb-2">
       <div className="flex items-center gap-3 mb-3">
-        <div className="size-[38px] rounded-full bg-amber-500/10 border-[1.5px] border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-400 shrink-0">
+        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
@@ -66,7 +66,7 @@ function RequestRow({
             {request.employeeName}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-400">
-            <TimeOffPendingIcon size={11} color="currentColor" />
+            <TimeOffPendingIcon size={11} color="#fbbf24" />
             {formatDate(request.date)}
             {request.note && (
               <span className="text-slate-500 truncate">· "{request.note}"</span>
@@ -81,7 +81,7 @@ function RequestRow({
           disabled={loading !== null}
           aria-label={`Deny ${request.employeeName}'s time off request`}
           aria-busy={loading === "deny"}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {loading === "deny"
             ? <div aria-hidden="true" className="size-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
@@ -92,7 +92,7 @@ function RequestRow({
           disabled={loading !== null}
           aria-label={`Approve ${request.employeeName}'s time off request`}
           aria-busy={loading === "approve"}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {loading === "approve"
             ? <div aria-hidden="true" className="size-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
@@ -108,7 +108,7 @@ export default function PendingTimeOffSection({ requests, onApprove, onDeny }: P
 
   return (
     <div className="mb-5">
-      <div className="flex items-center gap-2 mb-[10px] text-xs font-bold text-slate-400 uppercase tracking-[0.08em]">
+      <div className="flex items-center gap-2 mb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
         Pending Time Off
         <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
           {requests.length}
