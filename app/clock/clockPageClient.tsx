@@ -645,7 +645,7 @@ export default function ClockPageClient() {
                   setCorrectionType(missedPunchInfo.suggestedPunchType);
                   setShowCorrection(true);
                 }}
-                className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors"
+                className="w-full py-3 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors"
               >
                 Add Missing Clock-Out
               </button>
@@ -834,7 +834,7 @@ export default function ClockPageClient() {
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}
                 aria-busy={correctionSaving}
-                className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                className="w-full py-3 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
               >
                 {correctionSaving ? "Saving…" : "Submit Correction"}
               </button>
@@ -880,7 +880,7 @@ export default function ClockPageClient() {
               </div>
               <button
                 onClick={handleExportDownload}
-                className="block w-full py-2.5 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                className="block w-full py-3 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer hover:bg-indigo-500/30 transition-colors"
               >
                 Download CSV
               </button>

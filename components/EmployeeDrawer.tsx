@@ -316,7 +316,7 @@ export default function EmployeeDrawer({
                     whileHover={{ scale: 1.1, backgroundColor: "rgba(71,85,105,0.8)" }}
                     whileTap={{ scale: 0.88 }}
                     transition={{ type: "spring", stiffness: 450, damping: 25 }}
-                    className="size-10 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                    className="size-11 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>

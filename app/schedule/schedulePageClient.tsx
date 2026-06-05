@@ -477,7 +477,7 @@ export default function SchedulePageClient() {
                 key={v}
                 onClick={() => switchView(v)}
                 aria-pressed={view === v}
-                className="relative px-4 py-1.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                className="relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
                 style={{ color: view === v ? "#f1f5f9" : "#64748b" }}
               >
                 {view === v && (
@@ -502,7 +502,7 @@ export default function SchedulePageClient() {
           aria-label={`${rangeLabel}. Open date picker`}
           aria-expanded={pickerOpen}
           aria-haspopup="dialog"
-          className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer hover:opacity-80 transition-opacity"
+          className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none py-3 -my-3 px-0 cursor-pointer hover:opacity-80 transition-opacity"
         >
           {rangeLabel}
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -514,7 +514,7 @@ export default function SchedulePageClient() {
               whileTap={{ scale: 0.93 }}
               whileHover={{ scale: 1.04 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-1.5 cursor-pointer hover:bg-slate-600 transition-colors"
+              className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-3 cursor-pointer hover:bg-slate-600 transition-colors"
             >
               Today
             </motion.button>
@@ -525,7 +525,7 @@ export default function SchedulePageClient() {
             whileTap={{ scale: 0.88 }}
             whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
             transition={{ type: "spring", stiffness: 450, damping: 25 }}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.button>
@@ -535,7 +535,7 @@ export default function SchedulePageClient() {
             whileTap={{ scale: 0.88 }}
             whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
             transition={{ type: "spring", stiffness: 450, damping: 25 }}
-            className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.button>
@@ -653,7 +653,7 @@ export default function SchedulePageClient() {
                 onClick={handleRequestDayOff}
                 disabled={timeOffStatus === "loading"}
                 aria-busy={timeOffStatus === "loading"}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
               >
                 {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
               </button>
@@ -670,7 +670,7 @@ export default function SchedulePageClient() {
                   onClick={handleRequestDayOff}
                   disabled={timeOffStatus === "loading"}
                   aria-busy={timeOffStatus === "loading"}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
