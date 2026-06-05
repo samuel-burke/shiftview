@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
-import type { StoreHours } from "@/data/types";
+import type { Employee, Schedule, PunchRecord, StoreHours } from "@/data/types";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -60,6 +60,13 @@ type AppDataContextValue = {
   refreshMe: () => void;
   refreshStoreHours: () => void;
   refreshSettings: () => void;
+  // Team page cache — survives navigation so remounting Team is instant
+  employees: Employee[];
+  refreshEmployees: () => void;
+  scheduleCache: Record<string, Schedule[]>;
+  setScheduleCache: (dateKey: string, schedules: Schedule[]) => void;
+  punchCache: Record<string, PunchRecord[]>;
+  setPunchCache: (dateKey: string, punches: PunchRecord[]) => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue>({
@@ -70,6 +77,12 @@ const AppDataContext = createContext<AppDataContextValue>({
   refreshMe: () => {},
   refreshStoreHours: () => {},
   refreshSettings: () => {},
+  employees: [],
+  refreshEmployees: () => {},
+  scheduleCache: {},
+  setScheduleCache: () => {},
+  punchCache: {},
+  setPunchCache: () => {},
 });
 
 export function useAppData() {
@@ -85,6 +98,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [storeHours, setStoreHours] = useState<Record<number, StoreHours>>(DEFAULT_STORE_HOURS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [sharedLoading, setSharedLoading] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [scheduleCache, setScheduleCacheState] = useState<Record<string, Schedule[]>>({});
+  const [punchCache, setPunchCacheState] = useState<Record<string, PunchRecord[]>>({});
 
   const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null }) => {
     setMe({ isManager: !!data.isManager, employeeId: data.employeeId ?? null, employeeName: data.employeeName ?? null });
@@ -96,6 +112,21 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .then(applyMe)
       .catch(() => {});
   }, [isDemo]);
+
+  const refreshEmployees = useCallback(() => {
+    fetch(`/api/employees?demo=${isDemo}`)
+      .then(r => r.json())
+      .then((data: Employee[]) => { if (Array.isArray(data)) setEmployees(data); })
+      .catch(() => {});
+  }, [isDemo]);
+
+  const setScheduleCache = useCallback((dateKey: string, schedules: Schedule[]) => {
+    setScheduleCacheState(prev => ({ ...prev, [dateKey]: schedules }));
+  }, []);
+
+  const setPunchCache = useCallback((dateKey: string, punches: PunchRecord[]) => {
+    setPunchCacheState(prev => ({ ...prev, [dateKey]: punches }));
+  }, []);
 
   const refreshStoreHours = useCallback(() => {
     fetch("/api/store-hours")
@@ -117,10 +148,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then(r => r.json()),
       fetch("/api/store-hours").then(r => r.json()),
       fetch("/api/settings").then(r => r.json()),
-    ]).then(([meData, hoursData, settingsData]) => {
+      fetch(`/api/employees?demo=${isDemo}`).then(r => r.json()),
+    ]).then(([meData, hoursData, settingsData, empsData]) => {
       applyMe(meData);
       setStoreHours(prev => ({ ...prev, ...hoursData }));
       setSettings(settingsData);
+      if (Array.isArray(empsData)) setEmployees(empsData);
     }).catch(() => {}).finally(() => setSharedLoading(false));
   }, [isDemo]);
 
@@ -130,12 +163,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .channel("app-data-shared")
       .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refreshStoreHours)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refreshSettings)
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refreshEmployees)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo, refreshStoreHours, refreshSettings]);
+  }, [isDemo, refreshStoreHours, refreshSettings, refreshEmployees]);
 
   return (
-    <AppDataContext.Provider value={{ me, storeHours, settings, sharedLoading, refreshMe, refreshStoreHours, refreshSettings }}>
+    <AppDataContext.Provider value={{
+      me, storeHours, settings, sharedLoading,
+      refreshMe, refreshStoreHours, refreshSettings,
+      employees, refreshEmployees,
+      scheduleCache, setScheduleCache,
+      punchCache, setPunchCache,
+    }}>
       {children}
     </AppDataContext.Provider>
   );

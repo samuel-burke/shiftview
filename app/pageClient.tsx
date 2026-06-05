@@ -124,7 +124,6 @@ export default function Page() {
   } | null>(null);
   const [availabilityRecords, setAvailabilityRecords] = useState<AvailabilityRecord[]>([]);
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +136,12 @@ export default function Page() {
   const supabase = createClient();
   const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
 
-  const { me, storeHours: weeklyHoursCtx, settings, sharedLoading } = useAppData();
+  const {
+    me, storeHours: weeklyHoursCtx, settings, sharedLoading,
+    employees, refreshEmployees,
+    scheduleCache, setScheduleCache,
+    punchCache, setPunchCache,
+  } = useAppData();
   const { isManager, employeeName: userName } = me;
   const { optimalCoverage, minCoverage, coverageAlertsEnabled, timezone } = settings;
   const weeklyHours = weeklyHoursCtx;
@@ -244,6 +248,7 @@ export default function Page() {
     const dateKey = toDateKey(date, timezone);
     const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
+    setScheduleCache(dateKey, data);
     setLastFetchedAt(new Date());
   }
 
@@ -274,6 +279,7 @@ export default function Page() {
     }
     const data2 = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data2);
+    setScheduleCache(dateKey, data2);
     setLastFetchedAt(new Date());
   }
 
@@ -421,14 +427,7 @@ export default function Page() {
       const dk = toDateKey(dateRef.current, timezoneRef.current);
       apiFetch(`/api/schedules?date=${dk}`)
         .then((r) => r.json())
-        .then(setSchedules)
-        .catch(() => {});
-    }
-
-    function refetchEmployees() {
-      apiFetch("/api/employees")
-        .then((r) => r.json())
-        .then(setEmployees)
+        .then((data) => { setSchedules(data); setScheduleCache(dk, data); })
         .catch(() => {});
     }
 
@@ -443,25 +442,12 @@ export default function Page() {
     const channel = supabase
       .channel("main-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
-      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [isDemo]);
 
-  // Fetch employees on mount; also load pending time-off once manager status is known
-  useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-    apiFetch(`/api/employees?demo=${isDemo}`, { signal })
-      .then(r => {
-        if (!r.ok) { console.error("[pageClient] /api/employees returned", r.status); setError("Failed to load employees"); return; }
-        return r.json().then(setEmployees);
-      })
-      .catch(err => { if (err?.name !== "AbortError") { console.error("[pageClient]", err); setError("Failed to load employees"); } });
-    return () => controller.abort();
-  }, [isDemo]);
 
   // Load pending time-off requests once we know the user is a manager
   useEffect(() => {
@@ -472,18 +458,40 @@ export default function Page() {
       .catch(() => {});
   }, [isManager, isDemo]);
 
-  // Fetch schedules (and punch records for today) whenever date changes
+  // Fetch schedules (and punch records for today) whenever date changes.
+  // If the cache already has data for this date, apply it immediately so the
+  // page renders without a loading skeleton, then refresh in the background.
   useEffect(() => {
     const dateKey = toDateKey(date, timezone);
-    setLoading(true);
-    setError(null);
     const isViewingToday = dateKey === toDateKey(today, timezone);
-    setPunchesLoaded(false);
+    setError(null);
+
+    const cachedSchedules = scheduleCache[dateKey];
+    const cachedPunches = isViewingToday ? punchCache[dateKey] : undefined;
+
+    if (cachedSchedules) {
+      // Instant render from cache
+      setSchedules(cachedSchedules);
+      setLastFetchedAt(new Date());
+      setLoading(false);
+      if (isViewingToday) {
+        if (cachedPunches) { setPunchRecords(cachedPunches); setPunchesLoaded(true); }
+        else { setPunchesLoaded(false); }
+      } else {
+        setPunchRecords([]); setPunchesLoaded(false);
+      }
+    } else {
+      setLoading(true);
+      setPunchesLoaded(false);
+    }
+
+    // Always fetch fresh data (background refresh if cache hit, primary fetch if not)
     const fetches: Promise<void>[] = [
       apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
         .then((r) => r.json())
         .then((data) => {
           setSchedules(data);
+          setScheduleCache(dateKey, data);
           setLastFetchedAt(new Date());
         }),
     ];
@@ -492,20 +500,21 @@ export default function Page() {
         apiFetch(`/api/punches?date=${dateKey}`)
           .then((r) => r.json())
           .then((data) => {
-            setPunchRecords(Array.isArray(data) ? data : []);
+            const punches = Array.isArray(data) ? data : [];
+            setPunchRecords(punches);
+            setPunchCache(dateKey, punches);
             setPunchesLoaded(true);
           })
           .catch(() => { setPunchRecords([]); setPunchesLoaded(true); })
       );
-    } else {
+    } else if (!isViewingToday) {
       setPunchRecords([]);
       setPunchesLoaded(false);
     }
     Promise.all(fetches)
       .then(() => setLoading(false))
       .catch(() => {
-        setError("Failed to load schedules");
-        setLoading(false);
+        if (!cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
       });
   }, [date, timezone]);
 

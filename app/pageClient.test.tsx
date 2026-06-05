@@ -8,7 +8,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => ({ get: (_: string) => null }),
 }));
 
-// Mock AppDataContext — shared data (me, storeHours, settings) comes from context in real app
+// Mock AppDataContext — shared data comes from context in real app
 vi.mock("../lib/AppDataContext", () => ({
   useAppData: () => ({
     me: { isManager: true, employeeId: null, employeeName: "Alice" },
@@ -18,6 +18,12 @@ vi.mock("../lib/AppDataContext", () => ({
     refreshMe: vi.fn(),
     refreshStoreHours: vi.fn(),
     refreshSettings: vi.fn(),
+    employees: [{ id: 1, name: "Alice" }],
+    refreshEmployees: vi.fn(),
+    scheduleCache: {},
+    setScheduleCache: vi.fn(),
+    punchCache: {},
+    setPunchCache: vi.fn(),
   }),
 }));
 
@@ -102,35 +108,35 @@ describe("pageClient attendance", () => {
 });
 
 describe("pageClient mount fetches", () => {
-  it("fetches employees and schedules on mount (me/store-hours/settings come from AppDataContext)", async () => {
+  it("fetches schedules on mount (employees/me/store-hours/settings come from AppDataContext)", async () => {
     render(<Page />);
     await waitFor(() => {
       const urls = mockFetch.mock.calls.map(([url]: [string]) => url);
-      expect(urls.some((u) => u.includes("/api/employees"))).toBe(true);
       expect(urls.some((u) => u.includes("/api/schedules"))).toBe(true);
+      // employees now come from context, not a direct fetch
+      expect(urls.some((u) => u.includes("/api/employees"))).toBe(false);
     });
   });
 
-  it("still populates employees even when /api/employees is the only call that matters", async () => {
+  it("renders employees from context without fetching /api/employees", async () => {
+    // The mock context provides [{ id: 1, name: "Alice" }] as employees
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes("/api/employees")) return makeJsonResponse([{ id: 1, name: "Bob" }]);
       if (url.includes("/api/schedules")) return makeJsonResponse([]);
       return makeJsonResponse({});
     });
     render(<Page />);
     await waitFor(() => {
-      expect(screen.getAllByText("Bob").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
     });
   });
 
-  it("sets an error state but does not crash when /api/employees fails", async () => {
+  it("does not crash and renders schedules even when no punches are returned", async () => {
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes("/api/employees")) return Promise.reject(new Error("network error"));
       if (url.includes("/api/schedules")) return makeJsonResponse([]);
+      if (url.includes("/api/punches")) return Promise.reject(new Error("network error"));
       return makeJsonResponse({});
     });
     render(<Page />);
-    // No crash — employees error is set, schedules still loads
     await waitFor(() => {
       const calls = mockFetch.mock.calls.map(([url]: [string]) => url);
       expect(calls.some((u) => u.includes("/api/schedules"))).toBe(true);
