@@ -86,6 +86,18 @@ input, textarea, select {
   font-size: max(16px, 1em);
 }
 
+/* Prevent iOS text-selection callout on buttons and interactive UI elements */
+button,
+a,
+[role="button"],
+label,
+nav,
+header {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* ── Scrollbar ────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
