@@ -1311,9 +1311,15 @@ export default function SettingsPageClient({
                           </svg>
                         </button>
                         {emp.user_id === currentUserId ? (
-                          <div className="size-8 flex items-center justify-center">
-                            <span className="text-xs text-slate-600 font-medium" aria-label="You — cannot remove yourself">You</span>
-                          </div>
+                          <button
+                            disabled
+                            aria-label="Cannot remove yourself"
+                            className="size-8 rounded-lg border border-red-500/10 bg-red-500/5 text-red-400/30 flex items-center justify-center cursor-not-allowed opacity-40"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
                         ) : (
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
