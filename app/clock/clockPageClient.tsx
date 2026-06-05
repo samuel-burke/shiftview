@@ -123,6 +123,14 @@ export default function ClockPageClient() {
       .catch(() => setMeLoading(false));
   }, [isDemo]);
 
+  // Missed punch — open session detected from a previous day
+  type MissedPunchInfo = {
+    date: string;
+    lastPunchType: PunchType;
+    suggestedPunchType: PunchType;
+  };
+  const [missedPunchInfo, setMissedPunchInfo] = useState<MissedPunchInfo | null>(null);
+
   // Correction form state
   const [showCorrection, setShowCorrection] = useState(false);
   const [correctionType, setCorrectionType] = useState<PunchType>("clock_in");
@@ -193,9 +201,10 @@ export default function ClockPageClient() {
         return;
       }
 
-      const [schedRes, punchRes] = await Promise.all([
+      const [schedRes, punchRes, missedRes] = await Promise.all([
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
+        fetch(`/api/punches/missed`),
       ]);
 
       const scheds: Schedule[] = await schedRes.json();
@@ -208,6 +217,9 @@ export default function ClockPageClient() {
       setPunchCache(todayKey, allPunches);
       const myPunches = empId ? allPunches.filter((p) => p.employeeId === empId) : [];
       setPunches(myPunches);
+
+      const missedData = await missedRes.json();
+      setMissedPunchInfo(missedData.missedPunch ?? null);
     } catch {
       if (!background) setError("Failed to load data");
     } finally {
@@ -343,6 +355,13 @@ export default function ClockPageClient() {
       });
       if (!res.ok) {
         const body = await res.json();
+        // Missed punch from a previous day — surface the guided correction flow.
+        if (body.code === "missed_punch" && body.missedPunch) {
+          setMissedPunchInfo(body.missedPunch);
+          setCorrectionDate(body.missedPunch.date);
+          setCorrectionType(body.missedPunch.suggestedPunchType);
+          setShowCorrection(true);
+        }
         throw new Error(body.error ?? "Failed to record punch");
       }
       const newPunch: PunchRecord = await res.json();
@@ -385,6 +404,7 @@ export default function ClockPageClient() {
       }
       setShowCorrection(false);
       setCorrectionNote("");
+      setMissedPunchInfo(null);
       await loadData(false);
     } catch (e) {
       setCorrectionError(e instanceof Error ? e.message : "Unknown error");
@@ -569,6 +589,36 @@ export default function ClockPageClient() {
           )}
         </div>
 
+        {/* Missed punch banner — shown when an open session from a previous day is detected */}
+        {missedPunchInfo && (
+          <div
+            role="alert"
+            className="px-4 py-3.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl space-y-2"
+          >
+            <div className="flex items-start gap-2.5">
+              <span aria-hidden="true" className="text-amber-400 mt-px shrink-0">⚠</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
+                <div className="text-xs text-amber-400/80 mt-0.5">
+                  You forgot to clock out on {missedPunchInfo.date}. Add your clock-out time below before clocking in today.
+                </div>
+              </div>
+            </div>
+            {!showCorrection && (
+              <button
+                onClick={() => {
+                  setCorrectionDate(missedPunchInfo.date);
+                  setCorrectionType(missedPunchInfo.suggestedPunchType);
+                  setShowCorrection(true);
+                }}
+                className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors"
+              >
+                Add Missing Clock-Out
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Action buttons */}
         {actionError && (
           <div role="alert" className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
@@ -580,7 +630,7 @@ export default function ClockPageClient() {
           {effectiveStatus === "not_clocked_in" && (
             <motion.button
               onClick={() => handlePunchClick("clock_in")}
-              disabled={actionPending}
+              disabled={actionPending || !!missedPunchInfo}
               aria-busy={actionPending}
               whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(34,197,94,0.35)" }}
               whileTap={{ scale: 0.96 }}
@@ -679,15 +729,17 @@ export default function ClockPageClient() {
           </div>
         )}
 
-        {/* Missed punch correction — hidden when setting is disabled */}
-        {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-slate-800/60">
+        {/* Punch correction form — hidden when setting is disabled */}
+        {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-slate-800/60" style={missedPunchInfo ? { borderColor: "rgba(245,158,11,0.3)" } : {}}>
           <button
             onClick={() => setShowCorrection((v) => !v)}
             aria-expanded={showCorrection}
             aria-controls="correction-form"
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
           >
-            <span className="text-sm font-semibold text-slate-300">Report Missed Punch</span>
+            <span className="text-sm font-semibold text-slate-300">
+              {missedPunchInfo ? "Add Missing Clock-Out" : "Report Missed Punch"}
+            </span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showCorrection ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
 
