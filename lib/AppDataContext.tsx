@@ -67,6 +67,9 @@ type AppDataContextValue = {
   setScheduleCache: (dateKey: string, schedules: Schedule[]) => void;
   punchCache: Record<string, PunchRecord[]>;
   setPunchCache: (dateKey: string, punches: PunchRecord[]) => void;
+  // Schedule page cache — keyed by "from:to" date range
+  myScheduleCache: Record<string, Schedule[]>;
+  setMyScheduleCache: (rangeKey: string, schedules: Schedule[]) => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue>({
@@ -83,6 +86,8 @@ const AppDataContext = createContext<AppDataContextValue>({
   setScheduleCache: () => {},
   punchCache: {},
   setPunchCache: () => {},
+  myScheduleCache: {},
+  setMyScheduleCache: () => {},
 });
 
 export function useAppData() {
@@ -101,6 +106,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [scheduleCache, setScheduleCacheState] = useState<Record<string, Schedule[]>>({});
   const [punchCache, setPunchCacheState] = useState<Record<string, PunchRecord[]>>({});
+  const [myScheduleCache, setMyScheduleCacheState] = useState<Record<string, Schedule[]>>({});
 
   const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null }) => {
     setMe({ isManager: !!data.isManager, employeeId: data.employeeId ?? null, employeeName: data.employeeName ?? null });
@@ -126,6 +132,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setPunchCache = useCallback((dateKey: string, punches: PunchRecord[]) => {
     setPunchCacheState(prev => ({ ...prev, [dateKey]: punches }));
+  }, []);
+
+  const setMyScheduleCache = useCallback((rangeKey: string, schedules: Schedule[]) => {
+    setMyScheduleCacheState(prev => ({ ...prev, [rangeKey]: schedules }));
   }, []);
 
   const refreshStoreHours = useCallback(() => {
@@ -175,6 +185,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       employees, refreshEmployees,
       scheduleCache, setScheduleCache,
       punchCache, setPunchCache,
+      myScheduleCache, setMyScheduleCache,
     }}>
       {children}
     </AppDataContext.Provider>

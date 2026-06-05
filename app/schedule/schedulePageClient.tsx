@@ -108,7 +108,7 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { me, storeHours: weeklyHours, settings } = useAppData();
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache } = useAppData();
   const { isManager, employeeId, employeeName } = me;
   const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -202,15 +202,28 @@ export default function SchedulePageClient() {
       from = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
       to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
     }
-    setLoading(true);
+    const fromKey = toDateKey(from, timezone);
+    const toKey = toDateKey(to, timezone);
+    const rangeKey = `${fromKey}:${toKey}`;
     setScheduleError(null);
-    fetch(`/api/my-schedule?from=${toDateKey(from, timezone)}&to=${toDateKey(to, timezone)}${isDemo ? "&demo=true" : ""}`)
+
+    const cached = myScheduleCache[rangeKey];
+    if (cached) {
+      setSchedules(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    fetch(`/api/my-schedule?from=${fromKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
-        setSchedules(data.schedules ?? []);
+        const scheds = data.schedules ?? [];
+        setSchedules(scheds);
+        setMyScheduleCache(rangeKey, scheds);
         setLoading(false);
       })
-      .catch(() => { setScheduleError("Failed to load schedule"); setLoading(false); });
+      .catch(() => { if (!cached) { setScheduleError("Failed to load schedule"); setLoading(false); } });
   }, [view, navDate, firstDayOfWeek, timezone]);
 
   // Reset time-off request status when selected date changes
@@ -293,9 +306,15 @@ export default function SchedulePageClient() {
         from = new Date(nd.getFullYear(), nd.getMonth(), 1);
         to = new Date(nd.getFullYear(), nd.getMonth() + 1, 0);
       }
-      fetch(`/api/my-schedule?from=${toDateKey(from, tz)}&to=${toDateKey(to, tz)}`)
+      const fk = toDateKey(from, tz);
+      const tk = toDateKey(to, tz);
+      fetch(`/api/my-schedule?from=${fk}&to=${tk}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((data) => setSchedules(data.schedules ?? []))
+        .then((data) => {
+          const scheds = data.schedules ?? [];
+          setSchedules(scheds);
+          setMyScheduleCache(`${fk}:${tk}`, scheds);
+        })
         .catch(() => {});
     }
 
