@@ -134,9 +134,10 @@ export default function CoverageHeader({
       {!isToday && (
         <motion.button
           onClick={onNow}
-          whileTap={{ scale: 0.93 }}
+          whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="w-full py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+          className="w-full py-2 rounded-xl text-sm font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 cursor-pointer"
+          style={{ boxShadow: "0 0 16px rgba(99,102,241,0.12)" }}
         >
           Back to Today
         </motion.button>
