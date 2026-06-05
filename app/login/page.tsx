@@ -142,7 +142,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          <Link href="/privacy" className="hover:text-slate-300 transition-colors">
+          <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2 -my-2 inline-block">
             Privacy Policy
           </Link>
         </p>
