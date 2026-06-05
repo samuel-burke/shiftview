@@ -502,6 +502,49 @@ export default function SettingsPageClient({
     );
   }, []);
 
+  // ── Notification Preferences ─────────────────────────────────────────────────
+  type NotifPrefs = {
+    latePunchAlerts: boolean;
+    messageAlerts: boolean;
+    ptoAlerts: boolean;
+    newShiftAlerts: boolean;
+    shiftChangeAlerts: boolean;
+    swapAlerts: boolean;
+    shiftReminderAlerts: boolean;
+  };
+  const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>({
+    latePunchAlerts: true,
+    messageAlerts: true,
+    ptoAlerts: true,
+    newShiftAlerts: true,
+    shiftChangeAlerts: true,
+    swapAlerts: true,
+    shiftReminderAlerts: true,
+  });
+  const [notifPrefsSaving, setNotifPrefsSaving] = useState<Partial<Record<keyof NotifPrefs, boolean>>>({});
+
+  useEffect(() => {
+    if (isDemo) return;
+    fetch("/api/notification-preferences")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((prefs: NotifPrefs) => setNotifPrefs(prefs))
+      .catch(() => {});
+  }, [isDemo]);
+
+  async function toggleNotifPref(key: keyof NotifPrefs) {
+    const next = !notifPrefs[key];
+    setNotifPrefs((p) => ({ ...p, [key]: next }));
+    setNotifPrefsSaving((s) => ({ ...s, [key]: true }));
+    if (!isDemo) {
+      await fetch("/api/notification-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: next }),
+      }).catch(() => {});
+    }
+    setNotifPrefsSaving((s) => ({ ...s, [key]: false }));
+  }
+
   // Supabase Realtime — live updates for employees and store hours
   useEffect(() => {
     if (isDemo) return;
@@ -843,6 +886,7 @@ export default function SettingsPageClient({
               Notifications
             </div>
             <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+              {/* Master push toggle */}
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-semibold text-slate-200">Push Notifications</div>
@@ -868,6 +912,52 @@ export default function SettingsPageClient({
               </div>
               {pushError && (
                 <div role="alert" className="text-xs text-red-400 mt-2">{pushError}</div>
+              )}
+
+              {/* Per-type toggles — only visible when push is enabled */}
+              {pushSubscribed && (
+                <div className="mt-4 pt-4 border-t border-slate-800 space-y-0">
+                  {(
+                    [
+                      ...( isManager ? [
+                        { key: "latePunchAlerts"   as const, label: "Late Punch Alerts",       desc: "Notify when an employee clocks in late" },
+                      ] : [
+                        { key: "newShiftAlerts"    as const, label: "New Shift Alerts",         desc: "Notify when a new schedule is published" },
+                        { key: "shiftChangeAlerts" as const, label: "Shift Change Alerts",      desc: "Notify when your shift is modified" },
+                        { key: "swapAlerts"        as const, label: "Swap Request Alerts",      desc: "Notify on swap approvals and denials" },
+                        { key: "ptoAlerts"         as const, label: "Time Off Alerts",          desc: "Notify on time off approvals and denials" },
+                        { key: "shiftReminderAlerts" as const, label: "Shift Reminders",        desc: "Remind you before an upcoming shift" },
+                      ]),
+                      { key: "messageAlerts" as const, label: "Message Alerts", desc: "Notify when you receive a new message" },
+                    ] as { key: keyof NotifPrefs; label: string; desc: string }[]
+                  ).map(({ key, label, desc }, i, arr) => (
+                    <div
+                      key={key}
+                      className={`flex items-center justify-between py-3 ${i < arr.length - 1 ? "border-b border-slate-800/60" : ""}`}
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-slate-300">{label}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
+                      </div>
+                      <button
+                        role="switch"
+                        aria-label={label}
+                        aria-checked={notifPrefs[key]}
+                        disabled={!!notifPrefsSaving[key]}
+                        onClick={() => toggleNotifPref(key)}
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ml-4 ${
+                          notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                            notifPrefs[key] ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </section>
