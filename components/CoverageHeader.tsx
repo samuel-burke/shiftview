@@ -127,10 +127,6 @@ export default function CoverageHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
         </div>
-        <div className="text-[13px] text-slate-400 mt-0.5">{dayName}</div>
-        {isToday && (
-          <div className="text-[11px] text-slate-400 mt-0.5">Live: {timeStr}</div>
-        )}
       </motion.button>
       <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
     </div>
@@ -152,10 +148,6 @@ export default function CoverageHeader({
         <div className="text-lg font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
           {dateLabel}
           <span className="text-[13px] text-blue-500 font-normal">▾</span>
-        </div>
-        <div className="text-[13px] text-slate-400 mt-0.5">
-          {dayName}
-          {isToday && <span className="ml-2 text-slate-400">· {timeStr}</span>}
         </div>
       </motion.button>
       <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
@@ -195,15 +187,17 @@ export default function CoverageHeader({
 
         {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
         <div className="flex items-center justify-between mb-3 [@media(min-width:900px)]:contents">
-          <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px] [@media(min-width:900px)]:shrink-0">
-            Shift
-            <span
-              className="bg-clip-text text-transparent animate-gradient"
-              style={{ backgroundImage: "linear-gradient(90deg, #3b82f6, #22d3ee, #a78bfa, #3b82f6)", backgroundSize: "200% auto" }}
-            >
-              View
+          <div className="[@media(min-width:900px)]:shrink-0">
+            <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px]">
+              Shift
+              <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
+                View
+              </span>
             </span>
-          </span>
+            <div className="[@media(min-width:900px)]:hidden text-[11px] text-slate-400 mt-0.5">
+              {dayName} · {dateLabel}
+            </div>
+          </div>
 
           {/* Desktop centred date nav — sits between brand and actions in the flex row */}
           <div className="hidden [@media(min-width:900px)]:flex flex-1 justify-center">

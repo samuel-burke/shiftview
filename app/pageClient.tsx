@@ -860,9 +860,6 @@ export default function Page() {
             {statsRow}
             {timeline}
             {legend}
-            <div className="mt-4 [@media(min-width:900px)]:mt-2">
-              <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-            </div>
           </div>
           <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
             {teamSections}
