@@ -100,7 +100,7 @@ export default function ClockPageClient() {
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [elapsed, setElapsed] = useState(0);
 
-  const { me, storeHours: weeklyHours, settings } = useAppData();
+  const { me, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache } = useAppData();
   const { isManager, employeeId, employeeName } = me;
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
 
@@ -163,8 +163,8 @@ export default function ClockPageClient() {
   const employeeIdRef = useRef(employeeId);
   employeeIdRef.current = employeeId;
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (background = false) => {
+    if (!background) setLoading(true);
     setError(null);
     try {
       if (isDemo) {
@@ -180,29 +180,43 @@ export default function ClockPageClient() {
       ]);
 
       const scheds: Schedule[] = await schedRes.json();
+      setScheduleCache(todayKey, scheds);
       const empId = employeeIdRef.current;
       setSchedule(empId ? (scheds.find((s) => s.employeeId === empId) ?? null) : null);
 
       const punchData: PunchRecord[] = await punchRes.json();
-      const myPunches = Array.isArray(punchData)
-        ? empId ? punchData.filter((p) => p.employeeId === empId) : []
-        : [];
+      const allPunches = Array.isArray(punchData) ? punchData : [];
+      setPunchCache(todayKey, allPunches);
+      const myPunches = empId ? allPunches.filter((p) => p.employeeId === empId) : [];
       setPunches(myPunches);
     } catch {
-      setError("Failed to load data");
+      if (!background) setError("Failed to load data");
     } finally {
+      if (!background) setLoading(false);
+    }
+  }, [todayKey, isDemo, setScheduleCache, setPunchCache]);
+
+  useEffect(() => {
+    if (isDemo) { loadData(); return; }
+    const empId = employeeIdRef.current;
+    const cachedScheds = scheduleCache[todayKey];
+    const cachedPunches = punchCache[todayKey];
+    if (cachedScheds && cachedPunches) {
+      setSchedule(empId ? (cachedScheds.find((s) => s.employeeId === empId) ?? null) : null);
+      setPunches(empId ? cachedPunches.filter((p) => p.employeeId === empId) : []);
       setLoading(false);
+      loadData(true);
+    } else {
+      loadData();
     }
   }, [todayKey, isDemo]);
-
-  useEffect(() => { loadData(); }, [loadData]);
 
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
   useEffect(() => {
     if (isDemo) return;
     const channel = supabase
       .channel("clock-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [isDemo, loadData]);
@@ -352,7 +366,7 @@ export default function ClockPageClient() {
       }
       setShowCorrection(false);
       setCorrectionNote("");
-      await loadData();
+      await loadData(false);
     } catch (e) {
       setCorrectionError(e instanceof Error ? e.message : "Unknown error");
     } finally {
