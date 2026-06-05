@@ -154,17 +154,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setSharedLoading(true);
-    Promise.all([
+    Promise.allSettled([
       fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then(r => r.json()),
       fetch("/api/store-hours").then(r => r.json()),
       fetch("/api/settings").then(r => r.json()),
       fetch(`/api/employees?demo=${isDemo}`).then(r => r.json()),
-    ]).then(([meData, hoursData, settingsData, empsData]) => {
-      applyMe(meData);
-      setStoreHours(prev => ({ ...prev, ...hoursData }));
-      setSettings(settingsData);
-      if (Array.isArray(empsData)) setEmployees(empsData);
-    }).catch(() => {}).finally(() => setSharedLoading(false));
+    ]).then(([meResult, hoursResult, settingsResult, empsResult]) => {
+      if (meResult.status === "fulfilled") applyMe(meResult.value);
+      if (hoursResult.status === "fulfilled") setStoreHours(prev => ({ ...prev, ...hoursResult.value }));
+      if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
+      if (empsResult.status === "fulfilled" && Array.isArray(empsResult.value)) setEmployees(empsResult.value);
+    }).finally(() => setSharedLoading(false));
   }, [isDemo]);
 
   useEffect(() => {
