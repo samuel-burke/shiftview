@@ -781,7 +781,7 @@ export default function Page() {
     storeHours,
     nowMinutes,
     isToday,
-    attendanceMap: isToday && isManager ? attendanceMap : undefined,
+    attendanceMap: isToday && punchesLoaded ? attendanceMap : undefined,
     onSelect: handleSelectShift,
   };
 

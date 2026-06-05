@@ -57,7 +57,7 @@ export default function ShiftCard({
   if (isToday) {
     if (attendanceStatus) {
       if (attendanceStatus === "not_clocked_in") {
-        if (schedule.startMinutes <= nowMinutes) {
+        if (!isWalkIn && schedule.startMinutes <= nowMinutes) {
           badge = ATTENDANCE_BADGES.not_clocked_in;
         }
       } else {
