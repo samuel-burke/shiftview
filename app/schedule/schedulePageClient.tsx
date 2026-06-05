@@ -160,8 +160,7 @@ export default function SchedulePageClient() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   // Load pending time-off once manager status is known
@@ -285,7 +284,7 @@ export default function SchedulePageClient() {
         })
         .catch(() => { if (!cancelled) setNextShift(null); });
     }
-    return () => { cancelled = true; };
+    return () => { cancelled = true; supplementalFetchedRef.current = false; };
   }, [schedules, loading]);
 
   // Supabase Realtime — live updates for schedule, time-off, store hours, settings

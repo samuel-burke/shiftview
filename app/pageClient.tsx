@@ -221,8 +221,7 @@ export default function Page() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -319,7 +318,7 @@ export default function Page() {
   useEffect(() => {
     if (isDemo) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") router.push("/login");
+      if (event === "SIGNED_OUT") window.location.href = "/login";
     });
     return () => subscription.unsubscribe();
   }, [isDemo]);
@@ -550,16 +549,9 @@ export default function Page() {
     [schedules, dateKey],
   );
   const scheduled = daySchedules;
-  const off = useMemo(
-    () => employees.filter((emp) => !daySchedules.some((s) => s.employeeId === emp.id)),
-    [employees, daySchedules],
-  );
-  const sortedScheduled = useMemo(
-    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
-    [scheduled],
-  );
 
   // Build a map from employeeId → AttendanceStatus using real punch records.
+  // Covers both scheduled employees and unscheduled walk-ins.
   // Only populated once punch data has loaded so we don't flash "Not Here Yet"
   // before the fetch completes.
   const attendanceMap = useMemo((): Record<number, AttendanceStatus> => {
@@ -569,17 +561,96 @@ export default function Page() {
       const empPunches = punchRecords.filter((p) => p.employeeId === sch.employeeId);
       map[sch.employeeId] = getAttendanceStatus(empPunches);
     }
+    // Also cover unscheduled employees who have punched in today
+    for (const p of punchRecords) {
+      if (!(p.employeeId in map)) {
+        const empPunches = punchRecords.filter((q) => q.employeeId === p.employeeId);
+        map[p.employeeId] = getAttendanceStatus(empPunches);
+      }
+    }
     return map;
   }, [punchRecords, scheduled, punchesLoaded]);
 
-  // When punch data is loaded for today, count employees actually clocked in.
-  // On past/future dates or before punch data arrives, fall back to schedule window.
-  const hereNow = useMemo(() => {
-    if (isToday && punchesLoaded) {
-      return scheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in");
+  // Synthetic Schedule stubs for unscheduled employees who have punched in today.
+  // startMinutes = -1 signals ShiftCard to render them as "Walk-in" without shift times.
+  const walkInSchedules = useMemo((): Schedule[] => {
+    if (!isToday || !punchesLoaded) return [];
+    const scheduledIds = new Set(daySchedules.map((s) => s.employeeId));
+    const seen = new Set<number>();
+    const result: Schedule[] = [];
+    for (const p of punchRecords) {
+      if (scheduledIds.has(p.employeeId) || seen.has(p.employeeId)) continue;
+      seen.add(p.employeeId);
+      result.push({ id: -(p.employeeId), employeeId: p.employeeId, date: dateKey, startMinutes: -1, endMinutes: -1 });
     }
-    return scheduled.filter((s) => isHere(s, nowMinutes));
-  }, [scheduled, nowMinutes, isToday, punchesLoaded, attendanceMap]);
+    return result;
+  }, [isToday, punchesLoaded, punchRecords, daySchedules, dateKey]);
+
+  const off = useMemo(() => {
+    const walkInIds = new Set(walkInSchedules.map((s) => s.employeeId));
+    return employees.filter(
+      (emp) => !daySchedules.some((s) => s.employeeId === emp.id) && !walkInIds.has(emp.id),
+    );
+  }, [employees, daySchedules, walkInSchedules]);
+
+  const sortedScheduled = useMemo(
+    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
+    [scheduled],
+  );
+
+  // Split sortedScheduled (plus walk-ins) into the three attendance-based sub-groups.
+  // When attendanceMap is empty (!punchesLoaded), all shifts fall into scheduledRemaining.
+  const hereNowSchedules = useMemo(
+    () => [
+      ...sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
+      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
+    ],
+    [sortedScheduled, walkInSchedules, attendanceMap],
+  );
+  const onBreakSchedules = useMemo(
+    () => [
+      ...sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "on_break"),
+      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "on_break"),
+    ],
+    [sortedScheduled, walkInSchedules, attendanceMap],
+  );
+  const scheduledRemaining = useMemo(
+    () => sortedScheduled.filter((s) => {
+      const st = attendanceMap[s.employeeId];
+      return !st || st === "not_clocked_in" || st === "clocked_out";
+    }),
+    [sortedScheduled, attendanceMap],
+  );
+
+  // When punch data is loaded for today, count ALL clocked-in employees from punch
+  // records (including unscheduled arrivals and pre-shift clock-ins). Before punch
+  // data arrives or on non-today dates, fall back to the schedule window check.
+  const hereNowCount = useMemo((): number => {
+    if (isToday && punchesLoaded) {
+      const byEmployee = new Map<number, PunchRecord[]>();
+      for (const p of punchRecords) {
+        if (!byEmployee.has(p.employeeId)) byEmployee.set(p.employeeId, []);
+        byEmployee.get(p.employeeId)!.push(p);
+      }
+      let count = 0;
+      for (const empPunches of byEmployee.values()) {
+        if (getAttendanceStatus(empPunches) === "clocked_in") count++;
+      }
+      return count;
+    }
+    return scheduled.filter((s) => isHere(s, nowMinutes)).length;
+  }, [punchRecords, scheduled, nowMinutes, isToday, punchesLoaded]);
+
+  // "Scheduled" count includes employees with a shift today plus any employee who
+  // has made at least one punch today (walk-ins or unscheduled arrivals).
+  const scheduledCount = useMemo((): number => {
+    if (isToday && punchesLoaded) {
+      const ids = new Set<number>(daySchedules.map((s) => s.employeeId));
+      for (const p of punchRecords) ids.add(p.employeeId);
+      return ids.size;
+    }
+    return daySchedules.length;
+  }, [daySchedules, punchRecords, isToday, punchesLoaded]);
 
 
   const storeHours = weeklyHours[date.getDay()];
@@ -592,10 +663,10 @@ export default function Page() {
   const coverageStatus = useMemo((): CoverageStatus => {
     if (!isToday) return "closed";
     if (!isStoreOpen) return "closed";
-    if (hereNow.length < minCoverage) return "critical";
-    if (hereNow.length < optimalCoverage) return "low";
+    if (hereNowCount < minCoverage) return "critical";
+    if (hereNowCount < optimalCoverage) return "low";
     return "optimal";
-  }, [isToday, isStoreOpen, hereNow.length]);
+  }, [isToday, isStoreOpen, hereNowCount]);
 
 
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
@@ -603,7 +674,7 @@ export default function Page() {
   const isLoading = loading || sharedLoading;
 
   const headerProps = {
-    date, today, isToday, hereCount: hereNow.length,
+    date, today, isToday, hereCount: hereNowCount,
     nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
     onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
@@ -633,7 +704,7 @@ export default function Page() {
           <AnimatedStatCard
             key="here"
             index={0}
-            value={hereNow.length}
+            value={hereNowCount}
             label="Here Now"
             color="#22c55e"
             loading={isLoading}
@@ -643,7 +714,7 @@ export default function Page() {
       <AnimatedStatCard
         key="scheduled"
         index={isToday ? 1 : 0}
-        value={scheduled.length}
+        value={scheduledCount}
         label="Scheduled"
         color="#818cf8"
         loading={isLoading}
@@ -686,12 +757,47 @@ export default function Page() {
     </motion.div>
   );
 
+  function handleSelectShift(emp: Employee, sch: Schedule) {
+    setSelected({ emp, sch });
+    setAvailabilityRecords([]);
+    fetch(`/api/availability?employeeId=${emp.id}`)
+      .then((r) => r.json())
+      .then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : []))
+      .catch(() => setAvailabilityRecords([]));
+  }
+  function handleSelectOff(emp: Employee) {
+    setSelected({ emp, sch: null });
+    setAvailabilityRecords([]);
+    if (isManager) {
+      fetch(`/api/availability?employeeId=${emp.id}`)
+        .then((r) => r.json())
+        .then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : []))
+        .catch(() => setAvailabilityRecords([]));
+    }
+  }
+
+  const sharedSectionProps = {
+    employees,
+    storeHours,
+    nowMinutes,
+    isToday,
+    attendanceMap: isToday && punchesLoaded ? attendanceMap : undefined,
+    onSelect: handleSelectShift,
+  };
+
   const teamSections = isLoading ? (
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
+  ) : isToday && punchesLoaded ? (
+    <>
+      <TeamSection label="Here Now"  count={hereNowSchedules.length}   schedules={hereNowSchedules}   {...sharedSectionProps} />
+      <TeamSection label="On Break"  count={onBreakSchedules.length}   schedules={onBreakSchedules}   {...sharedSectionProps} />
+      <TeamSection label="Scheduled" count={scheduledRemaining.length}  schedules={scheduledRemaining}  {...sharedSectionProps} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
+    </>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday && isManager ? attendanceMap : undefined} onSelect={(emp, sch) => { setSelected({ emp, sch }); setAvailabilityRecords([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : [])).catch(() => setAvailabilityRecords([])); }} />
-      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={(emp) => { setSelected({ emp, sch: null }); setAvailabilityRecords([]); if (isManager) { fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : [])).catch(() => setAvailabilityRecords([])); } }} canSelectOff={(emp) => isManager || !!emp.user_id} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} {...sharedSectionProps} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
     </>
   );
 
