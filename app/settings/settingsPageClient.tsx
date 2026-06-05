@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, LayoutGroup } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -778,18 +778,25 @@ export default function SettingsPageClient({
             Appearance
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <LayoutGroup id="theme-pill">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-                    themeMode === m
-                      ? "bg-slate-600 text-slate-100"
-                      : "text-slate-400 hover:text-slate-300"
-                  }`}
+                  className="relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                  style={{ color: themeMode === m ? "#f1f5f9" : "#94a3b8" }}
                 >
+                  {themeMode === m && (
+                    <motion.div
+                      layoutId="theme-active"
+                      className="absolute inset-0 rounded-[9px] bg-slate-600"
+                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5">
                   {m === "light" && (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
@@ -808,9 +815,11 @@ export default function SettingsPageClient({
                     </svg>
                   )}
                   <span className="capitalize">{m}</span>
+                  </span>
                 </button>
               ))}
             </div>
+            </LayoutGroup>
           </div>
         </section>
 
@@ -1182,22 +1191,29 @@ export default function SettingsPageClient({
             Week Start
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <LayoutGroup id="week-start-pill">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className={`flex-1 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-                    firstDayOfWeek === value
-                      ? "bg-slate-600 text-slate-100"
-                      : "text-slate-400 hover:text-slate-300"
-                  }`}
+                  className="relative flex-1 py-2 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                  style={{ color: firstDayOfWeek === value ? "#f1f5f9" : "#94a3b8" }}
                 >
-                  {label}
+                  {firstDayOfWeek === value && (
+                    <motion.div
+                      layoutId="week-start-active"
+                      className="absolute inset-0 rounded-[9px] bg-slate-600"
+                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative z-10">{label}</span>
                 </button>
               ))}
             </div>
+            </LayoutGroup>
             <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </div>
         </section>}
