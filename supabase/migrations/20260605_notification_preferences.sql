@@ -50,4 +50,4 @@ AS $$
   LIMIT 1;
 $$;
 
-GRANT EXECUTE ON FUNCTION notify_get_push_prefs(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION notify_get_push_prefs(UUID) TO authenticated, service_role;
