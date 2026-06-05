@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, LayoutGroup } from "framer-motion";
 import { AvailabilityRecord, fmtMinutes } from "../data/types";
 
 type Props = {
@@ -336,32 +337,44 @@ export default function AvailabilitySection({
               </div>
 
               {/* Segmented control */}
+              <LayoutGroup id={`avail-pill-${activeDow}`}>
               <div
-                className="flex bg-slate-950 rounded-xl p-1 gap-1 mb-6"
+                className="flex bg-slate-950 rounded-xl p-1 mb-6"
                 role="group"
                 aria-label={`${DAY_FULL[activeDow]} availability`}
               >
                 {(["any", "window", "off"] as DayState[]).map((s) => {
                   const isActive = sheetDay?.state === s;
                   const pillLabel = s === "any" ? "Any time" : s === "window" ? "Window" : "Off";
-                  const activeClass =
-                    s === "any"    ? "bg-emerald-900/60 text-emerald-400" :
-                    s === "window" ? "bg-indigo-900/60 text-indigo-400"   :
-                                     "bg-red-900/60 text-red-400";
+                  const activeColor =
+                    s === "any"    ? "#34d399" :
+                    s === "window" ? "#818cf8" :
+                                     "#f87171";
                   return (
                     <button
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
-                      className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors cursor-pointer border-none min-h-[44px] ${
-                        isActive ? activeClass : "text-slate-500 bg-transparent hover:text-slate-300 hover:bg-slate-800/50"
-                      }`}
+                      className="relative flex-1 py-3 rounded-lg text-sm font-semibold cursor-pointer border-none min-h-[44px] z-10"
+                      style={{ color: isActive ? activeColor : "#64748b" }}
                       aria-pressed={isActive}
                     >
-                      {pillLabel}
+                      {isActive && (
+                        <motion.div
+                          layoutId="avail-pill"
+                          className="absolute inset-0 rounded-lg"
+                          style={{
+                            background: `${activeColor}18`,
+                            boxShadow: `inset 0 0 0 1px ${activeColor}30`,
+                          }}
+                          transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        />
+                      )}
+                      <span className="relative z-10">{pillLabel}</span>
                     </button>
                   );
                 })}
               </div>
+              </LayoutGroup>
 
               {/* Window time inputs */}
               {sheetDay?.state === "window" && (
