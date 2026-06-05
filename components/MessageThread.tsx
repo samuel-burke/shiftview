@@ -7,6 +7,7 @@ type Message = {
   id: number;
   from_user_id: string;
   body: string;
+  read: boolean;
   created_at: string;
 };
 
@@ -94,6 +95,11 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             body: JSON.stringify({ withUserId: otherUserId }),
           });
         }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
+        () => { fetchMessages(); }
       )
       .subscribe();
 
@@ -216,6 +222,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
               !prev ||
               new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000;
 
+            // Show "Read" below the last message I sent that the other person has read
+            const isLastReadByMe =
+              isMine &&
+              msg.read &&
+              messages.slice(i + 1).every((m) => !(m.from_user_id === myUserId && m.read));
+
             return (
               <div key={msg.id}>
                 {showTime && (
@@ -239,6 +251,9 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
                     {msg.body}
                   </div>
                 </div>
+                {isLastReadByMe && (
+                  <div className="text-right text-[10px] text-slate-400 pr-1 mt-0.5">Read</div>
+                )}
               </div>
             );
           })}
