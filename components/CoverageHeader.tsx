@@ -173,12 +173,20 @@ export default function CoverageHeader({
        * become direct flex children of this bar on desktop, putting the date nav in the
        * centre between them.
        */}
+      {/* Mobile-only bare date nav (when TopBar owns the header) */}
+      {hideMobileBrand && (
+        <div data-testid="mobile-date-nav" className="[@media(min-width:900px)]:hidden px-4 py-3 border-b border-slate-800">
+          {mobileNav}
+        </div>
+      )}
+
+      {/* Full header bar (desktop always; mobile only when brand is shown) */}
       <div
         className={`bg-bg border-b border-slate-800 px-4 pb-3
                    [@media(min-width:900px)]:static [@media(min-width:900px)]:flex
                    [@media(min-width:900px)]:items-center [@media(min-width:900px)]:gap-6
                    [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]
-                   ${hideMobileBrand ? "pt-3" : "sticky top-0 z-30 header-safe-top"}`}
+                   ${hideMobileBrand ? "hidden [@media(min-width:900px)]:flex" : "sticky top-0 z-30 header-safe-top"}`}
       >
         {/* Mobile-only demo banner (inside bar) */}
         {isDemo && (
@@ -189,7 +197,7 @@ export default function CoverageHeader({
         )}
 
         {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
-        <div className={`flex items-center justify-between mb-3 [@media(min-width:900px)]:contents${hideMobileBrand ? " [@media(max-width:899px)]:hidden" : ""}`}>
+        <div className="flex items-center justify-between mb-3 [@media(min-width:900px)]:contents">
           <div className="[@media(min-width:900px)]:shrink-0">
             <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px]">
               Shift
@@ -224,10 +232,12 @@ export default function CoverageHeader({
           </div>
         </div>
 
-        {/* Mobile-only date nav row */}
-        <div data-testid="mobile-date-nav" className="mb-1 [@media(min-width:900px)]:hidden">
-          {mobileNav}
-        </div>
+        {/* Mobile-only date nav row (only when brand is in this bar) */}
+        {!hideMobileBrand && (
+          <div data-testid="mobile-date-nav" className="mb-1 [@media(min-width:900px)]:hidden">
+            {mobileNav}
+          </div>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
