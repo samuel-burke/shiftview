@@ -12,6 +12,27 @@ export type NotificationType =
   | "schedule_published"
   | "message";
 
+type PushPrefKey =
+  | "late_punch_alerts"
+  | "message_alerts"
+  | "pto_alerts"
+  | "new_shift_alerts"
+  | "shift_change_alerts"
+  | "swap_alerts"
+  | "shift_reminder_alerts";
+
+const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
+  late_clock_in:      "late_punch_alerts",
+  message:            "message_alerts",
+  pto_approved:       "pto_alerts",
+  pto_denied:         "pto_alerts",
+  schedule_published: "new_shift_alerts",
+  shift_change:       "shift_change_alerts",
+  swap_approved:      "swap_alerts",
+  swap_denied:        "swap_alerts",
+  shift_reminder:     "shift_reminder_alerts",
+};
+
 export type NotifyOptions = {
   userId: string | null;
   type: NotificationType;
@@ -43,7 +64,7 @@ export async function notify(
     body:  options.body,
     data:  options.data,
     tag:   options.type,
-  });
+  }, options.type);
 }
 
 // Helper: notify all managers.
@@ -73,7 +94,7 @@ export async function notifyManagers(
 
   await Promise.all(
     (managers as { user_id: string }[]).map((m) =>
-      sendPushToUser(supabase, m.user_id, payload).catch(() => {})
+      sendPushToUser(supabase, m.user_id, payload, type).catch(() => {})
     )
   );
 }
@@ -81,8 +102,17 @@ export async function notifyManagers(
 async function sendPushToUser(
   supabase: SupabaseClient,
   userId: string,
-  payload: PushPayload
+  payload: PushPayload,
+  type?: NotificationType
 ): Promise<void> {
+  if (type) {
+    const prefKey = TYPE_TO_PREF[type];
+    if (prefKey) {
+      const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
+      if (prefs?.[0]?.[prefKey] === false) return;
+    }
+  }
+
   const { data: subs, error: subsError } = await supabase.rpc("notify_get_push_subs", {
     p_user_id: userId,
   });
