@@ -592,7 +592,7 @@ export default function ReportsPageClient() {
       >
         <button
           onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -607,7 +607,7 @@ export default function ReportsPageClient() {
             key={tab}
             onClick={() => setActiveTab(tab)}
             aria-pressed={activeTab === tab}
-            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+            className={`flex-1 py-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === tab
                 ? "bg-indigo-600 text-white"
                 : "bg-card border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
@@ -674,13 +674,13 @@ export default function ReportsPageClient() {
                 Hours — {formatWeekLabel(selectedWeekStart)}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Previous week" className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
+                <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Previous week" className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
                 {weekOffset !== 0 && (
-                  <button onClick={() => setWeekOffset(0)} className="text-[11px] text-slate-400 bg-card border border-slate-800 rounded-lg px-2 py-1 cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">Now</button>
+                  <button onClick={() => setWeekOffset(0)} className="text-[11px] text-slate-400 bg-card border border-slate-800 rounded-lg px-2 py-2 -my-px cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">Now</button>
                 )}
-                <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Next week" className="size-7 rounded-lg bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
+                <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Next week" className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
               </div>
@@ -782,7 +782,7 @@ export default function ReportsPageClient() {
               onClick={generatePayroll}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
               aria-busy={payrollLoading}
-              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {payrollLoading ? "Generating…" : "Generate Report"}
             </button>
@@ -935,7 +935,7 @@ export default function ReportsPageClient() {
             </div>
             <button
               onClick={applyFilters}
-              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors"
+              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors"
             >
               Apply filters
             </button>
