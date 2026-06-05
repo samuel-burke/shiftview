@@ -115,6 +115,7 @@ export default function CoverageTimeline({
   }, [isToday, punchRecords, points, nowMinutes, timezone]);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showTooltip, setShowTooltip] = useState(true);
   const [chartRect, setChartRect] = useState<{
     left: number;
     width: number;
@@ -233,10 +234,9 @@ export default function CoverageTimeline({
       <div
         ref={containerRef}
         className="relative"
-        onTouchEnd={() => {
-          const svg = containerRef.current?.querySelector("svg");
-          svg?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true }));
-        }}
+        onTouchStart={() => setShowTooltip(true)}
+        onTouchEnd={() => setShowTooltip(false)}
+        onTouchCancel={() => setShowTooltip(false)}
       >
         <ResponsiveContainer
           width="100%"
@@ -271,6 +271,7 @@ export default function CoverageTimeline({
               allowDecimals={false}
             />
             <Tooltip
+              wrapperStyle={showTooltip ? undefined : { display: "none" }}
               contentStyle={{
                 background: "#0f172a",
                 border: "1px solid #334155",
