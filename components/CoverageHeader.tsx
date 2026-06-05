@@ -116,6 +116,7 @@ export default function CoverageHeader({
           aria-label={`${dateLabel}, ${dayName}. Open date picker`}
           aria-expanded={pickerOpen}
           aria-haspopup="dialog"
+          whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
           className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 py-2 cursor-pointer"
@@ -134,10 +135,11 @@ export default function CoverageHeader({
       {!isToday && (
         <motion.button
           onClick={onNow}
+          whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(99,102,241,0.35)" }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
           className="w-full py-2 rounded-xl text-sm font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 cursor-pointer"
-          style={{ boxShadow: "0 0 16px rgba(99,102,241,0.12)" }}
+          style={{ boxShadow: "0 0 12px rgba(99,102,241,0.12)" }}
         >
           Back to Today
         </motion.button>
