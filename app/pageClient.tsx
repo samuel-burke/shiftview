@@ -571,6 +571,24 @@ export default function Page() {
     return map;
   }, [punchRecords, scheduled, punchesLoaded]);
 
+  // Split sortedScheduled into the three attendance-based sub-groups.
+  // When attendanceMap is empty (!punchesLoaded), all shifts fall into scheduledRemaining.
+  const hereNowSchedules = useMemo(
+    () => sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
+    [sortedScheduled, attendanceMap],
+  );
+  const onBreakSchedules = useMemo(
+    () => sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "on_break"),
+    [sortedScheduled, attendanceMap],
+  );
+  const scheduledRemaining = useMemo(
+    () => sortedScheduled.filter((s) => {
+      const st = attendanceMap[s.employeeId];
+      return !st || st === "not_clocked_in" || st === "clocked_out";
+    }),
+    [sortedScheduled, attendanceMap],
+  );
+
   // When punch data is loaded for today, count ALL clocked-in employees from punch
   // records (including unscheduled arrivals and pre-shift clock-ins). Before punch
   // data arrives or on non-today dates, fall back to the schedule window check.
@@ -706,12 +724,47 @@ export default function Page() {
     </motion.div>
   );
 
+  function handleSelectShift(emp: Employee, sch: Schedule) {
+    setSelected({ emp, sch });
+    setAvailabilityRecords([]);
+    fetch(`/api/availability?employeeId=${emp.id}`)
+      .then((r) => r.json())
+      .then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : []))
+      .catch(() => setAvailabilityRecords([]));
+  }
+  function handleSelectOff(emp: Employee) {
+    setSelected({ emp, sch: null });
+    setAvailabilityRecords([]);
+    if (isManager) {
+      fetch(`/api/availability?employeeId=${emp.id}`)
+        .then((r) => r.json())
+        .then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : []))
+        .catch(() => setAvailabilityRecords([]));
+    }
+  }
+
+  const sharedSectionProps = {
+    employees,
+    storeHours,
+    nowMinutes,
+    isToday,
+    attendanceMap: isToday && isManager ? attendanceMap : undefined,
+    onSelect: handleSelectShift,
+  };
+
   const teamSections = isLoading ? (
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
+  ) : isToday && punchesLoaded ? (
+    <>
+      <TeamSection label="Here Now"  count={hereNowSchedules.length}   schedules={hereNowSchedules}   {...sharedSectionProps} />
+      <TeamSection label="On Break"  count={onBreakSchedules.length}   schedules={onBreakSchedules}   {...sharedSectionProps} />
+      <TeamSection label="Scheduled" count={scheduledRemaining.length}  schedules={scheduledRemaining}  {...sharedSectionProps} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
+    </>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} employees={employees} storeHours={storeHours} nowMinutes={nowMinutes} isToday={isToday} attendanceMap={isToday && isManager ? attendanceMap : undefined} onSelect={(emp, sch) => { setSelected({ emp, sch }); setAvailabilityRecords([]); fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : [])).catch(() => setAvailabilityRecords([])); }} />
-      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={(emp) => { setSelected({ emp, sch: null }); setAvailabilityRecords([]); if (isManager) { fetch(`/api/availability?employeeId=${emp.id}`).then((r) => r.json()).then((records: AvailabilityRecord[]) => setAvailabilityRecords(Array.isArray(records) ? records : [])).catch(() => setAvailabilityRecords([])); } }} canSelectOff={(emp) => isManager || !!emp.user_id} />
+      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} {...sharedSectionProps} />
+      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
     </>
   );
 
