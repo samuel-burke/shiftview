@@ -1298,7 +1298,7 @@ export default function SettingsPageClient({
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0">
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
                           className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
