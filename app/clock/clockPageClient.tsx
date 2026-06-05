@@ -100,9 +100,28 @@ export default function ClockPageClient() {
   const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
   const [elapsed, setElapsed] = useState(0);
 
-  const { me, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, sharedLoading } = useAppData();
-  const { isManager, employeeId, employeeName } = me;
+  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, sharedLoading } = useAppData();
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
+
+  // me is critical for the account-not-linked check — fetch directly for reliability,
+  // initialize from context cache if available so return visits are instant.
+  const [isManager, setIsManager] = useState(() => cachedMe.isManager);
+  const [employeeId, setEmployeeId] = useState<number | null>(() => cachedMe.employeeId);
+  const [employeeName, setEmployeeName] = useState<string | null>(() => cachedMe.employeeName);
+  const [meLoading, setMeLoading] = useState(!cachedMe.isManager && cachedMe.employeeId === null);
+
+  useEffect(() => {
+    if (isDemo) return;
+    fetch(`/api/me`)
+      .then(r => r.json())
+      .then(({ isManager: mgr, employeeId: empId, employeeName: empName }) => {
+        setIsManager(!!mgr);
+        setEmployeeId(empId ?? null);
+        setEmployeeName(empName ?? null);
+        setMeLoading(false);
+      })
+      .catch(() => setMeLoading(false));
+  }, [isDemo]);
 
   // Correction form state
   const [showCorrection, setShowCorrection] = useState(false);
@@ -430,7 +449,7 @@ export default function ClockPageClient() {
     onSignIn: isDemo ? () => router.push("/login") : undefined,
   };
 
-  if (loading || sharedLoading) {
+  if (loading || meLoading) {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
