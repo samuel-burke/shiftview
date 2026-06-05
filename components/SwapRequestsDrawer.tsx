@@ -100,7 +100,7 @@ export default function SwapRequestsDrawer({
                   onClick={onClose}
                   aria-label="Close"
                   autoFocus
-                  className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                     <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -159,14 +159,14 @@ function SwapCard({
         <button
           onClick={() => onApprove(swap.id)}
           aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Approve
         </button>
         <button
           onClick={() => onDeny(swap.id)}
           aria-label={`Deny swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-2.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
+          className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
         >
           Deny
         </button>
