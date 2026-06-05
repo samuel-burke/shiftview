@@ -145,6 +145,7 @@ export default function Page() {
   const [weeklyHours, setWeeklyHours] = useState<Record<number, StoreHours>>(DEFAULT_HOURS);
   const [optimalCoverage, setOptimalCoverage] = useState(OPTIMAL_COVERAGE);
   const [minCoverage, setMinCoverage] = useState(MINIMUM_COVERAGE);
+  const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [timezone, setTimezone] = useState("America/New_York");
   const [exportLoading, setExportLoading] = useState(false);
@@ -210,7 +211,7 @@ export default function Page() {
     const csvContent = [header, ...rows].join("\n");
     const weekStartDate = capturedDates[0];
     const blob = new Blob([csvContent], { type: "text/csv" });
-    await downloadCSV(blob, `schedule-${weekStartDate}.csv`);
+    downloadCSV(blob, `schedule-${weekStartDate}.csv`);
 
     setExportLoading(false);
   }
@@ -463,10 +464,11 @@ export default function Page() {
     function refetchSettings() {
       fetch("/api/settings")
         .then((r) => r.json())
-        .then(({ optimalCoverage: oc, minCoverage: mc, timezone: tz }) => {
+        .then(({ optimalCoverage: oc, minCoverage: mc, timezone: tz, coverageAlertsEnabled: ca }) => {
           if (oc != null) setOptimalCoverage(oc);
           if (mc != null) setMinCoverage(mc);
           if (tz) setTimezone(tz);
+          if (ca != null) setCoverageAlertsEnabled(ca);
         })
         .catch(() => {});
     }
@@ -542,9 +544,10 @@ export default function Page() {
         if (!settingsResult.value.ok) {
           console.error("[pageClient] fetch failed: /api/settings returned", settingsResult.value.status);
         } else {
-          settingsResult.value.json().then(({ optimalCoverage, minCoverage, timezone: tz }) => {
+          settingsResult.value.json().then(({ optimalCoverage, minCoverage, timezone: tz, coverageAlertsEnabled: ca }) => {
             if (optimalCoverage != null) setOptimalCoverage(optimalCoverage);
             if (minCoverage != null) setMinCoverage(minCoverage);
+            if (ca != null) setCoverageAlertsEnabled(ca);
             if (tz) {
               setTimezone(tz);
               setNowMinutes(getNowMinutes(tz));
@@ -637,9 +640,6 @@ export default function Page() {
     return scheduled.filter((s) => isHere(s, nowMinutes));
   }, [scheduled, nowMinutes, isToday, punchesLoaded, attendanceMap]);
 
-  const lastUpdated = lastFetchedAt
-    ? lastFetchedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
-    : null;
 
   const storeHours = weeklyHours[date.getDay()];
 
@@ -656,61 +656,11 @@ export default function Page() {
     return "optimal";
   }, [isToday, isStoreOpen, hereNow.length]);
 
-  const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    let startY: number | null = null;
-    let startX: number | null = null;
-
-    function onTouchStart(e: TouchEvent) {
-      startY = e.touches[0].clientY;
-      startX = e.touches[0].clientX;
-    }
-
-    async function onTouchEnd(e: TouchEvent) {
-      if (startY === null || startX === null) return;
-      const diffY = e.changedTouches[0].clientY - startY;
-      const diffX = startX - e.changedTouches[0].clientX;
-
-      // Pull to refresh — only when at top of page and pulling down
-      if (diffY > 80 && Math.abs(diffX) < 30 && window.scrollY === 0) {
-        setRefreshing(true);
-        const dateKey = toDateKey(date, timezone);
-        const isViewingToday = dateKey === toDateKey(today, timezone);
-        try {
-          await Promise.all([
-            apiFetch(`/api/employees?demo=${isDemo}`, { cache: "no-store" })
-              .then((r) => r.json())
-              .then(setEmployees),
-            apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`, { cache: "no-store" })
-              .then((r) => r.json())
-              .then(setSchedules),
-            ...(isViewingToday && !isDemo
-              ? [apiFetch(`/api/punches?date=${dateKey}`, { cache: "no-store" })
-                  .then((r) => r.json())
-                  .then((d) => { setPunchRecords(Array.isArray(d) ? d : []); setPunchesLoaded(true); })
-                  .catch(() => {})]
-              : []),
-          ]);
-          setLastFetchedAt(new Date());
-        } finally {
-          setRefreshing(false);
-        }
-      }
-    }
-
-    window.addEventListener("touchstart", onTouchStart);
-    window.addEventListener("touchend", onTouchEnd);
-    return () => {
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [date, isDemo, timezone]);
 
   const headerProps = {
     date, today, isToday, hereCount: hereNow.length,
     nowMinutes, coverageStatus, isDemo, loading,
-    userName, isManager,
+    userName, isManager, coverageAlertsEnabled,
     onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
     onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
     onNow: () => setDate(new Date()),
@@ -830,17 +780,23 @@ export default function Page() {
       onClick={handleExportCSV}
       disabled={exportLoading}
       aria-busy={exportLoading}
-      whileHover={{ scale: 1.03 }}
-      whileTap={{ scale: 0.96 }}
+      whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="text-xs font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full mt-4 py-2.5 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {exportLoading ? "Loading…" : "Export CSV"}
     </motion.button>
   ) : null;
 
   return (
-    <AppShell active="team" isManager={isManager}>
+    <AppShell
+      active="team"
+      isManager={isManager}
+      userName={userName}
+      isDemo={isDemo}
+      onSignOut={isDemo ? undefined : handleSignOut}
+      onSignIn={isDemo ? () => router.push("/login") : undefined}
+    >
       {/*
        * Single responsive layout — no JS fork.
        * Mobile: linear stack inside max-w-[480px], pb-28 for the fixed BottomNav.
@@ -850,21 +806,17 @@ export default function Page() {
        * against inherited horizontal padding.
        */}
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
-        <CoverageHeader {...headerProps} />
-        {refreshing && <div className="flex justify-center py-2"><div aria-hidden="true" className="spinner" /></div>}
+        <CoverageHeader {...headerProps} hideMobileBrand />
         {errorBanner}
         <div className="px-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_380px] [@media(min-width:900px)]:gap-8 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:pb-8 [@media(min-width:900px)]:items-start">
           <div>
             {statsRow}
             {timeline}
             {legend}
-            <div className="flex items-center justify-between mt-4 [@media(min-width:900px)]:mt-2">
-              <span className="text-xs text-slate-400">Last updated: {lastUpdated ?? "…"}</span>
-              {exportButton}
-            </div>
           </div>
           <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
             {teamSections}
+            {exportButton}
           </div>
         </div>
         {drawer}

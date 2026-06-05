@@ -455,28 +455,6 @@ describe("SettingsPageClient — auto-save", () => {
     });
   });
 
-  // ── No regression ──────────────────────────────────────────────────────────
-
-  describe("No regression", () => {
-    it("email notifications toggle still auto-saves without needing any timer", async () => {
-      const fetchSpy = setupFetch();
-      await renderAndSettle();
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole("switch", { name: /email notifications/i }));
-        await Promise.resolve();
-      });
-
-      await waitFor(() => {
-        const putCall = fetchSpy.mock.calls.find(
-          ([url, opts]) => url === "/api/settings" && opts?.method === "PUT"
-        );
-        expect(putCall).toBeTruthy();
-        const body = JSON.parse(putCall![1]!.body as string);
-        expect(body.emailNotifications).toBe(true);
-      });
-    });
-  });
 });
 
 // ── EmployeeAvailabilityRow (manager Settings) ─────────────────────────────

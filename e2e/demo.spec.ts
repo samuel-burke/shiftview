@@ -60,7 +60,7 @@ test.describe("Demo mode — schedule view", () => {
   });
 
   test("shows the Scheduled section with count", async ({ page }) => {
-    await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
+    await expect(page.getByText("Scheduled", { exact: true }).first()).toBeVisible();
   });
 
   test("shows a Sign In option in the user menu in demo mode (not Sign Out)", async ({ page }) => {
@@ -70,8 +70,8 @@ test.describe("Demo mode — schedule view", () => {
   });
 
   test("shows today's date in the header", async ({ page }) => {
-    const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(dayName, "i"))).toBeVisible();
+    const todayLabel = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(todayLabel, "i"))).toBeVisible();
   });
 });
 
@@ -84,25 +84,25 @@ test.describe("Demo mode — date navigation", () => {
   test("navigates to the previous day with the back button", async ({ page }) => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const prevDay = yesterday.toLocaleDateString("en-US", { weekday: "long" });
+    const prevLabel = yesterday.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(prevDay, "i"))).toBeVisible();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(prevLabel, "i"))).toBeVisible();
   });
 
   test("navigates to the next day with the forward button", async ({ page }) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const nextDay = tomorrow.toLocaleDateString("en-US", { weekday: "long" });
+    const nextLabel = tomorrow.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Next day" }).click();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(nextDay, "i"))).toBeVisible();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(nextLabel, "i"))).toBeVisible();
   });
 
   test("returns to today when Today button is clicked", async ({ page }) => {
-    const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    const todayLabel = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     // Navigate away then back
     await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
-    await page.getByRole("button", { name: /today/i }).click();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(dayName, "i"))).toBeVisible();
+    await page.getByRole("button", { name: /back to today/i }).click();
+    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(todayLabel, "i"))).toBeVisible();
   });
 });
 

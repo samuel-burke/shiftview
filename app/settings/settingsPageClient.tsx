@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, LayoutGroup } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
-import BottomNav from "../../components/BottomNav";
-import AppShell from "../../components/AppShell";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import InviteSheet from "../../components/InviteSheet";
@@ -210,8 +208,22 @@ export default function SettingsPageClient({
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // ── Coverage ────────────────────────────────────────────────────────────────
+  const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
+  const [coverageAlertsSaving, setCoverageAlertsSaving] = useState(false);
   const [optimalCoverage, setOptimalCoverage] = useState(3);
   const [minCoverage, setMinCoverage] = useState(2);
+
+  async function saveCoverageAlerts(newValue: boolean) {
+    setCoverageAlertsSaving(true);
+    if (!isDemo) {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverageAlertsEnabled: newValue }),
+      });
+    }
+    setCoverageAlertsSaving(false);
+  }
   const [coverageStatus, setCoverageStatus] = useState<SaveStatus>("idle");
   const [coverageValidationError, setCoverageValidationError] = useState<string | null>(null);
   const coverageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -312,32 +324,6 @@ export default function SettingsPageClient({
     } else {
       setTimezoneStatus("error");
       setTimeout(() => setTimezoneStatus("idle"), 4000);
-    }
-  }
-
-  // ── Email Notifications ─────────────────────────────────────────────────────
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [emailNotifSaving, setEmailNotifSaving] = useState(false);
-  const [emailNotifSaved, setEmailNotifSaved] = useState(false);
-
-  async function saveEmailNotif(newValue: boolean) {
-    setEmailNotifSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setEmailNotifSaving(false);
-      setEmailNotifSaved(true);
-      setTimeout(() => setEmailNotifSaved(false), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emailNotifications: newValue }),
-    });
-    setEmailNotifSaving(false);
-    if (res.ok) {
-      setEmailNotifSaved(true);
-      setTimeout(() => setEmailNotifSaved(false), 2000);
     }
   }
 
@@ -622,8 +608,8 @@ export default function SettingsPageClient({
           if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
           if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
           if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
+          if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
           if (s.timezone)                setTimezone(s.timezone);
-          if (s.emailNotifications != null) setEmailNotifications(s.emailNotifications);
           if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
           if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
           if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
@@ -669,12 +655,12 @@ export default function SettingsPageClient({
       })));
       setWeeklyHours(DEMO_STORE_HOURS);
       setOptimalCoverage(DEMO_SETTINGS.optimalCoverage);
+      setCoverageAlertsEnabled(DEMO_SETTINGS.coverageAlertsEnabled);
       setMinCoverage(DEMO_SETTINGS.minCoverage);
       setTimezone(DEMO_SETTINGS.timezone);
       setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
       setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
       setGpsRequired(DEMO_SETTINGS.gpsRequired);
-      setEmailNotifications(DEMO_SETTINGS.emailNotifications);
     }
   }, [isDemo]);
 
@@ -738,37 +724,43 @@ export default function SettingsPageClient({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <AppShell active="settings" isManager={isManager}>
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
-      {/* Demo banner */}
-      {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
-
-      {/* Top bar — sticky on mobile, static on desktop; back button hidden on desktop */}
+    <motion.div
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm [@media(min-width:900px)]:items-center [@media(min-width:900px)]:justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
+    <motion.div role="main"
+      className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
+                 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:max-h-[90vh] [@media(min-width:900px)]:rounded-2xl [@media(min-width:900px)]:shadow-2xl"
+      style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
+      initial={{ x: "100%" }}
+      animate={{ x: 0 }}
+      transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.8 }}
+    >
+      {/* Header */}
       <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
-                   [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           aria-label="Back"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">Settings</span>
+        <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
+        {isDemo && <span className="ml-auto text-[11px] text-blue-400/80 font-medium">Demo Mode</span>}
       </div>
 
       {loading ? (
-        <div className="[@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6"><SkeletonSettingsBody isManager={isManager} /></div>
+        <div className="px-4 pt-5"><SkeletonSettingsBody isManager={isManager} /></div>
       ) : null}
 
-      <div className={`px-4 pt-5 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 flex flex-col gap-5${loading ? " hidden" : ""}`}>
+      <div className={`px-4 pt-5 pb-12 flex flex-col gap-5${loading ? " hidden" : ""}`}>
 
         {/* My Availability — shown to all linked employees */}
         {employeeId !== null && (
@@ -786,19 +778,25 @@ export default function SettingsPageClient({
             Appearance
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-            <div className="text-sm font-semibold text-slate-200 mb-3">Theme</div>
+            <LayoutGroup id="theme-pill">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-                    themeMode === m
-                      ? "bg-slate-600 text-slate-100"
-                      : "text-slate-400 hover:text-slate-300"
-                  }`}
+                  className="relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                  style={{ color: themeMode === m ? "#f1f5f9" : "#94a3b8" }}
                 >
+                  {themeMode === m && (
+                    <motion.div
+                      layoutId="theme-active"
+                      className="absolute inset-0 rounded-[9px] bg-slate-600"
+                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5">
                   {m === "light" && (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
@@ -817,9 +815,11 @@ export default function SettingsPageClient({
                     </svg>
                   )}
                   <span className="capitalize">{m}</span>
+                  </span>
                 </button>
               ))}
             </div>
+            </LayoutGroup>
           </div>
         </section>
 
@@ -876,6 +876,33 @@ export default function SettingsPageClient({
             Coverage Thresholds
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            {/* Parent toggle */}
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-800">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Coverage Alerts</div>
+                <div className="text-xs text-slate-500 mt-0.5">Show banners when staffing is low</div>
+              </div>
+              <button
+                role="switch"
+                aria-label="Coverage alerts"
+                aria-checked={coverageAlertsEnabled}
+                disabled={coverageAlertsSaving}
+                onClick={() => {
+                  const next = !coverageAlertsEnabled;
+                  setCoverageAlertsEnabled(next);
+                  saveCoverageAlerts(next);
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700"
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                  coverageAlertsEnabled ? "translate-x-5" : "translate-x-0"
+                }`} />
+              </button>
+            </div>
+
+            <div className={`transition-opacity ${coverageAlertsEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Optimal coverage</div>
@@ -938,46 +965,7 @@ export default function SettingsPageClient({
               </div>
             )}
             <SaveStatusText status={coverageStatus} testId="coverage-status" />
-          </div>
-        </section>}
-
-        {/* Email Notifications — manager only */}
-        {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Notifications
-          </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-200">Email Notifications</div>
-                <div className="text-xs text-slate-500 mt-0.5">Send nightly shift reminders to employees</div>
-              </div>
-              <button
-                role="switch"
-                aria-label="Email notifications"
-                aria-checked={emailNotifications}
-                disabled={emailNotifSaving}
-                onClick={() => {
-                  const newVal = !emailNotifications;
-                  setEmailNotifications(newVal);
-                  saveEmailNotif(newVal);
-                }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                  emailNotifications ? "bg-indigo-500" : "bg-slate-700"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
-                    emailNotifications ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
-              {emailNotifSaved && (
-                <div className="text-xs text-emerald-400 mt-2">Saved</div>
-              )}
-            </div>
+            </div>{/* end threshold controls wrapper */}
           </div>
         </section>}
 
@@ -1203,22 +1191,29 @@ export default function SettingsPageClient({
             Week Start
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <LayoutGroup id="week-start-pill">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className={`flex-1 py-2 rounded-[9px] text-sm font-semibold transition-colors cursor-pointer ${
-                    firstDayOfWeek === value
-                      ? "bg-slate-600 text-slate-100"
-                      : "text-slate-400 hover:text-slate-300"
-                  }`}
+                  className="relative flex-1 py-2 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                  style={{ color: firstDayOfWeek === value ? "#f1f5f9" : "#94a3b8" }}
                 >
-                  {label}
+                  {firstDayOfWeek === value && (
+                    <motion.div
+                      layoutId="week-start-active"
+                      className="absolute inset-0 rounded-[9px] bg-slate-600"
+                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative z-10">{label}</span>
                 </button>
               ))}
             </div>
+            </LayoutGroup>
             <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </div>
         </section>}
@@ -1303,32 +1298,42 @@ export default function SettingsPageClient({
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0">
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
-                          className="size-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                          className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
                           aria-label={`Edit name for ${emp.name}`}
                           aria-expanded={editingId === emp.id}
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
                         {emp.user_id === currentUserId ? (
-                          <span className="text-xs text-slate-500 px-3 py-1.5" aria-label="You — cannot remove yourself">You</span>
+                          <button
+                            disabled
+                            aria-label="Cannot remove yourself"
+                            className="size-8 rounded-lg border border-red-500/10 bg-red-500/5 text-red-400/30 flex items-center justify-center cursor-not-allowed opacity-40"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
                         ) : (
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
                             aria-label={`Remove ${emp.name}`}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`size-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-red-500/20 text-red-300 border-red-500/40"
                                 : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
                             }`}
                           >
-                            {deletingId === emp.id ? "…" : deleteErrorId === emp.id ? "Error" : "Remove"}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
                           </button>
                         )}
                       </div>
@@ -1472,7 +1477,6 @@ export default function SettingsPageClient({
         </section>
       </div>
 
-      <BottomNav active="settings" />
 
       <InviteSheet
         open={showInvite}
@@ -1541,7 +1545,7 @@ export default function SettingsPageClient({
           </div>
         </div>
       )}
-    </main>
-    </AppShell>
+    </motion.div>
+    </motion.div>
   );
 }

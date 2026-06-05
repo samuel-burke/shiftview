@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { NavItem } from "./AppShell";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
 
 type Props = {
   active: NavItem;
@@ -12,24 +11,9 @@ type Props = {
 
 const TABS = ["team", "schedule", "clock"] as const;
 
-// Written only on unmount so the clock page's loading-branch instances
-// don't overwrite the "from" position before the main instance reads it.
-let _lastTabIndex: number | null = null;
-
 export default function BottomNav({ active }: Props) {
   const searchParams = useSearchParams();
   const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
-
-  // Initialise from the previous page's tab; effect nudges to the current tab,
-  // causing the CSS transition to slide the pill across.
-  const [pillIndex, setPillIndex] = useState<number>(() => _lastTabIndex ?? tabIndex);
-
-  useEffect(() => {
-    setPillIndex(tabIndex);
-    return () => {
-      _lastTabIndex = tabIndex;
-    };
-  }, [tabIndex]);
 
   const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
   return (
@@ -39,15 +23,11 @@ export default function BottomNav({ active }: Props) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">
-        {/* Sliding pill — CSS transition avoids Framer Motion lifecycle issues */}
+        {/* Pill — snaps instantly to the active tab */}
         <div
           aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
-          style={{
-            width: "33.333%",
-            left: `${pillIndex * 33.333}%`,
-            transition: "left 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-          }}
+          style={{ width: "33.333%", left: `${tabIndex * 33.333}%` }}
         >
           <div
             className="h-full w-8 rounded-full"
