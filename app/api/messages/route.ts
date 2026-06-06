@@ -97,14 +97,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 
-  // Notify recipient — inserts in-app notification + fires push
-  await notify(supabase, {
-    userId: toUserId,
-    type: "message",
-    title: senderName,
-    body: trimmed,
-    data: { fromUserId: user.id, fromName: senderName },
-  }).catch(() => {});
+  // Skip notifications for chess moves
+  let isChessMove = false;
+  try { isChessMove = JSON.parse(trimmed)._chess === true; } catch {}
+
+  if (!isChessMove) {
+    await notify(supabase, {
+      userId: toUserId,
+      type: "message",
+      title: senderName,
+      body: trimmed,
+      data: { fromUserId: user.id, fromName: senderName },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true });
 }
