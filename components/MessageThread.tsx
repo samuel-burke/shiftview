@@ -193,11 +193,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
 
   async function startChessGame() {
     if (!myUserId) return;
+    const iAmWhite = Math.random() < 0.5;
     const gameMsg = JSON.stringify({
       _chess: true,
       fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      white: myUserId,
-      black: otherUserId,
+      white: iAmWhite ? myUserId : otherUserId,
+      black: iAmWhite ? otherUserId : myUserId,
       status: "active",
     });
     setSending(true);
@@ -279,33 +280,49 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           </button>
         </div>
 
-        {/* Chess board panel */}
+        {/* Chess full-screen overlay — opened on top of everything for a larger board */}
         {chessOpen && myUserId && latestChessGame && (
-          <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/80 shrink-0 overflow-y-auto max-h-[60vh]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Chess</span>
+          <div
+            className="fixed inset-0 z-[80] bg-slate-950 flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chess board"
+          >
+            <div
+              className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
+              style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)", paddingBottom: 14 }}
+            >
+              <div className="text-sm font-bold text-slate-100">Chess</div>
+              <div className="text-sm text-slate-500">vs {otherName}</div>
               <button
                 onClick={() => setChessOpen(false)}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+                aria-label="Close chess board"
+                className="ml-auto size-9 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
-                Hide board
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                </svg>
               </button>
             </div>
-            <ChessBoard
-              myUserId={myUserId}
-              otherName={otherName}
-              game={latestChessGame}
-              onSend={sendMessage}
-            />
-            {latestChessGame.status !== "active" && (
-              <button
-                onClick={startChessGame}
-                disabled={sending}
-                className="mt-3 w-full py-2 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
-              >
-                New game
-              </button>
-            )}
+            <div className="flex-1 flex items-center justify-center overflow-y-auto">
+              <div className="w-full max-w-[600px] sm:px-4 py-3">
+                <ChessBoard
+                  myUserId={myUserId}
+                  otherName={otherName}
+                  game={latestChessGame}
+                  onSend={sendMessage}
+                />
+                {latestChessGame.status !== "active" && (
+                  <button
+                    onClick={() => { setChessOpen(false); startChessGame(); }}
+                    disabled={sending}
+                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
+                  >
+                    New game
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

@@ -206,8 +206,8 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
   }
 
   function statusMessage() {
-    if (displayStatus === "white_wins") return (amWhite ? game.white : game.black) === myUserId ? "You won! 🎉" : `${otherName} won`;
-    if (displayStatus === "black_wins") return (!amWhite ? game.black : game.white) === myUserId ? "You won! 🎉" : `${otherName} won`;
+    if (displayStatus === "white_wins") return myUserId === game.white ? "You won! 🎉" : `${otherName} won`;
+    if (displayStatus === "black_wins") return myUserId === game.black ? "You won! 🎉" : `${otherName} won`;
     if (displayStatus === "draw") return "Draw ½–½";
     if (isMyTurn) return chess.inCheck() ? "Your turn — you're in check!" : "Your turn";
     return chess.inCheck() ? `${otherName} is in check` : `${otherName}'s turn…`;
