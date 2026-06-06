@@ -132,12 +132,19 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
 
   function onSquareClick({ square: squareStr }: { square: string; piece?: unknown }) {
     const square = squareStr as Square;
-    if (!isMyTurn || moving) return;
+    if (isOver || moving) return;
 
     const chess = new Chess(displayFen);
 
-    // If clicking a legal target square — execute the move
-    if (selectedSquare && legalSquares.includes(square)) {
+    // Toggle off if clicking the already-selected piece
+    if (selectedSquare === square) {
+      setSelectedSquare(null);
+      setLegalSquares([]);
+      return;
+    }
+
+    // If it's my turn and clicking a legal target square — execute the move
+    if (isMyTurn && selectedSquare && legalSquares.includes(square)) {
       const attempt = new Chess(displayFen);
       const pieceType = attempt.get(selectedSquare)?.type;
       const isPromotion = pieceType === "p" && (square[1] === "8" || square[1] === "1");
@@ -168,7 +175,7 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
       return;
     }
 
-    // Select a piece if it belongs to the current player
+    // Select any of my pieces to preview legal moves (works on both turns)
     const piece = chess.get(square);
     const myColor = amWhite ? "w" : "b";
     if (piece && piece.color === myColor) {

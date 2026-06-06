@@ -365,25 +365,6 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         >
           <div className="flex gap-2 items-end">
-            <button
-              onClick={() => {
-                if (latestChessGame) {
-                  setChessOpen((v) => !v);
-                } else {
-                  startChessGame();
-                }
-              }}
-              aria-label={latestChessGame ? "Toggle chess board" : "Start chess game"}
-              title="Play chess (/chess)"
-              disabled={sending}
-              className={`size-11 rounded-full border flex items-center justify-center shrink-0 text-lg transition-colors disabled:opacity-40 ${
-                chessOpen
-                  ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-300"
-                  : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
-              }`}
-            >
-              ♟
-            </button>
             <textarea
               ref={inputRef}
               value={body}
