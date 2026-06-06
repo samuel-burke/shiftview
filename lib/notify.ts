@@ -108,11 +108,16 @@ async function sendPushToUser(
   payload: PushPayload,
   type?: NotificationType
 ): Promise<void> {
+  // Check the user's OS notification preference. We still send the push
+  // regardless — when the app is in the foreground the SW delivers it as an
+  // in-app banner (always shown). _osEnabled only gates the background/closed
+  // OS notification inside the SW.
+  let osEnabled = true;
   if (type) {
     const prefKey = TYPE_TO_PREF[type];
     if (prefKey) {
       const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
-      if (prefs?.[0]?.[prefKey] === false) return;
+      osEnabled = prefs?.[0]?.[prefKey] !== false;
     }
   }
 
@@ -122,11 +127,16 @@ async function sendPushToUser(
   if (subsError) console.error("[notify] notify_get_push_subs failed:", subsError);
   if (!subs?.length) return;
 
+  const payloadWithPref: PushPayload = {
+    ...payload,
+    data: { ...(payload.data ?? {}), _osEnabled: osEnabled },
+  };
+
   const stale: string[] = [];
   await Promise.all(
     (subs as { endpoint: string; p256dh: string; auth_key: string }[]).map(
       async (sub) => {
-        const result = await sendPush(sub, payload);
+        const result = await sendPush(sub, payloadWithPref);
         if (result === "gone") stale.push(sub.endpoint);
       }
     )
