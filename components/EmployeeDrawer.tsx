@@ -10,6 +10,7 @@ import {
   Schedule,
   StoreHours,
   AvailabilityRecord,
+  AttendanceStatus,
   getShiftType,
   getMonogram,
   isHere,
@@ -32,6 +33,7 @@ type Props = {
   storeHours: StoreHours;
   nowMinutes: number;
   isToday: boolean;
+  attendanceStatus?: AttendanceStatus;
   date?: string;
   availabilityRecords?: AvailabilityRecord[];
   onClose: () => void;
@@ -59,6 +61,7 @@ export default function EmployeeDrawer({
   storeHours,
   nowMinutes,
   isToday,
+  attendanceStatus,
   date,
   availabilityRecords,
   onClose,
@@ -116,8 +119,20 @@ export default function EmployeeDrawer({
   const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
-  const statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
-  const statusColor = here ? "#22c55e" : "#94a3b8";
+
+  let statusLabel: string;
+  let statusColor: string;
+  if (isToday && attendanceStatus && attendanceStatus !== "not_clocked_in") {
+    const ATTENDANCE_LABELS: Record<Exclude<AttendanceStatus, "not_clocked_in">, { label: string; color: string }> = {
+      clocked_in:  { label: "Clocked In",  color: "#22c55e" },
+      on_break:    { label: "On Break",    color: "#f59e0b" },
+      clocked_out: { label: "Clocked Out", color: "#94a3b8" },
+    };
+    ({ label: statusLabel, color: statusColor } = ATTENDANCE_LABELS[attendanceStatus]);
+  } else {
+    statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
+    statusColor = here ? "#22c55e" : "#94a3b8";
+  }
 
   // Find matching availability record
   const availRecord = availabilityRecords?.find((r) => r.dayOfWeek === dayOfWeek);
