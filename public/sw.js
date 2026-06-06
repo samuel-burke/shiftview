@@ -45,17 +45,32 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? "/";
+  const data = event.notification.data ?? {};
+  const { type, fromUserId, fromName, url } = data;
+
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        for (const client of clientList) {
-          if (client.url.includes(self.location.origin) && "focus" in client) {
-            return client.focus();
+        // Prefer an already-open window so we don't open a duplicate tab.
+        const existing = clientList.find(
+          (c) => c.url.startsWith(self.location.origin) && "focus" in c
+        );
+        if (existing) {
+          existing.focus();
+          // Tell the live app to open the relevant chess board.
+          if (type === "chess_move" && fromUserId) {
+            existing.postMessage({ type: "OPEN_CHESS", fromUserId, fromName: fromName ?? "" });
           }
+          return;
         }
-        return clients.openWindow(url);
+        // No open window — launch the app with a deep-link URL so it can open
+        // the correct conversation once it boots.
+        const target =
+          type === "chess_move" && fromUserId
+            ? `/?openChess=${encodeURIComponent(fromUserId)}&name=${encodeURIComponent(fromName ?? "")}`
+            : (url ?? "/");
+        return clients.openWindow(target);
       })
   );
 });

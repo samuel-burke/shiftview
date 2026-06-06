@@ -72,7 +72,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [chatTarget, setChatTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [chatTarget, setChatTarget] = useState<{ userId: string; name: string; openChess?: boolean } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Lazily initialised on the client only — never called during SSR / test renders
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -141,6 +141,30 @@ export default function NotificationBell() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [fetchNotifications]);
+
+  // Open the chess board when a banner is tapped or the SW relays an OPEN_CHESS message.
+  useEffect(() => {
+    function onOpenChess(e: Event) {
+      const { fromUserId, fromName } = (e as CustomEvent).detail ?? {};
+      if (!fromUserId) return;
+      setChatTarget({ userId: fromUserId, name: fromName || "Opponent", openChess: true });
+      setOpen(false);
+    }
+    window.addEventListener("open-chess-board", onOpenChess);
+    return () => window.removeEventListener("open-chess-board", onOpenChess);
+  }, []);
+
+  // Cold-start deep link: app was launched by tapping an OS notification.
+  // The SW puts ?openChess=<userId>&name=<name> in the URL when no window was open.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUserId = params.get("openChess");
+    const fromName   = params.get("name");
+    if (fromUserId) {
+      setChatTarget({ userId: fromUserId, name: fromName || "Opponent", openChess: true });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   // Close on outside click or Escape key
   useEffect(() => {
@@ -326,6 +350,7 @@ export default function NotificationBell() {
         otherUserId={chatTarget?.userId ?? ""}
         otherName={chatTarget?.name ?? ""}
         onClose={() => setChatTarget(null)}
+        openChess={chatTarget?.openChess}
       />,
       document.body
     )}

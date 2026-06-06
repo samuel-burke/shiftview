@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { notify } from "@/lib/notify";
+import { notify, notifyChessMove } from "@/lib/notify";
 import { encrypt, decrypt } from "@/lib/encryption";
 
 export const dynamic = "force-dynamic";
@@ -99,11 +99,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 
-  // Skip notifications for chess moves
   let isChessMove = false;
-  try { isChessMove = JSON.parse(trimmed)._chess === true; } catch {}
+  let chessStatus = "active";
+  try {
+    const parsedBody = JSON.parse(trimmed);
+    if (parsedBody._chess === true) {
+      isChessMove = true;
+      chessStatus = typeof parsedBody.status === "string" ? parsedBody.status : "active";
+    }
+  } catch {}
 
-  if (!isChessMove) {
+  if (isChessMove) {
+    await notifyChessMove(supabase, {
+      toUserId,
+      fromUserId: user.id,
+      fromName:   senderName,
+      convId,
+      chessStatus,
+    }).catch(() => {});
+  } else {
     await notify(supabase, {
       userId: toUserId,
       type: "message",
