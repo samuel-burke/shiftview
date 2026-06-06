@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { playNotificationSound } from "@/lib/notification-sound";
+import { createClient } from "@/lib/supabase-browser";
 import {
   CalendarIcon,
   AlarmIcon,
@@ -38,28 +39,76 @@ let nextId = 1;
 export default function InAppNotificationBanner() {
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [mounted, setMounted] = useState(false);
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  const showBanner = useCallback((title: string, body: string, type?: string) => {
+    const id = nextId++;
+    setBanners((prev) => [...prev, { id, title, body, type }]);
+    playNotificationSound();
+    setTimeout(() => {
+      setBanners((prev) => prev.filter((b) => b.id !== id));
+    }, AUTO_DISMISS_MS);
+  }, []);
 
   const dismiss = useCallback((id: number) => {
     setBanners((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
+  // Path 1: service worker push (mobile / browsers with Push API support)
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
     function onMessage(e: MessageEvent) {
       if (e.data?.type !== "PUSH_FOREGROUND") return;
       const { title, body, tag } = e.data.payload ?? {};
-      const id = nextId++;
-      setBanners((prev) => [...prev, { id, title: title ?? "ShiftView", body: body ?? "", type: tag }]);
-      playNotificationSound();
-      setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+      showBanner(title ?? "ShiftView", body ?? "", tag);
     }
 
     navigator.serviceWorker.addEventListener("message", onMessage);
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
-  }, [dismiss]);
+  }, [showBanner]);
+
+  // Path 2: Supabase Realtime (desktop browsers without Push API, e.g. Safari on macOS)
+  // Fires on every INSERT into notifications for the current user, which is how the
+  // server delivers notifications regardless of push subscription status.
+  useEffect(() => {
+    if (!supabaseRef.current) supabaseRef.current = createClient();
+    const sb = supabaseRef.current;
+
+    let userId: string | null = null;
+    let channel: ReturnType<typeof sb.channel> | null = null;
+
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      userId = user.id;
+
+      channel = sb
+        .channel(`banner:${userId}:${Math.random().toString(36).slice(2)}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            // Skip if push is supported — the service worker PUSH_FOREGROUND message
+            // handles it there to avoid double-banners on push-capable browsers.
+            if ("PushManager" in window) return;
+            const row = payload.new as { title?: string; body?: string; type?: string };
+            showBanner(row.title ?? "ShiftView", row.body ?? "", row.type);
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) sb.removeChannel(channel);
+    };
+  }, [showBanner]);
 
   if (!mounted) return null;
 
