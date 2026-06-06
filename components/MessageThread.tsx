@@ -126,7 +126,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
     const convId = `${a}_${b}`;
     const sb = getSupabase();
     const channel = sb
-      .channel(`msg_${convId}`)
+      .channel(`msg_${convId}_${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
