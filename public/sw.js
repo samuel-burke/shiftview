@@ -64,11 +64,12 @@ self.addEventListener("notificationclick", (event) => {
           }
           return;
         }
-        // No open window — launch the app with a deep-link URL so it can open
-        // the correct conversation once it boots.
+        // No open window — launch the app. Use a hash fragment for chess
+        // deep-links so the server component never sees the extra params
+        // (query params cause Next.js dynamic rendering issues).
         const target =
           type === "chess_move" && fromUserId
-            ? `/?openChess=${encodeURIComponent(fromUserId)}&name=${encodeURIComponent(fromName ?? "")}`
+            ? `/#chess:${encodeURIComponent(fromUserId)}:${encodeURIComponent(fromName ?? "")}`
             : (url ?? "/");
         return clients.openWindow(target);
       })
