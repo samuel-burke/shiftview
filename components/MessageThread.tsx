@@ -174,7 +174,11 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
 
     if (text === "/chess") {
       setBody("");
-      startChessGame();
+      if (latestChessGame?.status === "active") {
+        setChessOpen(true);
+      } else {
+        startChessGame();
+      }
       return;
     }
 
