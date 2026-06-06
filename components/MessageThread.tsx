@@ -58,6 +58,9 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [chessOpen, setChessOpen] = useState(false);
+  const chessOpenRef = useRef(false);
+  // Keep ref in sync so Realtime callbacks can read the current value without stale closure
+  useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -112,7 +115,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           // Fire a transient in-app banner for chess moves from the opponent.
           // We intentionally skip push for chess, so this is the only signal.
           const row = payload.new as { from_user_id?: string; body?: string };
-          if (row.from_user_id && row.from_user_id !== myUserId) {
+          if (row.from_user_id && row.from_user_id !== myUserId && !chessOpenRef.current) {
             try {
               const parsed = JSON.parse(row.body ?? "");
               if (parsed._chess === true) {
