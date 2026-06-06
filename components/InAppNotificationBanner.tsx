@@ -28,6 +28,7 @@ type BannerItem = {
   title: string;
   body: string;
   type?: string;
+  onTap?: () => void;
 };
 
 const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
@@ -52,9 +53,9 @@ export default function InAppNotificationBanner() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const showBanner = useCallback((title: string, body: string, type?: string) => {
+  const showBanner = useCallback((title: string, body: string, type?: string, onTap?: () => void) => {
     const id = nextId++;
-    setBanners((prev) => [...prev, { id, title, body, type }]);
+    setBanners((prev) => [...prev, { id, title, body, type, onTap }]);
     playNotificationSound();
     setTimeout(() => {
       setBanners((prev) => prev.filter((b) => b.id !== id));
@@ -70,20 +71,59 @@ export default function InAppNotificationBanner() {
     if (!("serviceWorker" in navigator)) return;
 
     function onMessage(e: MessageEvent) {
+      // Relay OPEN_CHESS from SW — covers two cases:
+      // 1. App was backgrounded and user tapped the OS notification (SW posts directly)
+      // 2. App was cold-started by a notification tap (SW replies to CLIENT_READY below)
+      if (e.data?.type === "OPEN_CHESS") {
+        window.dispatchEvent(
+          new CustomEvent("open-chess-board", {
+            detail: { fromUserId: e.data.fromUserId, fromName: e.data.fromName ?? "" },
+          })
+        );
+        return;
+      }
+
       if (e.data?.type !== "PUSH_FOREGROUND") return;
-      const { title, body, tag } = e.data.payload ?? {};
-      showBanner(title ?? "ShiftView", body ?? "", tag);
+      const { title, body, tag, data } = e.data.payload ?? {};
+
+      // Suppress if this exact chess board is already visible.
+      if (
+        data?.type === "chess_move" &&
+        (window as Window & { __chessOpen?: string }).__chessOpen === data.convId
+      ) return;
+
+      const onTap =
+        data?.type === "chess_move" && data.fromUserId
+          ? () =>
+              window.dispatchEvent(
+                new CustomEvent("open-chess-board", {
+                  detail: { fromUserId: data.fromUserId, fromName: data.fromName ?? "" },
+                })
+              )
+          : undefined;
+
+      showBanner(title ?? "ShiftView", body ?? "", tag, onTap);
     }
 
     navigator.serviceWorker.addEventListener("message", onMessage);
+
+    // Tell the SW we're ready. If the app was cold-started by tapping a chess
+    // notification, the SW stored the intent in _pendingChess and will reply
+    // with OPEN_CHESS now that our listener is registered.
+    navigator.serviceWorker.ready
+      .then((reg) => reg.active?.postMessage({ type: "CLIENT_READY" }))
+      .catch(() => {});
+
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [showBanner]);
 
-  // Path 2: chess move events dispatched by MessageThread (push is intentionally skipped for chess)
+  // Path 2: chess fallback for browsers without Push API (e.g. Safari desktop).
+  // Push-capable browsers handle this via the SW PUSH_FOREGROUND path (Path 1) instead.
   useEffect(() => {
     function onChessMove(e: Event) {
-      const { status, opponentName } = (e as CustomEvent).detail ?? {};
-      let title = "Your move";
+      if ("PushManager" in window) return; // push-capable: Path 1 handles it
+      const { status, opponentName, fromUserId, convId } = (e as CustomEvent).detail ?? {};
+      let title = "Your move!";
       let body = `${opponentName ?? "Opponent"} made their move`;
       if (status === "white_wins" || status === "black_wins") {
         title = "Checkmate!";
@@ -92,7 +132,15 @@ export default function InAppNotificationBanner() {
         title = "Draw!";
         body = "The game ended in a draw";
       }
-      showBanner(title, body, "chess_move");
+      const onTap = fromUserId
+        ? () =>
+            window.dispatchEvent(
+              new CustomEvent("open-chess-board", {
+                detail: { fromUserId, fromName: opponentName ?? "", convId },
+              })
+            )
+        : undefined;
+      showBanner(title, body, "chess_move", onTap);
     }
     window.addEventListener("chess-move-received", onChessMove);
     return () => window.removeEventListener("chess-move-received", onChessMove);
@@ -155,11 +203,12 @@ export default function InAppNotificationBanner() {
             <motion.div
               key={banner.id}
               role="status"
+              onClick={banner.onTap}
               initial={{ opacity: 0, y: -12, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.97 }}
               transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="pointer-events-auto w-80 bg-card border border-slate-800 rounded-2xl shadow-xl flex items-start gap-3 px-4 py-3"
+              className={`pointer-events-auto w-80 bg-card border border-slate-800 rounded-2xl shadow-xl flex items-start gap-3 px-4 py-3 ${banner.onTap ? "cursor-pointer hover:bg-slate-800/60 transition-colors" : ""}`}
               style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)" }}
             >
               <span className="shrink-0 mt-0.5">
@@ -172,7 +221,7 @@ export default function InAppNotificationBanner() {
                 )}
               </div>
               <button
-                onClick={() => dismiss(banner.id)}
+                onClick={(e) => { e.stopPropagation(); dismiss(banner.id); }}
                 aria-label="Dismiss notification"
                 className="shrink-0 text-slate-500 hover:text-slate-300 cursor-pointer flex items-center justify-center size-6 rounded transition-colors"
               >

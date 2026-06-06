@@ -108,7 +108,7 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache } = useAppData();
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading } = useAppData();
   const { isManager, employeeId, employeeName } = me;
   const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -339,13 +339,27 @@ export default function SchedulePageClient() {
       }
     }
 
+    let hiddenAt = 0;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (Date.now() - hiddenAt > 5_000) {
+        refetchSchedule();
+        refetchTimeOff();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     const channel = supabase
       .channel("schedule-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(channel);
+    };
   }, [isDemo]);
 
   function goToPrev() {
@@ -456,7 +470,7 @@ export default function SchedulePageClient() {
     month: "short",
     day: "numeric",
   });
-  const firstName = employeeName ? employeeName.split(" ")[0] : "Schedule";
+  const firstName = !sharedLoading && employeeName ? employeeName.split(" ")[0] : sharedLoading ? "" : "Schedule";
 
   const calendarSection = (
     <>
@@ -720,7 +734,7 @@ export default function SchedulePageClient() {
     <AppShell
       active="schedule"
       isManager={isManager}
-      userName={employeeName}
+      userName={sharedLoading ? null : employeeName}
       isDemo={isDemo}
       onSignOut={isDemo ? undefined : handleSignOut}
       onSignIn={isDemo ? () => router.push("/login") : undefined}
@@ -736,7 +750,7 @@ export default function SchedulePageClient() {
             <span className="text-sm text-slate-400">{todayStr}</span>
             {!isDemo && <NotificationBell />}
             <UserMenu
-              name={employeeName}
+              name={sharedLoading ? null : employeeName}
               isManager={isManager}
               onSignOut={isDemo ? undefined : handleSignOut}
               onSignIn={isDemo ? () => router.push("/login") : undefined}

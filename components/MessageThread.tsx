@@ -20,6 +20,7 @@ type Props = {
   otherUserId: string;
   otherName: string;
   onClose: () => void;
+  openChess?: boolean;
 };
 
 function timeLabel(iso: string): string {
@@ -51,7 +52,7 @@ function chessResultLabel(game: ChessMessage, myUserId: string, otherName: strin
   return myTurn ? "Your move" : `${otherName}'s move`;
 }
 
-export default function MessageThread({ open, otherUserId, otherName, onClose }: Props) {
+export default function MessageThread({ open, otherUserId, otherName, onClose, openChess }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -61,6 +62,47 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
   const chessOpenRef = useRef(false);
   // Keep ref in sync so Realtime callbacks can read the current value without stale closure
   useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
+
+  // Stable per-instance ID used to detect other simultaneously-open threads.
+  const instanceId = useRef(`mt_${Math.random().toString(36).slice(2)}`);
+
+  // Enforce a single open chat window at a time. When this instance opens,
+  // broadcast to all others so they can close. If a different instance opens
+  // while we're open, close ourselves.
+  useEffect(() => {
+    if (!open) return;
+    const id = instanceId.current;
+    window.dispatchEvent(new CustomEvent("chat-opened", { detail: { id } }));
+    function onOtherOpen(e: Event) {
+      if ((e as CustomEvent).detail?.id !== id) onClose();
+    }
+    window.addEventListener("chat-opened", onOtherOpen);
+    return () => window.removeEventListener("chat-opened", onOtherOpen);
+  }, [open, onClose]);
+
+  // Derived — null until myUserId resolves (async auth)
+  const convId = myUserId ? [myUserId, otherUserId].sort().join("_") : null;
+
+  // Open chess board when the parent requests it (e.g. deep-link from notification)
+  useEffect(() => {
+    if (open && openChess) setChessOpen(true);
+  }, [open, openChess]);
+
+  // Advertise whether this chess board is currently visible so InAppNotificationBanner
+  // can suppress push banners when the user is already watching the game.
+  useEffect(() => {
+    if (!convId) return;
+    const w = window as Window & { __chessOpen?: string };
+    if (chessOpen) {
+      w.__chessOpen = convId;
+    } else if (w.__chessOpen === convId) {
+      w.__chessOpen = undefined;
+    }
+    return () => {
+      if (w.__chessOpen === convId) w.__chessOpen = undefined;
+    };
+  }, [chessOpen, convId]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -90,6 +132,10 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
 
     setLoading(true);
     fetchMessages().finally(() => setLoading(false));
+    // Track message IDs we've already dispatched chess-move-received for,
+    // so StrictMode double-invocation or overlapping subscriptions don't
+    // fire the event (and show a banner) twice for the same message.
+    const dispatchedIds = new Set<unknown>();
 
     fetch("/api/messages", {
       method: "PATCH",
@@ -101,7 +147,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     const convId = `${a}_${b}`;
     const sb = getSupabase();
     const channel = sb
-      .channel(`msg_${convId}`)
+      .channel(`msg_${convId}_${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
@@ -112,16 +158,25 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ withUserId: otherUserId }),
           });
-          // Fire a transient in-app banner for chess moves from the opponent.
-          // We intentionally skip push for chess, so this is the only signal.
-          const row = payload.new as { from_user_id?: string; body?: string };
+          // For browsers without Push API (e.g. Safari desktop), dispatch a local
+          // event so InAppNotificationBanner can show a banner as a fallback.
+          // Push-capable browsers handle this via the SW PUSH_FOREGROUND path instead.
+          const row = payload.new as { id?: unknown; from_user_id?: string; body?: string };
           if (row.from_user_id && row.from_user_id !== myUserId && !chessOpenRef.current) {
             try {
               const parsed = JSON.parse(row.body ?? "");
               if (parsed._chess === true) {
+                if (row.id !== undefined && dispatchedIds.has(row.id)) return;
+                if (row.id !== undefined) dispatchedIds.add(row.id);
+                const localConvId = [myUserId, otherUserId].sort().join("_");
                 window.dispatchEvent(
                   new CustomEvent("chess-move-received", {
-                    detail: { status: parsed.status, opponentName: otherName },
+                    detail: {
+                      status: parsed.status,
+                      opponentName: otherName,
+                      fromUserId: otherUserId,
+                      convId: localConvId,
+                    },
                   })
                 );
               }
@@ -151,11 +206,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     if (open) setTimeout(() => inputRef.current?.focus(), 120);
   }, [open]);
 
-  // Clear messages when closed
+  // Clear state when closed
   useEffect(() => {
     if (!open) {
       setBody("");
       setMessages([]);
+      setChessOpen(false);
     }
   }, [open]);
 
@@ -193,11 +249,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
 
   async function startChessGame() {
     if (!myUserId) return;
+    const iAmWhite = Math.random() < 0.5;
     const gameMsg = JSON.stringify({
       _chess: true,
       fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      white: myUserId,
-      black: otherUserId,
+      white: iAmWhite ? myUserId : otherUserId,
+      black: iAmWhite ? otherUserId : myUserId,
       status: "active",
     });
     setSending(true);
@@ -279,33 +336,49 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           </button>
         </div>
 
-        {/* Chess board panel */}
+        {/* Chess full-screen overlay — opened on top of everything for a larger board */}
         {chessOpen && myUserId && latestChessGame && (
-          <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/80 shrink-0 overflow-y-auto max-h-[60vh]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Chess</span>
+          <div
+            className="fixed inset-0 z-[80] bg-slate-950 flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chess board"
+          >
+            <div
+              className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
+              style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)", paddingBottom: 14 }}
+            >
+              <div className="text-sm font-bold text-slate-100">Chess</div>
+              <div className="text-sm text-slate-500">vs {otherName}</div>
               <button
                 onClick={() => setChessOpen(false)}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+                aria-label="Close chess board"
+                className="ml-auto size-9 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
-                Hide board
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                </svg>
               </button>
             </div>
-            <ChessBoard
-              myUserId={myUserId}
-              otherName={otherName}
-              game={latestChessGame}
-              onSend={sendMessage}
-            />
-            {latestChessGame.status !== "active" && (
-              <button
-                onClick={startChessGame}
-                disabled={sending}
-                className="mt-3 w-full py-2 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
-              >
-                New game
-              </button>
-            )}
+            <div className="flex-1 flex items-center justify-center overflow-y-auto">
+              <div className="w-full max-w-[600px] sm:px-4 py-3">
+                <ChessBoard
+                  myUserId={myUserId}
+                  otherName={otherName}
+                  game={latestChessGame}
+                  onSend={sendMessage}
+                />
+                {latestChessGame.status !== "active" && (
+                  <button
+                    onClick={() => { setChessOpen(false); startChessGame(); }}
+                    disabled={sending}
+                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
+                  >
+                    New game
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

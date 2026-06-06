@@ -240,6 +240,7 @@ export default function ClockPageClient() {
   }, [todayKey, isDemo, setScheduleCache, setPunchCache]);
 
   useEffect(() => {
+    if (meLoading) return; // don't load data until employee identity is known
     if (isDemo) { loadData(); return; }
     const empId = employeeIdRef.current;
     const cachedScheds = scheduleCache[todayKey];
@@ -252,7 +253,22 @@ export default function ClockPageClient() {
     } else {
       loadData();
     }
-  }, [todayKey, isDemo]);
+  }, [todayKey, isDemo, meLoading]);
+
+  // Re-fetch when the tab comes back to the foreground
+  useEffect(() => {
+    if (isDemo) return;
+    let hiddenAt = 0;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (Date.now() - hiddenAt > 5_000) {
+        loadData(true);
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isDemo, loadData]);
 
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
   useEffect(() => {

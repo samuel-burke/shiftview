@@ -63,10 +63,19 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
       prevFenRef.current = game.fen;
       setDisplayFen(game.fen);
 
-      // Play sound for opponent's move
+      // Only play sound when it's now OUR turn — meaning the opponent just
+      // moved. If the new FEN shows it's the opponent's turn, that means WE
+      // just moved; the immediate sound already played in onDrop/onSquareClick,
+      // so skip here to avoid a double-play when the same window has a second
+      // open message thread or the Realtime echo arrives on a duplicate channel.
       const chess = new Chess(game.fen);
-      const sfx = soundForMove(game.lastMoveFlags, chess.inCheck(), game.status, myUserId === game.white);
-      sfx();
+      const isMyTurnNow = game.status === "active"
+        ? (amWhite ? chess.turn() === "w" : chess.turn() === "b")
+        : true; // game-over moves always warrant a sound
+      if (isMyTurnNow) {
+        const sfx = soundForMove(game.lastMoveFlags, chess.inCheck(), game.status, amWhite);
+        sfx();
+      }
     }
     // Always sync status — resignation and new-game both change status without changing FEN
     setDisplayStatus(game.status);
@@ -206,8 +215,8 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
   }
 
   function statusMessage() {
-    if (displayStatus === "white_wins") return (amWhite ? game.white : game.black) === myUserId ? "You won! 🎉" : `${otherName} won`;
-    if (displayStatus === "black_wins") return (!amWhite ? game.black : game.white) === myUserId ? "You won! 🎉" : `${otherName} won`;
+    if (displayStatus === "white_wins") return myUserId === game.white ? "You won! 🎉" : `${otherName} won`;
+    if (displayStatus === "black_wins") return myUserId === game.black ? "You won! 🎉" : `${otherName} won`;
     if (displayStatus === "draw") return "Draw ½–½";
     if (isMyTurn) return chess.inCheck() ? "Your turn — you're in check!" : "Your turn";
     return chess.inCheck() ? `${otherName} is in check` : `${otherName}'s turn…`;
