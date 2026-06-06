@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase-browser";
+import { parseChessMessage, type ChessMessage } from "./ChessBoard";
+
+const ChessBoard = dynamic(() => import("./ChessBoard"), { ssr: false });
 
 type Message = {
   id: number;
@@ -37,12 +41,20 @@ function initials(name: string): string {
     .slice(0, 2);
 }
 
+function chessStatusLabel(game: ChessMessage, myUserId: string, otherName: string): string {
+  if (game.status === "white_wins") return game.white === myUserId ? "You won ♔" : `${otherName} won ♔`;
+  if (game.status === "black_wins") return game.black === myUserId ? "You won ♚" : `${otherName} won ♚`;
+  if (game.status === "draw") return "Draw ½–½";
+  return "♟ Chess move";
+}
+
 export default function MessageThread({ open, otherUserId, otherName, onClose }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [chessOpen, setChessOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -126,18 +138,47 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     }
   }, [open]);
 
+  async function sendMessage(text: string) {
+    await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toUserId: otherUserId, body: text }),
+    });
+    await fetchMessages();
+  }
+
   async function handleSend() {
     const text = body.trim();
     if (!text || sending) return;
+
+    if (text === "/chess") {
+      setBody("");
+      startChessGame();
+      return;
+    }
+
     setBody("");
     setSending(true);
     try {
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toUserId: otherUserId, body: text }),
-      });
-      await fetchMessages();
+      await sendMessage(text);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function startChessGame() {
+    if (!myUserId) return;
+    const gameMsg = JSON.stringify({
+      _chess: true,
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      white: myUserId,
+      black: otherUserId,
+      status: "active",
+    });
+    setSending(true);
+    try {
+      await sendMessage(gameMsg);
+      setChessOpen(true);
     } finally {
       setSending(false);
     }
@@ -164,6 +205,15 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
+
+  // Derive latest chess game state from messages
+  const latestChessGame: ChessMessage | null = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const parsed = parseChessMessage(messages[i].body);
+      if (parsed) return parsed;
+    }
+    return null;
+  })();
 
   return (
     <>
@@ -205,6 +255,36 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           </button>
         </div>
 
+        {/* Chess board panel */}
+        {chessOpen && myUserId && latestChessGame && (
+          <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/80 shrink-0 overflow-y-auto max-h-[60vh]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Chess</span>
+              <button
+                onClick={() => setChessOpen(false)}
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Hide board
+              </button>
+            </div>
+            <ChessBoard
+              myUserId={myUserId}
+              otherName={otherName}
+              game={latestChessGame}
+              onSend={sendMessage}
+            />
+            {latestChessGame.status !== "active" && (
+              <button
+                onClick={startChessGame}
+                disabled={sending}
+                className="mt-3 w-full py-2 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
+              >
+                New game
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Messages list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
           {loading && (
@@ -216,13 +296,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             </div>
           )}
           {messages.map((msg, i) => {
+            const chess = parseChessMessage(msg.body);
             const isMine = msg.from_user_id === myUserId;
             const prev = messages[i - 1];
             const showTime =
               !prev ||
               new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000;
 
-            // Show "Read" below the last message I sent that the other person has read
             const isLastReadByMe =
               isMine &&
               msg.read &&
@@ -235,23 +315,37 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
                     {timeLabel(msg.created_at)}
                   </div>
                 )}
-                <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                  {!isMine && (
-                    <div aria-hidden="true" className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
-                      {initials(otherName)}
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[72%] px-3.5 py-2 text-sm leading-relaxed break-words ${
-                      isMine
-                        ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white rounded-2xl rounded-br-[6px]"
-                        : "bg-slate-800 text-slate-100 rounded-2xl rounded-bl-[6px]"
-                    }`}
-                  >
-                    {msg.body}
+
+                {chess ? (
+                  // Chess messages render as centered event indicators
+                  <div className="flex justify-center my-1">
+                    <button
+                      onClick={() => setChessOpen(true)}
+                      className="text-[11px] text-slate-500 bg-slate-800/60 rounded-full px-3 py-1 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
+                    >
+                      {myUserId ? chessStatusLabel(chess, myUserId, otherName) : "♟ Chess move"}
+                    </button>
                   </div>
-                </div>
-                {isLastReadByMe && (
+                ) : (
+                  <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                    {!isMine && (
+                      <div aria-hidden="true" className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
+                        {initials(otherName)}
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[72%] px-3.5 py-2 text-sm leading-relaxed break-words ${
+                        isMine
+                          ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white rounded-2xl rounded-br-[6px]"
+                          : "bg-slate-800 text-slate-100 rounded-2xl rounded-bl-[6px]"
+                      }`}
+                    >
+                      {msg.body}
+                    </div>
+                  </div>
+                )}
+
+                {isLastReadByMe && !chess && (
                   <div className="text-right text-[10px] text-slate-400 pr-1 mt-0.5">Read</div>
                 )}
               </div>
@@ -266,6 +360,25 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
           style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         >
           <div className="flex gap-2 items-end">
+            <button
+              onClick={() => {
+                if (latestChessGame) {
+                  setChessOpen((v) => !v);
+                } else {
+                  startChessGame();
+                }
+              }}
+              aria-label={latestChessGame ? "Toggle chess board" : "Start chess game"}
+              title="Play chess (/chess)"
+              disabled={sending}
+              className={`size-11 rounded-full border flex items-center justify-center shrink-0 text-lg transition-colors disabled:opacity-40 ${
+                chessOpen
+                  ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-300"
+                  : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+              }`}
+            >
+              ♟
+            </button>
             <textarea
               ref={inputRef}
               value={body}
@@ -292,7 +405,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             </button>
           </div>
           <div className="text-[10px] text-slate-500 mt-1.5 text-center">
-            Enter to send · Shift+Enter for new line
+            Enter to send · Shift+Enter for new line · /chess to play
           </div>
         </div>
       </div>
