@@ -13,24 +13,33 @@ self.addEventListener("push", (event) => {
   const { title, body, icon, badge, data, tag } = payload;
 
   event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(title ?? "ShiftView", {
-        body:  body ?? "",
-        icon:  icon  ?? "/icon-192.png",
-        badge: badge ?? "/icon-96.png",
-        data:  data  ?? {},
-        tag:   tag,
-        renotify: !!tag,
-      }),
-      // Tell any open app windows to refresh their notification list immediately
-      self.clients
-        .matchAll({ type: "window", includeUncontrolled: true })
-        .then((clientList) => {
-          clientList.forEach((client) =>
-            client.postMessage({ type: "PUSH_RECEIVED" })
-          );
-        }),
-    ])
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        // If any window is currently visible, hand off to in-app UI instead of
+        // showing an OS notification (which would be redundant and jarring).
+        const focusedClient = clientList.find(
+          (c) => c.visibilityState === "visible"
+        );
+
+        if (focusedClient) {
+          focusedClient.postMessage({ type: "PUSH_FOREGROUND", payload });
+          // Still tell all windows to refresh the notification list.
+          clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
+          return;
+        }
+
+        // App is in the background or closed — use the standard OS notification.
+        clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
+        return self.registration.showNotification(title ?? "ShiftView", {
+          body:  body ?? "",
+          icon:  icon  ?? "/icon-192.png",
+          badge: badge ?? "/icon-96.png",
+          data:  data  ?? {},
+          tag:   tag,
+          renotify: !!tag,
+        });
+      })
   );
 });
 
