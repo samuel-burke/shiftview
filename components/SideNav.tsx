@@ -80,7 +80,7 @@ function NavLink({
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold border border-transparent transition-colors ${
+      className={`group relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold border border-transparent transition-colors ${
         isActive
           ? "text-indigo-300"
           : "text-slate-400 hover:text-slate-200"

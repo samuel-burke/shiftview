@@ -50,7 +50,7 @@ export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props
         whileHover={{ scale: 1.08, boxShadow: "0 0 14px rgba(99,102,241,0.3)" }}
         whileTap={{ scale: 0.9 }}
         transition={{ type: "spring", stiffness: 450, damping: 25 }}
-        className="size-9 rounded-full bg-indigo-600/80 border border-indigo-500/40 flex items-center justify-center text-sm font-bold text-white cursor-pointer"
+        className="size-11 rounded-full bg-indigo-600/80 border border-indigo-500/40 flex items-center justify-center text-sm font-bold text-white cursor-pointer"
       >
         {monogram ?? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">

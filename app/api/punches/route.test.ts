@@ -731,7 +731,7 @@ function makeMissedPunchClient({
 }
 
 describe("POST /api/punches — missed punch detection", () => {
-  it("blocks clock_in when the most recent previous-day punch is clock_in (missed clock_out)", async () => {
+  it("allows clock_in when the most recent previous-day punch is clock_in (missed punch is non-blocking)", async () => {
     mockCreateClient.mockResolvedValue(
       makeMissedPunchClient({
         todayLastPunch: null,
@@ -739,14 +739,10 @@ describe("POST /api/punches — missed punch detection", () => {
       }) as any
     );
     const res = await POST(makePostRequest({ punchType: "clock_in" }));
-    expect(res.status).toBe(409);
-    const body = await res.json();
-    expect(body.code).toBe("missed_punch");
-    expect(body.missedPunch).toBeDefined();
-    expect(body.missedPunch.suggestedPunchType).toBe("clock_out");
+    expect(res.status).toBe(201);
   });
 
-  it("blocks clock_in when the previous day ended with break_start", async () => {
+  it("allows clock_in when the previous day ended with break_start (missed punch is non-blocking)", async () => {
     mockCreateClient.mockResolvedValue(
       makeMissedPunchClient({
         todayLastPunch: null,
@@ -754,9 +750,7 @@ describe("POST /api/punches — missed punch detection", () => {
       }) as any
     );
     const res = await POST(makePostRequest({ punchType: "clock_in" }));
-    expect(res.status).toBe(409);
-    const body = await res.json();
-    expect(body.code).toBe("missed_punch");
+    expect(res.status).toBe(201);
   });
 
   it("allows clock_in when the most recent previous-day punch is clock_out", async () => {
@@ -794,16 +788,5 @@ describe("POST /api/punches — missed punch detection", () => {
     expect(res.status).toBe(201);
   });
 
-  it("error response includes a human-readable message with the missed date", async () => {
-    mockCreateClient.mockResolvedValue(
-      makeMissedPunchClient({
-        todayLastPunch: null,
-        prevDayLastPunch: { punch_type: "clock_in", punched_at: "2026-06-04T22:00:00.000Z" },
-      }) as any
-    );
-    const res = await POST(makePostRequest({ punchType: "clock_in" }));
-    const body = await res.json();
-    expect(body.error).toMatch(/open shift/i);
-    expect(body.missedPunch.date).toBeTruthy();
-  });
+
 });

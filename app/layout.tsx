@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Suspense } from "react";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
+import AddToHomeScreenBanner from "../components/AddToHomeScreenBanner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "../components/ThemeProvider";
 import { AppDataProvider } from "../lib/AppDataContext";
@@ -52,6 +53,7 @@ export default function RootLayout({
           </Suspense>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
+        <AddToHomeScreenBanner />
         <SpeedInsights />
       </body>
     </html>

@@ -60,6 +60,8 @@
   --color-red-400: #dc2626;
   --color-blue-400: #2563eb;
   --color-violet-400: #7c3aed;
+  --color-amber-300: #92400e;
+  --color-amber-400: #b45309;
 }
 
 /* ── Base styles ──────────────────────────────────────────── */
@@ -68,6 +70,9 @@ html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
   background: var(--color-bg);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {

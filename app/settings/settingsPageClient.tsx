@@ -123,7 +123,7 @@ function EmployeeAvailabilityRow({
         onClick={toggle}
         aria-expanded={expanded}
         aria-label="Toggle typical week"
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none transition-colors"
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none transition-colors py-2 -my-2"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span>Typical Week</span>
@@ -801,7 +801,7 @@ export default function SettingsPageClient({
       >
         <button
           onClick={() => router.back()}
-          className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -841,7 +841,7 @@ export default function SettingsPageClient({
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className="relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                  className="relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
                   style={{ color: themeMode === m ? "#f1f5f9" : "#94a3b8" }}
                 >
                   {themeMode === m && (
@@ -899,7 +899,7 @@ export default function SettingsPageClient({
                   disabled={pushSaving}
                   aria-busy={pushSaving}
                   onClick={togglePush}
-                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                     pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
                   }`}
                 >
@@ -945,7 +945,7 @@ export default function SettingsPageClient({
                         aria-checked={notifPrefs[key]}
                         disabled={!!notifPrefsSaving[key]}
                         onClick={() => toggleNotifPref(key)}
-                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ml-4 ${
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ml-4 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                           notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700"
                         }`}
                       >
@@ -995,7 +995,7 @@ export default function SettingsPageClient({
                   setCoverageAlertsEnabled(next);
                   saveCoverageAlerts(next);
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                   coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1016,7 +1016,7 @@ export default function SettingsPageClient({
                   data-testid="coverage-optimal-minus"
                   onClick={() => stepOptimal(-1)}
                   aria-label="Decrease optimal coverage"
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   −
                 </button>
@@ -1027,7 +1027,7 @@ export default function SettingsPageClient({
                   data-testid="coverage-optimal-plus"
                   onClick={() => stepOptimal(1)}
                   aria-label="Increase optimal coverage"
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   +
                 </button>
@@ -1044,7 +1044,7 @@ export default function SettingsPageClient({
                   data-testid="coverage-min-minus"
                   onClick={() => stepMin(-1)}
                   aria-label="Decrease minimum coverage"
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   −
                 </button>
@@ -1055,7 +1055,7 @@ export default function SettingsPageClient({
                   data-testid="coverage-min-plus"
                   onClick={() => stepMin(1)}
                   aria-label="Increase minimum coverage"
-                  className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                 >
                   +
                 </button>
@@ -1094,7 +1094,7 @@ export default function SettingsPageClient({
                   setManualPunchesEnabled(next);
                   saveTimeclockSetting({ manualPunchesEnabled: next });
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                   manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1121,7 +1121,7 @@ export default function SettingsPageClient({
                   setGpsRequired(next);
                   saveTimeclockSetting({ gpsRequired: next });
                 }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                   gpsRequired ? "bg-indigo-500" : "bg-slate-700"
                 }`}
               >
@@ -1154,7 +1154,7 @@ export default function SettingsPageClient({
                       saveTimeclockSetting({ geofenceEnabled: next });
                       if (next && geofenceLat === null) useCurrentLocation();
                     }}
-                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                       geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
                     }`}
                   >
@@ -1185,7 +1185,7 @@ export default function SettingsPageClient({
                           onClick={useCurrentLocation}
                           disabled={gettingLocation}
                           title="Use my current location"
-                          className="size-10 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="size-11 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           {gettingLocation ? (
                             <span className="text-xs font-bold">…</span>
@@ -1203,7 +1203,7 @@ export default function SettingsPageClient({
                             <button
                               key={i}
                               onMouseDown={() => selectSuggestion(s)}
-                              className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0 cursor-pointer leading-snug"
+                              className="w-full text-left px-3 py-3 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0 cursor-pointer leading-snug"
                             >
                               {shortAddress(s)}
                             </button>
@@ -1233,7 +1233,7 @@ export default function SettingsPageClient({
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
                               aria-label="Decrease geofence radius"
-                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                              className="size-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                             >
                               −
                             </button>
@@ -1250,7 +1250,7 @@ export default function SettingsPageClient({
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
                               aria-label="Increase geofence radius"
-                              className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                              className="size-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
                             >
                               +
                             </button>
@@ -1271,7 +1271,7 @@ export default function SettingsPageClient({
                       onClick={saveGeofence}
                       disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
                       aria-busy={geofenceSaving}
-                      className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                      className="w-full py-3 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
                     >
                       {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
                     </button>
@@ -1301,7 +1301,7 @@ export default function SettingsPageClient({
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className="relative flex-1 py-2 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
+                  className="relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
                   style={{ color: firstDayOfWeek === value ? "#f1f5f9" : "#94a3b8" }}
                 >
                   {firstDayOfWeek === value && (
@@ -1389,13 +1389,13 @@ export default function SettingsPageClient({
                           onClick={() => saveEditName(emp.id)}
                           disabled={editSaving}
                           aria-busy={editSaving}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {editSaving ? "…" : "Save"}
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1404,7 +1404,7 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-3 shrink-0">
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
-                          className="size-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                          className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
                           aria-label={`Edit name for ${emp.name}`}
                           aria-expanded={editingId === emp.id}
                         >
@@ -1417,7 +1417,7 @@ export default function SettingsPageClient({
                           <button
                             disabled
                             aria-label="Cannot remove yourself"
-                            className="size-8 rounded-lg border border-red-500/10 bg-red-500/5 text-red-400/30 flex items-center justify-center cursor-not-allowed opacity-40"
+                            className="size-10 rounded-lg border border-red-500/10 bg-red-500/5 text-red-400/30 flex items-center justify-center cursor-not-allowed opacity-40"
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                               <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1428,7 +1428,7 @@ export default function SettingsPageClient({
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
                             aria-label={`Remove ${emp.name}`}
-                            className={`size-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`size-10 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-red-500/20 text-red-300 border-red-500/40"
                                 : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
@@ -1473,7 +1473,7 @@ export default function SettingsPageClient({
                           onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : new Date().toISOString().slice(0, 10) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
                         >
                           Apply
                         </button>
@@ -1487,7 +1487,7 @@ export default function SettingsPageClient({
                           disabled={deletingTemplateId === tpl.id}
                           aria-label={`Delete ${tpl.name} template`}
                           aria-busy={deletingTemplateId === tpl.id}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {deletingTemplateId === tpl.id ? "…" : "Delete"}
                         </button>
@@ -1521,7 +1521,7 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {applyingId === tpl.id ? "Applying…" : "Confirm"}
                         </button>
