@@ -41,11 +41,14 @@ function initials(name: string): string {
     .slice(0, 2);
 }
 
-function chessStatusLabel(game: ChessMessage, myUserId: string, otherName: string): string {
-  if (game.status === "white_wins") return game.white === myUserId ? "You won ♔" : `${otherName} won ♔`;
-  if (game.status === "black_wins") return game.black === myUserId ? "You won ♚" : `${otherName} won ♚`;
-  if (game.status === "draw") return "Draw ½–½";
-  return "♟ Chess move";
+function chessResultLabel(game: ChessMessage, myUserId: string, otherName: string): string {
+  if (game.status === "white_wins") return game.white === myUserId ? "You won" : `${otherName} won`;
+  if (game.status === "black_wins") return game.black === myUserId ? "You won" : `${otherName} won`;
+  if (game.status === "draw") return "Draw";
+  // active game — show whose turn it is
+  const myTurn = (game.status === "active") &&
+    ((game.white === myUserId) === (game.fen.includes(" w ")));
+  return myTurn ? "Your move" : `${otherName}'s move`;
 }
 
 export default function MessageThread({ open, otherUserId, otherName, onClose }: Props) {
@@ -206,14 +209,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // Derive latest chess game state from messages
-  const latestChessGame: ChessMessage | null = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const parsed = parseChessMessage(messages[i].body);
-      if (parsed) return parsed;
-    }
-    return null;
-  })();
+  // Find the last chess message — used for board state and the single status pill
+  let latestChessGame: ChessMessage | null = null;
+  let latestChessIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const parsed = parseChessMessage(messages[i].body);
+    if (parsed) { latestChessGame = parsed; latestChessIndex = i; break; }
+  }
 
   return (
     <>
@@ -296,7 +298,11 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             </div>
           )}
           {messages.map((msg, i) => {
-            const chess = parseChessMessage(msg.body);
+            const isChess = !!parseChessMessage(msg.body);
+
+            // Skip all chess messages except the last one (which becomes the status pill)
+            if (isChess && i !== latestChessIndex) return null;
+
             const isMine = msg.from_user_id === myUserId;
             const prev = messages[i - 1];
             const showTime =
@@ -316,14 +322,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
                   </div>
                 )}
 
-                {chess ? (
-                  // Chess messages render as centered event indicators
+                {isChess && latestChessGame ? (
                   <div className="flex justify-center my-1">
                     <button
                       onClick={() => setChessOpen(true)}
                       className="text-[11px] text-slate-500 bg-slate-800/60 rounded-full px-3 py-1 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
                     >
-                      {myUserId ? chessStatusLabel(chess, myUserId, otherName) : "♟ Chess move"}
+                      ♟ {myUserId ? chessResultLabel(latestChessGame, myUserId, otherName) : "Chess"}
                     </button>
                   </div>
                 ) : (
@@ -345,7 +350,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
                   </div>
                 )}
 
-                {isLastReadByMe && !chess && (
+                {isLastReadByMe && !isChess && (
                   <div className="text-right text-[10px] text-slate-400 pr-1 mt-0.5">Read</div>
                 )}
               </div>
