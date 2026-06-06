@@ -193,11 +193,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
 
   async function startChessGame() {
     if (!myUserId) return;
+    const iAmWhite = Math.random() < 0.5;
     const gameMsg = JSON.stringify({
       _chess: true,
       fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      white: myUserId,
-      black: otherUserId,
+      white: iAmWhite ? myUserId : otherUserId,
+      black: iAmWhite ? otherUserId : myUserId,
       status: "active",
     });
     setSending(true);
