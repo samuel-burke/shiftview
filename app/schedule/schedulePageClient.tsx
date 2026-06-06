@@ -339,13 +339,27 @@ export default function SchedulePageClient() {
       }
     }
 
+    let hiddenAt = 0;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (Date.now() - hiddenAt > 5_000) {
+        refetchSchedule();
+        refetchTimeOff();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     const channel = supabase
       .channel("schedule-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(channel);
+    };
   }, [isDemo]);
 
   function goToPrev() {

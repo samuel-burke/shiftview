@@ -255,6 +255,21 @@ export default function ClockPageClient() {
     }
   }, [todayKey, isDemo, meLoading]);
 
+  // Re-fetch when the tab comes back to the foreground
+  useEffect(() => {
+    if (isDemo) return;
+    let hiddenAt = 0;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (Date.now() - hiddenAt > 5_000) {
+        loadData(true);
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isDemo, loadData]);
+
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
   useEffect(() => {
     if (isDemo) return;

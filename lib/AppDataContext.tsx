@@ -193,6 +193,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }).finally(() => setSharedLoading(false));
   }, [isDemo]);
 
+  // Re-fetch shared data when the tab comes back to the foreground after being hidden
+  useEffect(() => {
+    if (isDemo) return;
+    let hiddenAt = 0;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (Date.now() - hiddenAt > 5_000) {
+        refreshMe();
+        refreshStoreHours();
+        refreshSettings();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isDemo, refreshMe, refreshStoreHours, refreshSettings]);
+
   useEffect(() => {
     if (isDemo) return;
     const channel = supabase
