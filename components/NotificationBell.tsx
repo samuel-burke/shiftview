@@ -154,21 +154,6 @@ export default function NotificationBell() {
     return () => window.removeEventListener("open-chess-board", onOpenChess);
   }, []);
 
-  // Cold-start deep link: app was launched by tapping an OS notification.
-  // The SW puts #chess:<userId>:<name> in the URL hash when no window was open.
-  // Using a hash keeps the server component from seeing extra query params.
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith("#chess:")) {
-      const parts = hash.slice(7).split(":");
-      const fromUserId = decodeURIComponent(parts[0] ?? "");
-      const fromName   = decodeURIComponent(parts[1] ?? "");
-      if (fromUserId) {
-        setChatTarget({ userId: fromUserId, name: fromName || "Opponent", openChess: true });
-        window.history.replaceState({}, "", window.location.pathname);
-      }
-    }
-  }, []);
 
   // Close on outside click or Escape key
   useEffect(() => {

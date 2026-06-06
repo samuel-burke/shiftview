@@ -71,8 +71,9 @@ export default function InAppNotificationBanner() {
     if (!("serviceWorker" in navigator)) return;
 
     function onMessage(e: MessageEvent) {
-      // Relay OPEN_CHESS from SW (user tapped OS notification while app was backgrounded)
-      // as a window event so NotificationBell can open the right thread.
+      // Relay OPEN_CHESS from SW — covers two cases:
+      // 1. App was backgrounded and user tapped the OS notification (SW posts directly)
+      // 2. App was cold-started by a notification tap (SW replies to CLIENT_READY below)
       if (e.data?.type === "OPEN_CHESS") {
         window.dispatchEvent(
           new CustomEvent("open-chess-board", {
@@ -105,6 +106,14 @@ export default function InAppNotificationBanner() {
     }
 
     navigator.serviceWorker.addEventListener("message", onMessage);
+
+    // Tell the SW we're ready. If the app was cold-started by tapping a chess
+    // notification, the SW stored the intent in _pendingChess and will reply
+    // with OPEN_CHESS now that our listener is registered.
+    navigator.serviceWorker.ready
+      .then((reg) => reg.active?.postMessage({ type: "CLIENT_READY" }))
+      .catch(() => {});
+
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [showBanner]);
 
