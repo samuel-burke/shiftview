@@ -538,11 +538,14 @@ export default function SettingsPageClient({
     setNotifPrefs((p) => ({ ...p, [key]: next }));
     setNotifPrefsSaving((s) => ({ ...s, [key]: true }));
     if (!isDemo) {
-      await fetch("/api/notification-preferences", {
+      const res = await fetch("/api/notification-preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [key]: next }),
-      }).catch(() => {});
+      }).catch(() => null);
+      if (!res?.ok) {
+        setNotifPrefs((p) => ({ ...p, [key]: !next }));
+      }
     }
     setNotifPrefsSaving((s) => ({ ...s, [key]: false }));
   }
