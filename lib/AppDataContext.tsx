@@ -95,22 +95,52 @@ export function useAppData() {
   return useContext(AppDataContext);
 }
 
+const ME_CACHE_KEY = "sv_me";
+
+function readMeCache(): MeData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(ME_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<MeData>;
+    if (typeof parsed.isManager !== "boolean") return null;
+    return { isManager: parsed.isManager, employeeId: parsed.employeeId ?? null, employeeName: parsed.employeeName ?? null };
+  } catch {
+    return null;
+  }
+}
+
+function writeMeCache(data: MeData) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(ME_CACHE_KEY, JSON.stringify(data)); } catch {}
+}
+
+function clearMeCache() {
+  if (typeof window === "undefined") return;
+  try { localStorage.removeItem(ME_CACHE_KEY); } catch {}
+}
+
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
 
-  const [me, setMe] = useState<MeData>({ isManager: false, employeeId: null, employeeName: null });
+  const [me, setMe] = useState<MeData>(() => (!isDemo && readMeCache()) || { isManager: false, employeeId: null, employeeName: null });
   const [storeHours, setStoreHours] = useState<Record<number, StoreHours>>(DEFAULT_STORE_HOURS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [sharedLoading, setSharedLoading] = useState(true);
+  const [sharedLoading, setSharedLoading] = useState(() => isDemo || !readMeCache());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [scheduleCache, setScheduleCacheState] = useState<Record<string, Schedule[]>>({});
   const [punchCache, setPunchCacheState] = useState<Record<string, PunchRecord[]>>({});
   const [myScheduleCache, setMyScheduleCacheState] = useState<Record<string, Schedule[]>>({});
 
   const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null }) => {
-    setMe({ isManager: !!data.isManager, employeeId: data.employeeId ?? null, employeeName: data.employeeName ?? null });
+    const newMe: MeData = { isManager: !!data.isManager, employeeId: data.employeeId ?? null, employeeName: data.employeeName ?? null };
+    setMe(newMe);
+    if (!isDemo) {
+      if (newMe.employeeId !== null || newMe.isManager) writeMeCache(newMe);
+      else clearMeCache();
+    }
   };
 
   const refreshMe = useCallback(() => {
@@ -151,7 +181,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setSharedLoading(true);
+    if (isDemo || !readMeCache()) setSharedLoading(true);
     Promise.allSettled([
       fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then(r => r.json()),
       fetch("/api/store-hours").then(r => r.json()),
@@ -162,6 +192,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
     }).finally(() => setSharedLoading(false));
   }, [isDemo]);
+
+  // Re-fetch shared data when the tab comes back to the foreground after being hidden
+  useEffect(() => {
+    if (isDemo) return;
+    let hiddenAt = 0;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (Date.now() - hiddenAt > 5_000) {
+        refreshMe();
+        refreshStoreHours();
+        refreshSettings();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [isDemo, refreshMe, refreshStoreHours, refreshSettings]);
 
   useEffect(() => {
     if (isDemo) return;
