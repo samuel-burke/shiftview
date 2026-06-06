@@ -1,5 +1,12 @@
 // ShiftView Service Worker — handles Web Push notifications
 
+// Activate immediately without waiting for existing tabs to close.
+// This ensures notification click handlers always run the latest code.
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) =>
+  event.waitUntil(clients.claim())
+);
+
 // Chess action pending delivery to a cold-started page.
 // Set in notificationclick, cleared once the page sends CLIENT_READY.
 let _pendingChess = null;
@@ -68,30 +75,42 @@ self.addEventListener("notificationclick", (event) => {
   const data = event.notification.data ?? {};
   const { type, fromUserId, fromName, url } = data;
 
-  event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
-        // Prefer an already-open window so we don't need to launch a new one.
-        const existing = clientList.find(
-          (c) => c.url.startsWith(self.location.origin) && "focus" in c
-        );
-        if (existing) {
-          existing.focus();
-          if (type === "chess_move" && fromUserId) {
-            existing.postMessage({ type: "OPEN_CHESS", fromUserId, fromName: fromName ?? "" });
-          }
-          return;
-        }
+  event.waitUntil((async () => {
+    const clientList = await clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
 
-        // No open window — store the chess intent and open the app at "/".
-        // Once the page mounts and sends CLIENT_READY, we deliver OPEN_CHESS.
-        // Using "/" avoids any URL-based page-load errors from the browser or
-        // Next.js when non-root paths are opened cold via the SW.
+    // Prefer focusing an already-open window over launching a new one.
+    const existing = clientList.find(
+      (c) => c.url.startsWith(self.location.origin) && "focus" in c
+    );
+
+    if (existing) {
+      try {
+        const focused = await existing.focus();
+        const target = focused ?? existing;
         if (type === "chess_move" && fromUserId) {
-          _pendingChess = { fromUserId, fromName: fromName ?? "" };
+          target.postMessage({ type: "OPEN_CHESS", fromUserId, fromName: fromName ?? "" });
         }
-        return clients.openWindow(url ?? "/");
-      })
-  );
+        return;
+      } catch {
+        // focus() failed — fall through to open a fresh window below
+      }
+    }
+
+    // No usable open window — store the chess intent, then open the app at
+    // the root URL. When the page mounts it sends CLIENT_READY and we reply
+    // with OPEN_CHESS (see the message handler above).
+    if (type === "chess_move" && fromUserId) {
+      _pendingChess = { fromUserId, fromName: fromName ?? "" };
+    }
+
+    try {
+      await clients.openWindow(url ?? "/");
+    } catch {
+      // openWindow can fail in some browser environments; the user can
+      // open the app manually and the CLIENT_READY handshake will still fire.
+    }
+  })());
 });
