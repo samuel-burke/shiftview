@@ -148,37 +148,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 409 });
   }
 
-  // For clock_in: check for open sessions from previous days.
-  // If an associate forgot to clock out yesterday, surface it as a guided correction
-  // requirement instead of silently allowing duplicate open sessions.
-  if (punchType === "clock_in") {
-    const { data: prevPunch } = await supabase
-      .from("punch_records")
-      .select("punch_type, punched_at")
-      .eq("employee_id", emp.id)
-      .lt("punched_at", todayStart.toISOString())
-      .order("punched_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (prevPunch && prevPunch.punch_type !== "clock_out") {
-      const missedDate = new Date(prevPunch.punched_at as string)
-        .toLocaleDateString("en-CA", { timeZone: tz });
-      return NextResponse.json(
-        {
-          error: `You have an open shift from ${missedDate} — please correct the missed punch before clocking in`,
-          code: "missed_punch",
-          missedPunch: {
-            date: missedDate,
-            lastPunchType: prevPunch.punch_type,
-            lastPunchedAt: prevPunch.punched_at,
-            suggestedPunchType: "clock_out",
-          },
-        },
-        { status: 409 }
-      );
-    }
-  }
 
   // Server-side geofence enforcement for clock_in
   if (punchType === "clock_in") {
