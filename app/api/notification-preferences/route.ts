@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 const DEFAULTS = {
   latePunchAlerts: true,
   messageAlerts: true,
+  chessAlerts: true,
   ptoAlerts: true,
   newShiftAlerts: true,
   shiftChangeAlerts: true,
@@ -16,6 +17,7 @@ const DEFAULTS = {
 const FIELD_MAP = [
   ["latePunchAlerts",    "late_punch_alerts"],
   ["messageAlerts",      "message_alerts"],
+  ["chessAlerts",        "chess_alerts"],
   ["ptoAlerts",          "pto_alerts"],
   ["newShiftAlerts",     "new_shift_alerts"],
   ["shiftChangeAlerts",  "shift_change_alerts"],
@@ -43,13 +45,14 @@ export async function GET() {
   if (!data) return NextResponse.json(DEFAULTS);
 
   return NextResponse.json({
-    latePunchAlerts:    data.late_punch_alerts,
-    messageAlerts:      data.message_alerts,
-    ptoAlerts:          data.pto_alerts,
-    newShiftAlerts:     data.new_shift_alerts,
-    shiftChangeAlerts:  data.shift_change_alerts,
-    swapAlerts:         data.swap_alerts,
-    shiftReminderAlerts: data.shift_reminder_alerts,
+    latePunchAlerts:     data.late_punch_alerts    ?? DEFAULTS.latePunchAlerts,
+    messageAlerts:       data.message_alerts       ?? DEFAULTS.messageAlerts,
+    chessAlerts:         data.chess_alerts         ?? DEFAULTS.chessAlerts,
+    ptoAlerts:           data.pto_alerts           ?? DEFAULTS.ptoAlerts,
+    newShiftAlerts:      data.new_shift_alerts     ?? DEFAULTS.newShiftAlerts,
+    shiftChangeAlerts:   data.shift_change_alerts  ?? DEFAULTS.shiftChangeAlerts,
+    swapAlerts:          data.swap_alerts          ?? DEFAULTS.swapAlerts,
+    shiftReminderAlerts: data.shift_reminder_alerts ?? DEFAULTS.shiftReminderAlerts,
   });
 }
 

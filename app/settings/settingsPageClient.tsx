@@ -506,6 +506,7 @@ export default function SettingsPageClient({
   type NotifPrefs = {
     latePunchAlerts: boolean;
     messageAlerts: boolean;
+    chessAlerts: boolean;
     ptoAlerts: boolean;
     newShiftAlerts: boolean;
     shiftChangeAlerts: boolean;
@@ -515,6 +516,7 @@ export default function SettingsPageClient({
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>({
     latePunchAlerts: true,
     messageAlerts: true,
+    chessAlerts: true,
     ptoAlerts: true,
     newShiftAlerts: true,
     shiftChangeAlerts: true,
@@ -929,6 +931,7 @@ export default function SettingsPageClient({
                         { key: "shiftReminderAlerts" as const, label: "Shift Reminders",        desc: "Remind you before an upcoming shift" },
                       ]),
                       { key: "messageAlerts" as const, label: "Message Alerts", desc: "Notify when you receive a new message" },
+                      { key: "chessAlerts"   as const, label: "Chess Alerts",   desc: "Notify when your chess opponent makes a move" },
                     ] as { key: keyof NotifPrefs; label: string; desc: string }[]
                   ).map(({ key, label, desc }, i, arr) => (
                     <div

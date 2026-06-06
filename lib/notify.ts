@@ -10,7 +10,8 @@ export type NotificationType =
   | "pto_denied"
   | "late_clock_in"
   | "schedule_published"
-  | "message";
+  | "message"
+  | "chess_move";
 
 type PushPrefKey =
   | "late_punch_alerts"
@@ -19,11 +20,13 @@ type PushPrefKey =
   | "new_shift_alerts"
   | "shift_change_alerts"
   | "swap_alerts"
-  | "shift_reminder_alerts";
+  | "shift_reminder_alerts"
+  | "chess_alerts";
 
 const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
   late_clock_in:      "late_punch_alerts",
   message:            "message_alerts",
+  chess_move:         "chess_alerts",
   pto_approved:       "pto_alerts",
   pto_denied:         "pto_alerts",
   schedule_published: "new_shift_alerts",
@@ -172,5 +175,5 @@ export async function notifyChessMove(
       fromName:   options.fromName,
       convId:     options.convId,
     },
-  });
+  }, "chess_move");
 }
