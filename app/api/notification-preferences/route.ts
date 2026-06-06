@@ -75,7 +75,7 @@ export async function PUT(request: Request) {
 
   const { error } = await supabase
     .from("user_notification_preferences")
-    .upsert({ user_id: user.id, ...update, updated_at: new Date().toISOString() });
+    .upsert({ user_id: user.id, ...update, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
 
   if (error) {
     console.error("[notification-preferences PUT]", error);
