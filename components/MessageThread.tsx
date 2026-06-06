@@ -63,6 +63,23 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
   // Keep ref in sync so Realtime callbacks can read the current value without stale closure
   useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
 
+  // Stable per-instance ID used to detect other simultaneously-open threads.
+  const instanceId = useRef(`mt_${Math.random().toString(36).slice(2)}`);
+
+  // Enforce a single open chat window at a time. When this instance opens,
+  // broadcast to all others so they can close. If a different instance opens
+  // while we're open, close ourselves.
+  useEffect(() => {
+    if (!open) return;
+    const id = instanceId.current;
+    window.dispatchEvent(new CustomEvent("chat-opened", { detail: { id } }));
+    function onOtherOpen(e: Event) {
+      if ((e as CustomEvent).detail?.id !== id) onClose();
+    }
+    window.addEventListener("chat-opened", onOtherOpen);
+    return () => window.removeEventListener("chat-opened", onOtherOpen);
+  }, [open, onClose]);
+
   // Derived — null until myUserId resolves (async auth)
   const convId = myUserId ? [myUserId, otherUserId].sort().join("_") : null;
 
