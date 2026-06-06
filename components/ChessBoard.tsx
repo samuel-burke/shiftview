@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import type { PieceDropHandlerArgs } from "react-chessboard";
-import { Chess } from "chess.js";
+import { Chess, type Square } from "chess.js";
 import { playMove, playCapture, playCastle, playCheck, playWin, playLose, playDraw } from "@/lib/chess-sounds";
 
 export type ChessMessage = {
@@ -48,6 +48,8 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
   const [displayFen, setDisplayFen] = useState(game.fen);
   const [displayStatus, setDisplayStatus] = useState(game.status);
   const [moving, setMoving] = useState(false);
+  const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
+  const [legalSquares, setLegalSquares] = useState<Square[]>([]);
   const prevFenRef = useRef(game.fen);
   const isFirstRender = useRef(true);
 
@@ -119,11 +121,64 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
     const sfx = soundForMove(result.flags, attempt.inCheck(), status, amWhite);
     sfx();
 
+    setSelectedSquare(null);
+    setLegalSquares([]);
     setMoving(true);
     sendGameState(attempt, status, result.flags);
     setMoving(false);
 
     return true;
+  }
+
+  function onSquareClick({ square: squareStr }: { square: string; piece?: unknown }) {
+    const square = squareStr as Square;
+    if (!isMyTurn || moving) return;
+
+    const chess = new Chess(displayFen);
+
+    // If clicking a legal target square — execute the move
+    if (selectedSquare && legalSquares.includes(square)) {
+      const attempt = new Chess(displayFen);
+      const pieceType = attempt.get(selectedSquare)?.type;
+      const isPromotion = pieceType === "p" && (square[1] === "8" || square[1] === "1");
+      let result;
+      try {
+        result = attempt.move({ from: selectedSquare, to: square, promotion: isPromotion ? "q" : undefined });
+      } catch {
+        setSelectedSquare(null);
+        setLegalSquares([]);
+        return;
+      }
+      if (!result) { setSelectedSquare(null); setLegalSquares([]); return; }
+
+      let status: ChessMessage["status"] = "active";
+      if (attempt.isCheckmate()) status = amWhite ? "white_wins" : "black_wins";
+      else if (attempt.isDraw() || attempt.isStalemate() || attempt.isThreefoldRepetition() || attempt.isInsufficientMaterial()) status = "draw";
+
+      const newFen = attempt.fen();
+      prevFenRef.current = newFen;
+      setDisplayFen(newFen);
+      setDisplayStatus(status);
+      setSelectedSquare(null);
+      setLegalSquares([]);
+      soundForMove(result.flags, attempt.inCheck(), status, amWhite)();
+      setMoving(true);
+      sendGameState(attempt, status, result.flags);
+      setMoving(false);
+      return;
+    }
+
+    // Select a piece if it belongs to the current player
+    const piece = chess.get(square);
+    const myColor = amWhite ? "w" : "b";
+    if (piece && piece.color === myColor) {
+      const moves = chess.moves({ square, verbose: true });
+      setSelectedSquare(square);
+      setLegalSquares(moves.map((m) => m.to));
+    } else {
+      setSelectedSquare(null);
+      setLegalSquares([]);
+    }
   }
 
   async function handleResign() {
@@ -174,6 +229,7 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
           options={{
             position: displayFen,
             onPieceDrop: onDrop,
+            onSquareClick,
             boardOrientation: amWhite ? "white" : "black",
             allowDragging: isMyTurn && !moving,
             showAnimations: true,
@@ -181,6 +237,24 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
             boardStyle: { borderRadius: 0 },
             darkSquareStyle: { backgroundColor: "#3b4a6b" },
             lightSquareStyle: { backgroundColor: "#e8edf5" },
+            squareStyles: {
+              ...(selectedSquare
+                ? { [selectedSquare]: { backgroundColor: "rgba(99,102,241,0.5)" } }
+                : {}),
+              ...Object.fromEntries(
+                legalSquares.map((sq) => {
+                  const hasPiece = !!new Chess(displayFen).get(sq);
+                  return [
+                    sq,
+                    hasPiece
+                      ? { boxShadow: "inset 0 0 0 3px rgba(99,102,241,0.7)" }
+                      : {
+                          backgroundImage: "radial-gradient(circle, rgba(99,102,241,0.55) 28%, transparent 30%)",
+                        },
+                  ];
+                })
+              ),
+            },
           }}
         />
       </div>
