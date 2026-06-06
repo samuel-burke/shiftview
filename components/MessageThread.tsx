@@ -60,6 +60,10 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
   const [sending, setSending] = useState(false);
   const [chessOpen, setChessOpen] = useState(false);
   const chessOpenRef = useRef(false);
+  // When the thread was opened solely to show chess (via notification tap), closing
+  // the chess overlay should also close the whole thread — no need to strand the user
+  // in a bare message view they never explicitly opened.
+  const openedViaChessRef = useRef(false);
   // Keep ref in sync so Realtime callbacks can read the current value without stale closure
   useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
 
@@ -85,7 +89,11 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
 
   // Open chess board when the parent requests it (e.g. deep-link from notification)
   useEffect(() => {
-    if (open && openChess) setChessOpen(true);
+    if (open && openChess) {
+      openedViaChessRef.current = true;
+      setChessOpen(true);
+    }
+    if (!open) openedViaChessRef.current = false;
   }, [open, openChess]);
 
   // Advertise whether this chess board is currently visible so InAppNotificationBanner
@@ -351,7 +359,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
               <div className="text-sm font-bold text-slate-100">Chess</div>
               <div className="text-sm text-slate-500">vs {otherName}</div>
               <button
-                onClick={() => setChessOpen(false)}
+                onClick={() => { setChessOpen(false); if (openedViaChessRef.current) onClose(); }}
                 aria-label="Close chess board"
                 className="ml-auto size-9 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
