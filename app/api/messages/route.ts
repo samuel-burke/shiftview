@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     .from("messages")
     .select("id, from_user_id, to_user_id, body, read, created_at")
     .eq("conversation_id", convId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) {
@@ -36,7 +36,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  const decrypted = (data ?? []).map((msg: { id: number; from_user_id: string; to_user_id: string; body: string; read: boolean; created_at: string }) => {
+  // Reverse to chronological order — we fetch newest-first so the limit always
+  // includes the most recent messages (critical when chess moves fill the window)
+  const decrypted = (data ?? []).reverse().map((msg: { id: number; from_user_id: string; to_user_id: string; body: string; read: boolean; created_at: string }) => {
     try {
       return { ...msg, body: decrypt(msg.body) };
     } catch {

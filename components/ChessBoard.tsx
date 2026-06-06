@@ -62,13 +62,14 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
     if (game.fen !== prevFenRef.current) {
       prevFenRef.current = game.fen;
       setDisplayFen(game.fen);
-      setDisplayStatus(game.status);
 
       // Play sound for opponent's move
       const chess = new Chess(game.fen);
       const sfx = soundForMove(game.lastMoveFlags, chess.inCheck(), game.status, myUserId === game.white);
       sfx();
     }
+    // Always sync status — resignation and new-game both change status without changing FEN
+    setDisplayStatus(game.status);
   }, [game.fen, game.status, game.lastMoveFlags, myUserId, game.white]);
 
   const amWhite = myUserId === game.white;
