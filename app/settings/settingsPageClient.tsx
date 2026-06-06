@@ -922,13 +922,18 @@ export default function SettingsPageClient({
                   {(
                     [
                       ...( isManager ? [
-                        { key: "latePunchAlerts"   as const, label: "Late Punch Alerts",       desc: "Notify when an employee clocks in late" },
+                        { key: "latePunchAlerts"     as const, label: "Late Punch Alerts",    desc: "Notify when an employee clocks in late" },
+                        { key: "newShiftAlerts"      as const, label: "New Shift Alerts",     desc: "Notify when a new schedule is published" },
+                        { key: "shiftChangeAlerts"   as const, label: "Shift Change Alerts",  desc: "Notify when a shift is modified" },
+                        { key: "swapAlerts"          as const, label: "Swap Request Alerts",  desc: "Notify on swap approvals and denials" },
+                        { key: "ptoAlerts"           as const, label: "Time Off Alerts",      desc: "Notify on time off approvals and denials" },
+                        { key: "shiftReminderAlerts" as const, label: "Shift Reminders",      desc: "Remind you before an upcoming shift" },
                       ] : [
-                        { key: "newShiftAlerts"    as const, label: "New Shift Alerts",         desc: "Notify when a new schedule is published" },
-                        { key: "shiftChangeAlerts" as const, label: "Shift Change Alerts",      desc: "Notify when your shift is modified" },
-                        { key: "swapAlerts"        as const, label: "Swap Request Alerts",      desc: "Notify on swap approvals and denials" },
-                        { key: "ptoAlerts"         as const, label: "Time Off Alerts",          desc: "Notify on time off approvals and denials" },
-                        { key: "shiftReminderAlerts" as const, label: "Shift Reminders",        desc: "Remind you before an upcoming shift" },
+                        { key: "newShiftAlerts"      as const, label: "New Shift Alerts",     desc: "Notify when a new schedule is published" },
+                        { key: "shiftChangeAlerts"   as const, label: "Shift Change Alerts",  desc: "Notify when your shift is modified" },
+                        { key: "swapAlerts"          as const, label: "Swap Request Alerts",  desc: "Notify on swap approvals and denials" },
+                        { key: "ptoAlerts"           as const, label: "Time Off Alerts",      desc: "Notify on time off approvals and denials" },
+                        { key: "shiftReminderAlerts" as const, label: "Shift Reminders",      desc: "Remind you before an upcoming shift" },
                       ]),
                       { key: "messageAlerts" as const, label: "Message Alerts", desc: "Notify when you receive a new message" },
                       { key: "chessAlerts"   as const, label: "Chess Alerts",   desc: "Notify when your chess opponent makes a move" },
