@@ -29,8 +29,14 @@ self.addEventListener("push", (event) => {
           return;
         }
 
-        // App is in the background or closed — use the standard OS notification.
+        // App is in the background or closed.
+        // Refresh the in-app bell count for any open (but hidden) windows.
         clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
+
+        // Respect the user's OS notification preference (_osEnabled is set by
+        // the server and included in the push payload).
+        if (data?._osEnabled === false) return;
+
         return self.registration.showNotification(title ?? "ShiftView", {
           body:  body ?? "",
           icon:  icon  ?? "/icon-192.png",
