@@ -20,6 +20,7 @@ type Props = {
   otherUserId: string;
   otherName: string;
   onClose: () => void;
+  openChess?: boolean;
 };
 
 function timeLabel(iso: string): string {
@@ -51,7 +52,7 @@ function chessResultLabel(game: ChessMessage, myUserId: string, otherName: strin
   return myTurn ? "Your move" : `${otherName}'s move`;
 }
 
-export default function MessageThread({ open, otherUserId, otherName, onClose }: Props) {
+export default function MessageThread({ open, otherUserId, otherName, onClose, openChess }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -61,6 +62,30 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
   const chessOpenRef = useRef(false);
   // Keep ref in sync so Realtime callbacks can read the current value without stale closure
   useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
+
+  // Derived — null until myUserId resolves (async auth)
+  const convId = myUserId ? [myUserId, otherUserId].sort().join("_") : null;
+
+  // Open chess board when the parent requests it (e.g. deep-link from notification)
+  useEffect(() => {
+    if (open && openChess) setChessOpen(true);
+  }, [open, openChess]);
+
+  // Advertise whether this chess board is currently visible so InAppNotificationBanner
+  // can suppress push banners when the user is already watching the game.
+  useEffect(() => {
+    if (!convId) return;
+    const w = window as Window & { __chessOpen?: string };
+    if (chessOpen) {
+      w.__chessOpen = convId;
+    } else if (w.__chessOpen === convId) {
+      w.__chessOpen = undefined;
+    }
+    return () => {
+      if (w.__chessOpen === convId) w.__chessOpen = undefined;
+    };
+  }, [chessOpen, convId]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -112,16 +137,23 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ withUserId: otherUserId }),
           });
-          // Fire a transient in-app banner for chess moves from the opponent.
-          // We intentionally skip push for chess, so this is the only signal.
+          // For browsers without Push API (e.g. Safari desktop), dispatch a local
+          // event so InAppNotificationBanner can show a banner as a fallback.
+          // Push-capable browsers handle this via the SW PUSH_FOREGROUND path instead.
           const row = payload.new as { from_user_id?: string; body?: string };
           if (row.from_user_id && row.from_user_id !== myUserId && !chessOpenRef.current) {
             try {
               const parsed = JSON.parse(row.body ?? "");
               if (parsed._chess === true) {
+                const localConvId = [myUserId, otherUserId].sort().join("_");
                 window.dispatchEvent(
                   new CustomEvent("chess-move-received", {
-                    detail: { status: parsed.status, opponentName: otherName },
+                    detail: {
+                      status: parsed.status,
+                      opponentName: otherName,
+                      fromUserId: otherUserId,
+                      convId: localConvId,
+                    },
                   })
                 );
               }
@@ -151,11 +183,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose }:
     if (open) setTimeout(() => inputRef.current?.focus(), 120);
   }, [open]);
 
-  // Clear messages when closed
+  // Clear state when closed
   useEffect(() => {
     if (!open) {
       setBody("");
       setMessages([]);
+      setChessOpen(false);
     }
   }, [open]);
 
