@@ -115,6 +115,10 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
 
     setLoading(true);
     fetchMessages().finally(() => setLoading(false));
+    // Track message IDs we've already dispatched chess-move-received for,
+    // so StrictMode double-invocation or overlapping subscriptions don't
+    // fire the event (and show a banner) twice for the same message.
+    const dispatchedIds = new Set<unknown>();
 
     fetch("/api/messages", {
       method: "PATCH",
@@ -140,11 +144,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
           // For browsers without Push API (e.g. Safari desktop), dispatch a local
           // event so InAppNotificationBanner can show a banner as a fallback.
           // Push-capable browsers handle this via the SW PUSH_FOREGROUND path instead.
-          const row = payload.new as { from_user_id?: string; body?: string };
+          const row = payload.new as { id?: unknown; from_user_id?: string; body?: string };
           if (row.from_user_id && row.from_user_id !== myUserId && !chessOpenRef.current) {
             try {
               const parsed = JSON.parse(row.body ?? "");
               if (parsed._chess === true) {
+                if (row.id !== undefined && dispatchedIds.has(row.id)) return;
+                if (row.id !== undefined) dispatchedIds.add(row.id);
                 const localConvId = [myUserId, otherUserId].sort().join("_");
                 window.dispatchEvent(
                   new CustomEvent("chess-move-received", {

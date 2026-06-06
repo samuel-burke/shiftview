@@ -63,10 +63,19 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
       prevFenRef.current = game.fen;
       setDisplayFen(game.fen);
 
-      // Play sound for opponent's move
+      // Only play sound when it's now OUR turn — meaning the opponent just
+      // moved. If the new FEN shows it's the opponent's turn, that means WE
+      // just moved; the immediate sound already played in onDrop/onSquareClick,
+      // so skip here to avoid a double-play when the same window has a second
+      // open message thread or the Realtime echo arrives on a duplicate channel.
       const chess = new Chess(game.fen);
-      const sfx = soundForMove(game.lastMoveFlags, chess.inCheck(), game.status, myUserId === game.white);
-      sfx();
+      const isMyTurnNow = game.status === "active"
+        ? (amWhite ? chess.turn() === "w" : chess.turn() === "b")
+        : true; // game-over moves always warrant a sound
+      if (isMyTurnNow) {
+        const sfx = soundForMove(game.lastMoveFlags, chess.inCheck(), game.status, amWhite);
+        sfx();
+      }
     }
     // Always sync status — resignation and new-game both change status without changing FEN
     setDisplayStatus(game.status);
