@@ -809,6 +809,7 @@ export default function Page() {
       storeHours={storeHours}
       nowMinutes={nowMinutes}
       isToday={isToday}
+      attendanceStatus={selected?.emp ? attendanceMap[selected.emp.id] : undefined}
       onClose={() => setSelected(null)}
       onSave={handleSaveShift}
       onCreate={handleCreateShift}
