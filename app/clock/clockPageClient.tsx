@@ -240,6 +240,7 @@ export default function ClockPageClient() {
   }, [todayKey, isDemo, setScheduleCache, setPunchCache]);
 
   useEffect(() => {
+    if (meLoading) return; // don't load data until employee identity is known
     if (isDemo) { loadData(); return; }
     const empId = employeeIdRef.current;
     const cachedScheds = scheduleCache[todayKey];
@@ -252,7 +253,7 @@ export default function ClockPageClient() {
     } else {
       loadData();
     }
-  }, [todayKey, isDemo]);
+  }, [todayKey, isDemo, meLoading]);
 
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
   useEffect(() => {
