@@ -49,7 +49,7 @@ export async function GET() {
       date: missedDate,
       lastPunchType: prevPunch.punch_type,
       lastPunchedAt: prevPunch.punched_at,
-      suggestedPunchType: "clock_out",
+      suggestedPunchType: prevPunch.punch_type === "break_start" ? "break_end" : "clock_out",
     },
   });
 }

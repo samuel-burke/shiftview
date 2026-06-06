@@ -129,6 +129,7 @@ export default function ClockPageClient() {
   type MissedPunchInfo = {
     date: string;
     lastPunchType: PunchType;
+    lastPunchedAt: string;
     suggestedPunchType: PunchType;
   };
   const [missedPunchInfo, setMissedPunchInfo] = useState<MissedPunchInfo | null>(null);
@@ -367,13 +368,6 @@ export default function ClockPageClient() {
       });
       if (!res.ok) {
         const body = await res.json();
-        // Missed punch from a previous day — surface the guided correction flow.
-        if (body.code === "missed_punch" && body.missedPunch) {
-          setMissedPunchInfo(body.missedPunch);
-          setCorrectionDate(body.missedPunch.date);
-          setCorrectionType(body.missedPunch.suggestedPunchType);
-          setShowCorrection(true);
-        }
         throw new Error(body.error ?? "Failed to record punch");
       }
       const newPunch: PunchRecord = await res.json();
@@ -634,7 +628,10 @@ export default function ClockPageClient() {
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
                 <div className="text-xs text-amber-400/80 mt-0.5">
-                  You forgot to clock out on {missedPunchInfo.date}. Add your clock-out time below before clocking in today.
+                  {missedPunchInfo.lastPunchType === "break_start"
+                    ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {new Date(missedPunchInfo.lastPunchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Add your missing break end and clock-out before clocking in today.</>
+                    : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {new Date(missedPunchInfo.lastPunchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Add your missing clock-out before clocking in today.</>
+                  }
                 </div>
               </div>
             </div>
@@ -647,7 +644,7 @@ export default function ClockPageClient() {
                 }}
                 className="w-full py-3 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors"
               >
-                Add Missing Clock-Out
+                {missedPunchInfo.suggestedPunchType === "break_end" ? "Add Missing Break End" : "Add Missing Clock-Out"}
               </button>
             )}
           </div>
@@ -664,7 +661,7 @@ export default function ClockPageClient() {
           {effectiveStatus === "not_clocked_in" && (
             <motion.button
               onClick={() => handlePunchClick("clock_in")}
-              disabled={actionPending || !!missedPunchInfo}
+              disabled={actionPending}
               aria-busy={actionPending}
               whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(34,197,94,0.35)" }}
               whileTap={{ scale: 0.96 }}
@@ -772,7 +769,11 @@ export default function ClockPageClient() {
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
           >
             <span className="text-sm font-semibold text-slate-300">
-              {missedPunchInfo ? "Add Missing Clock-Out" : "Report Missed Punch"}
+              {missedPunchInfo
+              ? missedPunchInfo.suggestedPunchType === "break_end"
+                ? "Add Missing Break End"
+                : "Add Missing Clock-Out"
+              : "Report Missed Punch"}
             </span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showCorrection ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
