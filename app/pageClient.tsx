@@ -630,11 +630,14 @@ export default function Page() {
     [sortedScheduled, walkInSchedules, attendanceMap],
   );
   const scheduledRemaining = useMemo(
-    () => sortedScheduled.filter((s) => {
-      const st = attendanceMap[s.employeeId];
-      return !st || st === "not_clocked_in" || st === "clocked_out";
-    }),
-    [sortedScheduled, attendanceMap],
+    () => [
+      ...sortedScheduled.filter((s) => {
+        const st = attendanceMap[s.employeeId];
+        return !st || st === "not_clocked_in" || st === "clocked_out";
+      }),
+      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "clocked_out"),
+    ],
+    [sortedScheduled, walkInSchedules, attendanceMap],
   );
 
   // When punch data is loaded for today, count ALL clocked-in employees from punch
