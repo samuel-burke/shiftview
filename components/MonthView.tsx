@@ -1,7 +1,22 @@
 "use client";
 
-import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS } from "../data/types";
-import { SunriseIcon, SunIcon, MoonIcon, ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon } from "./ShiftIcons";
+import {
+  Schedule,
+  StoreHours,
+  TimeOffRequest,
+  getShiftType,
+  SHIFT_COLORS,
+  TIME_OFF_COLORS,
+} from "../data/types";
+import {
+  SunriseIcon,
+  SunIcon,
+  MoonIcon,
+  ShiftIcon,
+  TimeOffPendingIcon,
+  TimeOffApprovedIcon,
+  TimeOffDeniedIcon,
+} from "./ShiftIcons";
 
 const TIME_OFF_STATUS_LABELS: Record<TimeOffRequest["status"], string> = {
   pending: "Time off pending",
@@ -26,10 +41,22 @@ function toDateKey(d: Date) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
-export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, navDate, onSelectDate, today, timeOffRequests = [] }: Props) {
+export default function MonthView({
+  schedules,
+  weeklyHours,
+  firstDayOfWeek = 6,
+  selectedDate,
+  navDate,
+  onSelectDate,
+  today,
+  timeOffRequests = [],
+}: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
-  const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
+  const DAY_LABELS = Array.from(
+    { length: 7 },
+    (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7],
+  );
 
   const year = navDate.getFullYear();
   const month = navDate.getMonth();
@@ -39,7 +66,10 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
 
   const cells: (Date | null)[] = [
     ...Array.from({ length: startOffset }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
+    ...Array.from(
+      { length: daysInMonth },
+      (_, i) => new Date(year, month, i + 1),
+    ),
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
@@ -51,29 +81,57 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
       {/* Legend */}
       <div className="flex flex-col gap-2 mb-3 px-3 py-2 bg-card rounded-xl border border-slate-800/60 select-none">
         <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">Shifts</span>
-          {([
-            { label: "Opening", color: SHIFT_COLORS.opener, Icon: SunriseIcon },
-            { label: "Mid",     color: SHIFT_COLORS.mid,    Icon: SunIcon },
-            { label: "Closing", color: SHIFT_COLORS.closer,  Icon: MoonIcon },
-          ] as const).map(({ label, color, Icon }) => (
+          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">
+            Shifts
+          </span>
+          {(
+            [
+              {
+                label: "Opening",
+                color: SHIFT_COLORS.opener,
+                Icon: SunriseIcon,
+              },
+              { label: "Mid", color: SHIFT_COLORS.mid, Icon: SunIcon },
+              { label: "Closing", color: SHIFT_COLORS.closer, Icon: MoonIcon },
+            ] as const
+          ).map(({ label, color, Icon }) => (
             <div key={label} className="flex items-center gap-1">
               <Icon size={12} color={color} />
-              <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+              <span className="text-[11px] font-medium" style={{ color }}>
+                {label}
+              </span>
             </div>
           ))}
         </div>
         <div className="h-px bg-slate-800/60" />
         <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">Time Off</span>
-          {([
-            { label: "Pending",  color: TIME_OFF_COLORS.pending,  Icon: TimeOffPendingIcon },
-            { label: "Approved", color: TIME_OFF_COLORS.approved, Icon: TimeOffApprovedIcon },
-            { label: "Denied",   color: TIME_OFF_COLORS.denied,   Icon: TimeOffDeniedIcon },
-          ] as const).map(({ label, color, Icon }) => (
+          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">
+            Time Off
+          </span>
+          {(
+            [
+              {
+                label: "Pending",
+                color: TIME_OFF_COLORS.pending,
+                Icon: TimeOffPendingIcon,
+              },
+              {
+                label: "Approved",
+                color: TIME_OFF_COLORS.approved,
+                Icon: TimeOffApprovedIcon,
+              },
+              {
+                label: "Denied",
+                color: TIME_OFF_COLORS.denied,
+                Icon: TimeOffDeniedIcon,
+              },
+            ] as const
+          ).map(({ label, color, Icon }) => (
             <div key={label} className="flex items-center gap-1">
               <Icon size={12} color={color} />
-              <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+              <span className="text-[11px] font-medium" style={{ color }}>
+                {label}
+              </span>
             </div>
           ))}
         </div>
@@ -82,7 +140,10 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
       {/* Day-of-week headers */}
       <div className="grid grid-cols-7 mb-1.5">
         {DAY_LABELS.map((d) => (
-          <div key={d} className="text-center text-[10px] text-slate-400 font-semibold tracking-wider py-1 select-none">
+          <div
+            key={d}
+            className="text-center text-[10px] text-slate-400 font-semibold tracking-wider py-1 select-none"
+          >
             {d}
           </div>
         ))}
@@ -98,17 +159,34 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
               const dateKey = toDateKey(d);
               const isToday = dateKey === todayKey;
               const isSelected = dateKey === selectedKey;
-              const schedule = schedules.find((s) => s.date.slice(0, 10) === dateKey) ?? null;
-              const dayHours = weeklyHours[d.getDay()] ?? { open: 360, close: 1320 };
-              const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, dayHours.open, dayHours.close) : null;
+              const schedule =
+                schedules.find((s) => s.date.slice(0, 10) === dateKey) ?? null;
+              const dayHours = weeklyHours[d.getDay()] ?? {
+                open: 360,
+                close: 1320,
+              };
+              const shiftType = schedule
+                ? getShiftType(
+                    schedule.startMinutes,
+                    schedule.endMinutes,
+                    dayHours.open,
+                    dayHours.close,
+                  )
+                : null;
               const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
-              const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
-              const fullDate = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+              const timeOff = !schedule
+                ? (timeOffRequests.find((r) => r.date === dateKey) ?? null)
+                : null;
+              const fullDate = d.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              });
               const statusText = shiftType
                 ? `${shiftType} shift`
                 : timeOff
-                ? TIME_OFF_STATUS_LABELS[timeOff.status]
-                : "Off";
+                  ? TIME_OFF_STATUS_LABELS[timeOff.status]
+                  : "Off";
               const dayAriaLabel = `${fullDate}. ${statusText}${isToday ? ". Today" : ""}`;
 
               return (
@@ -131,10 +209,31 @@ export default function MonthView({ schedules, weeklyHours, firstDayOfWeek = 6, 
                     {d.getDate()}
                   </div>
                   <div className="h-[14px] mt-0.5 flex items-center justify-center">
-                    {shiftType && shiftColor && <ShiftIcon shiftType={shiftType} size={12} color={shiftColor} />}
-                    {timeOff?.status === "pending"  && <TimeOffPendingIcon  size={12} color={TIME_OFF_COLORS.pending}  />}
-                    {timeOff?.status === "approved" && <TimeOffApprovedIcon size={12} color={TIME_OFF_COLORS.approved} />}
-                    {timeOff?.status === "denied"   && <TimeOffDeniedIcon   size={12} color={TIME_OFF_COLORS.denied}   />}
+                    {shiftType && shiftColor && (
+                      <ShiftIcon
+                        shiftType={shiftType}
+                        size={20}
+                        color={shiftColor}
+                      />
+                    )}
+                    {timeOff?.status === "pending" && (
+                      <TimeOffPendingIcon
+                        size={12}
+                        color={TIME_OFF_COLORS.pending}
+                      />
+                    )}
+                    {timeOff?.status === "approved" && (
+                      <TimeOffApprovedIcon
+                        size={12}
+                        color={TIME_OFF_COLORS.approved}
+                      />
+                    )}
+                    {timeOff?.status === "denied" && (
+                      <TimeOffDeniedIcon
+                        size={12}
+                        color={TIME_OFF_COLORS.denied}
+                      />
+                    )}
                   </div>
                 </button>
               );

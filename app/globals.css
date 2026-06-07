@@ -3,16 +3,6 @@
 @theme {
   --color-bg: #080f1e;
   --color-card: #111827;
-
-  /* Shift types */
-  --color-shift-opener:  #f59e0b;
-  --color-shift-mid:     #38bdf8;
-  --color-shift-closer:  #a78bfa;
-
-  /* Time-off request statuses */
-  --color-timeoff-pending:  #fde047;
-  --color-timeoff-approved: #34d399;
-  --color-timeoff-denied:   #f87171;
 }
 
 /* ── Dark theme (default) ─────────────────────────────────── */
@@ -20,6 +10,15 @@
   color-scheme: dark;
   --body-color: #f8fafc;
   --skeleton-shine: #1e2a3f;
+  /* Shift types */
+  --color-shift-opener:  #fbbf24;  /* brighter amber */
+  --color-shift-mid:     #60a5fa;  /* lighter blue */
+  --color-shift-closer:  #a78bfa;  /* lifted purple */
+
+  /* Time-off request statuses */
+  --color-timeoff-pending:  #cbd5e1; /* lighter slate for visibility */
+  --color-timeoff-approved: #4ade80; /* brighter green for dark UI */
+  --color-timeoff-denied:   #f87171; /* softened red (less harsh on dark bg) */
 }
 
 /* ── Light theme overrides ────────────────────────────────── */
@@ -31,6 +30,15 @@
   /* Semantic backgrounds */
   --color-bg: #f1f5f9;
   --color-card: #ffffff;
+  /* Shift types */
+  --color-shift-opener:  #f59e0b;  /* amber */
+  --color-shift-mid:     #3b82f6;  /* blue (less neon than cyan) */
+  --color-shift-closer:  #8b5cf6;  /* deeper purple */
+
+  /* Time-off request statuses */
+  --color-timeoff-pending:  #94a3b8; /* neutral slate (no confusion with "warning") */
+  --color-timeoff-approved: #22c55e; /* strong, readable green */
+  --color-timeoff-denied:   #ef4444; /* clear error red */
 
   /*
    * Invert the Tailwind slate palette so every bg-slate-*, text-slate-*,
