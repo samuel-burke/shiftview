@@ -14,7 +14,10 @@ export async function GET() {
     );
 
   const { data, error } = await supabase.rpc("notify_get_manager_ids");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/managers]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({ managerUserIds: (data ?? []).map((r: { user_id: string }) => r.user_id) });
 }

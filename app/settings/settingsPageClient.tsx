@@ -32,17 +32,7 @@ function shortAddress(r: NominatimResult): string {
   return [street, city, region].filter(Boolean).join(", ") || r.display_name.split(", ")[0];
 }
 
-const RADIUS_PRESETS = [
-  { label: "50m",  value: 50 },
-  { label: "100m", value: 100 },
-  { label: "250m", value: 250 },
-  { label: "500m", value: 500 },
-  { label: "1km",  value: 1000 },
-];
-
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const DAY_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 
 const TIMEZONE_OPTIONS = [
   { label: "Eastern (ET)",  value: "America/New_York" },
@@ -405,7 +395,7 @@ export default function SettingsPageClient({
     setGeofenceError(null);
   }
 
-  function useCurrentLocation() {
+  function captureCurrentLocation() {
     if (!navigator.geolocation) {
       setGeofenceError("Geolocation is not supported by your browser.");
       return;
@@ -550,6 +540,8 @@ export default function SettingsPageClient({
     setNotifPrefsSaving((s) => ({ ...s, [key]: false }));
   }
 
+  const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
+
   // Supabase Realtime — live updates for employees and store hours
   useEffect(() => {
     if (isDemo) return;
@@ -648,7 +640,6 @@ export default function SettingsPageClient({
   const [loading, setLoading] = useState(!isDemo);
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [weeklyHours, setWeeklyHours] = useState<Record<number, { open: number; close: number }>>(DEFAULT_STORE_HOURS);
 
   type Template = { id: number; name: string; rowCount: number };
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -1163,7 +1154,7 @@ export default function SettingsPageClient({
                       const next = !geofenceEnabled;
                       setGeofenceEnabled(next);
                       saveTimeclockSetting({ geofenceEnabled: next });
-                      if (next && geofenceLat === null) useCurrentLocation();
+                      if (next && geofenceLat === null) captureCurrentLocation();
                     }}
                     className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
                       geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
@@ -1193,7 +1184,7 @@ export default function SettingsPageClient({
                           className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                         <button
-                          onClick={useCurrentLocation}
+                          onClick={captureCurrentLocation}
                           disabled={gettingLocation}
                           title="Use my current location"
                           className="size-11 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600 transition-colors"

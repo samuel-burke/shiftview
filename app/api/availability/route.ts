@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
 import { DEMO_AVAILABILITY } from "@/data/demo-fixtures";
 
@@ -32,7 +31,10 @@ export async function GET(request: Request) {
     .select("id, day_of_week, start_minutes, end_minutes, note")
     .eq("employee_id", employeeId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/availability]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const records = (data ?? []).map((row: {
     id: number;
@@ -108,7 +110,10 @@ export async function POST(request: Request) {
       { onConflict: "employee_id,day_of_week" }
     );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/availability]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "availability.upsert",
@@ -178,7 +183,10 @@ export async function DELETE(request: Request) {
     .delete()
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/availability]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "availability.delete",

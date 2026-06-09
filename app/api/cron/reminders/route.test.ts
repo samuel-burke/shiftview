@@ -21,7 +21,6 @@ function makeAdminClient({
   employees = [] as any[],
   empErr = null as any,
 } = {}) {
-  let callCount = 0;
   return {
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "schedules") {

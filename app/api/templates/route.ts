@@ -5,6 +5,20 @@ import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
+type TemplateRow = {
+  id: number;
+  name: string;
+  created_at: string;
+  schedule_template_rows: { id: number }[] | null;
+};
+
+type TemplateRowInput = {
+  employeeId: number;
+  dayOfWeek: number;
+  startMinutes: number;
+  endMinutes: number;
+};
+
 export async function GET() {
   const supabase = await createClient();
   const { error: authError } = await requireManager(supabase);
@@ -16,9 +30,12 @@ export async function GET() {
     .select("id, name, created_at, schedule_template_rows(id)")
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/templates]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
-  const templates = (data ?? []).map((t: any) => ({
+  const templates = (data ?? []).map((t: TemplateRow) => ({
     id: t.id,
     name: t.name,
     createdAt: t.created_at,
@@ -49,9 +66,12 @@ export async function POST(request: Request) {
     .select("id")
     .single();
 
-  if (tplError) return NextResponse.json({ error: tplError.message }, { status: 500 });
+  if (tplError) {
+    console.error("[api/templates]", tplError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
-  const rowData = rows.map((r: any) => ({
+  const rowData = rows.map((r: TemplateRowInput) => ({
     template_id: template.id,
     employee_id: r.employeeId,
     day_of_week: r.dayOfWeek,
@@ -63,7 +83,10 @@ export async function POST(request: Request) {
     .from("schedule_template_rows")
     .insert(rowData);
 
-  if (rowError) return NextResponse.json({ error: rowError.message }, { status: 500 });
+  if (rowError) {
+    console.error("[api/templates]", rowError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "template.create",

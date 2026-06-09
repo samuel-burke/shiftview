@@ -19,7 +19,7 @@ function sortByName<T extends { name: string }>(rows: T[]): T[] {
   });
 }
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -123,7 +123,10 @@ export async function DELETE(request: Request) {
 
   // Delete schedules first so FK constraint doesn't block employee removal
   const { error: scheduleError } = await supabase.from("schedules").delete().eq("employee_id", id);
-  if (scheduleError) return NextResponse.json({ error: scheduleError.message }, { status: 500 });
+  if (scheduleError) {
+    console.error("[api/employees]", scheduleError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const { data: deleted, error } = await supabase
     .from("employees")

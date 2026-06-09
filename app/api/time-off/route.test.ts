@@ -18,10 +18,6 @@ const mockCreateClient = vi.mocked(createClient);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeManagerClient(overrides?: Parameters<typeof makeSupabaseClient>[0]) {
-  return makeSupabaseClient({ user: MOCK_USER, isManager: true, ...overrides });
-}
-
 function makeEmployeeClient(emp: { id: number; name: string } | null = { id: 5, name: "Alice Smith" }) {
   // linkedEmployee drives the employees table lookup in requireManager/GET
   return {

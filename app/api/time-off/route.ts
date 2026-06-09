@@ -29,13 +29,13 @@ export async function GET(request?: Request) {
       .order("date", { ascending: true });
 
     if (error) {
-    console.error("[api/time-off]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+      console.error("[api/time-off]", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
 
     // Fetch employee names separately
     const employeeIds = [...new Set((requests ?? []).map((r) => r.employee_id))];
-    let employeeMap: Record<number, string> = {};
+    const employeeMap: Record<number, string> = {};
     if (employeeIds.length > 0) {
       const { data: employees } = await supabase
         .from("employees")

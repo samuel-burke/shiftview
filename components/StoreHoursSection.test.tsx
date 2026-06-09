@@ -161,8 +161,8 @@ describe("StoreHoursSection", () => {
 
     await waitFor(() => {
       const putCall = mockFetch.mock.calls.find(
-        ([url, opts]: [string, RequestInit]) =>
-          url === "/api/store-hours" && opts?.method === "PUT"
+        (call: any[]) =>
+          call[0] === "/api/store-hours" && (call[1] as RequestInit | undefined)?.method === "PUT"
       );
       expect(putCall).toBeTruthy();
       const body = JSON.parse(putCall![1].body as string);
@@ -188,8 +188,8 @@ describe("StoreHoursSection", () => {
 
     await waitFor(() => {
       const putCall = mockFetch.mock.calls.find(
-        ([url, opts]: [string, RequestInit]) =>
-          url === "/api/store-hours" && opts?.method === "PUT"
+        (call: any[]) =>
+          call[0] === "/api/store-hours" && (call[1] as RequestInit | undefined)?.method === "PUT"
       );
       expect(putCall).toBeTruthy();
       const body = JSON.parse(putCall![1].body as string);

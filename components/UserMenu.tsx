@@ -8,12 +8,11 @@ import { getMonogram } from "../data/types";
 
 type Props = {
   name: string | null;
-  isManager?: boolean;
   onSignOut?: () => void;
   onSignIn?: () => void;
 };
 
-export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props) {
+export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();

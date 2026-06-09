@@ -1,7 +1,7 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import {
@@ -127,7 +127,6 @@ export default function Page() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
@@ -154,8 +153,6 @@ export default function Page() {
   dateRef.current = date;
   const timezoneRef = useRef(timezone);
   timezoneRef.current = timezone;
-  const isManagerRef = useRef(isManager);
-  isManagerRef.current = isManager;
 
   // Compute Mon–Sun week dates for the week containing `date`
   const weekDatesForExport = useMemo((): string[] => {
@@ -209,16 +206,6 @@ export default function Page() {
     setExportLoading(false);
   }
 
-  type TimeOffRequest = {
-    id: number;
-    employeeId: number;
-    employeeName: string;
-    date: string;
-    note?: string;
-    status: string;
-  };
-  const [pendingTimeOff, setPendingTimeOff] = useState<TimeOffRequest[]>([]);
-
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -251,7 +238,6 @@ export default function Page() {
     const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data);
     setScheduleCache(dateKey, data);
-    setLastFetchedAt(new Date());
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -282,7 +268,6 @@ export default function Page() {
     const data2 = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
     setSchedules(data2);
     setScheduleCache(dateKey, data2);
-    setLastFetchedAt(new Date());
   }
 
   async function handleResendInvite(email: string) {
@@ -322,38 +307,6 @@ export default function Page() {
     });
     return () => subscription.unsubscribe();
   }, [isDemo]);
-
-  async function handleApproveTimeOff(id: number) {
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to approve request");
-    }
-    setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
-    // Refresh schedules for current date after approval
-    const dateKey = toDateKey(date, timezone);
-    apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
-      .then((r) => r.json())
-      .then(setSchedules)
-      .catch(() => {});
-  }
-
-  async function handleDenyTimeOff(id: number) {
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "denied" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to deny request");
-    }
-    setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
-  }
 
   // Live clock
   useEffect(() => {
@@ -440,14 +393,6 @@ export default function Page() {
         .catch(() => {});
     }
 
-    function refetchTimeOff() {
-      if (!isManagerRef.current) return;
-      fetch("/api/time-off")
-        .then((r) => r.json())
-        .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
-        .catch(() => {});
-    }
-
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -455,7 +400,6 @@ export default function Page() {
       } else if (Date.now() - hiddenAt > 5_000) {
         refetchSchedules();
         refetchEmployees();
-        refetchTimeOff();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -464,7 +408,6 @@ export default function Page() {
       .channel("main-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
       .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
-      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .subscribe();
 
     return () => {
@@ -487,15 +430,6 @@ export default function Page() {
     return () => controller.abort();
   }, [isDemo]);
 
-  // Load pending time-off requests once we know the user is a manager
-  useEffect(() => {
-    if (!isManager || isDemo) return;
-    fetch("/api/time-off")
-      .then(r => r.json())
-      .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
-      .catch(() => {});
-  }, [isManager, isDemo]);
-
   // Fetch schedules (and punch records for today) whenever date changes.
   // If the cache already has data for this date, apply it immediately so the
   // page renders without a loading skeleton, then refresh in the background.
@@ -510,7 +444,6 @@ export default function Page() {
     if (cachedSchedules) {
       // Instant render from cache
       setSchedules(cachedSchedules);
-      setLastFetchedAt(new Date());
       setLoading(false);
       if (isViewingToday) {
         if (cachedPunches) { setPunchRecords(cachedPunches); setPunchesLoaded(true); }
@@ -530,7 +463,6 @@ export default function Page() {
         .then((data) => {
           setSchedules(data);
           setScheduleCache(dateKey, data);
-          setLastFetchedAt(new Date());
         }),
     ];
     if (isViewingToday && !isDemo) {
@@ -695,8 +627,8 @@ export default function Page() {
     date, today, isToday, hereCount: hereNowCount,
     nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
-    onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
-    onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
+    onPrev: () => setDate((d) => offsetDate(d, -1)),
+    onNext: () => setDate((d) => offsetDate(d, 1)),
     onNow: () => setDate(new Date()),
     onDateSelect: (d: Date) => setDate(d),
     onSignOut: isDemo ? undefined : handleSignOut,

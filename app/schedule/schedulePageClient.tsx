@@ -5,7 +5,6 @@ import { motion, LayoutGroup } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Schedule,
-  StoreHours,
   TimeOffRequest,
   getShiftType,
   fmtMinutes,
@@ -751,7 +750,6 @@ export default function SchedulePageClient() {
             {!isDemo && <NotificationBell />}
             <UserMenu
               name={sharedLoading ? null : employeeName}
-              isManager={isManager}
               onSignOut={isDemo ? undefined : handleSignOut}
               onSignIn={isDemo ? () => router.push("/login") : undefined}
             />

@@ -105,7 +105,6 @@ describe("POST /api/templates", () => {
       insert: vi.fn().mockResolvedValue({ data: null, error: null }),
     };
     const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true });
-    let callCount = 0;
     vi.spyOn(supabase, "from").mockImplementation((table: string) => {
       if (table === "managers") {
         return makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers") as any;
@@ -152,7 +151,7 @@ describe("DELETE /api/templates/[id]", () => {
     vi.mocked(createClient).mockResolvedValue(supabase as any);
     const { DELETE } = await import("./[id]/route");
     const req = new Request("http://localhost/api/templates/1", { method: "DELETE" });
-    const res = await DELETE(req, { params: { id: "1" } });
+    const res = await DELETE(req, { params: Promise.resolve({ id: "1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -173,7 +172,7 @@ describe("POST /api/templates/[id]/apply", () => {
       body: JSON.stringify({ weekStartDate: "2026-06-02" }), // Tuesday
       headers: { "Content-Type": "application/json" },
     });
-    const res = await POST(req, { params: { id: "1" } });
+    const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toMatch(/Monday/i);
@@ -219,7 +218,7 @@ describe("POST /api/templates/[id]/apply", () => {
       body: JSON.stringify({ weekStartDate: "2026-06-01" }),
       headers: { "Content-Type": "application/json" },
     });
-    const res = await POST(req, { params: { id: "1" } });
+    const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
     // employee_id 1 on day_of_week 0 = 2026-06-01, already scheduled → skipped

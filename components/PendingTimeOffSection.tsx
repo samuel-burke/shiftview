@@ -69,7 +69,7 @@ function RequestRow({
             <TimeOffPendingIcon size={11} color="#fbbf24" />
             {formatDate(request.date)}
             {request.note && (
-              <span className="text-slate-500 truncate">· "{request.note}"</span>
+              <span className="text-slate-500 truncate">· &ldquo;{request.note}&rdquo;</span>
             )}
           </div>
         </div>

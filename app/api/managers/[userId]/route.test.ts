@@ -104,7 +104,7 @@ describe("PUT /api/managers/:userId", () => {
     const res = await PUT(req, ctx);
 
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "db error" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   // ── Demote via RPC ─────────────────────────────────────────────────────────
@@ -133,6 +133,6 @@ describe("PUT /api/managers/:userId", () => {
     const res = await PUT(req, ctx);
 
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "db error" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 });

@@ -127,7 +127,7 @@ describe("POST /api/invites — business logic", () => {
     );
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "duplicate email" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   it("returns 500 when the Supabase invite call fails", async () => {
@@ -136,7 +136,7 @@ describe("POST /api/invites — business logic", () => {
     );
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "User already registered" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   it("returns 201 with employeeId on success", async () => {
@@ -229,7 +229,7 @@ describe("PUT /api/invites — business logic", () => {
     );
     const res = await PUT(putReq({ email: "alice@example.com" }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "rate limit exceeded" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   it("returns 200 on success", async () => {

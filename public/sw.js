@@ -1,4 +1,6 @@
-// ShiftView Service Worker — handles Web Push notifications
+// ShiftView Service Worker — handles Web Push notifications.
+// "Chess" below refers to the in-app chess easter egg played over direct
+// messages; tapping a chess-move notification deep-links into that game.
 
 // Activate immediately without waiting for existing tabs to close.
 // This ensures notification click handlers always run the latest code.
