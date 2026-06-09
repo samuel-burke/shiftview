@@ -70,7 +70,15 @@ export async function GET(request: Request) {
   });
 }
 
-function mapSchedules(data: any[]) {
+type ScheduleRow = {
+  id: number;
+  employee_id: number;
+  date: string;
+  start_minutes: number;
+  end_minutes: number;
+};
+
+function mapSchedules(data: ScheduleRow[]) {
   return data.map((s) => ({
     id: s.id,
     employeeId: s.employee_id,

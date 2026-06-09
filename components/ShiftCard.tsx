@@ -69,7 +69,6 @@ export default function ShiftCard({
   }
 
   const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
-  const isOnBreak = badge?.label === "On Break";
 
   const glowShadow = `0 0 18px ${shiftColor}20, inset 0 1px 0 rgba(255,255,255,0.04)`;
 

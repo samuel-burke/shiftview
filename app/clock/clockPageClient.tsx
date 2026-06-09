@@ -102,7 +102,7 @@ export default function ClockPageClient() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, sharedLoading } = useAppData();
+  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache } = useAppData();
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
@@ -472,7 +472,6 @@ export default function ClockPageClient() {
         {!isDemo && <NotificationBell />}
         <UserMenu
           name={employeeName}
-          isManager={isManager}
           onSignOut={isDemo ? undefined : handleSignOut}
           onSignIn={isDemo ? () => router.push("/login") : undefined}
         />

@@ -60,7 +60,10 @@ export async function GET(request: Request) {
     .lte("date", to)
     .limit(10000);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/reports/coverage]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   // Count per date
   const counts: Record<string, number> = {};

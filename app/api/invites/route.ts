@@ -41,8 +41,10 @@ export async function POST(request: Request) {
     .select("id")
     .single();
 
-  if (insertError)
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError) {
+    console.error("[api/invites]", insertError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
@@ -51,7 +53,8 @@ export async function POST(request: Request) {
   if (inviteError) {
     // Roll back the employee row so retrying the invite starts clean
     await admin.from("employees").delete().eq("id", employee.id);
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    console.error("[api/invites]", inviteError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
@@ -89,8 +92,10 @@ export async function PUT(request: Request) {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
   });
 
-  if (inviteError)
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+  if (inviteError) {
+    console.error("[api/invites]", inviteError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "employee.reinvite",

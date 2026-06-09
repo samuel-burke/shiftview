@@ -369,7 +369,7 @@ export default function ReportsPageClient() {
         weekDates.map((d) =>
           fetch(`/api/schedules?date=${d}`)
             .then((r) => r.json())
-            .then((data: any[]) => data.map((s: any) => ({
+            .then((data: Schedule[]) => data.map((s) => ({
               id: s.id, employeeId: s.employeeId, date: s.date,
               startMinutes: s.startMinutes, endMinutes: s.endMinutes,
             })))
@@ -459,7 +459,7 @@ export default function ReportsPageClient() {
       weekDates.map((d) =>
         fetch(`/api/schedules?date=${d}${isDemo ? "&demo=true" : ""}`)
           .then((r) => r.json())
-          .then((data: any[]) => data.map((s: any) => ({
+          .then((data: Schedule[]) => data.map((s) => ({
             id: s.id,
             employeeId: s.employeeId,
             date: s.date,

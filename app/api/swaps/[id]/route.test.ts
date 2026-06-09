@@ -169,7 +169,6 @@ describe("PUT /api/swaps/:id", () => {
   it("returns 200 and swaps schedules when manager approves a pending swap", async () => {
     // Provide a full client that chains correctly for the approved path
     let scheduleCallCount = 0;
-    let swapsUpdateCalled = false;
 
     const client = {
       auth: {

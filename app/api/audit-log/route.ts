@@ -5,6 +5,21 @@ import { createAdminClient } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
+// Action category prefixes actually written via writeAuditLog (see lib/audit.ts usages).
+const VALID_CATEGORIES = new Set([
+  "availability",
+  "employee",
+  "manager",
+  "payroll",
+  "punch",
+  "schedule",
+  "settings",
+  "store_hours",
+  "swap",
+  "template",
+  "time_off",
+]);
+
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { error: authError } = await requireManager(supabase);
@@ -19,6 +34,9 @@ export async function GET(request: Request) {
   const page     = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit    = 50;
   const offset   = (page - 1) * limit;
+
+  if (category && !VALID_CATEGORIES.has(category))
+    return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 
   const admin = createAdminClient();
   let query = admin

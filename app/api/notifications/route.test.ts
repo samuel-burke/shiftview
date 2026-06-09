@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { MOCK_USER } from "../__tests__/helpers";

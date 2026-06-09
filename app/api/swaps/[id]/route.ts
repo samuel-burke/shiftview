@@ -43,7 +43,8 @@ export async function PUT(
     .maybeSingle();
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    console.error("[api/swaps/[id]]", fetchError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
   if (!swap) {
     return NextResponse.json({ error: "Swap request not found" }, { status: 404 });
@@ -73,7 +74,8 @@ export async function PUT(
       .eq("id", scheduleA.id);
 
     if (updateAError) {
-      return NextResponse.json({ error: updateAError.message }, { status: 500 });
+      console.error("[api/swaps/[id]]", updateAError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 
     const { error: updateBError } = await supabase
@@ -87,7 +89,8 @@ export async function PUT(
         .from("schedules")
         .update({ employee_id: scheduleA.employee_id })
         .eq("id", scheduleA.id);
-      return NextResponse.json({ error: updateBError.message }, { status: 500 });
+      console.error("[api/swaps/[id]]", updateBError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
@@ -98,7 +101,8 @@ export async function PUT(
     .eq("id", swapId);
 
   if (statusError) {
-    return NextResponse.json({ error: statusError.message }, { status: 500 });
+    console.error("[api/swaps/[id]]", statusError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   // Notify the requester of the outcome and gather names for audit log

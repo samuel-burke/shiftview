@@ -154,9 +154,12 @@ export default function EmployeeDrawer({
       }
       setEditing(false);
       onClose();
-    } catch (e: any) {
-      if (e?.conflict) {
-        setConflict({ type: e.conflict, window: e.window ?? null, message: e.message });
+    } catch (e) {
+      const conflictErr = e instanceof Error && "conflict" in e
+        ? (e as Error & { conflict: string; window?: { startMinutes: number; endMinutes: number } | null })
+        : null;
+      if (conflictErr?.conflict) {
+        setConflict({ type: conflictErr.conflict, window: conflictErr.window ?? null, message: conflictErr.message });
       } else {
         setError(e instanceof Error ? e.message : "Failed to save shift");
       }

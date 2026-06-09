@@ -156,8 +156,10 @@ export async function GET(request: Request) {
     .order("punched_at")
     .limit(50_000);
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/reports/payroll/export]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const payroll = computePayroll((data ?? []) as unknown as PunchRow[]);
 
