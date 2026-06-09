@@ -17,15 +17,6 @@ const baseProps = {
   closeMinutes: 1320, // 10 PM
 };
 
-function countDataPoints(container: Element): number {
-  // Recharts renders one <path> per data series, but we can introspect the
-  // component by exporting the computed points. Instead, test the point count
-  // by inspecting the data array length via a DOM-reachable attribute.
-  // Since we can't easily inspect recharts internals in jsdom, we test the
-  // interval math directly.
-  return 0; // placeholder — real assertions are in the unit tests below
-}
-
 describe("CoverageTimeline 15-minute sampling", () => {
   it("renders without crashing with 15-minute intervals", () => {
     const { container } = render(<CoverageTimeline {...baseProps} />);

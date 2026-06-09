@@ -5,7 +5,7 @@ import Page from "./pageClient";
 // Mock Next.js hooks
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
-  useSearchParams: () => ({ get: (_: string) => null }),
+  useSearchParams: () => ({ get: () => null }),
 }));
 
 // Mock AppDataContext — shared data comes from context in real app
@@ -75,7 +75,7 @@ describe("pageClient attendance", () => {
   it("fetches punch records when manager is viewing today", async () => {
     render(<Page />);
     await waitFor(() => {
-      const urls = mockFetch.mock.calls.map(([url]: [string]) => url);
+      const urls = mockFetch.mock.calls.map((call: any[]) => call[0] as string);
       expect(urls.some((u) => u.includes("/api/punches"))).toBe(true);
     });
   });
@@ -111,7 +111,7 @@ describe("pageClient mount fetches", () => {
   it("fetches employees and schedules on mount", async () => {
     render(<Page />);
     await waitFor(() => {
-      const urls = mockFetch.mock.calls.map(([url]: [string]) => url);
+      const urls = mockFetch.mock.calls.map((call: any[]) => call[0] as string);
       expect(urls.some((u) => u.includes("/api/schedules"))).toBe(true);
       expect(urls.some((u) => u.includes("/api/employees"))).toBe(true);
     });
@@ -137,7 +137,7 @@ describe("pageClient mount fetches", () => {
     });
     render(<Page />);
     await waitFor(() => {
-      const calls = mockFetch.mock.calls.map(([url]: [string]) => url);
+      const calls = mockFetch.mock.calls.map((call: any[]) => call[0] as string);
       expect(calls.some((u) => u.includes("/api/schedules"))).toBe(true);
     });
   });

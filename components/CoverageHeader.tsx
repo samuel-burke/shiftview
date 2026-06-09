@@ -29,16 +29,6 @@ type Props = {
   hideMobileBrand?: boolean;
 };
 
-function fmtTime(m: number): string {
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return min === 0
-    ? `${h12}:00 ${ampm}`
-    : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
-}
-
 function NavButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
   return (
     <motion.button
@@ -68,12 +58,10 @@ export default function CoverageHeader({
   onDateSelect,
   isToday,
   hereCount,
-  nowMinutes,
   coverageStatus,
   isDemo,
   loading = false,
   userName = null,
-  isManager = false,
   coverageAlertsEnabled = true,
   hideMobileBrand = false,
 }: Props) {
@@ -85,7 +73,6 @@ export default function CoverageHeader({
     year: "numeric",
   });
   const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-  const timeStr = fmtTime(nowMinutes);
   const isPast = date < today && !isToday;
   const isFuture = date > today && !isToday;
 
@@ -241,7 +228,7 @@ export default function CoverageHeader({
               </motion.button>
             )}
             {!isDemo && <NotificationBell />}
-            <UserMenu name={userName} isManager={isManager} onSignOut={onSignOut} onSignIn={onSignIn} />
+            <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
         </div>
 

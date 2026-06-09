@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { GET, POST } from "./route";
 import { PUT } from "./[id]/route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -261,7 +261,7 @@ describe("PUT /api/swaps/[id]", () => {
         method: "PUT",
         body: JSON.stringify({ status: "approved" }),
       }),
-      { params: { id: "1" } }
+      { params: Promise.resolve({ id: "1" }) }
     );
     expect(res.status).toBe(403);
   });
@@ -273,7 +273,7 @@ describe("PUT /api/swaps/[id]", () => {
         method: "PUT",
         body: JSON.stringify({ status: "approved" }),
       }),
-      { params: { id: "1" } }
+      { params: Promise.resolve({ id: "1" }) }
     );
     expect(res.status).toBe(401);
   });
@@ -323,7 +323,7 @@ describe("PUT /api/swaps/[id]", () => {
         method: "PUT",
         body: JSON.stringify({ status: "approved" }),
       }),
-      { params: { id: "1" } }
+      { params: Promise.resolve({ id: "1" }) }
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -368,7 +368,7 @@ describe("PUT /api/swaps/[id]", () => {
         method: "PUT",
         body: JSON.stringify({ status: "denied" }),
       }),
-      { params: { id: "1" } }
+      { params: Promise.resolve({ id: "1" }) }
     );
     expect(res.status).toBe(200);
     const body = await res.json();

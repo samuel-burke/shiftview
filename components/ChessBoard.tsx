@@ -53,6 +53,8 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
   const prevFenRef = useRef(game.fen);
   const isFirstRender = useRef(true);
 
+  const amWhite = myUserId === game.white;
+
   // Sync prop → display state (opponent's moves arrive this way)
   useEffect(() => {
     if (isFirstRender.current) {
@@ -79,9 +81,8 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
     }
     // Always sync status — resignation and new-game both change status without changing FEN
     setDisplayStatus(game.status);
-  }, [game.fen, game.status, game.lastMoveFlags, myUserId, game.white]);
+  }, [game.fen, game.status, game.lastMoveFlags, myUserId, game.white, amWhite]);
 
-  const amWhite = myUserId === game.white;
   const chess = new Chess(displayFen);
   const turn = chess.turn();
   const isMyTurn = displayStatus === "active" && ((turn === "w" && amWhite) || (turn === "b" && !amWhite));

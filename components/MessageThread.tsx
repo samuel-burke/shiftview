@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useId, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase-browser";
 import { parseChessMessage, type ChessMessage } from "./ChessBoard";
@@ -68,21 +68,21 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
   useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
 
   // Stable per-instance ID used to detect other simultaneously-open threads.
-  const instanceId = useRef(`mt_${Math.random().toString(36).slice(2)}`);
+  const instanceId = useId();
 
   // Enforce a single open chat window at a time. When this instance opens,
   // broadcast to all others so they can close. If a different instance opens
   // while we're open, close ourselves.
   useEffect(() => {
     if (!open) return;
-    const id = instanceId.current;
+    const id = instanceId;
     window.dispatchEvent(new CustomEvent("chat-opened", { detail: { id } }));
     function onOtherOpen(e: Event) {
       if ((e as CustomEvent).detail?.id !== id) onClose();
     }
     window.addEventListener("chat-opened", onOtherOpen);
     return () => window.removeEventListener("chat-opened", onOtherOpen);
-  }, [open, onClose]);
+  }, [open, onClose, instanceId]);
 
   // Derived — null until myUserId resolves (async auth)
   const convId = myUserId ? [myUserId, otherUserId].sort().join("_") : null;

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import AvailabilitySection from "./AvailabilitySection";
 
 function makeMockFetch(records: any[] = []) {

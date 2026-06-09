@@ -1,37 +1,78 @@
 # ShiftView
 
-A mobile-first shift dashboard for retail and hospitality managers — see who's in, who's next, and whether coverage is on track, all at a glance.
+A mobile-first shift management app for retail and hospitality teams — scheduling, time clock, coverage analytics, and team messaging in a single installable PWA.
 
 **[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app?demo=true)
 
 ![ShiftView screenshot](public/screenshot.png)
 
-![Test](https://github.com/samuel-burke/shift-dashboard/actions/workflows/test.yml/badge.svg?branch=dev)
+![CI](https://github.com/samuel-burke/shift-dashboard/actions/workflows/test.yml/badge.svg?branch=dev)
 
 ## Features
 
-- **Live coverage status** — real-time indicator of whether staffing is optimal, low, or critical
-- **Coverage timeline** — area chart showing staff count across the full operating day, with a pulsing now-indicator at the current time
-- **Shift cards** — sorted list of scheduled employees with shift type (opener / mid / closer), times, and "Here" badge for who's currently on shift
-- **Arrival countdown** — shows how long until the next employee's shift starts
-- **Date navigation** — swipe or tap to browse past and future schedules
-- **Pull to refresh** — drag down on mobile to fetch the latest data
-- **Employee drawer** — tap any employee for a detail sheet with start/end times, shift type, and status
-- **Manager controls** — edit shift times, mark an employee as off, or add an off employee back to the schedule
-- **Dynamic store hours** — open and close times are stored per day in the database, not hardcoded
-- **Demo mode** — try the app without an account at `/?demo=true`
-- **Auth** — sign in via Supabase to view and manage live schedule data
+**Coverage dashboard**
+- Live coverage status (optimal / low / critical) computed from staff counts across store hours
+- Coverage timeline chart with a pulsing now-indicator, arrival countdown for the next shift
+- Shift cards with shift type (opener / mid / closer) and a "Here" badge for who's clocked in
+
+**Scheduling**
+- Week and month views with drag-free editing, reusable shift templates, and copy-week
+- Employee availability tracking with conflict detection against time-off and availability when scheduling
+- Shift swap requests with manager approval, and time-off requests with approval workflow
+
+**Time clock**
+- Clock in/out with optional geofence enforcement (server-validated, not just client-side)
+- Missed-punch detection and payroll-ready CSV exports
+
+**Team**
+- Direct messaging, encrypted at rest with AES-256-GCM
+- Web push notifications with per-user preferences, plus in-app banners
+- Email invites for onboarding, manager role management, and a full audit log of every mutation
+
+**Platform**
+- Installable PWA with service worker, offline-aware shell, and home-screen prompts
+- Demo mode (`/?demo=true`) — the full UI backed by static fixtures, no account or database required
+- Nightly shift reminders for tomorrow's schedule via a Vercel cron job
 
 ## Tech Stack
 
 | | |
 |---|---|
 | Framework | Next.js 16 (App Router) |
-| Language | TypeScript |
+| Language | TypeScript (strict) |
 | Styling | Tailwind CSS v4 |
-| Database / Auth | Supabase |
+| Database / Auth / Realtime | Supabase |
 | Charts | Recharts |
-| Testing | Vitest + React Testing Library |
+| Animation | Framer Motion |
+| Push | Web Push (VAPID) |
+| Unit tests | Vitest + React Testing Library |
+| E2E tests | Playwright |
+| CI / Hosting | GitHub Actions / Vercel |
+
+## Architecture
+
+```
+Browser (React 19, PWA + service worker)
+   │
+   ├── Next.js route handlers (/app/api/*)   ← auth, validation, business rules
+   │      │
+   │      ├── Supabase (Postgres + RLS)      ← row-level security as defense in depth
+   │      ├── Web Push (VAPID)               ← notifications
+   │      └── Resend                         ← invite + reminder emails
+   │
+   └── Supabase Realtime                     ← live schedule/message updates
+```
+
+Key design decisions:
+
+- **API routes as the single write path.** All mutations go through route handlers that check auth, verify manager status where required, validate input, and write an audit log entry. Row Level Security on every table acts as a second, independent enforcement layer — a bug in the API layer cannot expose more than RLS allows.
+- **Times are minutes since midnight** (`480` = 8:00 AM). Shifts never cross midnight in this domain, so this avoids timezone and DST edge cases entirely; dates are plain `YYYY-MM-DD` strings.
+- **"Off" is derived, not stored.** Employees with no schedule row for a date are off that day — computed by diffing the roster against the day's shifts, so there's no second source of truth to keep in sync.
+- **Privileged operations use a service-role client.** Tables like `managers` and the employee-invite flow are write-denied via RLS for all users; the API performs those writes with the Supabase admin client only after verifying manager status itself.
+- **Demo mode is a data-layer swap.** `?demo=true` serves static fixtures from `data/demo-fixtures.ts` through the same components and API contracts, so the entire UI is explorable with zero setup.
+- **Messages are encrypted at rest** with AES-256-GCM using a server-held key; the database never sees plaintext message content.
+
+A full functional spec lives in [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md), and data handling is documented in [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
 
 ## Getting Started
 
@@ -63,6 +104,16 @@ openssl rand -hex 32
 
 > Keep this key secret and back it up securely. Messages are encrypted with AES-256-GCM before being stored in the database. If the key is lost, existing messages cannot be decrypted. When deploying (e.g. Vercel), set `MESSAGE_ENCRYPTION_KEY` as an environment variable in your project settings.
 
+Optional variables enable additional features:
+
+| Variable | Enables |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Manager role management and the employee invite flow |
+| `RESEND_API_KEY` | Invite emails (via Resend) |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web push notifications |
+| `CRON_SECRET` | Nightly shift-reminder cron endpoint |
+| `NEXT_PUBLIC_SITE_URL` | Absolute URLs in emails and auth redirects |
+
 ### 3. Run the dev server
 
 ```bash
@@ -73,37 +124,41 @@ Open [http://localhost:3000](http://localhost:3000). To use demo mode without an
 
 > The live app is deployed at [shiftview.app](https://shiftview.app). Try the demo at [shiftview.app?demo=true](https://shiftview.app?demo=true).
 
-## Running Tests
+## Testing & Quality
 
 ```bash
-npm test          # single run
+npm run lint        # ESLint
+npm run typecheck   # tsc --noEmit
+npm test            # Vitest unit/integration tests
 npm run test:watch  # watch mode
+npm run test:e2e    # Playwright e2e (demo mode, no backend needed)
 ```
+
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the demo-mode user flows end-to-end with Playwright. CI runs lint, typecheck, unit, and e2e suites on every push and pull request.
 
 ## Project Structure
 
 ```
 app/
-  api/
-    employees/    # GET /api/employees
-    me/           # GET /api/me — returns isManager flag for current user
-    schedules/    # GET, POST, PUT, DELETE /api/schedules
-    store-hours/  # GET /api/store-hours — per-day open/close times
-  login/          # sign-in page
-  page.tsx        # server entry, wraps pageClient in Suspense
-  pageClient.tsx  # main dashboard client component
-components/
-  CoverageHeader.tsx    # date nav, stat cards, coverage alert
-  CoverageTimeline.tsx  # recharts area chart with now-line overlay
-  EmployeeDrawer.tsx    # bottom sheet for viewing and editing a shift
-  ShiftCard.tsx         # individual employee row
-  TeamSection.tsx       # grouped list of shift cards or off employees
+  api/            # route handlers: schedules, swaps, time-off, punches,
+                  # templates, messages, notifications, reports, invites, …
+  clock/          # time clock (geofenced punch in/out)
+  schedule/       # week/month schedule editor
+  reports/        # payroll + coverage reports, CSV export
+  settings/       # store hours, geofence, notifications, team management
+  pageClient.tsx  # coverage dashboard (home)
+components/       # UI components (one concern per file, co-located tests)
 data/
-  types.ts        # shared types and pure utility functions
-lib/
-  supabase-browser.ts
-  supabase-server.ts
+  types.ts        # shared domain types + pure schedule/coverage utilities
+  demo-fixtures.ts# static data backing demo mode
+lib/              # Supabase clients, encryption, audit log, web push, payroll
+e2e/              # Playwright specs
+docs/             # functional requirements spec
 ```
+
+## Scheduled Tasks
+
+`vercel.json` defines a nightly cron (`/api/cron/reminders`, 22:00 UTC) that sends each scheduled employee a push reminder of tomorrow's shift, honoring per-user notification preferences. The endpoint is protected by an `x-cron-secret` header checked against `CRON_SECRET`.
 
 ## Database Schema
 
@@ -117,8 +172,6 @@ lib/
 Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
 
 > Demo mode (`?demo=true`) does not connect to Supabase at all — it uses static in-app fixtures from `data/demo-fixtures.ts`.
-
-Row Level Security is enabled on all live tables. Managers can insert, update, and delete schedules; all authenticated users can read.
 
 ## Row Level Security
 

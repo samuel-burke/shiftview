@@ -23,7 +23,7 @@ export async function GET() {
 
   const isManager = !!managerRow;
 
-  let query = supabase
+  const query = supabase
     .from("shift_swaps")
     .select(`
       id,
@@ -74,9 +74,9 @@ export async function GET() {
       .order("created_at", { ascending: false });
 
     if (error) {
-    console.error("[api/swaps]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+      console.error("[api/swaps]", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
     return NextResponse.json(data ?? []);
   }
 
@@ -165,7 +165,8 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    console.error("[api/swaps]", insertError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
