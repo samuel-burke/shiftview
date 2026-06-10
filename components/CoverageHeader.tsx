@@ -82,9 +82,9 @@ export default function CoverageHeader({
     if (coverageStatus === "closed")
       return { icon: <LockIcon size={13} color="#94a3b8" />, message: "Store closed", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "#94a3b8" };
     if (coverageStatus === "critical")
-      return { icon: <WarningIcon size={13} color="#f87171" />, message: `Coverage below minimum — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "#f87171" };
+      return { icon: <WarningIcon size={13} color="#f87171" />, message: `Critically below coverage target — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "#f87171" };
     if (coverageStatus === "low")
-      return { icon: <WarningIcon size={13} color="#fbbf24" />, message: `Coverage below optimal — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "#fbbf24" };
+      return { icon: <WarningIcon size={13} color="#fbbf24" />, message: `Below coverage target — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "#fbbf24" };
     return null;
   })();
 

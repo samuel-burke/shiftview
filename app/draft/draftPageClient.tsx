@@ -6,13 +6,21 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Employee, Schedule, fmtMinutes, formatDisplayName, getMonogram } from "../../data/types";
 import { useAppData } from "../../lib/AppDataContext";
 import {
-  coverageScore,
   dayOfWeek,
-  findUnderstaffedRanges,
   scheduledHoursForDate,
   shiftHours,
   weekDates,
 } from "../../lib/draft-metrics";
+import {
+  CoverageBlock,
+  CoverageDefaults,
+  CoverageOverrides,
+  CoverageProfile,
+  coverageScoreFromCurves,
+  curveForDate,
+  curveHours,
+  findUnderstaffedFromCurves,
+} from "../../lib/coverage";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import DraftCoverageChart from "../../components/DraftCoverageChart";
@@ -95,12 +103,14 @@ export default function DraftPageClient() {
 
   const { me, storeHours, settings, sharedLoading, employees: cachedEmployees, cacheEmployees } = useAppData();
   const { isManager } = me;
-  const { optimalCoverage, minCoverage, firstDayOfWeek } = settings;
+  const { firstDayOfWeek } = settings;
 
   const [weekOffset, setWeekOffset] = useState(1); // default: next week
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
   const [drafts, setDrafts] = useState<Schedule[]>([]);
-  const [budgets, setBudgets] = useState<Record<number, number>>({});
+  const [profiles, setProfiles] = useState<CoverageProfile[]>([]);
+  const [defaults, setDefaults] = useState<CoverageDefaults>({});
+  const [overrides, setOverrides] = useState<CoverageOverrides>({});
   const [migrationRequired, setMigrationRequired] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,17 +148,23 @@ export default function DraftPageClient() {
     return () => controller.abort();
   }, [isDemo, isManager]);
 
-  // Budgets
+  // Coverage profiles + assignments for the visible week
   useEffect(() => {
     if (isDemo || !isManager) return;
-    apiFetch("/api/budgets")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.budgets) setBudgets(data.budgets);
-        if (data?.migrationRequired) setMigrationRequired(true);
+    let cancelled = false;
+    Promise.all([
+      apiFetch("/api/coverage-profiles").then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+      apiFetch(`/api/coverage-assignments?from=${dates[0]}&to=${dates[6]}`).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+    ])
+      .then(([profilesData, assignments]) => {
+        if (cancelled) return;
+        if (Array.isArray(profilesData)) setProfiles(profilesData);
+        setDefaults(assignments?.defaults ?? {});
+        setOverrides(assignments?.overrides ?? {});
       })
-      .catch(() => {});
-  }, [isDemo, isManager]);
+      .catch(() => { if (!cancelled) setMigrationRequired(true); });
+    return () => { cancelled = true; };
+  }, [isDemo, isManager, weekStart]);
 
   // Drafts for the visible week
   useEffect(() => {
@@ -171,9 +187,15 @@ export default function DraftPageClient() {
   }, [isDemo, isManager, weekStart]);
 
   // ---- Derived metrics ----
+  // Target coverage curve per date (date override → day-of-week default)
+  const curves = useMemo((): Record<string, CoverageBlock[]> => {
+    return Object.fromEntries(dates.map((d) => [d, curveForDate(d, overrides, defaults, profiles)]));
+  }, [dates, overrides, defaults, profiles]);
+
+  // Daily/weekly budget = area under the target curve, in staff-hours
   const weeklyBudget = useMemo(
-    () => dates.reduce((sum, d) => sum + (budgets[dayOfWeek(d)] ?? 0), 0),
-    [dates, budgets]
+    () => dates.reduce((sum, d) => sum + curveHours(curves[d] ?? []), 0),
+    [dates, curves]
   );
   const weeklyScheduled = useMemo(
     () => dates.reduce((sum, d) => sum + scheduledHoursForDate(drafts, d), 0),
@@ -181,12 +203,12 @@ export default function DraftPageClient() {
   );
   const variance = Math.round((weeklyScheduled - weeklyBudget) * 10) / 10;
   const covScore = useMemo(
-    () => coverageScore(drafts, dates, storeHours, minCoverage),
-    [drafts, dates, storeHours, minCoverage]
+    () => coverageScoreFromCurves(drafts, dates, curves),
+    [drafts, dates, curves]
   );
   const alerts = useMemo(
-    () => findUnderstaffedRanges(drafts, dates, storeHours, minCoverage),
-    [drafts, dates, storeHours, minCoverage]
+    () => findUnderstaffedFromCurves(drafts, dates, curves),
+    [drafts, dates, curves]
   );
 
   const selectedDate = dates[selectedDayIdx];
@@ -227,14 +249,20 @@ export default function DraftPageClient() {
     setDrafts((prev) => prev.filter((d) => d.id !== draftId));
   }
 
-  async function handleSaveBudget(dow: number, budgetHours: number) {
-    const res = await apiFetch("/api/budgets", {
-      method: "PUT",
+  /** Assign a profile override to a date, or clear it (null = fall back to the day-of-week default). */
+  async function handleAssignProfile(date: string, profileId: number | null) {
+    const res = await apiFetch("/api/coverage-assignments", {
+      method: profileId === null ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dayOfWeek: dow, budgetHours }),
+      body: JSON.stringify(profileId === null ? { date } : { date, profileId }),
     });
-    if (!res.ok) await throwApiError(res, "Failed to save budget");
-    setBudgets((prev) => ({ ...prev, [dow]: budgetHours }));
+    if (!res.ok) await throwApiError(res, "Failed to update coverage assignment");
+    setOverrides((prev) => {
+      const next = { ...prev };
+      if (profileId === null) delete next[date];
+      else next[date] = profileId;
+      return next;
+    });
   }
 
   async function handlePublish() {
@@ -350,7 +378,7 @@ export default function DraftPageClient() {
         {/* Banners */}
         {migrationRequired && (
           <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 [@media(min-width:900px)]:mx-6">
-            Draft tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-draft-schedules.sql</code> in the Supabase SQL editor to enable draft scheduling.
+            Database tables are missing. Run the migrations in <code className="font-mono">db/migrations/</code> (draft schedules + coverage profiles) in the Supabase SQL editor.
           </div>
         )}
         {error && !migrationRequired && (
@@ -390,7 +418,7 @@ export default function DraftPageClient() {
               <StatCard index={3} value={covScore === null ? "—" : String(covScore)} suffix={covScore === null ? undefined : "%"} label="Coverage Score" color="#22c55e" loading={isLoading} />
             </div>
 
-            <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} optimalCoverage={optimalCoverage} />
+            <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} curves={curves} />
 
             {!isLoading && alertList.length > 0 && (
               <motion.div
@@ -417,10 +445,8 @@ export default function DraftPageClient() {
             <DraftBudgetChart
               drafts={drafts}
               dates={dates}
-              budgets={budgets}
-              storeHours={storeHours}
+              curves={curves}
               isManager={isManager}
-              onSaveBudget={handleSaveBudget}
             />
           </div>
 
@@ -434,7 +460,7 @@ export default function DraftPageClient() {
             <div className="grid grid-cols-7 gap-1 mb-3">
               {dates.map((date, i) => {
                 const dayScheduled = scheduledHoursForDate(drafts, date);
-                const dayBudget = budgets[dayOfWeek(date)] ?? 0;
+                const dayBudget = curveHours(curves[date] ?? []);
                 const active = i === selectedDayIdx;
                 return (
                   <button
@@ -460,11 +486,42 @@ export default function DraftPageClient() {
               })}
             </div>
 
+            {/* Selected day coverage profile */}
+            <div className="flex items-center gap-2 mb-3 bg-card rounded-xl px-3 py-2.5 border border-white/[0.05]">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold shrink-0">Coverage</span>
+              <select
+                value={overrides[selectedDate] ?? ""}
+                aria-label="Coverage profile for selected day"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  handleAssignProfile(selectedDate, v === "" ? null : Number(v))
+                    .catch((err) => setError(err instanceof Error ? err.message : "Failed to update coverage"));
+                }}
+                className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer"
+              >
+                <option value="">
+                  Default{(() => {
+                    const defId = defaults[dayOfWeek(selectedDate)];
+                    const name = profiles.find((p) => p.id === defId)?.name;
+                    return name ? ` (${name})` : " (none)";
+                  })()}
+                </option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {overrides[selectedDate] !== undefined && (
+                <span className="text-[9px] font-bold uppercase text-violet-300 bg-violet-500/15 border border-violet-500/25 rounded-full px-2 py-0.5 shrink-0">
+                  Override
+                </span>
+              )}
+            </div>
+
             {/* Selected day summary */}
             <div className="flex gap-2 mb-3">
               {(() => {
                 const sch = Math.round(scheduledHoursForDate(drafts, selectedDate) * 10) / 10;
-                const bud = budgets[dayOfWeek(selectedDate)] ?? 0;
+                const bud = Math.round(curveHours(curves[selectedDate] ?? []) * 10) / 10;
                 const dayVar = Math.round((sch - bud) * 10) / 10;
                 return [
                   { label: "Scheduled", value: `${sch} hrs`, color: "#3b82f6" },

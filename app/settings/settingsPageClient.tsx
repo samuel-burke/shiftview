@@ -200,8 +200,6 @@ export default function SettingsPageClient({
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
   const [coverageAlertsSaving, setCoverageAlertsSaving] = useState(false);
-  const [optimalCoverage, setOptimalCoverage] = useState(3);
-  const [minCoverage, setMinCoverage] = useState(2);
 
   async function saveCoverageAlerts(newValue: boolean) {
     setCoverageAlertsSaving(true);
@@ -213,54 +211,6 @@ export default function SettingsPageClient({
       });
     }
     setCoverageAlertsSaving(false);
-  }
-  const [coverageStatus, setCoverageStatus] = useState<SaveStatus>("idle");
-  const [coverageValidationError, setCoverageValidationError] = useState<string | null>(null);
-  const coverageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function scheduleCoverageSave(nextOptimal: number, nextMin: number) {
-    if (nextMin > nextOptimal) {
-      setCoverageValidationError("Minimum cannot exceed optimal");
-      if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
-      return;
-    }
-    setCoverageValidationError(null);
-    if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
-    coverageTimerRef.current = setTimeout(() => doSaveCoverage(nextOptimal, nextMin), 800);
-  }
-
-  async function doSaveCoverage(optimal: number, min: number) {
-    setCoverageStatus("saving");
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setCoverageStatus("saved");
-      setTimeout(() => setCoverageStatus("idle"), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ optimalCoverage: optimal, minCoverage: min }),
-    });
-    if (res.ok) {
-      setCoverageStatus("saved");
-      setTimeout(() => setCoverageStatus("idle"), 2000);
-    } else {
-      setCoverageStatus("error");
-      setTimeout(() => setCoverageStatus("idle"), 4000);
-    }
-  }
-
-  function stepOptimal(delta: number) {
-    const next = Math.max(1, optimalCoverage + delta);
-    setOptimalCoverage(next);
-    scheduleCoverageSave(next, minCoverage);
-  }
-
-  function stepMin(delta: number) {
-    const next = Math.max(0, minCoverage + delta);
-    setMinCoverage(next);
-    scheduleCoverageSave(optimalCoverage, next);
   }
 
   // ── Week Start ──────────────────────────────────────────────────────────────
@@ -658,8 +608,6 @@ export default function SettingsPageClient({
         .then((r) => r.json())
         .then((s) => {
           if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
-          if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
-          if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
           if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
           if (s.timezone)                setTimezone(s.timezone);
           if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
@@ -706,9 +654,7 @@ export default function SettingsPageClient({
         user_id: e.user_id ?? null,
       })));
       setWeeklyHours(DEMO_STORE_HOURS);
-      setOptimalCoverage(DEMO_SETTINGS.optimalCoverage);
       setCoverageAlertsEnabled(DEMO_SETTINGS.coverageAlertsEnabled);
-      setMinCoverage(DEMO_SETTINGS.minCoverage);
       setTimezone(DEMO_SETTINGS.timezone);
       setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
       setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
@@ -1007,70 +953,19 @@ export default function SettingsPageClient({
               </button>
             </div>
 
-            <div className={`transition-opacity ${coverageAlertsEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
-            <div className="flex items-center justify-between mb-4">
+            <button
+              data-testid="coverage-profiles-link"
+              onClick={() => router.push(`/coverage${isDemo ? "?demo=true" : ""}`)}
+              className="w-full flex items-center justify-between bg-bg border border-slate-700 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-500/50 transition-colors text-left"
+            >
               <div>
-                <div className="text-sm font-semibold text-slate-200">Optimal coverage</div>
-                <div className="text-xs text-slate-500 mt-0.5">Minimum staff for green status</div>
+                <div className="text-sm font-semibold text-slate-200">Coverage Profiles</div>
+                <div className="text-xs text-slate-500 mt-0.5">Target staffing curves per day, in 15-minute steps</div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  data-testid="coverage-optimal-minus"
-                  onClick={() => stepOptimal(-1)}
-                  aria-label="Decrease optimal coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  −
-                </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
-                  {optimalCoverage}
-                </span>
-                <button
-                  data-testid="coverage-optimal-plus"
-                  onClick={() => stepOptimal(1)}
-                  aria-label="Increase optimal coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-200">Minimum coverage</div>
-                <div className="text-xs text-slate-500 mt-0.5">Below this shows red alert</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  data-testid="coverage-min-minus"
-                  onClick={() => stepMin(-1)}
-                  aria-label="Decrease minimum coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  −
-                </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
-                  {minCoverage}
-                </span>
-                <button
-                  data-testid="coverage-min-plus"
-                  onClick={() => stepMin(1)}
-                  aria-label="Increase minimum coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {coverageValidationError && (
-              <div role="alert" className="text-xs text-red-400" data-testid="coverage-validation-error">
-                {coverageValidationError}
-              </div>
-            )}
-            <SaveStatusText status={coverageStatus} testId="coverage-status" />
-            </div>{/* end threshold controls wrapper */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0">
+                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
         </section>}
 

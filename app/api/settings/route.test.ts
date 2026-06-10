@@ -18,8 +18,6 @@ const mockCreateClient = vi.mocked(createClient);
 
 const MOCK_DB_SETTINGS = [
   { key: "first_day_of_week", value: "1" },
-  { key: "optimal_coverage",  value: "4" },
-  { key: "minimum_coverage",  value: "3" },
   { key: "timezone",          value: "America/Chicago" },
 ];
 
@@ -32,7 +30,9 @@ describe("GET /api/settings", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ optimalCoverage: 3, minCoverage: 2, firstDayOfWeek: 1, timezone: "America/New_York" });
+    expect(body).toMatchObject({ firstDayOfWeek: 1, timezone: "America/New_York" });
+    expect(body).not.toHaveProperty("optimalCoverage");
+    expect(body).not.toHaveProperty("minCoverage");
     expect(client.from).not.toHaveBeenCalledWith("app_settings");
   });
 
@@ -42,12 +42,11 @@ describe("GET /api/settings", () => {
     );
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       coverageAlertsEnabled: true,
       emailNotifications: false,
       firstDayOfWeek: 1,
-      optimalCoverage: 4,
-      minCoverage: 3,
       timezone: "America/Chicago",
       manualPunchesEnabled: true,
       gpsRequired: false,
@@ -57,6 +56,8 @@ describe("GET /api/settings", () => {
       geofenceRadius: 100,
       geofenceAddress: null,
     });
+    expect(body).not.toHaveProperty("optimalCoverage");
+    expect(body).not.toHaveProperty("minCoverage");
   });
 
   it("returns default timezone when not set in database", async () => {
@@ -74,12 +75,11 @@ describe("GET /api/settings", () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, queryData: [] }) as any);
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    const body = await res.json();
+    expect(body).toEqual({
       coverageAlertsEnabled: true,
       emailNotifications: false,
       firstDayOfWeek: 6,
-      optimalCoverage: 3,
-      minCoverage: 2,
       timezone: "America/New_York",
       manualPunchesEnabled: true,
       gpsRequired: false,
@@ -89,6 +89,8 @@ describe("GET /api/settings", () => {
       geofenceRadius: 100,
       geofenceAddress: null,
     });
+    expect(body).not.toHaveProperty("optimalCoverage");
+    expect(body).not.toHaveProperty("minCoverage");
   });
 
   it("returns manualPunchesEnabled=false and gpsRequired=true when set in DB", async () => {
@@ -172,21 +174,16 @@ describe("PUT /api/settings", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 when optimalCoverage is less than 1", async () => {
+  it("returns 400 when unknown-only fields are provided (optimalCoverage is no longer a field)", async () => {
     const res = await PUT(putReq({ optimalCoverage: 0 }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringContaining("optimalCoverage") });
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("No valid fields") });
   });
 
-  it("returns 400 when minCoverage is negative", async () => {
+  it("returns 400 when only removed fields are provided (minCoverage is no longer a field)", async () => {
     const res = await PUT(putReq({ minCoverage: -1 }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringContaining("minCoverage") });
-  });
-
-  it("accepts minCoverage of 0", async () => {
-    const res = await PUT(putReq({ minCoverage: 0 }));
-    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("No valid fields") });
   });
 
   it("accepts firstDayOfWeek of 0 (Sunday)", async () => {
@@ -208,7 +205,7 @@ describe("PUT /api/settings", () => {
   });
 
   it("returns 200 when updating multiple fields at once", async () => {
-    const res = await PUT(putReq({ firstDayOfWeek: 1, optimalCoverage: 4, minCoverage: 2 }));
+    const res = await PUT(putReq({ firstDayOfWeek: 1, coverageAlertsEnabled: true, emailNotifications: false }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });
