@@ -717,16 +717,6 @@ export default function SchedulePageClient() {
         </div>
       </div>
 
-      {isManager && !isDemo && (
-        <div className="mt-4">
-          <PendingTimeOffSection
-            requests={pendingManagerTimeOff}
-            onApprove={handleApproveManagerTimeOff}
-            onDeny={handleDenyManagerTimeOff}
-          />
-        </div>
-      )}
-
       {isManager && (
         <motion.button
           onClick={() => router.push(`/draft${isDemo ? "?demo=true" : ""}`)}
@@ -736,6 +726,16 @@ export default function SchedulePageClient() {
         >
           Plan Draft Schedule
         </motion.button>
+      )}
+
+      {isManager && !isDemo && (
+        <div className="mt-4">
+          <PendingTimeOffSection
+            requests={pendingManagerTimeOff}
+            onApprove={handleApproveManagerTimeOff}
+            onDeny={handleDenyManagerTimeOff}
+          />
+        </div>
       )}
     </>
   );
