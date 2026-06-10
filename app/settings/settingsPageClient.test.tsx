@@ -19,10 +19,11 @@ const DEFAULT_HOURS = {
 
 const DEFAULT_SETTINGS = {
   firstDayOfWeek: 0,
-  optimalCoverage: 3,
-  minCoverage: 2,
   timezone: "America/New_York",
   emailNotifications: false,
+  coverageAlertsEnabled: true,
+  manualPunchesEnabled: true,
+  gpsRequired: false,
 };
 
 function setupFetch({ putOk = true } = {}) {
@@ -186,66 +187,44 @@ describe("SettingsPageClient — auto-save", () => {
   // ── Coverage Thresholds ────────────────────────────────────────────────────
 
   describe("Coverage Thresholds", () => {
-    it("does not render a 'Save Coverage' button", async () => {
+    it("renders the coverage-profiles-link button for managers", async () => {
       setupFetch();
       await renderAndSettle();
-      expect(screen.queryByRole("button", { name: /save coverage/i })).not.toBeInTheDocument();
+      expect(screen.getByTestId("coverage-profiles-link")).toBeInTheDocument();
     });
 
-    it("debounces: PUT /api/settings fires 800 ms after tapping optimal +", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
+    it("coverage-profiles-link is a button with accessible text", async () => {
+      setupFetch();
+      await renderAndSettle();
+      const btn = screen.getByTestId("coverage-profiles-link");
+      expect(btn.tagName).toBe("BUTTON");
+      expect(btn.textContent).toMatch(/Coverage Profiles/i);
+    });
+
+    it("coverage alerts toggle immediately calls PUT /api/settings", async () => {
       const fetchSpy = setupFetch();
       await renderAndSettle();
 
       await act(async () => {
-        fireEvent.click(screen.getByTestId("coverage-optimal-plus"));
+        fireEvent.click(screen.getByRole("switch", { name: /coverage alerts/i }));
+        await Promise.resolve();
       });
 
-      // Not called yet
-      expect(fetchSpy.mock.calls.filter(([u, o]) => u === "/api/settings" && o?.method === "PUT")).toHaveLength(0);
-
-      await act(async () => { vi.advanceTimersByTime(900); await Promise.resolve(); await Promise.resolve(); });
-
-      const putCalls = fetchSpy.mock.calls.filter(([u, o]) => u === "/api/settings" && o?.method === "PUT");
-      expect(putCalls.length).toBeGreaterThanOrEqual(1);
-      const body = JSON.parse(putCalls[0][1]!.body as string);
-      expect(body).toMatchObject({ optimalCoverage: 4, minCoverage: 2 });
-      vi.useRealTimers();
+      await waitFor(() => {
+        const putCall = fetchSpy.mock.calls.find(
+          ([url, opts]) => url === "/api/settings" && opts?.method === "PUT"
+        );
+        expect(putCall).toBeTruthy();
+        const body = JSON.parse(putCall![1]!.body as string);
+        expect(body).toMatchObject({ coverageAlertsEnabled: false });
+      });
     });
 
-    it("shows 'Saved ✓' after coverage save succeeds", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
+    it("does not render optimalCoverage or minCoverage steppers", async () => {
       setupFetch();
       await renderAndSettle();
-
-      await act(async () => { fireEvent.click(screen.getByTestId("coverage-optimal-plus")); });
-      await act(async () => { vi.advanceTimersByTime(900); await Promise.resolve(); await Promise.resolve(); });
-
-      await waitFor(() => {
-        expect(screen.getByTestId("coverage-status").textContent).toMatch(/Saved/);
-      });
-      vi.useRealTimers();
-    });
-
-    it("shows validation error and skips API call when minCoverage > optimalCoverage", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      const fetchSpy = setupFetch();
-      await renderAndSettle();
-
-      // Tap optimal − until optimal < min (optimal starts at 3, min at 2 — tap optimal − twice)
-      await act(async () => { fireEvent.click(screen.getByTestId("coverage-optimal-minus")); });
-      await act(async () => { fireEvent.click(screen.getByTestId("coverage-optimal-minus")); });
-
-      // optimal is now 1, min is 2 — validation error
-      await waitFor(() => {
-        expect(screen.getByTestId("coverage-validation-error")).toBeInTheDocument();
-      });
-
-      await act(async () => { vi.advanceTimersByTime(900); await Promise.resolve(); });
-
-      const putCalls = fetchSpy.mock.calls.filter(([u, o]) => u === "/api/settings" && o?.method === "PUT");
-      expect(putCalls).toHaveLength(0);
-      vi.useRealTimers();
+      expect(screen.queryByTestId("coverage-optimal-plus")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("coverage-optimal-minus")).not.toBeInTheDocument();
     });
   });
 
@@ -393,7 +372,7 @@ describe("SettingsPageClient — auto-save", () => {
       vi.useRealTimers();
     });
 
-    it("coverage tap: no fetch, shows 'Saved ✓' after debounce", async () => {
+    it("coverage alerts toggle: no fetch in demo mode", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const fetchSpy = vi.spyOn(global, "fetch");
 
@@ -401,15 +380,13 @@ describe("SettingsPageClient — auto-save", () => {
       await screen.findByTestId("store-hours-section");
 
       await act(async () => {
-        fireEvent.click(screen.getByTestId("coverage-optimal-plus"));
-        vi.advanceTimersByTime(1100);
-        await Promise.resolve();
+        fireEvent.click(screen.getByRole("switch", { name: /coverage alerts/i }));
+        vi.advanceTimersByTime(300);
         await Promise.resolve();
       });
 
       const putCalls = fetchSpy.mock.calls.filter(([, o]) => o?.method === "PUT");
       expect(putCalls).toHaveLength(0);
-      expect(screen.getByTestId("coverage-status").textContent).toMatch(/Saved/);
       vi.useRealTimers();
     });
 

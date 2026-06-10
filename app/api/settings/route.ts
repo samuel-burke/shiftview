@@ -26,8 +26,6 @@ export async function GET() {
   const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   return NextResponse.json({
     firstDayOfWeek:       parseInt(map.first_day_of_week  ?? "6"),
-    optimalCoverage:      parseInt(map.optimal_coverage   ?? "3"),
-    minCoverage:          parseInt(map.minimum_coverage   ?? "2"),
     coverageAlertsEnabled: map.coverage_alerts_enabled !== "false",
     timezone:             map.timezone ?? "America/New_York",
     emailNotifications:   map.email_notifications === "true",
@@ -56,20 +54,6 @@ export async function PUT(request: Request) {
     if (!Number.isInteger(v) || v < 0 || v > 6)
       return NextResponse.json({ error: "firstDayOfWeek must be 0–6" }, { status: 400 });
     rows.push({ key: "first_day_of_week", value: String(v) });
-  }
-
-  if (body.optimalCoverage !== undefined) {
-    const v = Number(body.optimalCoverage);
-    if (!Number.isInteger(v) || v < 1)
-      return NextResponse.json({ error: "optimalCoverage must be ≥ 1" }, { status: 400 });
-    rows.push({ key: "optimal_coverage", value: String(v) });
-  }
-
-  if (body.minCoverage !== undefined) {
-    const v = Number(body.minCoverage);
-    if (!Number.isInteger(v) || v < 0)
-      return NextResponse.json({ error: "minCoverage must be ≥ 0" }, { status: 400 });
-    rows.push({ key: "minimum_coverage", value: String(v) });
   }
 
   if (body.timezone !== undefined) {

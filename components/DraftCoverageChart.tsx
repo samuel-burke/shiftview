@@ -2,23 +2,18 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  AreaChart,
+  ComposedChart,
   Area,
-  LineChart,
   Line,
+  LineChart,
   XAxis,
   YAxis,
   Tooltip,
-  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 import { Schedule, StoreHours, fmtMinutes } from "../data/types";
-import {
-  dayOfWeek,
-  headcountAt,
-  recommendedHoursForDay,
-  scheduledHoursForDate,
-} from "../lib/draft-metrics";
+import { dayOfWeek, headcountAt, scheduledHoursForDate } from "../lib/draft-metrics";
+import { CoverageBlock, SLOT_MINUTES, curveHours, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -27,7 +22,7 @@ type Props = {
   drafts: Schedule[];
   dates: string[]; // 7 YYYY-MM-DD dates
   storeHours: Record<number, StoreHours>;
-  optimalCoverage: number;
+  curves: Record<string, CoverageBlock[]>; // date -> target coverage curve
 };
 
 function LegendChip({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
@@ -42,7 +37,7 @@ function LegendChip({ color, label, dashed = false }: { color: string; label: st
   );
 }
 
-export default function DraftCoverageChart({ drafts, dates, storeHours, optimalCoverage }: Props) {
+export default function DraftCoverageChart({ drafts, dates, storeHours, curves }: Props) {
   const { mode } = useTheme();
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -60,33 +55,48 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, optimalC
   const byDayData = useMemo(
     () => dates.map((date) => ({
       label: DAY_LABELS[dayOfWeek(date)],
-      recommended: Math.round(recommendedHoursForDay(storeHours[dayOfWeek(date)], optimalCoverage) * 10) / 10,
+      recommended: Math.round(curveHours(curves[date] ?? []) * 10) / 10,
       scheduled: Math.round(scheduledHoursForDate(drafts, date) * 10) / 10,
     })),
-    [dates, drafts, storeHours, optimalCoverage]
+    [dates, drafts, curves]
   );
 
   const hourDate = dates[hourDayIdx];
+  const hourCurve = curves[hourDate] ?? [];
   const hourDayHours = storeHours[dayOfWeek(hourDate)];
 
+  // X-range covers the store's open hours and the curve span, whichever is wider.
+  const hourRange = useMemo(() => {
+    const starts = [...hourCurve.map((b) => b.startMinutes)];
+    const ends = [...hourCurve.map((b) => b.endMinutes)];
+    if (hourDayHours && hourDayHours.close > hourDayHours.open) {
+      starts.push(hourDayHours.open);
+      ends.push(hourDayHours.close);
+    }
+    if (starts.length === 0) return null;
+    return { start: Math.min(...starts), end: Math.max(...ends) };
+  }, [hourCurve, hourDayHours]);
+
   const byHourData = useMemo(() => {
-    if (!hourDayHours || hourDayHours.close <= hourDayHours.open) return [];
-    const pts: { label: string; scheduled: number }[] = [];
-    for (let m = hourDayHours.open; m <= hourDayHours.close; m += 30) {
+    if (!hourRange) return [];
+    const pts: { label: string; scheduled: number; target: number }[] = [];
+    for (let m = hourRange.start; m <= hourRange.end; m += SLOT_MINUTES) {
+      const sample = Math.min(m, hourRange.end - 1);
       pts.push({
         label: fmtMinutes(m),
-        scheduled: headcountAt(drafts, hourDate, Math.min(m, hourDayHours.close - 1)),
+        scheduled: headcountAt(drafts, hourDate, sample),
+        target: targetAt(hourCurve, sample),
       });
     }
     return pts;
-  }, [drafts, hourDate, hourDayHours]);
+  }, [drafts, hourDate, hourCurve, hourRange]);
 
   const hourTicks = useMemo(() => {
-    if (!hourDayHours) return [];
+    if (!hourRange) return [];
     const result: string[] = [];
-    for (let m = hourDayHours.open; m <= hourDayHours.close; m += 240) result.push(fmtMinutes(m));
+    for (let m = hourRange.start; m <= hourRange.end; m += 240) result.push(fmtMinutes(m));
     return result;
-  }, [hourDayHours]);
+  }, [hourRange]);
 
   return (
     <motion.div
@@ -154,7 +164,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, optimalC
             <Line type="monotone" dataKey="scheduled" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 2.5, fill: "#3b82f6", strokeWidth: 0 }} />
           </LineChart>
         ) : (
-          <AreaChart data={byHourData} margin={{ top: 12, right: 8, left: -28, bottom: 0 }}>
+          <ComposedChart data={byHourData} margin={{ top: 12, right: 8, left: -28, bottom: 0 }}>
             <defs>
               <linearGradient id="draftCovGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
@@ -165,17 +175,11 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, optimalC
             <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(v) => [`${v} scheduled`, "Scheduled"]}
-            />
-            <ReferenceLine
-              y={optimalCoverage}
-              stroke="#818cf8"
-              strokeWidth={1.5}
-              strokeDasharray="5 4"
-              label={{ value: "Recommended", fill: "#818cf8", fontSize: 10, position: "insideTopRight" }}
+              formatter={(v, name) => (name === "target" ? [`${v} target`, "Recommended"] : [`${v} scheduled`, "Scheduled"])}
             />
             <Area type="stepAfter" dataKey="scheduled" stroke="#3b82f6" strokeWidth={2.5} fill="url(#draftCovGrad)" dot={false} />
-          </AreaChart>
+            <Line type="stepAfter" dataKey="target" stroke="#818cf8" strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={false} />
+          </ComposedChart>
         )}
       </ResponsiveContainer>
     </motion.div>
