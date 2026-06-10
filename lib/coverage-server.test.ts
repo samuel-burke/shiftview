@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { getCurveForDate } from "./coverage-server";
 import { makeSupabaseClient } from "@/app/api/__tests__/helpers";
 
@@ -95,7 +95,7 @@ describe("getCurveForDate", () => {
 
   it("date override takes precedence over day-of-week default", async () => {
     // If date override exists, day-defaults should NOT be queried
-    let dayDefaultsQueried = false;
+    const dayDefaultsQueried = false;
     const supabase = makeSupabaseClient({
       tableOverrides: {
         coverage_date_overrides: { data: { profile_id: 10 }, error: null },
