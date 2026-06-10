@@ -726,6 +726,17 @@ export default function SchedulePageClient() {
           />
         </div>
       )}
+
+      {isManager && (
+        <motion.button
+          onClick={() => router.push(`/draft${isDemo ? "?demo=true" : ""}`)}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+        >
+          Plan Draft Schedule
+        </motion.button>
+      )}
     </>
   );
 
