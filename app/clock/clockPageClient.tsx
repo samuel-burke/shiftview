@@ -475,8 +475,9 @@ export default function ClockPageClient() {
   return (
     <AppShell {...appShellProps}>
     <main className={mainClass}>
+      {/* Mobile banner comes from AppShell's TopBar; this one is desktop-only */}
       {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
+        <div className="hidden [@media(min-width:900px)]:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
           <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
