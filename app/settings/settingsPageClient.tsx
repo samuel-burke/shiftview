@@ -13,7 +13,7 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
-import { DEMO_EMPLOYEES, DEMO_STORE_HOURS, DEMO_SETTINGS } from "../../data/demo-fixtures";
+import { useAppData } from "../../lib/AppDataContext";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -187,80 +187,28 @@ function EmployeeAvailabilityRow({
 }
 
 export default function SettingsPageClient({
-  isDemo = false,
   isManagerInitial = false,
 }: {
-  isDemo?: boolean;
   isManagerInitial?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const { me } = useAppData();
+  const isDemo = me.isDemo;
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
   const [coverageAlertsSaving, setCoverageAlertsSaving] = useState(false);
-  const [optimalCoverage, setOptimalCoverage] = useState(3);
-  const [minCoverage, setMinCoverage] = useState(2);
 
   async function saveCoverageAlerts(newValue: boolean) {
     setCoverageAlertsSaving(true);
-    if (!isDemo) {
-      await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverageAlertsEnabled: newValue }),
-      });
-    }
-    setCoverageAlertsSaving(false);
-  }
-  const [coverageStatus, setCoverageStatus] = useState<SaveStatus>("idle");
-  const [coverageValidationError, setCoverageValidationError] = useState<string | null>(null);
-  const coverageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function scheduleCoverageSave(nextOptimal: number, nextMin: number) {
-    if (nextMin > nextOptimal) {
-      setCoverageValidationError("Minimum cannot exceed optimal");
-      if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
-      return;
-    }
-    setCoverageValidationError(null);
-    if (coverageTimerRef.current) clearTimeout(coverageTimerRef.current);
-    coverageTimerRef.current = setTimeout(() => doSaveCoverage(nextOptimal, nextMin), 800);
-  }
-
-  async function doSaveCoverage(optimal: number, min: number) {
-    setCoverageStatus("saving");
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setCoverageStatus("saved");
-      setTimeout(() => setCoverageStatus("idle"), 2000);
-      return;
-    }
-    const res = await fetch("/api/settings", {
+    await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ optimalCoverage: optimal, minCoverage: min }),
+      body: JSON.stringify({ coverageAlertsEnabled: newValue }),
     });
-    if (res.ok) {
-      setCoverageStatus("saved");
-      setTimeout(() => setCoverageStatus("idle"), 2000);
-    } else {
-      setCoverageStatus("error");
-      setTimeout(() => setCoverageStatus("idle"), 4000);
-    }
-  }
-
-  function stepOptimal(delta: number) {
-    const next = Math.max(1, optimalCoverage + delta);
-    setOptimalCoverage(next);
-    scheduleCoverageSave(next, minCoverage);
-  }
-
-  function stepMin(delta: number) {
-    const next = Math.max(0, minCoverage + delta);
-    setMinCoverage(next);
-    scheduleCoverageSave(optimalCoverage, next);
+    setCoverageAlertsSaving(false);
   }
 
   // ── Week Start ──────────────────────────────────────────────────────────────
@@ -270,12 +218,6 @@ export default function SettingsPageClient({
   async function saveFirstDay(value: number) {
     setFirstDayOfWeek(value);
     setFirstDayStatus("saving");
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setFirstDayStatus("saved");
-      setTimeout(() => setFirstDayStatus("idle"), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -297,12 +239,6 @@ export default function SettingsPageClient({
   async function saveTimezone(value: string) {
     setTimezone(value);
     setTimezoneStatus("saving");
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setTimezoneStatus("saved");
-      setTimeout(() => setTimezoneStatus("idle"), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -419,13 +355,6 @@ export default function SettingsPageClient({
     if (geofenceLat === null || geofenceLng === null) return;
     setGeofenceSaving(true);
     setGeofenceError(null);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setGeofenceSaving(false);
-      setGeofenceSaved(true);
-      setTimeout(() => setGeofenceSaved(false), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -447,13 +376,6 @@ export default function SettingsPageClient({
 
   async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean; geofenceEnabled?: boolean }) {
     setTimeclockSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setTimeclockSaving(false);
-      setTimeclockSaved(true);
-      setTimeout(() => setTimeclockSaved(false), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -516,26 +438,23 @@ export default function SettingsPageClient({
   const [notifPrefsSaving, setNotifPrefsSaving] = useState<Partial<Record<keyof NotifPrefs, boolean>>>({});
 
   useEffect(() => {
-    if (isDemo) return;
     fetch("/api/notification-preferences")
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((prefs: NotifPrefs) => setNotifPrefs(prefs))
       .catch(() => {});
-  }, [isDemo]);
+  }, []);
 
   async function toggleNotifPref(key: keyof NotifPrefs) {
     const next = !notifPrefs[key];
     setNotifPrefs((p) => ({ ...p, [key]: next }));
     setNotifPrefsSaving((s) => ({ ...s, [key]: true }));
-    if (!isDemo) {
-      const res = await fetch("/api/notification-preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [key]: next }),
-      }).catch(() => null);
-      if (!res?.ok) {
-        setNotifPrefs((p) => ({ ...p, [key]: !next }));
-      }
+    const res = await fetch("/api/notification-preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: next }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setNotifPrefs((p) => ({ ...p, [key]: !next }));
     }
     setNotifPrefsSaving((s) => ({ ...s, [key]: false }));
   }
@@ -544,8 +463,6 @@ export default function SettingsPageClient({
 
   // Supabase Realtime — live updates for employees and store hours
   useEffect(() => {
-    if (isDemo) return;
-
     function refetchEmployees() {
       fetch("/api/employees")
         .then((r) => r.ok ? r.json() : Promise.reject())
@@ -567,7 +484,7 @@ export default function SettingsPageClient({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo]);
+  }, []);
 
   function urlBase64ToUint8Array(base64: string): Uint8Array {
     const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -637,7 +554,7 @@ export default function SettingsPageClient({
     }
   }
 
-  const [loading, setLoading] = useState(!isDemo);
+  const [loading, setLoading] = useState(true);
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
 
@@ -650,71 +567,48 @@ export default function SettingsPageClient({
 
   // ── Initial data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isDemo) {
-      supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
-    }
-    if (!isDemo) {
-      fetch("/api/settings")
-        .then((r) => r.json())
-        .then((s) => {
-          if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
-          if (s.optimalCoverage != null) setOptimalCoverage(s.optimalCoverage);
-          if (s.minCoverage     != null) setMinCoverage(s.minCoverage);
-          if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
-          if (s.timezone)                setTimezone(s.timezone);
-          if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
-          if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
-          if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
-          if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
-          if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
-          if (s.geofenceRadius  != null) setGeofenceRadius(s.geofenceRadius);
-          if (s.geofenceAddress != null) {
-            setGeofenceAddress(s.geofenceAddress);
-            setAddressInput(s.geofenceAddress);
-          }
-        })
-        .catch(() => {});
-      fetch("/api/employees")
-        .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((emps: Employee[]) => setEmployees(emps))
-        .catch(() => {});
-      fetch("/api/me")
-        .then((r) => r.json())
-        .then(({ isManager: mgr, employeeId: empId }) => {
-          if (mgr != null) setIsManager(mgr);
-          if (empId != null) setEmployeeId(empId);
-          if (mgr) {
-            fetch("/api/templates")
-              .then((r) => r.ok ? r.json() : Promise.reject())
-              .then(({ templates: t }) => setTemplates(t ?? []))
-              .catch(() => {});
-            fetch("/api/store-hours")
-              .then((r) => r.ok ? r.json() : Promise.reject())
-              .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-              .catch(() => {});
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else {
-      setIsManager(true);
-      setCurrentUserId("demo-manager");
-      setEmployees(DEMO_EMPLOYEES.map(e => ({
-        id: e.id,
-        name: e.name,
-        email: e.email ?? null,
-        user_id: e.user_id ?? null,
-      })));
-      setWeeklyHours(DEMO_STORE_HOURS);
-      setOptimalCoverage(DEMO_SETTINGS.optimalCoverage);
-      setCoverageAlertsEnabled(DEMO_SETTINGS.coverageAlertsEnabled);
-      setMinCoverage(DEMO_SETTINGS.minCoverage);
-      setTimezone(DEMO_SETTINGS.timezone);
-      setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
-      setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
-      setGpsRequired(DEMO_SETTINGS.gpsRequired);
-    }
-  }, [isDemo]);
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => {
+        if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
+        if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
+        if (s.timezone)                setTimezone(s.timezone);
+        if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
+        if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
+        if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
+        if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
+        if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
+        if (s.geofenceRadius  != null) setGeofenceRadius(s.geofenceRadius);
+        if (s.geofenceAddress != null) {
+          setGeofenceAddress(s.geofenceAddress);
+          setAddressInput(s.geofenceAddress);
+        }
+      })
+      .catch(() => {});
+    fetch("/api/employees")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((emps: Employee[]) => setEmployees(emps))
+      .catch(() => {});
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(({ isManager: mgr, employeeId: empId }) => {
+        if (mgr != null) setIsManager(mgr);
+        if (empId != null) setEmployeeId(empId);
+        if (mgr) {
+          fetch("/api/templates")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(({ templates: t }) => setTemplates(t ?? []))
+            .catch(() => {});
+          fetch("/api/store-hours")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+            .catch(() => {});
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────
   async function handleSignOut() {
@@ -727,13 +621,6 @@ export default function SettingsPageClient({
     if (!trimmed) { setEditError("Name cannot be empty"); return; }
     setEditSaving(true);
     setEditError(null);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setEmployees((prev) => prev.map((e) => e.id === id ? { ...e, name: trimmed } : e));
-      setEditSaving(false);
-      setEditingId(null);
-      return;
-    }
     const res = await fetch("/api/employees", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -753,12 +640,6 @@ export default function SettingsPageClient({
     setConfirmDeleteEmployee(null);
     setDeletingId(id);
     setDeleteErrorId(null);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setDeletingId(null);
-      setEmployees((prev) => prev.filter((e) => e.id !== id));
-      return;
-    }
     const res = await fetch("/api/employees", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -820,7 +701,6 @@ export default function SettingsPageClient({
             employeeId={employeeId}
             weeklyHours={weeklyHours}
             firstDayOfWeek={firstDayOfWeek}
-            isDemo={isDemo}
           />
         )}
 
@@ -971,7 +851,7 @@ export default function SettingsPageClient({
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Store Hours
           </div>
-          <StoreHoursSection firstDayOfWeek={firstDayOfWeek} isDemo={isDemo} />
+          <StoreHoursSection firstDayOfWeek={firstDayOfWeek} />
         </section>
         )}
 
@@ -1007,70 +887,19 @@ export default function SettingsPageClient({
               </button>
             </div>
 
-            <div className={`transition-opacity ${coverageAlertsEnabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
-            <div className="flex items-center justify-between mb-4">
+            <button
+              data-testid="coverage-profiles-link"
+              onClick={() => router.push("/coverage")}
+              className="w-full flex items-center justify-between bg-bg border border-slate-700 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-500/50 transition-colors text-left"
+            >
               <div>
-                <div className="text-sm font-semibold text-slate-200">Optimal coverage</div>
-                <div className="text-xs text-slate-500 mt-0.5">Minimum staff for green status</div>
+                <div className="text-sm font-semibold text-slate-200">Coverage Profiles</div>
+                <div className="text-xs text-slate-500 mt-0.5">Target staffing curves per day, in 15-minute steps</div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  data-testid="coverage-optimal-minus"
-                  onClick={() => stepOptimal(-1)}
-                  aria-label="Decrease optimal coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  −
-                </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
-                  {optimalCoverage}
-                </span>
-                <button
-                  data-testid="coverage-optimal-plus"
-                  onClick={() => stepOptimal(1)}
-                  aria-label="Increase optimal coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-200">Minimum coverage</div>
-                <div className="text-xs text-slate-500 mt-0.5">Below this shows red alert</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  data-testid="coverage-min-minus"
-                  onClick={() => stepMin(-1)}
-                  aria-label="Decrease minimum coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  −
-                </button>
-                <span className="text-lg font-bold text-slate-100 w-7 text-center tabular-nums" aria-live="polite" aria-atomic="true">
-                  {minCoverage}
-                </span>
-                <button
-                  data-testid="coverage-min-plus"
-                  onClick={() => stepMin(1)}
-                  aria-label="Increase minimum coverage"
-                  className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-lg flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {coverageValidationError && (
-              <div role="alert" className="text-xs text-red-400" data-testid="coverage-validation-error">
-                {coverageValidationError}
-              </div>
-            )}
-            <SaveStatusText status={coverageStatus} testId="coverage-status" />
-            </div>{/* end threshold controls wrapper */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0">
+                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
         </section>}
 
@@ -1547,13 +1376,13 @@ export default function SettingsPageClient({
           </div>
           <div className="flex flex-col gap-2">
             <button
-              onClick={() => router.push(isDemo ? "/reports?demo=true" : "/reports")}
+              onClick={() => router.push("/reports")}
               className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
             >
               View Reports
             </button>
             <button
-              onClick={() => router.push(isDemo ? "/admin?demo=true" : "/admin")}
+              onClick={() => router.push("/admin")}
               className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
             >
               Manage Roles
@@ -1562,23 +1391,14 @@ export default function SettingsPageClient({
         </section>
         )}
 
-        {/* Sign out / Sign in */}
+        {/* Sign out */}
         <section className="pb-2">
-          {isDemo ? (
-            <button
-              onClick={() => router.push("/login")}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-            >
-              Sign In
-            </button>
-          ) : (
-            <button
-              onClick={handleSignOut}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-            >
-              Sign Out
-            </button>
-          )}
+          <button
+            onClick={handleSignOut}
+            className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+          >
+            Sign Out
+          </button>
         </section>
       </div>
 
@@ -1588,22 +1408,11 @@ export default function SettingsPageClient({
         onClose={() => setShowInvite(false)}
         onSuccess={() => {
           setShowInvite(false);
-          if (!isDemo) {
-            fetch("/api/employees")
-              .then((r) => r.ok ? r.json() : Promise.reject())
-              .then(setEmployees)
-              .catch(() => {});
-          }
+          fetch("/api/employees")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(setEmployees)
+            .catch(() => {});
         }}
-        onSubmit={isDemo
-          ? async (name, email) => {
-              setEmployees((prev) => [
-                ...prev,
-                { id: Date.now(), name, email, user_id: null },
-              ]);
-            }
-          : undefined
-        }
       />
 
       {/* Delete confirmation modal */}

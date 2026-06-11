@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtMinutes } from "../data/types";
-import { DEMO_STORE_HOURS } from "../data/demo-fixtures";
 
 type Props = {
   firstDayOfWeek?: number;
-  isDemo?: boolean;
 };
 
 type DayData = {
@@ -42,13 +40,13 @@ function timeStrToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }: Props) {
+export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
   const orderedDays = Array.from({ length: 7 }, (_, i) => (i + firstDayOfWeek) % 7);
 
   const [days, setDays] = useState<Record<number, DayData>>(() => {
     const d: Record<number, DayData> = {};
     for (let i = 0; i < 7; i++) {
-      const src = isDemo ? DEMO_STORE_HOURS[i] : DEFAULT_HOURS[i];
+      const src = DEFAULT_HOURS[i];
       d[i] = { open: src.open, close: src.close, saveStatus: "idle" };
     }
     return d;
@@ -62,7 +60,6 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isDemo) return;
     fetch("/api/store-hours")
       .then((r) => r.json())
       .then((data: Record<number, { open: number; close: number }>) => {
@@ -75,7 +72,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
         });
       })
       .catch(() => {});
-  }, [isDemo]);
+  }, []);
 
   function openSheet(dow: number) {
     setActiveDow(dow);
@@ -112,11 +109,6 @@ export default function StoreHoursSection({ firstDayOfWeek = 0, isDemo = false }
   }
 
   async function doSave(dow: number, open: number, close: number) {
-    if (isDemo) {
-      setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], saveStatus: "saved" } }));
-      setTimeout(() => setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], saveStatus: "idle" } })), 2000);
-      return;
-    }
     const res = await fetch("/api/store-hours", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

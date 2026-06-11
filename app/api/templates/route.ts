@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrg } from "@/lib/org-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +20,16 @@ type TemplateRowInput = {
   endMinutes: number;
 };
 
-export async function GET() {
+export async function GET(request?: Request) {
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data, error } = await supabase
     .from("schedule_templates")
     .select("id, name, created_at, schedule_template_rows(id)")
+    .eq("org_id", orgId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -47,7 +49,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
 
   const { data: template, error: tplError } = await supabase
     .from("schedule_templates")
-    .insert({ name: name.trim() })
+    .insert(withOrg(orgId, { name: name.trim() }))
     .select("id")
     .single();
 
@@ -71,13 +73,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  const rowData = rows.map((r: TemplateRowInput) => ({
-    template_id: template.id,
-    employee_id: r.employeeId,
-    day_of_week: r.dayOfWeek,
-    start_minutes: r.startMinutes,
-    end_minutes: r.endMinutes,
-  }));
+  const rowData = rows.map((r: TemplateRowInput) =>
+    withOrg(orgId, {
+      template_id: template.id,
+      employee_id: r.employeeId,
+      day_of_week: r.dayOfWeek,
+      start_minutes: r.startMinutes,
+      end_minutes: r.endMinutes,
+    })
+  );
 
   const { error: rowError } = await supabase
     .from("schedule_template_rows")
@@ -90,6 +94,7 @@ export async function POST(request: Request) {
 
   writeAuditLog({
     action:       "template.create",
+    orgId,
     actorId:      user?.id,
     resourceType: "schedule_template",
     resourceId:   String(template.id),

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
-import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
+import { getOrgContext } from "@/lib/org-context";
+import { isDemoOrgId } from "@/lib/demo-org";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -19,17 +20,23 @@ function sortByName<T extends { name: string }>(rows: T[]): T[] {
   });
 }
 
-export async function GET(_request: Request) {
+export async function GET(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) {
-    return NextResponse.json(sortByName(DEMO_EMPLOYEES));
+  if (error === "Not authenticated") {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (error) {
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
   }
 
-  const { data, error } = await supabase.from("employees").select("id, name, email, user_id");
-  if (error) {
-    console.error("[api/employees]", error);
+  const { data, error: dbError } = await supabase
+    .from("employees")
+    .select("id, name, email, user_id")
+    .eq("org_id", ctx!.orgId);
+  if (dbError) {
+    console.error("[api/employees]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
   return NextResponse.json(sortByName(data ?? []));
@@ -51,16 +58,29 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
+  // Demo org: visitors may rename employees or unlink/claim a row for
+  // themselves, but must not attach arbitrary real user ids to demo rows.
+  if (
+    isDemoOrgId(orgId!) &&
+    typeof userId === "string" &&
+    userId !== user!.id
+  )
+    return NextResponse.json(
+      { error: "Linking other accounts is disabled in the demo organization" },
+      { status: 403 }
+    );
+
   const { data: before } = await supabase
     .from("employees")
     .select("id, name, email, user_id")
+    .eq("org_id", orgId!)
     .eq("id", id)
     .maybeSingle();
 
@@ -71,7 +91,11 @@ export async function PATCH(request: Request) {
   if (Object.keys(updates).length === 0)
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
 
-  const { error } = await supabase.from("employees").update(updates).eq("id", id);
+  const { error } = await supabase
+    .from("employees")
+    .update(updates)
+    .eq("org_id", orgId!)
+    .eq("id", id);
 
   if (error) {
     console.error("[api/employees]", error);
@@ -80,6 +104,7 @@ export async function PATCH(request: Request) {
 
   writeAuditLog({
     action:       "employee.update",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
     resourceId:   String(id),
@@ -103,7 +128,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -111,18 +136,22 @@ export async function DELETE(request: Request) {
   const { data: employee } = await supabase
     .from("employees")
     .select("id, user_id, name, email")
+    .eq("org_id", orgId!)
     .eq("id", id)
     .maybeSingle();
 
   if (!employee)
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
-  const { user: currentUser } = await requireManager(supabase);
-  if (employee.user_id && employee.user_id === currentUser?.id)
+  if (employee.user_id && employee.user_id === user?.id)
     return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
 
   // Delete schedules first so FK constraint doesn't block employee removal
-  const { error: scheduleError } = await supabase.from("schedules").delete().eq("employee_id", id);
+  const { error: scheduleError } = await supabase
+    .from("schedules")
+    .delete()
+    .eq("org_id", orgId!)
+    .eq("employee_id", id);
   if (scheduleError) {
     console.error("[api/employees]", scheduleError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -131,6 +160,7 @@ export async function DELETE(request: Request) {
   const { data: deleted, error } = await supabase
     .from("employees")
     .delete()
+    .eq("org_id", orgId!)
     .eq("id", id)
     .select("id");
 
@@ -144,12 +174,13 @@ export async function DELETE(request: Request) {
   // Delete auth account and manager role if the employee had a linked user
   if (employee.user_id) {
     const admin = createAdminClient();
-    await admin.from("managers").delete().eq("user_id", employee.user_id);
+    await admin.from("managers").delete().eq("org_id", orgId!).eq("user_id", employee.user_id);
     await admin.auth.admin.deleteUser(employee.user_id);
   }
 
   writeAuditLog({
     action:       "employee.delete",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
     resourceId:   String(id),

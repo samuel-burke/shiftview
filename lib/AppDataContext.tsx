@@ -1,13 +1,10 @@
 "use client";
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import type { Employee, Schedule, PunchRecord, StoreHours } from "@/data/types";
 
 export type AppSettings = {
   firstDayOfWeek: number;
-  optimalCoverage: number;
-  minCoverage: number;
   coverageAlertsEnabled: boolean;
   timezone: string;
   emailNotifications: boolean;
@@ -24,6 +21,9 @@ export type MeData = {
   isManager: boolean;
   employeeId: number | null;
   employeeName: string | null;
+  // True when the session belongs to the demo organization (resolved
+  // server-side by /api/me — demo is a real authenticated session now).
+  isDemo: boolean;
 };
 
 export const DEFAULT_STORE_HOURS: Record<number, StoreHours> = {
@@ -38,8 +38,6 @@ export const DEFAULT_STORE_HOURS: Record<number, StoreHours> = {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   firstDayOfWeek: 6,
-  optimalCoverage: 3,
-  minCoverage: 2,
   coverageAlertsEnabled: true,
   timezone: "America/New_York",
   emailNotifications: false,
@@ -74,7 +72,7 @@ type AppDataContextValue = {
 };
 
 const AppDataContext = createContext<AppDataContextValue>({
-  me: { isManager: false, employeeId: null, employeeName: null },
+  me: { isManager: false, employeeId: null, employeeName: null, isDemo: false },
   storeHours: DEFAULT_STORE_HOURS,
   settings: DEFAULT_SETTINGS,
   sharedLoading: true,
@@ -95,7 +93,7 @@ export function useAppData() {
   return useContext(AppDataContext);
 }
 
-const ME_CACHE_KEY = "sv_me";
+export const ME_CACHE_KEY = "sv_me";
 
 function readMeCache(): MeData | null {
   if (typeof window === "undefined") return null;
@@ -104,7 +102,12 @@ function readMeCache(): MeData | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<MeData>;
     if (typeof parsed.isManager !== "boolean") return null;
-    return { isManager: parsed.isManager, employeeId: parsed.employeeId ?? null, employeeName: parsed.employeeName ?? null };
+    return {
+      isManager: parsed.isManager,
+      employeeId: parsed.employeeId ?? null,
+      employeeName: parsed.employeeName ?? null,
+      isDemo: parsed.isDemo ?? false,
+    };
   } catch {
     return null;
   }
@@ -121,34 +124,35 @@ function clearMeCache() {
 }
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
 
-  const [me, setMe] = useState<MeData>(() => (!isDemo && readMeCache()) || { isManager: false, employeeId: null, employeeName: null });
+  const [me, setMe] = useState<MeData>(() => readMeCache() || { isManager: false, employeeId: null, employeeName: null, isDemo: false });
   const [storeHours, setStoreHours] = useState<Record<number, StoreHours>>(DEFAULT_STORE_HOURS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [sharedLoading, setSharedLoading] = useState(() => isDemo || !readMeCache());
+  const [sharedLoading, setSharedLoading] = useState(() => !readMeCache());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [scheduleCache, setScheduleCacheState] = useState<Record<string, Schedule[]>>({});
   const [punchCache, setPunchCacheState] = useState<Record<string, PunchRecord[]>>({});
   const [myScheduleCache, setMyScheduleCacheState] = useState<Record<string, Schedule[]>>({});
 
-  const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null }) => {
-    const newMe: MeData = { isManager: !!data.isManager, employeeId: data.employeeId ?? null, employeeName: data.employeeName ?? null };
+  const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null; isDemo?: boolean }) => {
+    const newMe: MeData = {
+      isManager: !!data.isManager,
+      employeeId: data.employeeId ?? null,
+      employeeName: data.employeeName ?? null,
+      isDemo: !!data.isDemo,
+    };
     setMe(newMe);
-    if (!isDemo) {
-      if (newMe.employeeId !== null || newMe.isManager) writeMeCache(newMe);
-      else clearMeCache();
-    }
+    if (newMe.employeeId !== null || newMe.isManager) writeMeCache(newMe);
+    else clearMeCache();
   };
 
   const refreshMe = useCallback(() => {
-    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
+    fetch("/api/me")
       .then(r => r.json())
       .then(applyMe)
       .catch(() => {});
-  }, [isDemo]);
+  }, []);
 
   const cacheEmployees = useCallback((data: Employee[]) => {
     setEmployees(data);
@@ -181,9 +185,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (isDemo || !readMeCache()) setSharedLoading(true);
+    if (!readMeCache()) setSharedLoading(true);
     Promise.allSettled([
-      fetch(`/api/me${isDemo ? "?demo=true" : ""}`).then(r => r.json()),
+      fetch("/api/me").then(r => r.json()),
       fetch("/api/store-hours").then(r => r.json()),
       fetch("/api/settings").then(r => r.json()),
     ]).then(([meResult, hoursResult, settingsResult]) => {
@@ -191,11 +195,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (hoursResult.status === "fulfilled") setStoreHours(prev => ({ ...prev, ...hoursResult.value }));
       if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
     }).finally(() => setSharedLoading(false));
-  }, [isDemo]);
+  }, []);
 
   // Re-fetch shared data when the tab comes back to the foreground after being hidden
   useEffect(() => {
-    if (isDemo) return;
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -208,17 +211,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [isDemo, refreshMe, refreshStoreHours, refreshSettings]);
+  }, [refreshMe, refreshStoreHours, refreshSettings]);
 
   useEffect(() => {
-    if (isDemo) return;
     const channel = supabase
       .channel("app-data-shared")
       .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refreshStoreHours)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refreshSettings)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo, refreshStoreHours, refreshSettings]);
+  }, [refreshStoreHours, refreshSettings]);
 
   return (
     <AppDataContext.Provider value={{

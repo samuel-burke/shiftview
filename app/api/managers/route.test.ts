@@ -19,7 +19,7 @@ const mockCreateClient = vi.mocked(createClient);
 describe("GET /api/managers", () => {
   it("returns 401 for unauthenticated requests", async () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: null }) as any);
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/managers"));
     expect(res.status).toBe(401);
   });
 
@@ -27,7 +27,7 @@ describe("GET /api/managers", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({ user: MOCK_USER, isManager: false }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/managers"));
     expect(res.status).toBe(403);
   });
 
@@ -36,12 +36,12 @@ describe("GET /api/managers", () => {
     const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, rpcData });
     mockCreateClient.mockResolvedValue(client as any);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/managers"));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.managerUserIds).toContain(MOCK_USER.id);
     expect(json.managerUserIds).toContain("other-manager-uuid");
-    expect(client.rpc).toHaveBeenCalledWith("notify_get_manager_ids");
+    expect(client.rpc).toHaveBeenCalledWith("notify_get_manager_ids", { p_org_id: expect.any(String) });
   });
 
   it("returns 500 on RPC error", async () => {
@@ -52,7 +52,7 @@ describe("GET /api/managers", () => {
     });
     mockCreateClient.mockResolvedValue(client as any);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/managers"));
     expect(res.status).toBe(500);
   });
 });

@@ -53,31 +53,9 @@ export const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
   denied:   "var(--color-timeoff-denied)",
 };
 
-export const OPTIMAL_COVERAGE = 3;
-export const MINIMUM_COVERAGE = 2;
+// Live status against the day's target coverage curve (see lib/coverage.ts).
 export type CoverageStatus = "optimal" | "low" | "critical" | "closed";
 export type StoreHours = { open: number; close: number };
-
-export function getDayCoverageStatus(
-  schedules: Schedule[],
-  storeHours: StoreHours
-): CoverageStatus {
-  const { open: openMinutes, close: closeMinutes } = storeHours;
-
-  let minCoverage = Infinity;
-
-  for (let t = openMinutes; t < closeMinutes; t += 30) {
-    const count = schedules.filter(
-      (s) => t >= s.startMinutes && t < s.endMinutes
-    ).length;
-    minCoverage = Math.min(minCoverage, count);
-  }
-
-  if (minCoverage === Infinity || minCoverage === 0) return "critical";
-  if (minCoverage < MINIMUM_COVERAGE) return "critical";
-  if (minCoverage < OPTIMAL_COVERAGE) return "low";
-  return "optimal";
-}
 
 export function fmtMinutes(m: number): string {
   if (m < 0) return "";

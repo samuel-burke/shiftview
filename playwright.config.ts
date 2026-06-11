@@ -21,5 +21,8 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // E2E specs intercept all /api/* calls client-side and run without a
+    // Supabase instance; this skips the server-side auth gate (app/page.tsx).
+    env: { E2E_BYPASS_AUTH: "1" },
   },
 });

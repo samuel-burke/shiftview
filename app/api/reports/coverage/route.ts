@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -38,24 +37,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Date range must not exceed 90 days" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    const allDates = daysBetween(from, to);
-    const days = allDates.map((date) => ({
-      date,
-      count: getDemoSchedulesForDate(date).length,
-    }));
-    return NextResponse.json({ days });
+  const { orgId, error: orgError } = await requireManager(supabase, request);
+  if (orgError) {
+    return NextResponse.json(
+      { error: orgError },
+      { status: orgError === "Not authenticated" ? 401 : 403 }
+    );
   }
-
-  const { error: authError } = await requireManager(supabase);
-  if (authError)
-    return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data, error } = await supabase
     .from("schedules")
     .select("date, employee_id")
+    .eq("org_id", orgId)
     .gte("date", from)
     .lte("date", to)
     .limit(10000);

@@ -2,7 +2,11 @@ import { vi } from "vitest";
 
 export const MOCK_USER = { id: "user-123", email: "manager@test.com" };
 
-function makeQueryBuilder(result: { data: any; error: any }) {
+// Matches DEFAULT_ORG_ID in lib/org-context.ts so org assertions in tests can
+// use a stable value.
+export const MOCK_ORG_ID = "00000000-0000-0000-0000-000000000001";
+
+export function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
   for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order"]) {
     b[m] = vi.fn().mockReturnValue(b);
@@ -31,7 +35,12 @@ export function makeSupabaseClient({
   rpcData = null as any,
   rpcError = null as any,
 } = {}) {
-  const managerRow = isManager && user ? { user_id: user.id } : null;
+  const managerRow =
+    isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
+  // Org-aware code resolves the caller's org from the employees row; default
+  // org_id in so existing tests don't have to specify it.
+  const employeeRow =
+    linkedEmployee != null ? { org_id: MOCK_ORG_ID, ...linkedEmployee } : linkedEmployee;
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
@@ -40,7 +49,7 @@ export function makeSupabaseClient({
       if (table === "managers")
         return makeQueryBuilder({ data: managerRow, error: null });
       if (table === "employees" && linkedEmployee !== undefined)
-        return makeQueryBuilder({ data: linkedEmployee, error: null });
+        return makeQueryBuilder({ data: employeeRow, error: null });
       if (tableOverrides[table] !== undefined)
         return makeQueryBuilder(tableOverrides[table]);
       return makeQueryBuilder({ data: queryData, error: queryError });

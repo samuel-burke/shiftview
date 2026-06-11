@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPush, type PushPayload } from "./webpush";
+import { isDemoOrgId } from "./demo-org";
 
 export type NotificationType =
   | "shift_change"
@@ -37,6 +38,9 @@ const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
 };
 
 export type NotifyOptions = {
+  // Organization the notification belongs to; always resolved server-side via
+  // getOrgContext()/requireManager(), never taken from client input.
+  orgId: string;
   userId: string | null;
   type: NotificationType;
   title: string;
@@ -52,6 +56,7 @@ export async function notify(
   options: NotifyOptions
 ): Promise<void> {
   const { error: insertError } = await supabase.rpc("notify_insert", {
+    p_org_id:  options.orgId,
     p_user_id: options.userId,
     p_type:    options.type,
     p_title:   options.title,
@@ -60,7 +65,9 @@ export async function notify(
   });
   if (insertError) console.error("[notify] notify_insert failed:", insertError);
 
-  if (!options.userId) return;
+  // Demo org: keep the in-app notification (the bell works in the demo) but
+  // never push to devices.
+  if (!options.userId || isDemoOrgId(options.orgId)) return;
 
   await sendPushToUser(supabase, options.userId, {
     title: options.title,
@@ -70,17 +77,19 @@ export async function notify(
   }, options.type);
 }
 
-// Helper: notify all managers.
+// Helper: notify all managers of one organization.
 // Inserts one broadcast notification (user_id = null) for the in-app feed,
 // then sends a push to each manager's devices individually.
 export async function notifyManagers(
   supabase: SupabaseClient,
+  orgId: string,
   type: NotificationType,
   title: string,
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
   const { error: mgrInsertError } = await supabase.rpc("notify_insert", {
+    p_org_id:  orgId,
     p_user_id: null,
     p_type:    type,
     p_title:   title,
@@ -89,7 +98,10 @@ export async function notifyManagers(
   });
   if (mgrInsertError) console.error("[notify] notify_insert failed:", mgrInsertError);
 
-  const { data: managers, error: mgrIdsError } = await supabase.rpc("notify_get_manager_ids");
+  // Demo org: in-app broadcast only, no device push.
+  if (isDemoOrgId(orgId)) return;
+
+  const { data: managers, error: mgrIdsError } = await supabase.rpc("notify_get_manager_ids", { p_org_id: orgId });
   if (mgrIdsError) console.error("[notify] notify_get_manager_ids failed:", mgrIdsError);
   if (!managers?.length) return;
 

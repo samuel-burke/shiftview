@@ -19,10 +19,23 @@ export async function GET(request: Request) {
   // then use the same client to call SECURITY DEFINER notify RPCs.
   const supabase = createAdminClient();
 
-  const { data: schedules, error: schedErr } = await supabase
+  // Demo tenants get no reminders: their "employees" are seeded sample data
+  // and their members are anonymous visitors.
+  const { data: demoOrgs, error: demoErr } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("is_demo", true);
+  if (demoErr) {
+    console.error("[cron/reminders] demo orgs fetch failed:", demoErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const demoOrgIds = new Set((demoOrgs ?? []).map((o) => o.id));
+
+  const { data: allSchedules, error: schedErr } = await supabase
     .from("schedules")
-    .select("id, employee_id, date, start_minutes, end_minutes")
+    .select("id, employee_id, org_id, date, start_minutes, end_minutes")
     .eq("date", date);
+  const schedules = (allSchedules ?? []).filter((s) => !demoOrgIds.has(s.org_id));
 
   if (schedErr) {
     console.error("[cron/reminders] schedules fetch failed:", schedErr);
@@ -37,7 +50,7 @@ export async function GET(request: Request) {
 
   const { data: employees, error: empErr } = await supabase
     .from("employees")
-    .select("id, name, user_id")
+    .select("id, org_id, name, user_id")
     .in("id", employeeIds);
 
   if (empErr) {
@@ -45,8 +58,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  // Key employees by `${org_id}:${id}` because employee ids are only unique
+  // per org — the same numeric id can appear in multiple organizations.
   const empMap = new Map(
-    (employees ?? []).map((e) => [e.id, e])
+    (employees ?? []).map((e) => [`${e.org_id}:${e.id}`, e])
   );
 
   const formattedDate = new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
@@ -60,7 +75,7 @@ export async function GET(request: Request) {
   let skipped = 0;
 
   for (const schedule of schedules) {
-    const employee = empMap.get(schedule.employee_id);
+    const employee = empMap.get(`${schedule.org_id}:${schedule.employee_id}`);
     if (!employee?.user_id) {
       skipped++;
       continue;
@@ -70,6 +85,7 @@ export async function GET(request: Request) {
     const endTime = fmtMinutes(schedule.end_minutes);
 
     await notify(supabase, {
+      orgId: schedule.org_id,
       userId: employee.user_id,
       type: "shift_reminder",
       title: "Shift Reminder",

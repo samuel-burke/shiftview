@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
-import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
+import { getOrgContext } from "@/lib/org-context";
 import { notify } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrg } from "@/lib/org-scope";
+import { isDemoOrgId } from "@/lib/demo-org";
+import { getCurveForDate } from "@/lib/coverage-server";
+import { findUnderstaffedFromCurves } from "@/lib/coverage";
 
 export const dynamic = "force-dynamic";
 
@@ -20,20 +24,26 @@ export async function GET(request: Request) {
   if (!DATE_RE.test(date)) return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) {
-    return NextResponse.json(getDemoSchedulesForDate(date));
+  if (error === "Not authenticated") {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (error === "No organization membership") {
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
+  const { orgId } = ctx!;
+
+  const { data, error: dbError } = await supabase
     .from("schedules")
     .select("*")
+    .eq("org_id", orgId)
     .eq("date", date)
     .order("start_minutes");
 
-  if (error) {
-    console.error("[api/schedules]", error);
+  if (dbError) {
+    console.error("[api/schedules]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -58,12 +68,13 @@ export async function PUT(request: Request) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("schedules")
     .select("employee_id, date, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
@@ -77,6 +88,7 @@ export async function PUT(request: Request) {
     const { data: timeOff } = await supabase
       .from("time_off_requests")
       .select("id, status")
+      .eq("org_id", orgId)
       .eq("employee_id", empId)
       .eq("date", dateStr)
       .eq("status", "approved")
@@ -93,6 +105,7 @@ export async function PUT(request: Request) {
     const { data: availRecord } = await supabase
       .from("availability")
       .select("id, start_minutes, end_minutes")
+      .eq("org_id", orgId)
       .eq("employee_id", empId)
       .eq("day_of_week", dayOfWeek)
       .maybeSingle();
@@ -118,6 +131,7 @@ export async function PUT(request: Request) {
   const { error } = await supabase
     .from("schedules")
     .update({ start_minutes: startMinutes, end_minutes: endMinutes })
+    .eq("org_id", orgId)
     .eq("id", id);
 
   if (error) {
@@ -130,10 +144,12 @@ export async function PUT(request: Request) {
     const { data: emp } = await supabase
       .from("employees")
       .select("user_id, name")
+      .eq("org_id", orgId)
       .eq("id", existing.employee_id)
       .maybeSingle();
     if (emp?.user_id) {
       notify(supabase, {
+        orgId,
         userId: emp.user_id,
         type: "shift_change",
         title: "Shift Updated",
@@ -144,6 +160,7 @@ export async function PUT(request: Request) {
 
     writeAuditLog({
       action:       "schedule.update",
+      orgId,
       actorId:      user?.id,
       resourceType: "schedule",
       resourceId:   String(id),
@@ -175,12 +192,13 @@ export async function POST(request: Request) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("schedules")
     .select("id")
+    .eq("org_id", orgId)
     .eq("employee_id", employeeId)
     .eq("date", date)
     .maybeSingle();
@@ -196,6 +214,7 @@ export async function POST(request: Request) {
     const { data: timeOff } = await supabase
       .from("time_off_requests")
       .select("id, status")
+      .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .eq("date", date)
       .eq("status", "approved")
@@ -212,6 +231,7 @@ export async function POST(request: Request) {
     const { data: availRecord } = await supabase
       .from("availability")
       .select("id, start_minutes, end_minutes")
+      .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .eq("day_of_week", dayOfWeek)
       .maybeSingle();
@@ -236,7 +256,7 @@ export async function POST(request: Request) {
 
   const { error } = await supabase
     .from("schedules")
-    .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
+    .insert(withOrg(orgId, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes }));
 
   if (error) {
     console.error("[api/schedules]", error);
@@ -247,10 +267,12 @@ export async function POST(request: Request) {
   const { data: emp } = await supabase
     .from("employees")
     .select("user_id, name")
+    .eq("org_id", orgId)
     .eq("id", employeeId)
     .maybeSingle();
   if (emp?.user_id) {
     notify(supabase, {
+      orgId,
       userId: emp.user_id,
       type: "shift_change",
       title: "New Shift Scheduled",
@@ -261,6 +283,7 @@ export async function POST(request: Request) {
 
   writeAuditLog({
     action:       "schedule.create",
+    orgId,
     actorId:      user?.id,
     resourceType: "schedule",
     after: { employeeId, date, startMinutes, endMinutes },
@@ -285,19 +308,21 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   // Fetch the schedule before deletion
   const { data: existing } = await supabase
     .from("schedules")
     .select("id, date, employee_id, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
   const { error } = await supabase
     .from("schedules")
     .delete()
+    .eq("org_id", orgId)
     .eq("id", id);
 
   if (error) {
@@ -305,29 +330,45 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  // Check if coverage dropped below minimum and alert managers
+  // Check if coverage dropped below the day's target curve and alert managers
   if (existing?.date) {
-    const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+    const { data: settingsData } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .eq("org_id", orgId);
     const settingsMap = Object.fromEntries((settingsData ?? []).map((r) => [r.key, r.value]));
 
-    if (settingsMap.email_notifications === "true") {
-      const minCoverage = parseInt(settingsMap.minimum_coverage ?? "2");
+    // Coverage alert emails never leave the demo org (visitor-editable
+    // settings can't re-enable them).
+    if (settingsMap.email_notifications === "true" && !isDemoOrgId(orgId!)) {
+      const curve = await getCurveForDate(supabase, orgId!, existing.date);
 
       const { data: remaining } = await supabase
         .from("schedules")
-        .select("id")
+        .select("date, start_minutes, end_minutes")
+        .eq("org_id", orgId)
         .eq("date", existing.date);
 
-      const remainingCount = (remaining ?? []).length;
+      const remainingSpans = (remaining ?? []).map((s) => ({
+        date:         existing.date,
+        startMinutes: s.start_minutes,
+        endMinutes:   s.end_minutes,
+      }));
+      const understaffed = findUnderstaffedFromCurves(remainingSpans, [existing.date], { [existing.date]: curve });
 
-      if (remainingCount < minCoverage) {
-        const { data: managerRows } = await supabase.from("managers").select("user_id");
+      if (understaffed.length > 0) {
+        const worstShortfall = Math.max(...understaffed.map((u) => u.shortfall));
+        const { data: managerRows } = await supabase
+          .from("managers")
+          .select("user_id")
+          .eq("org_id", orgId);
         const managerUserIds = (managerRows ?? []).map((r: { user_id: string }) => r.user_id);
 
         if (managerUserIds.length > 0) {
           const { data: managerEmployees } = await supabase
             .from("employees")
             .select("email")
+            .eq("org_id", orgId)
             .in("user_id", managerUserIds);
 
           const managerEmails = (managerEmployees ?? [])
@@ -339,7 +380,7 @@ export async function DELETE(request: Request) {
               sendEmail({
                 to: email,
                 subject: `Low coverage alert — ${existing.date}`,
-                html: `<p>Coverage for <strong>${existing.date}</strong> has dropped to <strong>${remainingCount}</strong> (minimum: ${minCoverage}). Please review the schedule.</p><p>— ShiftView</p>`,
+                html: `<p>Coverage for <strong>${existing.date}</strong> has fallen below the target coverage curve (short by up to <strong>${worstShortfall}</strong> staff). Please review the schedule.</p><p>— ShiftView</p>`,
               })
             )
           );
@@ -350,11 +391,13 @@ export async function DELETE(request: Request) {
     const { data: emp } = await supabase
       .from("employees")
       .select("name")
+      .eq("org_id", orgId)
       .eq("id", existing.employee_id)
       .maybeSingle();
 
     writeAuditLog({
       action:       "schedule.delete",
+      orgId,
       actorId:      user?.id,
       resourceType: "schedule",
       resourceId:   String(id),

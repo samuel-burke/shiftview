@@ -1,30 +1,37 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get("demo") === "true") {
-    return NextResponse.json({ isManager: true, employeeId: null, employeeName: "Demo Manager" });
+  const supabase = await createClient();
+  const { ctx, error } = await getOrgContext(supabase, request);
+
+  // Unauthenticated or no org membership — return a blank identity, not an error.
+  if (error) {
+    return NextResponse.json({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Fetch the employee name if the caller has a linked employee in this org.
+  let employeeId: number | null = ctx.employeeId;
+  let employeeName: string | null = null;
 
-  if (!user)
-    return NextResponse.json({ isManager: false, employeeId: null, employeeName: null });
-
-  const [{ data: managerRow }, { data: emp }] = await Promise.all([
-    supabase.from("managers").select("user_id").eq("user_id", user.id).maybeSingle(),
-    supabase.from("employees").select("id, name").eq("user_id", user.id).maybeSingle(),
-  ]);
+  if (employeeId != null) {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("id, name")
+      .eq("org_id", ctx.orgId)
+      .eq("id", employeeId)
+      .maybeSingle();
+    employeeId = emp?.id ?? null;
+    employeeName = emp?.name ?? null;
+  }
 
   return NextResponse.json({
-    isManager: !!managerRow,
-    employeeId: emp?.id ?? null,
-    employeeName: emp?.name ?? null,
+    isManager: ctx.isManager,
+    employeeId,
+    employeeName,
+    isDemo: ctx.isDemo,
   });
 }

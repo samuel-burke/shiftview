@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
 import { localDayBoundsUtc, todayKeyInTz } from "@/lib/punch-date-utils";
 
 export const dynamic = "force-dynamic";
@@ -8,19 +9,21 @@ export const dynamic = "force-dynamic";
 // Returns the most recent open session from a previous day, if any.
 // Used by the clock page on load so associates see the correction requirement
 // before they attempt to clock in.
-export async function GET() {
+export async function GET(request?: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ missedPunch: null });
 
-  const { data: emp } = await supabase
-    .from("employees")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!emp) return NextResponse.json({ missedPunch: null });
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated") return NextResponse.json({ missedPunch: null });
+  if (error) return NextResponse.json({ missedPunch: null });
 
-  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+  const { orgId, employeeId } = ctx!;
+
+  if (!employeeId) return NextResponse.json({ missedPunch: null });
+
+  const { data: settingsData } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .eq("org_id", orgId);
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
@@ -31,7 +34,8 @@ export async function GET() {
   const { data: prevPunch } = await supabase
     .from("punch_records")
     .select("punch_type, punched_at")
-    .eq("employee_id", emp.id)
+    .eq("org_id", orgId)
+    .eq("employee_id", employeeId)
     .lt("punched_at", todayStart.toISOString())
     .order("punched_at", { ascending: false })
     .limit(1)

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { DEMO_STORE_HOURS } from "@/data/demo-fixtures";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,13 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "open must be before close" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { error } = await supabase
     .from("store_hours")
-    .upsert({ day_of_week: dayOfWeek, open_minutes: openMinutes, close_minutes: closeMinutes }, { onConflict: "day_of_week" });
+    .upsert(withOrg(orgId!, { day_of_week: dayOfWeek, open_minutes: openMinutes, close_minutes: closeMinutes }), { onConflict: "org_id,day_of_week" });
 
   if (error) {
     console.error("[api/store-hours]", error);
@@ -38,6 +39,7 @@ export async function PUT(request: Request) {
 
   writeAuditLog({
     action:       "store_hours.update",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "store_hours",
     after: { dayOfWeek, openMinutes, closeMinutes },
@@ -52,21 +54,27 @@ export async function PUT(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-export async function GET() {
+export async function GET(request?: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) {
-    return NextResponse.json(DEMO_STORE_HOURS);
+  if (error === "Not authenticated") {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (error === "No organization membership") {
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
+  const { orgId } = ctx!;
+
+  const { data, error: dbError } = await supabase
     .from("store_hours")
     .select("day_of_week, open_minutes, close_minutes")
+    .eq("org_id", orgId)
     .order("day_of_week");
 
-  if (error) {
-    console.error("[api/store-hours]", error);
+  if (dbError) {
+    console.error("[api/store-hours]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 

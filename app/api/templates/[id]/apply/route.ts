@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrgAll } from "@/lib/org-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -50,6 +51,7 @@ export async function POST(
   const { data: template } = await supabase
     .from("schedule_templates")
     .select("id, name")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
@@ -57,6 +59,7 @@ export async function POST(
   const { data: rows, error: rowErr } = await supabase
     .from("schedule_template_rows")
     .select("employee_id, day_of_week, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .eq("template_id", id);
 
   if (rowErr) {
@@ -74,6 +77,7 @@ export async function POST(
   const { data: existing } = await supabase
     .from("schedules")
     .select("employee_id, date")
+    .eq("org_id", orgId)
     .in("date", uniqueDates);
 
   const existingSet = new Set(
@@ -93,7 +97,9 @@ export async function POST(
 
   if (toInsert.length === 0) return NextResponse.json({ created: 0, skipped });
 
-  const { error: insertErr } = await supabase.from("schedules").insert(toInsert);
+  const { error: insertErr } = await supabase
+    .from("schedules")
+    .insert(withOrgAll(orgId, toInsert));
   if (insertErr) {
     console.error("[api/templates/[id]/apply]", insertErr);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -101,6 +107,7 @@ export async function POST(
 
   writeAuditLog({
     action:       "template.apply",
+    orgId,
     actorId:      user?.id,
     resourceType: "schedule_template",
     resourceId:   String(id),
