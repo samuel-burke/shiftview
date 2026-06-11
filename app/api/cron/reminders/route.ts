@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   const { data: schedules, error: schedErr } = await supabase
     .from("schedules")
-    .select("id, employee_id, date, start_minutes, end_minutes")
+    .select("id, employee_id, org_id, date, start_minutes, end_minutes")
     .eq("date", date);
 
   if (schedErr) {
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
   const { data: employees, error: empErr } = await supabase
     .from("employees")
-    .select("id, name, user_id")
+    .select("id, org_id, name, user_id")
     .in("id", employeeIds);
 
   if (empErr) {
@@ -45,8 +45,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  // Key employees by `${org_id}:${id}` because employee ids are only unique
+  // per org — the same numeric id can appear in multiple organizations.
   const empMap = new Map(
-    (employees ?? []).map((e) => [e.id, e])
+    (employees ?? []).map((e) => [`${e.org_id}:${e.id}`, e])
   );
 
   const formattedDate = new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
@@ -60,7 +62,7 @@ export async function GET(request: Request) {
   let skipped = 0;
 
   for (const schedule of schedules) {
-    const employee = empMap.get(schedule.employee_id);
+    const employee = empMap.get(`${schedule.org_id}:${schedule.employee_id}`);
     if (!employee?.user_id) {
       skipped++;
       continue;
@@ -70,6 +72,7 @@ export async function GET(request: Request) {
     const endTime = fmtMinutes(schedule.end_minutes);
 
     await notify(supabase, {
+      orgId: schedule.org_id,
       userId: employee.user_id,
       type: "shift_reminder",
       title: "Shift Reminder",

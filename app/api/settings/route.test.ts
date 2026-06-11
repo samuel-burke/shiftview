@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -38,7 +38,7 @@ describe("GET /api/settings", () => {
 
   it("returns parsed settings including timezone from the database for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_SETTINGS }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_DB_SETTINGS }) as any
     );
     const res = await GET();
     expect(res.status).toBe(200);
@@ -62,7 +62,7 @@ describe("GET /api/settings", () => {
   it("returns default timezone when not set in database", async () => {
     const noTz = MOCK_DB_SETTINGS.filter((r) => r.key !== "timezone");
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryData: noTz }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: noTz }) as any
     );
     const res = await GET();
     expect(res.status).toBe(200);
@@ -71,7 +71,7 @@ describe("GET /api/settings", () => {
 
 
   it("returns default values when the table is empty for authenticated users", async () => {
-    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, queryData: [] }) as any);
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: [] }) as any);
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
@@ -98,7 +98,7 @@ describe("GET /api/settings", () => {
       { key: "gps_required",           value: "true"  },
     ];
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryData: dbSettings }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: dbSettings }) as any
     );
     const res = await GET();
     const body = await res.json();
@@ -108,7 +108,7 @@ describe("GET /api/settings", () => {
 
   it("returns 500 on database error for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { message: "db error" } }) as any
     );
     const res = await GET();
     expect(res.status).toBe(500);
@@ -270,5 +270,19 @@ describe("PUT /api/settings", () => {
     );
     const res = await PUT(putReq({ firstDayOfWeek: 1 }));
     expect(res.status).toBe(500);
+  });
+
+  // ── Org scoping ──────────────────────────────────────────────────────────────
+
+  it("stamps org_id on every row passed to upsert", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    await PUT(putReq({ firstDayOfWeek: 1 }));
+    // Find the upsert call on the app_settings builder
+    const calls = (client.from as ReturnType<typeof vi.fn>).mock.calls;
+    const settingsCallIdx = calls.findIndex((c: string[]) => c[0] === "app_settings");
+    const builder = (client.from as ReturnType<typeof vi.fn>).mock.results[settingsCallIdx].value;
+    const upsertArgs = (builder.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0] as any[];
+    expect(upsertArgs[0]).toMatchObject({ org_id: MOCK_ORG_ID });
   });
 });

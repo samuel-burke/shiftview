@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { GET, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -40,7 +40,7 @@ describe("GET /api/store-hours", () => {
 
   it("returns store hours keyed by day of week for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_ROWS }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_DB_ROWS }) as any
     );
     const res = await GET();
     expect(res.status).toBe(200);
@@ -49,7 +49,7 @@ describe("GET /api/store-hours", () => {
 
   it("maps snake_case DB fields to open/close", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_DB_ROWS }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_DB_ROWS }) as any
     );
     const res = await GET();
     const body = await res.json();
@@ -59,7 +59,7 @@ describe("GET /api/store-hours", () => {
 
   it("returns 500 on database error for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { message: "db error" } }) as any
     );
     const res = await GET();
     expect(res.status).toBe(500);
@@ -184,5 +184,18 @@ describe("PUT /api/store-hours", () => {
     );
     const res = await PUT(putReq(validBody));
     expect(res.status).toBe(500);
+  });
+
+  // ── Org scoping ──────────────────────────────────────────────────────────────
+
+  it("stamps org_id on the row passed to upsert", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    await PUT(putReq(validBody));
+    const calls = (client.from as ReturnType<typeof vi.fn>).mock.calls;
+    const storeCallIdx = calls.findIndex((c: string[]) => c[0] === "store_hours");
+    const builder = (client.from as ReturnType<typeof vi.fn>).mock.results[storeCallIdx].value;
+    const upsertArgs = (builder.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0] as any;
+    expect(upsertArgs).toMatchObject({ org_id: MOCK_ORG_ID });
   });
 });

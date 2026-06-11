@@ -83,12 +83,12 @@ describe("GET /api/cron/reminders", () => {
 
   it("sends notifications to employees with user_id", async () => {
     const schedules = [
-      { id: 1, employee_id: 1, date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
-      { id: 2, employee_id: 2, date: "2026-01-02", start_minutes: 540, end_minutes: 1020 },
+      { id: 1, employee_id: 1, org_id: "org-1", date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+      { id: 2, employee_id: 2, org_id: "org-1", date: "2026-01-02", start_minutes: 540, end_minutes: 1020 },
     ];
     const employees = [
-      { id: 1, name: "Alice", user_id: "user-1" },
-      { id: 2, name: "Bob", user_id: "user-2" },
+      { id: 1, org_id: "org-1", name: "Alice", user_id: "user-1" },
+      { id: 2, org_id: "org-1", name: "Bob", user_id: "user-2" },
     ];
     vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules, employees }) as any);
 
@@ -106,12 +106,12 @@ describe("GET /api/cron/reminders", () => {
 
   it("skips employees without user_id", async () => {
     const schedules = [
-      { id: 1, employee_id: 1, date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
-      { id: 2, employee_id: 2, date: "2026-01-02", start_minutes: 540, end_minutes: 1020 },
+      { id: 1, employee_id: 1, org_id: "org-1", date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+      { id: 2, employee_id: 2, org_id: "org-1", date: "2026-01-02", start_minutes: 540, end_minutes: 1020 },
     ];
     const employees = [
-      { id: 1, name: "Alice", user_id: null },
-      { id: 2, name: "Bob", user_id: "user-2" },
+      { id: 1, org_id: "org-1", name: "Alice", user_id: null },
+      { id: 2, org_id: "org-1", name: "Bob", user_id: "user-2" },
     ];
     vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules, employees }) as any);
 
@@ -124,5 +124,25 @@ describe("GET /api/cron/reminders", () => {
     const body = await res.json();
     expect(body.sent).toBe(1);
     expect(body.skipped).toBe(1);
+  });
+
+  it("passes the schedule's org_id to notify", async () => {
+    const schedules = [
+      { id: 1, employee_id: 1, org_id: "org-abc", date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+    ];
+    const employees = [
+      { id: 1, org_id: "org-abc", name: "Alice", user_id: "user-1" },
+    ];
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules, employees }) as any);
+
+    const { GET } = await import("./route");
+    const req = new Request("http://localhost/api/cron/reminders", {
+      headers: { "x-cron-secret": "test-secret" },
+    });
+    await GET(req);
+    expect(notify).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ orgId: "org-abc" })
+    );
   });
 });
