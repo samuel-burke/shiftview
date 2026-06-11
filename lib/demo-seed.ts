@@ -212,29 +212,38 @@ export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult
     .select("id, employee_id, date, start_minutes, end_minutes");
   const schedules = must(insertedSchedules, schedError, "schedules insert");
 
-  // 8. Punches for past shifts: clocked in a touch early/late, out on time —
-  //    enough texture for the timesheet and reports pages.
+  // 8. Punches for past shifts AND today's: clocked in a touch early/late,
+  //    a mid-shift break, out near shift end. Today's punches are written for
+  //    the whole day up front — /api/punches caps the day window at "now", so
+  //    a visitor at any hour sees people live: clocked in, on break during
+  //    their (staggered) break window, and clocked out after their shift.
   const punchRows: Array<Record<string, unknown>> = [];
   for (const s of schedules) {
-    if (s.date >= todayKey) continue;
+    if (s.date > todayKey) continue;
     const jitterIn  = ((s.id * 7) % 9) - 3;  // deterministic -3..+5 min
     const jitterOut = (s.id * 5) % 8;        // deterministic 0..+7 min
-    punchRows.push(
-      {
+    const punch = (punch_type: string, minutes: number) =>
+      punchRows.push({
         org_id: DEMO_ORG_ID,
         employee_id: s.employee_id,
         schedule_id: s.id,
-        punch_type: "clock_in",
-        punched_at: zonedToUtcIso(s.date, s.start_minutes + jitterIn, timezone),
-      },
-      {
-        org_id: DEMO_ORG_ID,
-        employee_id: s.employee_id,
-        schedule_id: s.id,
-        punch_type: "clock_out",
-        punched_at: zonedToUtcIso(s.date, s.end_minutes + jitterOut, timezone),
-      }
-    );
+        punch_type,
+        punched_at: zonedToUtcIso(s.date, minutes, timezone),
+      });
+
+    punch("clock_in", s.start_minutes + jitterIn);
+
+    // 30-minute break for shifts of 5h+, staggered per employee (35–56% into
+    // the shift) so someone is usually "On Break" whenever a visitor looks.
+    const shiftLen = s.end_minutes - s.start_minutes;
+    if (shiftLen >= 300) {
+      const fraction = 0.35 + (s.employee_id % 4) * 0.07;
+      const breakStart = s.start_minutes + Math.round((shiftLen * fraction) / 5) * 5;
+      punch("break_start", breakStart);
+      punch("break_end", breakStart + 30);
+    }
+
+    punch("clock_out", s.end_minutes + jitterOut);
   }
   if (punchRows.length > 0) {
     const { error } = await admin.from("punch_records").insert(punchRows);
@@ -310,6 +319,6 @@ export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult
   return {
     employees: employees.length,
     schedules: schedules.length,
-    punches: punchRows.length / 2,
+    punches: punchRows.filter((p) => p.punch_type === "clock_in").length,
   };
 }

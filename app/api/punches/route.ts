@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   const supabase = await createClient();
 
   const { ctx, error } = await getOrgContext(supabase, request);
-  if (error === "Not authenticated") return NextResponse.json([]);
+  if (error === "Not authenticated") return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (error) return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, isManager, employeeId } = ctx!;
@@ -54,12 +54,18 @@ export async function GET(request: Request) {
   const tz = settingsMap.timezone ?? "America/New_York";
   const { start: dayStart, end: dayEnd } = localDayBoundsUtc(date, tz);
 
+  // A day's view never includes punches that haven't happened yet. Attendance
+  // status is derived from the latest punch, so a future-dated row (manual
+  // correction typos, or the demo org's pre-seeded day) would flip someone to
+  // "clocked out" hours before their shift ends.
+  const upperBound = new Date(Math.min(dayEnd.getTime(), Date.now()));
+
   let query = supabase
     .from("punch_records")
     .select("*")
     .eq("org_id", orgId)
     .gte("punched_at", dayStart.toISOString())
-    .lte("punched_at", dayEnd.toISOString())
+    .lte("punched_at", upperBound.toISOString())
     .order("punched_at");
 
   if (!isManager) {
