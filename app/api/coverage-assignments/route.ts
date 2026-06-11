@@ -4,7 +4,6 @@ import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
-import { DEMO_COVERAGE_DEFAULTS } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,7 @@ export async function GET(request: Request) {
   const { ctx, error } = await getOrgContext(supabase, request);
 
   if (error === "Not authenticated")
-    return NextResponse.json({ defaults: DEMO_COVERAGE_DEFAULTS, overrides: {} });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (error)
     return NextResponse.json({ error }, { status: 403 });
 

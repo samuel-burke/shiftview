@@ -97,9 +97,7 @@ function StatCard({
 
 export default function DraftPageClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
-  const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
+  const apiFetch = createApiFetch(() => router.push("/login"));
 
   const { me, storeHours, settings, sharedLoading, employees: cachedEmployees, cacheEmployees } = useAppData();
   const { isManager } = me;
@@ -139,18 +137,18 @@ export default function DraftPageClient() {
 
   // Employees
   useEffect(() => {
-    if (isDemo || !isManager) return;
+    if (!isManager) return;
     const controller = new AbortController();
     apiFetch("/api/employees", { signal: controller.signal })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: Employee[]) => { if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); } })
       .catch(() => {});
     return () => controller.abort();
-  }, [isDemo, isManager]);
+  }, [isManager]);
 
   // Coverage profiles + assignments for the visible week
   useEffect(() => {
-    if (isDemo || !isManager) return;
+    if (!isManager) return;
     let cancelled = false;
     Promise.all([
       apiFetch("/api/coverage-profiles").then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
@@ -164,11 +162,11 @@ export default function DraftPageClient() {
       })
       .catch(() => { if (!cancelled) setMigrationRequired(true); });
     return () => { cancelled = true; };
-  }, [isDemo, isManager, weekStart]);
+  }, [isManager, weekStart]);
 
   // Drafts for the visible week
   useEffect(() => {
-    if (isDemo || !isManager) { setLoading(false); return; }
+    if (!isManager) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -184,7 +182,7 @@ export default function DraftPageClient() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [isDemo, isManager, weekStart]);
+  }, [isManager, weekStart]);
 
   // ---- Derived metrics ----
   // Target coverage curve per date (date override → day-of-week default)
@@ -290,16 +288,14 @@ export default function DraftPageClient() {
   const isLoading = loading || sharedLoading;
   const weekLabel = `${fmtShortDate(dates[0])} – ${fmtShortDate(dates[6])}, ${new Date(dates[6] + "T12:00:00").getFullYear()}`;
 
-  // ---- Non-manager / demo gates ----
-  if (!sharedLoading && (!isManager || isDemo)) {
+  // ---- Non-manager gate ----
+  if (!sharedLoading && !isManager) {
     return (
       <AppShell active="planner" isManager={isManager}>
         <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center [@media(min-width:900px)]:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">🗓️</div>
           <h1 className="text-lg font-bold text-slate-100 mb-1.5">Draft Schedule</h1>
-          <p className="text-sm text-slate-400">
-            {isDemo ? "Draft scheduling is not available in demo mode." : "Only managers can create draft schedules."}
-          </p>
+          <p className="text-sm text-slate-400">Only managers can create draft schedules.</p>
           <BottomNav active="planner" />
         </main>
       </AppShell>

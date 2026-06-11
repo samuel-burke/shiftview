@@ -2,8 +2,9 @@
 
 import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import { useAppData } from "@/lib/AppDataContext";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
@@ -282,9 +283,9 @@ const CATEGORIES = [
 
 export default function ReportsPageClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
-  const isDemo = searchParams.get("demo") === "true";
+  const { me } = useAppData();
+  const isDemo = me.isDemo;
 
   const today = new Date();
   const todayKey = toDateKey(today);
@@ -361,8 +362,6 @@ export default function ReportsPageClient() {
 
   // Supabase Realtime — live updates for schedules, employees, and audit log
   useEffect(() => {
-    if (isDemo) return;
-
     function refetchWeekSchedules() {
       const ws = selectedWeekStartRef.current;
       const weekDates = getWeekDates(ws);
@@ -423,16 +422,16 @@ export default function ReportsPageClient() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo]);
+  }, []);
 
   // Load coverage data once on mount
   useEffect(() => {
-    fetch(`/api/me${isDemo ? "?demo=true" : ""}`)
+    fetch("/api/me")
       .then((r) => r.json())
       .then(({ isManager }) => { if (!isManager) router.replace("/"); })
       .catch(() => {});
 
-    fetch(`/api/employees${isDemo ? "?demo=true" : ""}`)
+    fetch("/api/employees")
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => {});
@@ -477,7 +476,7 @@ export default function ReportsPageClient() {
     setWeekLoading(true);
     Promise.allSettled(
       weekDates.map((d) =>
-        fetch(`/api/schedules?date=${d}${isDemo ? "&demo=true" : ""}`)
+        fetch(`/api/schedules?date=${d}`)
           .then((r) => r.json())
           .then((data: Schedule[]) => data.map((s) => ({
             id: s.id,
@@ -526,10 +525,6 @@ export default function ReportsPageClient() {
   }
 
   async function generatePayroll() {
-    if (isDemo) {
-      setPayrollData([]);
-      return;
-    }
     setPayrollLoading(true);
     setPayrollError(null);
     try {
@@ -599,7 +594,7 @@ export default function ReportsPageClient() {
       {/* Demo banner */}
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
       )}

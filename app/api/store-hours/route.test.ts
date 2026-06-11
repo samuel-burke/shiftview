@@ -27,14 +27,11 @@ const EXPECTED_MAPPED = {
 };
 
 describe("GET /api/store-hours", () => {
-  it("returns demo store hours for unauthenticated users without querying the DB", async () => {
+  it("returns 401 for unauthenticated users without querying the DB", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET();
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body[1]).toHaveProperty("open");
-    expect(body[1]).toHaveProperty("close");
+    expect(res.status).toBe(401);
     expect(client.from).not.toHaveBeenCalledWith("store_hours");
   });
 

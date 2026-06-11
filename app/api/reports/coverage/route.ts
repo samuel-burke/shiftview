@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -40,15 +39,10 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { orgId, error: orgError } = await requireManager(supabase, request);
   if (orgError) {
-    if (orgError === "Not authenticated") {
-      const allDates = daysBetween(from, to);
-      const days = allDates.map((date) => ({
-        date,
-        count: getDemoSchedulesForDate(date).length,
-      }));
-      return NextResponse.json({ days });
-    }
-    return NextResponse.json({ error: orgError }, { status: 403 });
+    return NextResponse.json(
+      { error: orgError },
+      { status: orgError === "Not authenticated" ? 401 : 403 }
+    );
   }
 
   const { data, error } = await supabase

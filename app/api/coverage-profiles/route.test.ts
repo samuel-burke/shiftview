@@ -55,18 +55,11 @@ const MOCK_BLOCKS_DB = [
 // ── GET /api/coverage-profiles ────────────────────────────────────────────────
 
 describe("GET /api/coverage-profiles", () => {
-  it("returns DEMO_COVERAGE_PROFILES for unauthenticated users without querying the DB", async () => {
+  it("returns 401 for unauthenticated users without querying the DB", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/coverage-profiles"));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBeGreaterThan(0);
-    // Demo profiles have id, name, blocks
-    expect(body[0]).toHaveProperty("id");
-    expect(body[0]).toHaveProperty("name");
-    expect(body[0]).toHaveProperty("blocks");
+    expect(res.status).toBe(401);
     // DB should not be queried for profiles or blocks
     expect(client.from).not.toHaveBeenCalledWith("coverage_profiles");
     expect(client.from).not.toHaveBeenCalledWith("coverage_profile_blocks");

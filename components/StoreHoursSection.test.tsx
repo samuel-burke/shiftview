@@ -343,29 +343,4 @@ describe("StoreHoursSection", () => {
     vi.useRealTimers();
   });
 
-  // ── Demo mode ─────────────────────────────────────────────────────────────
-
-  it("demo mode: no API calls, shows 'Saved ✓' after blur", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const mockFetch = vi.fn();
-    vi.stubGlobal("fetch", mockFetch);
-    render(<StoreHoursSection isDemo={true} />);
-    await screen.findByTestId("day-row-0");
-
-    await openSheet(0);
-    const input = screen.getByLabelText("Sunday open time");
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "09:00" } });
-      fireEvent.blur(input);
-      vi.advanceTimersByTime(300);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(mockFetch).not.toHaveBeenCalled();
-    await waitFor(() => {
-      expect(screen.getByTestId("store-hours-sheet").textContent).toMatch(/Saved/);
-    });
-    vi.useRealTimers();
-  });
 });

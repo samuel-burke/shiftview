@@ -55,19 +55,11 @@ const MOCK_OVERRIDES_DB = [
 // ── GET /api/coverage-assignments ─────────────────────────────────────────────
 
 describe("GET /api/coverage-assignments", () => {
-  it("returns demo defaults and empty overrides for unauthenticated users", async () => {
+  it("returns 401 for unauthenticated users without querying the DB", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/coverage-assignments"));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveProperty("defaults");
-    expect(body).toHaveProperty("overrides");
-    // Demo defaults is non-empty (weekdays + weekend)
-    expect(Object.keys(body.defaults).length).toBeGreaterThan(0);
-    // Overrides should be empty object
-    expect(body.overrides).toEqual({});
-    // DB should not be queried
+    expect(res.status).toBe(401);
     expect(client.from).not.toHaveBeenCalledWith("coverage_day_defaults");
     expect(client.from).not.toHaveBeenCalledWith("coverage_date_overrides");
   });

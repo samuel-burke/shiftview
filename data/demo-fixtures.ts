@@ -1,4 +1,7 @@
-import type { Employee, Schedule, AvailabilityRecord } from "./types";
+// Single source of truth for WHAT the demo organization contains. These
+// fixtures are no longer served from API fallbacks — lib/demo-seed.ts turns
+// them into real rows in the demo org (see docs/DEMO_ORG.md).
+import type { Employee, AvailabilityRecord } from "./types";
 
 export const DEMO_EMPLOYEES: Employee[] = [
   { id: 1, name: "Jordan Martinez", email: "jordan@example.com",  user_id: "demo-manager"  },
@@ -8,8 +11,6 @@ export const DEMO_EMPLOYEES: Employee[] = [
   { id: 5, name: "Morgan Brooks",   email: "morgan@example.com",  user_id: "demo-user-5"   },
   { id: 6, name: "Taylor Nguyen",                                 user_id: null             },
 ];
-
-export const DEMO_MANAGER_USER_IDS = new Set(["demo-manager", "demo-user-2"]);
 
 // Weekly shift pattern per employee: day-of-week (0=Sun) → [startMinutes, endMinutes] | null
 export const EMPLOYEE_PATTERNS: Record<number, Array<[number, number] | null>> = {
@@ -58,19 +59,6 @@ export const DEMO_SETTINGS = {
   geofenceAddress: null as string | null,
 };
 
-export function getDemoSchedulesForDate(date: string): Schedule[] {
-  const dow = new Date(date + "T12:00:00Z").getUTCDay();
-  const results: Schedule[] = [];
-  let id = 9000;
-  for (const emp of DEMO_EMPLOYEES) {
-    const shift = EMPLOYEE_PATTERNS[emp.id][dow];
-    if (shift) {
-      results.push({ id: id++, employeeId: emp.id, date, startMinutes: shift[0], endMinutes: shift[1] });
-    }
-  }
-  return results;
-}
-
 // Demo coverage curves — weekday curve peaks at lunch, weekend is flatter.
 export const DEMO_COVERAGE_PROFILES = [
   {
@@ -106,20 +94,3 @@ export const DEMO_STORE_HOURS: Record<number, { open: number; close: number }> =
   5: { open: 540, close: 1260 },
   6: { open: 600, close: 1080 },
 };
-
-export function getDemoSchedulesForEmployee(employeeId: number, from: string, to: string): Schedule[] {
-  const results: Schedule[] = [];
-  let id = 9000;
-  const cur = new Date(from + "T12:00:00Z");
-  const end = new Date(to + "T12:00:00Z");
-  while (cur <= end) {
-    const dow = cur.getUTCDay();
-    const date = cur.toISOString().slice(0, 10);
-    const shift = EMPLOYEE_PATTERNS[employeeId]?.[dow];
-    if (shift) {
-      results.push({ id: id++, employeeId, date, startMinutes: shift[0], endMinutes: shift[1] });
-    }
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return results;
-}

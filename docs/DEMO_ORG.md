@@ -211,3 +211,38 @@ the experience; step 7 is pure deletion.
 
 The dividing line: mocks for *testing and development isolation*, the demo
 org for *anything a user sees*.
+
+## 8. Implementation status
+
+The plan in §6 is implemented. Map of the moving parts:
+
+| Piece | Where |
+| --- | --- |
+| Migration (is_demo flag, demo org row, `reset_demo_org()`) | `supabase/migrations/0006_demo_org.sql` |
+| Demo org constants + side-effect guard helper | `lib/demo-org.ts` (`DEMO_ORG_ID`, `isDemoOrgId`, `DEMO_MANAGER_EMAIL`) |
+| Seed (rolling window, all features) | `lib/demo-seed.ts`, sourcing `data/demo-fixtures.ts` |
+| Session entry (anonymous sign-in + membership) | `POST /api/demo/start`, called by `components/TryDemoButton.tsx` |
+| Nightly reset + reseed + anonymous-user purge | `GET /api/cron/demo-reset` (08:00 UTC via `vercel.json`) |
+| `isDemo` plumbing | `OrgContext` → `/api/me` → `AppDataContext.me.isDemo` → banners |
+| Side-effect guards | `lib/notify.ts` (no push), `app/api/invites` (blocked), `app/api/schedules` DELETE (no email), `app/api/cron/reminders` (skips demo orgs), `app/api/push/subscribe` (no anonymous users) |
+| Abuse guards | `app/api/employees` PATCH (no linking arbitrary user ids in demo), `app/api/managers/[userId]` (promote only demo members) |
+| Contract | All fixture fallbacks removed; unauthenticated API access now returns 401 |
+| E2E | `?demo=true` server bypass replaced by `E2E_BYPASS_AUTH=1` set in `playwright.config.ts` webServer env |
+
+### Deployment runbook
+
+1. **Enable anonymous sign-ins** in Supabase: Dashboard → Authentication →
+   Sign In / Up → "Allow anonymous sign-ins". Without this,
+   `POST /api/demo/start` returns 503 and the "View Demo" button surfaces
+   "Demo is unavailable right now".
+2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
+   (after 0001–0005) in the SQL editor or via the Supabase CLI.
+3. **Seed the demo org** by invoking the reset endpoint once:
+   `curl -H "x-cron-secret: $CRON_SECRET" https://<site>/api/cron/demo-reset`
+   — it returns `{ employees, schedules, punches, deletedUsers }` counts.
+4. **Deploy**: `vercel.json` already schedules the nightly reset at 08:00 UTC
+   (≈3–4 AM ET); confirm the cron is registered in the Vercel dashboard and
+   that `CRON_SECRET` is set.
+5. Verify: landing page → "View Demo" → dashboard renders the seeded roster
+   with the "Demo Mode · Sample data resets nightly" banner; creating a shift
+   persists; `/api/invites` returns 403 inside the demo org.

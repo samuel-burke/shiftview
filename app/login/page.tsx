@@ -6,6 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
+import TryDemoButton from "@/components/TryDemoButton";
 
 type Step = "email" | "code";
 
@@ -95,12 +96,9 @@ export default function LoginPage() {
               >
                 {loading ? "Sending…" : "Send Code"}
               </button>
-              <button
-                onClick={() => router.push("/?demo=true")}
-                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
-              >
+              <TryDemoButton className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors">
                 View Demo
-              </button>
+              </TryDemoButton>
             </>
           ) : (
             <>

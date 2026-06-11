@@ -8,7 +8,6 @@ type Props = {
   employeeId: number;
   weeklyHours: Record<number, { open: number; close: number }>;
   firstDayOfWeek: number;
-  isDemo?: boolean;
 };
 
 type DayState = "any" | "window" | "off";
@@ -64,7 +63,6 @@ export default function AvailabilitySection({
   employeeId,
   weeklyHours,
   firstDayOfWeek,
-  isDemo = false,
 }: Props) {
   const orderedDays = Array.from({ length: 7 }, (_, i) => (i + firstDayOfWeek) % 7);
 
@@ -105,7 +103,6 @@ export default function AvailabilitySection({
   const timerRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
-    if (isDemo) return;
     fetch(`/api/availability?employeeId=${employeeId}`)
       .then((r) => r.json())
       .then((records: AvailabilityRecord[]) => {
@@ -145,11 +142,6 @@ export default function AvailabilitySection({
   }
 
   async function doSave(dow: number, cfg: DayConfig) {
-    if (isDemo) {
-      setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], saveStatus: "saved" } }));
-      return;
-    }
-
     if (cfg.state === "any") {
       if (cfg.recordId) {
         try {

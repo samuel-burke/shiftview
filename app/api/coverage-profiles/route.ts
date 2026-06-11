@@ -5,7 +5,6 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { validateBlocks, CoverageBlock } from "@/lib/coverage";
-import { DEMO_COVERAGE_PROFILES } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +14,7 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (error === "Not authenticated") return NextResponse.json(DEMO_COVERAGE_PROFILES);
+  if (error === "Not authenticated") return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (error) return NextResponse.json({ error }, { status: 403 });
 
   const { orgId } = ctx!;

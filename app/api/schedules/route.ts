@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
-import { getDemoSchedulesForDate } from "@/data/demo-fixtures";
 import { notify } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
 import { fmtMinutes } from "@/data/types";
@@ -28,7 +27,7 @@ export async function GET(request: Request) {
   const { ctx, error } = await getOrgContext(supabase, request);
 
   if (error === "Not authenticated") {
-    return NextResponse.json(getDemoSchedulesForDate(date));
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   if (error === "No organization membership") {
     return NextResponse.json({ error: "No organization membership" }, { status: 403 });

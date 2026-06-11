@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrgAll } from "@/lib/org-scope";
-import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +12,7 @@ export async function GET(request?: Request) {
   const { ctx, error } = await getOrgContext(supabase, request);
 
   if (error === "Not authenticated") {
-    return NextResponse.json(DEMO_SETTINGS);
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   if (error === "No organization membership") {
     return NextResponse.json({ error: "No organization membership" }, { status: 403 });

@@ -26,9 +26,7 @@ type EditingState = {
 
 export default function CoveragePageClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
-  const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
+  const apiFetch = createApiFetch(() => router.push("/login"));
 
   const { me, sharedLoading } = useAppData();
   const { isManager } = me;
@@ -59,7 +57,7 @@ export default function CoveragePageClient() {
   }
 
   useEffect(() => {
-    if (isDemo || !isManager) { setLoading(false); return; }
+    if (!isManager) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     fetchAll()
@@ -72,7 +70,7 @@ export default function CoveragePageClient() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, isManager]);
+  }, [isManager]);
 
   async function handleSaveProfile() {
     if (!editing) return;
@@ -155,15 +153,13 @@ export default function CoveragePageClient() {
     }
   }
 
-  if (!sharedLoading && (!isManager || isDemo)) {
+  if (!sharedLoading && !isManager) {
     return (
       <AppShell active="settings" isManager={isManager}>
         <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center [@media(min-width:900px)]:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">📈</div>
           <h1 className="text-lg font-bold text-slate-100 mb-1.5">Coverage Profiles</h1>
-          <p className="text-sm text-slate-400">
-            {isDemo ? "Coverage profiles are not editable in demo mode." : "Only managers can manage coverage profiles."}
-          </p>
+          <p className="text-sm text-slate-400">Only managers can manage coverage profiles.</p>
           <BottomNav active="settings" />
         </main>
       </AppShell>
