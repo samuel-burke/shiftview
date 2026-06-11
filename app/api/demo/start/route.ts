@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
+import { seedDemoOrg } from "@/lib/demo-seed";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,28 @@ export async function POST(request: Request) {
   if (managerError) {
     console.error("[api/demo/start] manager upsert failed:", managerError);
     return NextResponse.json({ error: "Demo is unavailable right now" }, { status: 503 });
+  }
+
+  // Self-heal: if the demo org has never been seeded (or a reset wiped it and
+  // the reseed failed), populate it now so the first visitor doesn't land on
+  // an empty dashboard. The app_settings (org_id, key) primary key acts as a
+  // mutex so concurrent first visitors can't double-seed.
+  const { count: employeeCount } = await admin
+    .from("employees")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", DEMO_ORG_ID);
+  if ((employeeCount ?? 0) === 0) {
+    const { error: lockError } = await admin
+      .from("app_settings")
+      .insert({ org_id: DEMO_ORG_ID, key: "demo_seed_lock", value: new Date().toISOString() });
+    if (!lockError) {
+      try {
+        await seedDemoOrg(admin);
+      } catch (err) {
+        console.error("[api/demo/start] self-seed failed:", err);
+        // Non-fatal: the session still works, just without sample data.
+      }
+    }
   }
 
   // Claim the seeded demo-manager employee row for this visitor. Last visitor

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 import { DEMO_ORG_ID } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
 
@@ -9,10 +10,9 @@ export const dynamic = "force-dynamic";
 // SECURITY DEFINER function that hard-fails on non-demo orgs), reseed fresh
 // sample data on a rolling window around today, and purge the anonymous auth
 // users left behind by demo sessions. Also invocable manually:
-//   curl -X GET -H "x-cron-secret: $CRON_SECRET" <site>/api/cron/demo-reset
+//   curl -H "x-cron-secret: $CRON_SECRET" <site>/api/cron/demo-reset
 export async function GET(request: Request) {
-  const secret = request.headers.get("x-cron-secret");
-  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
