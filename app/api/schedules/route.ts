@@ -9,6 +9,7 @@ import { sendEmail } from "@/lib/email";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { withOrg } from "@/lib/org-scope";
+import { isDemoOrgId } from "@/lib/demo-org";
 import { getCurveForDate } from "@/lib/coverage-server";
 import { findUnderstaffedFromCurves } from "@/lib/coverage";
 
@@ -338,7 +339,9 @@ export async function DELETE(request: Request) {
       .eq("org_id", orgId);
     const settingsMap = Object.fromEntries((settingsData ?? []).map((r) => [r.key, r.value]));
 
-    if (settingsMap.email_notifications === "true") {
+    // Coverage alert emails never leave the demo org (visitor-editable
+    // settings can't re-enable them).
+    if (settingsMap.email_notifications === "true" && !isDemoOrgId(orgId!)) {
       const curve = await getCurveForDate(supabase, orgId!, existing.date);
 
       const { data: remaining } = await supabase

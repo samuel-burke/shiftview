@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
+import { isDemoOrgId } from "@/lib/demo-org";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -18,6 +19,9 @@ export type OrgContext = {
   isManager: boolean;
   // The caller's employee record in this org, when one exists.
   employeeId: number | null;
+  // True when operating on the demo organization. Used to suppress outbound
+  // side effects (email, push, invites) — never to relax org scoping.
+  isDemo: boolean;
 };
 
 export type OrgContextError = "Not authenticated" | "No organization membership";
@@ -67,6 +71,7 @@ export async function getOrgContext(
       orgId,
       isManager: Boolean(managerRow),
       employeeId: employeeRow?.org_id === orgId ? (employeeRow?.id ?? null) : null,
+      isDemo: isDemoOrgId(orgId),
     },
     user,
     error: null,

@@ -6,7 +6,7 @@ export const MOCK_USER = { id: "user-123", email: "manager@test.com" };
 // use a stable value.
 export const MOCK_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
-function makeQueryBuilder(result: { data: any; error: any }) {
+export function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
   for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order"]) {
     b[m] = vi.fn().mockReturnValue(b);

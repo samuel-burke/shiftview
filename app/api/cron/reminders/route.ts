@@ -19,10 +19,23 @@ export async function GET(request: Request) {
   // then use the same client to call SECURITY DEFINER notify RPCs.
   const supabase = createAdminClient();
 
-  const { data: schedules, error: schedErr } = await supabase
+  // Demo tenants get no reminders: their "employees" are seeded sample data
+  // and their members are anonymous visitors.
+  const { data: demoOrgs, error: demoErr } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("is_demo", true);
+  if (demoErr) {
+    console.error("[cron/reminders] demo orgs fetch failed:", demoErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const demoOrgIds = new Set((demoOrgs ?? []).map((o) => o.id));
+
+  const { data: allSchedules, error: schedErr } = await supabase
     .from("schedules")
     .select("id, employee_id, org_id, date, start_minutes, end_minutes")
     .eq("date", date);
+  const schedules = (allSchedules ?? []).filter((s) => !demoOrgIds.has(s.org_id));
 
   if (schedErr) {
     console.error("[cron/reminders] schedules fetch failed:", schedErr);

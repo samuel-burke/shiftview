@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { GET } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeSupabaseClient, makeQueryBuilder, MOCK_USER } from "../__tests__/helpers";
+import { DEMO_ORG_ID } from "@/lib/demo-org";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -19,18 +20,6 @@ const mockCreateClient = vi.mocked(createClient);
 const MOCK_EMPLOYEE = { id: 3, name: "Carol White" };
 
 describe("GET /api/me", () => {
-  // ── Demo mode ─────────────────────────────────────────────────────────────
-
-  it("returns isManager: true and Demo Manager name when demo=true", async () => {
-    const res = await GET(new Request("http://localhost/api/me?demo=true"));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      isManager: true,
-      employeeId: null,
-      employeeName: "Demo Manager",
-    });
-  });
-
   // ── Unauthenticated ───────────────────────────────────────────────────────
 
   it("returns isManager: false and no employee link for unauthenticated users", async () => {
@@ -41,6 +30,7 @@ describe("GET /api/me", () => {
       isManager: false,
       employeeId: null,
       employeeName: null,
+      isDemo: false,
     });
   });
 
@@ -56,6 +46,7 @@ describe("GET /api/me", () => {
       isManager: false,
       employeeId: null,
       employeeName: null,
+      isDemo: false,
     });
   });
 
@@ -75,6 +66,7 @@ describe("GET /api/me", () => {
       isManager: false,
       employeeId: MOCK_EMPLOYEE.id,
       employeeName: MOCK_EMPLOYEE.name,
+      isDemo: false,
     });
   });
 
@@ -90,6 +82,7 @@ describe("GET /api/me", () => {
       isManager: true,
       employeeId: null,
       employeeName: null,
+      isDemo: false,
     });
   });
 
@@ -109,6 +102,31 @@ describe("GET /api/me", () => {
       isManager: true,
       employeeId: MOCK_EMPLOYEE.id,
       employeeName: MOCK_EMPLOYEE.name,
+      isDemo: false,
+    });
+  });
+
+  // ── Demo organization ─────────────────────────────────────────────────────
+
+  it("returns isDemo: true for members of the demo organization", async () => {
+    const demoClient = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "managers")
+          return makeQueryBuilder({ data: { user_id: MOCK_USER.id, org_id: DEMO_ORG_ID }, error: null });
+        return makeQueryBuilder({ data: null, error: null });
+      }),
+    };
+    mockCreateClient.mockResolvedValue(demoClient as any);
+    const res = await GET(new Request("http://localhost/api/me"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      isManager: true,
+      employeeId: null,
+      employeeName: null,
+      isDemo: true,
     });
   });
 });

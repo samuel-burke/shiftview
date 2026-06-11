@@ -5,17 +5,12 @@ import { getOrgContext } from "@/lib/org-context";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get("demo") === "true") {
-    return NextResponse.json({ isManager: true, employeeId: null, employeeName: "Demo Manager" });
-  }
-
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
 
   // Unauthenticated or no org membership — return a blank identity, not an error.
   if (error) {
-    return NextResponse.json({ isManager: false, employeeId: null, employeeName: null });
+    return NextResponse.json({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
   }
 
   // Fetch the employee name if the caller has a linked employee in this org.
@@ -37,5 +32,6 @@ export async function GET(request: Request) {
     isManager: ctx.isManager,
     employeeId,
     employeeName,
+    isDemo: ctx.isDemo,
   });
 }

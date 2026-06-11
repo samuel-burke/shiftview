@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { isDemoOrgId } from "@/lib/demo-org";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,15 @@ export async function PUT(
     .eq("org_id", orgId!)
     .eq("user_id", userId)
     .maybeSingle();
+
+  // Demo org: only users who already belong to the demo org can be promoted —
+  // otherwise an anonymous visitor could attach arbitrary real user ids to
+  // the demo tenant's managers table.
+  if (isDemoOrgId(orgId!) && !targetEmp)
+    return NextResponse.json(
+      { error: "Only demo organization members can be promoted in the demo" },
+      { status: 403 }
+    );
 
   const fn = action === "promote" ? "manager_promote" : "manager_demote";
   const { error } = await supabase.rpc(fn, { target_user_id: userId });

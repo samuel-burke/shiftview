@@ -4,6 +4,11 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
 import { withOrg } from "@/lib/org-scope";
+import { isDemoOrgId } from "@/lib/demo-org";
+
+// Demo visitors hold manager access, and invites send real emails through
+// Supabase Auth — an open spam vector if left enabled for the demo org.
+const DEMO_BLOCKED = "Inviting employees is disabled in the demo organization";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +37,8 @@ export async function POST(request: Request) {
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
+  if (isDemoOrgId(orgId!))
+    return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
 
   const admin = createAdminClient();
   const formattedName = formatName(name);
@@ -88,6 +95,8 @@ export async function PUT(request: Request) {
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
+  if (isDemoOrgId(orgId!))
+    return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
 
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {

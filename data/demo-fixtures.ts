@@ -1,18 +1,18 @@
 import type { Employee, Schedule, AvailabilityRecord } from "./types";
 
 export const DEMO_EMPLOYEES: Employee[] = [
-  { id: 1, name: "Jordan Martinez", email: "jordan@demo.com",  user_id: "demo-manager"  },
-  { id: 2, name: "Casey Lewis",     email: "casey@demo.com",   user_id: "demo-user-2"   },
-  { id: 3, name: "Alex Rivera",     email: "alex@demo.com",    user_id: null             },
-  { id: 4, name: "Sam Kim",         email: "sam@demo.com",     user_id: "demo-user-4"   },
-  { id: 5, name: "Morgan Brooks",   email: "morgan@demo.com",  user_id: "demo-user-5"   },
-  { id: 6, name: "Taylor Nguyen",                              user_id: null             },
+  { id: 1, name: "Jordan Martinez", email: "jordan@example.com",  user_id: "demo-manager"  },
+  { id: 2, name: "Casey Lewis",     email: "casey@example.com",   user_id: "demo-user-2"   },
+  { id: 3, name: "Alex Rivera",     email: "alex@example.com",    user_id: null             },
+  { id: 4, name: "Sam Kim",         email: "sam@example.com",     user_id: "demo-user-4"   },
+  { id: 5, name: "Morgan Brooks",   email: "morgan@example.com",  user_id: "demo-user-5"   },
+  { id: 6, name: "Taylor Nguyen",                                 user_id: null             },
 ];
 
 export const DEMO_MANAGER_USER_IDS = new Set(["demo-manager", "demo-user-2"]);
 
 // Weekly shift pattern per employee: day-of-week (0=Sun) → [startMinutes, endMinutes] | null
-const EMPLOYEE_PATTERNS: Record<number, Array<[number, number] | null>> = {
+export const EMPLOYEE_PATTERNS: Record<number, Array<[number, number] | null>> = {
   1: [null,        [360, 840],  [360, 840],  [360, 840],  [360, 840],  [360, 840],  null       ], // Mon–Fri 6am–2pm (opener)
   2: [null,        [540, 1020], [540, 1020], null,         [540, 1020], [540, 1020], [540, 1020]], // Mon/Tue/Thu/Fri/Sat 9am–5pm
   3: [[720, 1200], null,        [720, 1200], [720, 1200],  [720, 1200], [720, 1200], [720, 1200]], // Sun/Tue–Sat 12pm–8pm (closer)
