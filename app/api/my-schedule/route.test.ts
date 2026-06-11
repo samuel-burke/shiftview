@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { GET } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -69,7 +69,9 @@ describe("GET /api/my-schedule", () => {
   });
 
   it("returns empty schedules when authenticated user has no linked employee", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, linkedEmployee: null });
+    // isManager: true so org resolution succeeds (MOCK_ORG_ID from manager row),
+    // but linkedEmployee: null means no employee record → employeeId = null → empty schedules
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request(VALID_URL));
     expect(res.status).toBe(200);
@@ -111,5 +113,22 @@ describe("GET /api/my-schedule", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request(VALID_URL));
     expect(res.status).toBe(500);
+  });
+
+  it("scopes schedules query to org_id", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      linkedEmployee: MOCK_EMPLOYEE,
+      queryData: MOCK_DB_SCHEDULES,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request(VALID_URL));
+    // Find any schedules builder and confirm eq was called with org_id
+    const calls = (client.from as any).mock.calls;
+    const results = (client.from as any).mock.results;
+    const scheduleIdx = calls.findIndex((c: string[]) => c[0] === "schedules");
+    if (scheduleIdx >= 0) {
+      expect(results[scheduleIdx].value.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -13,6 +13,19 @@ vi.mock("next/server", () => ({
 }));
 
 import { createClient } from "@/lib/supabase-server";
+
+// Helper: build an employees query builder that returns null (manager with no employee record).
+// getOrgContext queries employees table; we need it to not crash.
+function makeEmployeesBuilder() {
+  const b: any = {};
+  for (const m of ["select", "eq", "limit", "order"]) {
+    b[m] = vi.fn().mockReturnValue(b);
+  }
+  b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+  b.single = vi.fn().mockResolvedValue({ data: null, error: null });
+  b.then = (resolve: any, reject: any) => Promise.resolve({ data: null, error: null }).then(resolve, reject);
+  return b;
+}
 
 // ——— GET /api/templates ———
 describe("GET /api/templates", () => {
@@ -42,6 +55,7 @@ describe("GET /api/templates", () => {
     ];
     const templatesBuilder: any = {
       select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: templateData, error: null }),
     };
     const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
@@ -49,6 +63,7 @@ describe("GET /api/templates", () => {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") return managersBuilder;
+        if (table === "employees") return makeEmployeesBuilder();
         if (table === "schedule_templates") return templatesBuilder;
         return {} as any;
       }),
@@ -60,6 +75,8 @@ describe("GET /api/templates", () => {
     const body = await res.json();
     expect(body.templates).toHaveLength(1);
     expect(body.templates[0].rowCount).toBe(2);
+    // Org scoping: templates query must filter by org_id
+    expect(templatesBuilder.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
   });
 });
 
@@ -109,6 +126,7 @@ describe("POST /api/templates", () => {
       if (table === "managers") {
         return makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers") as any;
       }
+      if (table === "employees") return makeEmployeesBuilder();
       if (table === "schedule_templates") return insertBuilder;
       if (table === "schedule_template_rows") return rowInsertBuilder;
       return {} as any;
@@ -127,6 +145,9 @@ describe("POST /api/templates", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.id).toBe(42);
+    // Verify org_id is stamped on the template insert
+    const insertArg = insertBuilder.insert.mock.calls[0]?.[0];
+    expect(insertArg).toMatchObject({ org_id: MOCK_ORG_ID });
   });
 });
 
@@ -145,6 +166,7 @@ describe("DELETE /api/templates/[id]", () => {
     const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     vi.spyOn(supabase, "from").mockImplementation((table: string) => {
       if (table === "managers") return makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers") as any;
+      if (table === "employees") return makeEmployeesBuilder();
       if (table === "schedule_templates") return templateBuilder;
       return {} as any;
     });
@@ -155,6 +177,8 @@ describe("DELETE /api/templates/[id]", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
+    // Verify org_id scoping on delete
+    expect(templateBuilder.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
   });
 });
 
@@ -189,6 +213,7 @@ describe("POST /api/templates/[id]/apply", () => {
     const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     vi.spyOn(supabase, "from").mockImplementation((table: string) => {
       if (table === "managers") return makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers") as any;
+      if (table === "employees") return makeEmployeesBuilder();
       if (table === "schedule_templates") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -197,14 +222,18 @@ describe("POST /api/templates/[id]/apply", () => {
         } as any;
       }
       if (table === "schedule_template_rows") {
-        return {
+        const b: any = {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: templateRows, error: null }),
-        } as any;
+          then: (resolve: any, reject: any) =>
+            Promise.resolve({ data: templateRows, error: null }).then(resolve, reject),
+        };
+        b.eq = vi.fn().mockReturnValue(b);
+        return b;
       }
       if (table === "schedules") {
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           in: vi.fn().mockResolvedValue({ data: existingSchedules, error: null }),
           insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         } as any;
