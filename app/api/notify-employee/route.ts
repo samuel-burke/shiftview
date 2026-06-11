@@ -13,12 +13,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "employeeId and message required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: emp } = await supabase
     .from("employees")
     .select("user_id, name")
+    .eq("org_id", orgId!)
     .eq("id", employeeId)
     .maybeSingle();
 
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Employee not found or has no account" }, { status: 404 });
 
   await notify(supabase, {
+    orgId: orgId!,
     userId: emp.user_id,
     type: "message",
     title: "New Message",
