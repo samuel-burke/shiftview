@@ -6,8 +6,6 @@ import type { Employee, Schedule, PunchRecord, StoreHours } from "@/data/types";
 
 export type AppSettings = {
   firstDayOfWeek: number;
-  optimalCoverage: number;
-  minCoverage: number;
   coverageAlertsEnabled: boolean;
   timezone: string;
   emailNotifications: boolean;
@@ -38,8 +36,6 @@ export const DEFAULT_STORE_HOURS: Record<number, StoreHours> = {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   firstDayOfWeek: 6,
-  optimalCoverage: 3,
-  minCoverage: 2,
   coverageAlertsEnabled: true,
   timezone: "America/New_York",
   emailNotifications: false,

@@ -2,8 +2,9 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -12,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Schedule, PunchRecord } from "../data/types";
+import { CoverageBlock, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
 
 type Props = {
@@ -22,6 +24,7 @@ type Props = {
   closeMinutes: number;
   punchRecords?: PunchRecord[];
   timezone?: string;
+  targetBlocks?: CoverageBlock[];
 };
 
 function fmtMinutes(m: number): string {
@@ -55,6 +58,7 @@ export default function CoverageTimeline({
   closeMinutes,
   punchRecords,
   timezone = "America/New_York",
+  targetBlocks,
 }: Props) {
   const { mode } = useTheme();
   const isLight = mode === "light" ||
@@ -128,6 +132,8 @@ export default function CoverageTimeline({
     height: number;
   } | null>(null);
 
+  const hasTarget = !!targetBlocks && targetBlocks.length > 0;
+
   const data = useMemo(() => {
     return points.map(({ label, m }, i) => ({
       label,
@@ -135,8 +141,9 @@ export default function CoverageTimeline({
         (s) => m >= s.startMinutes && m < s.endMinutes,
       ).length,
       actual: actualByPoint ? actualByPoint[i] : undefined,
+      target: hasTarget ? targetAt(targetBlocks!, Math.min(m, closeMinutes - 1)) : undefined,
     }));
-  }, [schedules, points, actualByPoint]);
+  }, [schedules, points, actualByPoint, hasTarget, targetBlocks, closeMinutes]);
 
   const nowDataPoint = useMemo(() => {
     if (!isToday) return null;
@@ -212,6 +219,20 @@ export default function CoverageTimeline({
           Coverage Timeline
         </p>
         <div className="flex items-center gap-2">
+          {hasTarget && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1, duration: 0.25 }}
+              className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40"
+            >
+              <span
+                className="inline-block w-2.5 h-0.5 rounded-full"
+                style={{ backgroundImage: "repeating-linear-gradient(90deg, #818cf8 0 3px, transparent 3px 5px)" }}
+              />
+              Target
+            </motion.span>
+          )}
           <motion.span
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -248,7 +269,7 @@ export default function CoverageTimeline({
           height={150}
           style={{ overflow: "visible" }}
         >
-          <AreaChart
+          <ComposedChart
             data={data}
             margin={{ top: 28, right: 8, left: -28, bottom: 0 }}
           >
@@ -287,9 +308,21 @@ export default function CoverageTimeline({
               formatter={(v, name) => {
                 if (name === "staff") return [`${v} scheduled`, "Scheduled"];
                 if (name === "actual") return [`${v} clocked in`, "Actual"];
+                if (name === "target") return [`${v} target`, "Target"];
                 return [`${v}`, String(name)];
               }}
             />
+            {hasTarget && (
+              <Line
+                type="stepAfter"
+                dataKey="target"
+                stroke="#818cf8"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                dot={false}
+                activeDot={false}
+              />
+            )}
             <Area
               type="monotone"
               dataKey="staff"
@@ -324,7 +357,7 @@ export default function CoverageTimeline({
                 shape={<PulsingDot color={nowDataPoint.actual != null ? "#22c55e" : "#3b82f6"} />}
               />
             )}
-          </AreaChart>
+          </ComposedChart>
         </ResponsiveContainer>
 
         {/* Time badge — positioned above the now line */}

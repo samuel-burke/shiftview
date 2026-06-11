@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
 
-type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports";
+type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
 
 type Props = {
   active: NavItem;
@@ -48,6 +48,11 @@ export default function SideNav({ active, isManager }: Props) {
 
           <div className="h-px bg-slate-800 my-2" />
 
+          {isManager && (
+            <NavLink href={`/draft${demo}`} label="Planner" isActive={active === "planner"}>
+              <PlannerIcon />
+            </NavLink>
+          )}
           {isManager && (
             <NavLink href={`/admin${demo}`} label="Admin" isActive={active === "admin"}>
               <AdminIcon />
@@ -146,6 +151,17 @@ function ClockIcon() {
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
       <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PlannerIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M3 10h18" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M9.5 15.5l1.8 1.8 3.2-3.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

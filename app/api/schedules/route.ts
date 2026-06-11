@@ -9,6 +9,8 @@ import { sendEmail } from "@/lib/email";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { withOrg } from "@/lib/org-scope";
+import { getCurveForDate } from "@/lib/coverage-server";
+import { findUnderstaffedFromCurves } from "@/lib/coverage";
 
 export const dynamic = "force-dynamic";
 
@@ -328,7 +330,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  // Check if coverage dropped below minimum and alert managers
+  // Check if coverage dropped below the day's target curve and alert managers
   if (existing?.date) {
     const { data: settingsData } = await supabase
       .from("app_settings")
@@ -337,17 +339,23 @@ export async function DELETE(request: Request) {
     const settingsMap = Object.fromEntries((settingsData ?? []).map((r) => [r.key, r.value]));
 
     if (settingsMap.email_notifications === "true") {
-      const minCoverage = parseInt(settingsMap.minimum_coverage ?? "2");
+      const curve = await getCurveForDate(supabase, orgId!, existing.date);
 
       const { data: remaining } = await supabase
         .from("schedules")
-        .select("id")
+        .select("date, start_minutes, end_minutes")
         .eq("org_id", orgId)
         .eq("date", existing.date);
 
-      const remainingCount = (remaining ?? []).length;
+      const remainingSpans = (remaining ?? []).map((s) => ({
+        date:         existing.date,
+        startMinutes: s.start_minutes,
+        endMinutes:   s.end_minutes,
+      }));
+      const understaffed = findUnderstaffedFromCurves(remainingSpans, [existing.date], { [existing.date]: curve });
 
-      if (remainingCount < minCoverage) {
+      if (understaffed.length > 0) {
+        const worstShortfall = Math.max(...understaffed.map((u) => u.shortfall));
         const { data: managerRows } = await supabase
           .from("managers")
           .select("user_id")
@@ -370,7 +378,7 @@ export async function DELETE(request: Request) {
               sendEmail({
                 to: email,
                 subject: `Low coverage alert — ${existing.date}`,
-                html: `<p>Coverage for <strong>${existing.date}</strong> has dropped to <strong>${remainingCount}</strong> (minimum: ${minCoverage}). Please review the schedule.</p><p>— ShiftView</p>`,
+                html: `<p>Coverage for <strong>${existing.date}</strong> has fallen below the target coverage curve (short by up to <strong>${worstShortfall}</strong> staff). Please review the schedule.</p><p>— ShiftView</p>`,
               })
             )
           );

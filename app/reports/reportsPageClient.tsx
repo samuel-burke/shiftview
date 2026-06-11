@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
+import { CoverageProfile, curveForDate } from "../../lib/coverage";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -95,9 +96,11 @@ function fmtMins(mins: number): string {
   return m === 0 ? `${h12} ${ampm}` : `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-function cellClass(count: number, min: number, optimal: number) {
-  if (count >= optimal) return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-  if (count >= min)     return "bg-amber-500/20  text-amber-400  border border-amber-500/30";
+// Classifies a day's headcount against the peak of its target coverage curve.
+function cellClass(count: number, peakTarget: number) {
+  if (peakTarget <= 0)  return "bg-slate-800 text-slate-500 border border-slate-700";
+  if (count >= peakTarget) return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+  if (count >= Math.ceil(peakTarget / 2)) return "bg-amber-500/20  text-amber-400  border border-amber-500/30";
   if (count > 0)        return "bg-red-500/20    text-red-400    border border-red-500/30";
   return "bg-slate-800 text-slate-500 border border-slate-700";
 }
@@ -292,8 +295,7 @@ export default function ReportsPageClient() {
   const [loading, setLoading] = useState(true);
   const [coverageDays, setCoverageDays] = useState<DayCount[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [optimalCoverage, setOptimalCoverage] = useState(3);
-  const [minCoverage, setMinCoverage] = useState(2);
+  const [peakTargets, setPeakTargets] = useState<Record<string, number>>({});
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekSchedules, setWeekSchedules] = useState<Schedule[]>([]);
@@ -437,14 +439,32 @@ export default function ReportsPageClient() {
 
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ optimalCoverage: oc, minCoverage: mc, firstDayOfWeek: fdw }) => {
-        if (oc != null) setOptimalCoverage(oc);
-        if (mc != null) setMinCoverage(mc);
+      .then(({ firstDayOfWeek: fdw }) => {
         if (fdw != null) setFirstDayOfWeek(fdw);
       })
       .catch(() => {});
 
     const from = subtractDays(todayKey, 27);
+
+    // Peak headcount of each day's target coverage curve, for heatmap colors
+    Promise.all([
+      fetch("/api/coverage-profiles").then((r) => r.json()),
+      fetch(`/api/coverage-assignments?from=${from}&to=${todayKey}`).then((r) => r.json()),
+    ])
+      .then(([profiles, assignments]) => {
+        if (!Array.isArray(profiles)) return;
+        const defaults = assignments?.defaults ?? {};
+        const overrides = assignments?.overrides ?? {};
+        const peaks: Record<string, number> = {};
+        for (let i = 0; i <= 27; i++) {
+          const day = subtractDays(todayKey, 27 - i);
+          const blocks = curveForDate(day, overrides, defaults, profiles as CoverageProfile[]);
+          peaks[day] = blocks.reduce((max, b) => Math.max(max, b.headcount), 0);
+        }
+        setPeakTargets(peaks);
+      })
+      .catch(() => {});
+
     fetch(`/api/reports/coverage?from=${from}&to=${todayKey}`)
       .then((r) => r.json())
       .then(({ days }) => { setCoverageDays(days ?? []); setLoading(false); })
@@ -638,7 +658,7 @@ export default function ReportsPageClient() {
                 <div className="grid grid-cols-7 gap-1">
                   {heatmapDays.map((day) => {
                     const count = coverageMap[day] ?? 0;
-                    const cls = cellClass(count, minCoverage, optimalCoverage);
+                    const cls = cellClass(count, peakTargets[day] ?? 0);
                     const dateLabel = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
                     return (
                       <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>

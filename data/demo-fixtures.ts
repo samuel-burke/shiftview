@@ -45,8 +45,6 @@ export const DEMO_AVAILABILITY: Record<number, AvailabilityRecord[]> = {
 };
 
 export const DEMO_SETTINGS = {
-  optimalCoverage: 3,
-  minCoverage: 2,
   coverageAlertsEnabled: true,
   firstDayOfWeek: 1,
   timezone: "America/New_York",
@@ -72,6 +70,31 @@ export function getDemoSchedulesForDate(date: string): Schedule[] {
   }
   return results;
 }
+
+// Demo coverage curves — weekday curve peaks at lunch, weekend is flatter.
+export const DEMO_COVERAGE_PROFILES = [
+  {
+    id: 1,
+    name: "Weekday",
+    blocks: [
+      { startMinutes: 540, endMinutes: 720, headcount: 2 },   // 9 AM–12 PM
+      { startMinutes: 720, endMinutes: 1080, headcount: 3 },  // 12 PM–6 PM
+      { startMinutes: 1080, endMinutes: 1260, headcount: 2 }, // 6 PM–9 PM
+    ],
+  },
+  {
+    id: 2,
+    name: "Weekend",
+    blocks: [
+      { startMinutes: 600, endMinutes: 1080, headcount: 3 },  // 10 AM–6 PM
+    ],
+  },
+];
+
+// dayOfWeek → profileId: weekends use the Weekend curve, weekdays the Weekday curve.
+export const DEMO_COVERAGE_DEFAULTS: Record<number, number> = {
+  0: 2, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 2,
+};
 
 // Mon–Fri 9 AM–9 PM (540–1260), Sat–Sun 10 AM–6 PM (600–1080)
 export const DEMO_STORE_HOURS: Record<number, { open: number; close: number }> = {

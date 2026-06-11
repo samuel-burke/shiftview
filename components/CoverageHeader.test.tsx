@@ -79,12 +79,12 @@ describe("CoverageHeader", () => {
 
   it("shows critical alert when coverage is critical", () => {
     render(<CoverageHeader {...baseProps} coverageStatus="critical" hereCount={1} />);
-    expect(screen.getByText(/Coverage below minimum/)).toBeInTheDocument();
+    expect(screen.getByText(/Critically below coverage target/)).toBeInTheDocument();
   });
 
   it("shows low coverage alert when coverage is low", () => {
     render(<CoverageHeader {...baseProps} coverageStatus="low" hereCount={2} />);
-    expect(screen.getByText(/Coverage below optimal/)).toBeInTheDocument();
+    expect(screen.getByText(/Below coverage target/)).toBeInTheDocument();
   });
 
   it("shows no alert when coverage is optimal", () => {

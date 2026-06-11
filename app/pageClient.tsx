@@ -26,6 +26,7 @@ import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
+import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 
 function toDateKey(d: Date, tz = "America/New_York") {
@@ -145,8 +146,9 @@ export default function Page() {
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
   const { isManager, employeeName: userName } = me;
-  const { optimalCoverage, minCoverage, coverageAlertsEnabled, timezone } = settings;
+  const { coverageAlertsEnabled, timezone } = settings;
   const weeklyHours = weeklyHoursCtx;
+  const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
 
   // Mutable refs so subscription callbacks always see the latest date/timezone/role
   const dateRef = useRef(date);
@@ -488,6 +490,27 @@ export default function Page() {
       });
   }, [date, timezone]);
 
+  // Target coverage curve for the viewed date (override → day-of-week default)
+  useEffect(() => {
+    const dk = toDateKey(date, timezone);
+    let cancelled = false;
+    Promise.all([
+      apiFetch("/api/coverage-profiles").then((r) => r.json()),
+      apiFetch(`/api/coverage-assignments?from=${dk}&to=${dk}`).then((r) => r.json()),
+    ])
+      .then(([profiles, assignments]) => {
+        if (cancelled) return;
+        setDayCurve(curveForDate(
+          dk,
+          assignments?.overrides ?? {},
+          assignments?.defaults ?? {},
+          Array.isArray(profiles) ? (profiles as CoverageProfile[]) : []
+        ));
+      })
+      .catch(() => { if (!cancelled) setDayCurve([]); });
+    return () => { cancelled = true; };
+  }, [date, timezone]);
+
   const isToday = toDateKey(date, timezone) === toDateKey(today, timezone);
   const dateKey = toDateKey(date, timezone);
 
@@ -613,10 +636,8 @@ export default function Page() {
   const coverageStatus = useMemo((): CoverageStatus => {
     if (!isToday) return "closed";
     if (!isStoreOpen) return "closed";
-    if (hereNowCount < minCoverage) return "critical";
-    if (hereNowCount < optimalCoverage) return "low";
-    return "optimal";
-  }, [isToday, isStoreOpen, hereNowCount]);
+    return liveCoverageStatus(hereNowCount, targetAt(dayCurve, nowMinutes));
+  }, [isToday, isStoreOpen, hereNowCount, dayCurve, nowMinutes]);
 
 
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
@@ -644,6 +665,7 @@ export default function Page() {
       closeMinutes={storeHours.close}
       punchRecords={punchRecords}
       timezone={timezone}
+      targetBlocks={dayCurve}
     />
   );
 
@@ -777,6 +799,17 @@ export default function Page() {
     </div>
   ) : null;
 
+  const draftButton = isManager ? (
+    <motion.button
+      onClick={() => router.push(`/draft${isDemo ? "?demo=true" : ""}`)}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+    >
+      Plan Draft Schedule
+    </motion.button>
+  ) : null;
+
   const exportButton = isManager ? (
     <motion.button
       onClick={handleExportCSV}
@@ -818,6 +851,7 @@ export default function Page() {
           </div>
           <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
             {teamSections}
+            {draftButton}
             {exportButton}
           </div>
         </div>
