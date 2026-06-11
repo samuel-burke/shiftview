@@ -1,25 +1,33 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrgAll } from "@/lib/org-scope";
 import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request?: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) {
+  if (error === "Not authenticated") {
     return NextResponse.json(DEMO_SETTINGS);
   }
+  if (error === "No organization membership") {
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
+  }
 
-  const { data, error } = await supabase
+  const { orgId } = ctx!;
+
+  const { data, error: dbError } = await supabase
     .from("app_settings")
-    .select("key, value");
+    .select("key, value")
+    .eq("org_id", orgId);
 
-  if (error) {
-    console.error("[api/settings]", error);
+  if (dbError) {
+    console.error("[api/settings]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -43,7 +51,7 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const supabase = await createClient();
 
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -127,7 +135,7 @@ export async function PUT(request: Request) {
 
   const { error } = await supabase
     .from("app_settings")
-    .upsert(rows);
+    .upsert(withOrgAll(orgId!, rows));
 
   if (error) {
     console.error("[api/settings]", error);
@@ -136,6 +144,7 @@ export async function PUT(request: Request) {
 
   writeAuditLog({
     action:       "settings.update",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "app_settings",
     after:        Object.fromEntries(rows.map((r) => [r.key, r.value])),

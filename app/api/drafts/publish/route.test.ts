@@ -40,14 +40,14 @@ function makePublishClient({
   deleteError = null as any,
   employees = [] as any[],
 } = {}) {
-  const managerRow = isManager && user ? { user_id: user.id } : null;
+  const managerRow = isManager && user ? { user_id: user.id, org_id: "00000000-0000-0000-0000-000000000001" } : null;
 
   // Track call counts per table
   const callCount: Record<string, number> = {};
 
   function makeBuilder(result: { data: any; error: any }) {
     const b: any = {};
-    for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "in"]) {
+    for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "in", "limit"]) {
       b[m] = vi.fn().mockReturnValue(b);
     }
     b.maybeSingle = vi.fn().mockResolvedValue(result);

@@ -58,7 +58,7 @@ describe("GET /api/coverage-profiles", () => {
   it("returns DEMO_COVERAGE_PROFILES for unauthenticated users without querying the DB", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/coverage-profiles"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
@@ -75,6 +75,7 @@ describe("GET /api/coverage-profiles", () => {
   it("returns camelCase blocks for authenticated users", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
+        isManager: true,
         user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:      { data: MOCK_PROFILES_DB, error: null },
@@ -82,7 +83,7 @@ describe("GET /api/coverage-profiles", () => {
         },
       }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/coverage-profiles"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
@@ -105,6 +106,7 @@ describe("GET /api/coverage-profiles", () => {
   it("returns profiles with empty blocks array when a profile has no blocks", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
+        isManager: true,
         user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:       { data: [{ id: 3, name: "Empty" }], error: null },
@@ -112,7 +114,7 @@ describe("GET /api/coverage-profiles", () => {
         },
       }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/coverage-profiles"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body[0].blocks).toEqual([]);
@@ -121,6 +123,7 @@ describe("GET /api/coverage-profiles", () => {
   it("returns 500 when profiles query fails", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
+        isManager: true,
         user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:       { data: null, error: { message: "db error" } },
@@ -128,13 +131,14 @@ describe("GET /api/coverage-profiles", () => {
         },
       }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/coverage-profiles"));
     expect(res.status).toBe(500);
   });
 
   it("returns 500 when blocks query fails", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
+        isManager: true,
         user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:       { data: MOCK_PROFILES_DB, error: null },
@@ -142,7 +146,7 @@ describe("GET /api/coverage-profiles", () => {
         },
       }) as any
     );
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/coverage-profiles"));
     expect(res.status).toBe(500);
   });
 });
@@ -157,8 +161,8 @@ describe("POST /api/coverage-profiles", () => {
   beforeEach(() => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:       { data: { id: 10 }, error: null },
           coverage_profile_blocks: { data: null, error: null },
@@ -225,8 +229,8 @@ describe("POST /api/coverage-profiles", () => {
   it("returns 409 on duplicate name (Postgres error code 23505)", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles: { data: null, error: { code: "23505", message: "unique violation" } },
           coverage_profile_blocks: { data: null, error: null },
@@ -254,8 +258,8 @@ describe("POST /api/coverage-profiles", () => {
   it("returns 500 on internal DB error", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles: { data: null, error: { message: "internal error" } },
           coverage_profile_blocks: { data: null, error: null },
@@ -275,8 +279,8 @@ describe("PUT /api/coverage-profiles", () => {
   beforeEach(() => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:       { data: existingProfile, error: null },
           coverage_profile_blocks: { data: null, error: null },
@@ -334,8 +338,8 @@ describe("PUT /api/coverage-profiles", () => {
   it("returns 404 when profile is not found", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles:       { data: null, error: null },
           coverage_profile_blocks: { data: null, error: null },
@@ -379,8 +383,8 @@ describe("DELETE /api/coverage-profiles", () => {
   beforeEach(() => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles: { data: { id: 1, name: "Weekday" }, error: null },
         },
@@ -423,8 +427,8 @@ describe("DELETE /api/coverage-profiles", () => {
   it("returns 500 on database error", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
-        user: MOCK_USER,
         isManager: true,
+        user: MOCK_USER,
         tableOverrides: {
           coverage_profiles: { data: null, error: { message: "db error" } },
         },

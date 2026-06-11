@@ -23,7 +23,7 @@ export async function PUT(
     );
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -34,12 +34,14 @@ export async function PUT(
   const { data: pto } = await supabase
     .from("time_off_requests")
     .select("employee_id, date")
+    .eq("org_id", orgId!)
     .eq("id", id)
     .maybeSingle();
 
   const { error } = await supabase
     .from("time_off_requests")
     .update({ status })
+    .eq("org_id", orgId!)
     .eq("id", id);
 
   if (error) {
@@ -53,11 +55,13 @@ export async function PUT(
     const { data: emp } = await supabase
       .from("employees")
       .select("user_id, name")
+      .eq("org_id", orgId!)
       .eq("id", pto.employee_id)
       .maybeSingle();
     empName = emp?.name ?? null;
     if (emp?.user_id) {
       notify(supabase, {
+        orgId: orgId!,
         userId: emp.user_id,
         type: status === "approved" ? "pto_approved" : "pto_denied",
         title: status === "approved" ? "Time Off Approved" : "Time Off Denied",
@@ -71,6 +75,7 @@ export async function PUT(
 
   writeAuditLog({
     action:       status === "approved" ? "time_off.approve" : "time_off.deny",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "time_off_request",
     resourceId:   String(id),

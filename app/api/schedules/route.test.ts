@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST, PUT, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 // Silence notify/email side-effects in tests
 vi.mock("@/lib/notify", () => ({ notify: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/email", () => ({ sendEmail: vi.fn().mockResolvedValue(undefined) }));
@@ -54,7 +54,7 @@ describe("GET /api/schedules", () => {
   });
 
   it("queries schedules for authenticated users", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_SCHEDULES_DB });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_SCHEDULES_DB });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/schedules?date=2026-05-26"));
     expect(res.status).toBe(200);
@@ -62,17 +62,29 @@ describe("GET /api/schedules", () => {
   });
 
   it("maps snake_case fields to camelCase", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_SCHEDULES_DB });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_SCHEDULES_DB });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/schedules?date=2026-05-26"));
     expect(await res.json()).toEqual(MOCK_SCHEDULES);
   });
 
   it("returns 500 on database error", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { message: "db error" } });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/schedules?date=2026-05-26"));
     expect(res.status).toBe(500);
+  });
+
+  it("scopes query to org_id", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_SCHEDULES_DB });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/schedules?date=2026-05-26"));
+    const schedulesBuilder = (client.from as any).mock.results.find(
+      (r: any) => (client.from as any).mock.calls[
+        (client.from as any).mock.results.indexOf(r)
+      ]?.[0] === "schedules"
+    )?.value;
+    expect(schedulesBuilder?.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
   });
 });
 

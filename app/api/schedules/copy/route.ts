@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrgAll } from "@/lib/org-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "dates must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
   const { data: existing, error: existingError } = await supabase
     .from("schedules")
     .select("employee_id")
+    .eq("org_id", orgId)
     .eq("date", toDate);
   if (existingError) {
     console.error("[schedules/copy] existing schedules fetch failed:", existingError);
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
   const { data: fromSchedules, error: fromError } = await supabase
     .from("schedules")
     .select("employee_id, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .eq("date", fromDate);
   if (fromError) {
     console.error("[schedules/copy] fromDate schedules fetch failed:", fromError);
@@ -61,7 +64,9 @@ export async function POST(request: Request) {
     end_minutes: s.end_minutes,
   }));
 
-  const { error: insertError } = await supabase.from("schedules").insert(rows);
+  const { error: insertError } = await supabase
+    .from("schedules")
+    .insert(withOrgAll(orgId, rows));
   if (insertError) {
     console.error("[schedules/copy] schedules insert failed:", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -69,6 +74,7 @@ export async function POST(request: Request) {
 
   writeAuditLog({
     action:       "schedule.copy",
+    orgId,
     actorId:      user?.id,
     resourceType: "schedule",
     metadata: {

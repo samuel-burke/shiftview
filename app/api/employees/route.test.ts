@@ -57,7 +57,7 @@ describe("GET /api/employees", () => {
   });
 
   it("queries employees for authenticated users", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_EMPLOYEES });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(200);
@@ -65,14 +65,14 @@ describe("GET /api/employees", () => {
   });
 
   it("returns the employee list sorted by last name", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_EMPLOYEES });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED);
   });
 
   it("returns 500 on database error", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { message: "db error" } });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(500);

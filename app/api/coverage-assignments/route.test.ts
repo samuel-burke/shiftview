@@ -76,6 +76,7 @@ describe("GET /api/coverage-assignments", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
         user: MOCK_USER,
+        isManager: true,
         tableOverrides: {
           coverage_day_defaults:  { data: MOCK_DEFAULTS_DB, error: null },
           coverage_date_overrides: { data: MOCK_OVERRIDES_DB, error: null },
@@ -109,6 +110,7 @@ describe("GET /api/coverage-assignments", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
         user: MOCK_USER,
+        isManager: true,
         tableOverrides: {
           coverage_day_defaults:   { data: [], error: null },
           coverage_date_overrides: { data: [], error: null },
@@ -123,6 +125,7 @@ describe("GET /api/coverage-assignments", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
         user: MOCK_USER,
+        isManager: true,
         tableOverrides: {
           coverage_day_defaults:   { data: null, error: { message: "db error" } },
           coverage_date_overrides: { data: [], error: null },
@@ -137,6 +140,7 @@ describe("GET /api/coverage-assignments", () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({
         user: MOCK_USER,
+        isManager: true,
         tableOverrides: {
           coverage_day_defaults:   { data: [], error: null },
           coverage_date_overrides: { data: null, error: { message: "db error" } },

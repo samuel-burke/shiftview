@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { validateBlocks, CoverageBlock } from "@/lib/coverage";
 import { DEMO_COVERAGE_PROFILES } from "@/data/demo-fixtures";
@@ -9,15 +11,18 @@ export const dynamic = "force-dynamic";
 
 const MAX_NAME_LENGTH = 60;
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) return NextResponse.json(DEMO_COVERAGE_PROFILES);
+  if (error === "Not authenticated") return NextResponse.json(DEMO_COVERAGE_PROFILES);
+  if (error) return NextResponse.json({ error }, { status: 403 });
+
+  const { orgId } = ctx!;
 
   const [{ data: profiles, error: profilesError }, { data: blocks, error: blocksError }] = await Promise.all([
-    supabase.from("coverage_profiles").select("id, name").order("name"),
-    supabase.from("coverage_profile_blocks").select("profile_id, start_minutes, end_minutes, headcount").order("start_minutes"),
+    supabase.from("coverage_profiles").select("id, name").eq("org_id", orgId).order("name"),
+    supabase.from("coverage_profile_blocks").select("profile_id, start_minutes, end_minutes, headcount").eq("org_id", orgId).order("start_minutes"),
   ]);
 
   if (profilesError || blocksError) {
@@ -51,12 +56,12 @@ export async function POST(request: Request) {
   if (blocksError) return NextResponse.json({ error: blocksError }, { status: 422 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: created, error: insertError } = await supabase
     .from("coverage_profiles")
-    .insert({ name: name.trim() })
+    .insert(withOrg(orgId!, { name: name.trim() }))
     .select("id")
     .single();
 
@@ -70,7 +75,7 @@ export async function POST(request: Request) {
   if ((blocks as CoverageBlock[]).length > 0) {
     const { error: blocksInsertError } = await supabase
       .from("coverage_profile_blocks")
-      .insert((blocks as CoverageBlock[]).map((b) => ({
+      .insert((blocks as CoverageBlock[]).map((b) => withOrg(orgId!, {
         profile_id:    created.id,
         start_minutes: b.startMinutes,
         end_minutes:   b.endMinutes,
@@ -84,6 +89,7 @@ export async function POST(request: Request) {
 
   writeAuditLog({
     action:       "coverage_profile.create",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "coverage_profile",
     resourceId:   String(created.id),
@@ -109,12 +115,13 @@ export async function PUT(request: Request) {
   }
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("coverage_profiles")
     .select("id, name")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
@@ -125,6 +132,7 @@ export async function PUT(request: Request) {
     const { error } = await supabase
       .from("coverage_profiles")
       .update({ name: name.trim() })
+      .eq("org_id", orgId)
       .eq("id", id);
     if (error) {
       if (error.code === "23505")
@@ -138,6 +146,7 @@ export async function PUT(request: Request) {
     const { error: deleteError } = await supabase
       .from("coverage_profile_blocks")
       .delete()
+      .eq("org_id", orgId)
       .eq("profile_id", id);
     if (deleteError) {
       console.error("[api/coverage-profiles]", deleteError);
@@ -146,7 +155,7 @@ export async function PUT(request: Request) {
     if ((blocks as CoverageBlock[]).length > 0) {
       const { error: insertError } = await supabase
         .from("coverage_profile_blocks")
-        .insert((blocks as CoverageBlock[]).map((b) => ({
+        .insert((blocks as CoverageBlock[]).map((b) => withOrg(orgId!, {
           profile_id:    id,
           start_minutes: b.startMinutes,
           end_minutes:   b.endMinutes,
@@ -161,6 +170,7 @@ export async function PUT(request: Request) {
 
   writeAuditLog({
     action:       "coverage_profile.update",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "coverage_profile",
     resourceId:   String(id),
@@ -179,19 +189,20 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("coverage_profiles")
     .select("id, name")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
-  // Cascades to blocks, day defaults, and date overrides.
   const { error } = await supabase
     .from("coverage_profiles")
     .delete()
+    .eq("org_id", orgId)
     .eq("id", id);
 
   if (error) {
@@ -201,6 +212,7 @@ export async function DELETE(request: Request) {
 
   writeAuditLog({
     action:       "coverage_profile.delete",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "coverage_profile",
     resourceId:   String(id),

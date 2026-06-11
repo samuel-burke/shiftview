@@ -22,6 +22,7 @@ async function callRoute(url: string) {
 function makeSchedulesBuilder(result: { data: any; error: any }) {
   const b: any = {
     select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     lte: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue(result),
@@ -88,13 +89,12 @@ describe("GET /api/reports/coverage", () => {
 
     const schedulesBuilder = makeSchedulesBuilder({ data: scheduleData, error: null });
 
-    const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
+    const base = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     const supabase = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
       from: vi.fn().mockImplementation((table: string) => {
-        if (table === "managers") return managersBuilder;
         if (table === "schedules") return schedulesBuilder;
-        return {} as any;
+        return base.from(table);
       }),
     };
     vi.mocked(createClient).mockResolvedValue(supabase as any);
@@ -113,13 +113,12 @@ describe("GET /api/reports/coverage", () => {
   it("returns 500 on DB error", async () => {
     const schedulesBuilder = makeSchedulesBuilder({ data: null, error: { message: "DB error" } });
 
-    const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
+    const base = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     const supabase = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
       from: vi.fn().mockImplementation((table: string) => {
-        if (table === "managers") return managersBuilder;
         if (table === "schedules") return schedulesBuilder;
-        return {} as any;
+        return base.from(table);
       }),
     };
     vi.mocked(createClient).mockResolvedValue(supabase as any);

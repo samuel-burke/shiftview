@@ -22,7 +22,7 @@ const VALID_CATEGORIES = new Set([
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
   let query = admin
     .from("audit_logs")
     .select("id, action, actor_id, resource_type, resource_id, before, after, metadata, created_at", { count: "exact" })
+    .eq("org_id", orgId!)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
     const { data: employees } = await admin
       .from("employees")
       .select("user_id, name")
+      .eq("org_id", orgId!)
       .in("user_id", actorIds);
     for (const emp of employees ?? []) {
       if (emp.user_id) actorNameMap[emp.user_id] = emp.name;

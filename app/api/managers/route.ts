@@ -4,16 +4,16 @@ import { requireManager } from "@/lib/require-manager";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  const { data, error } = await supabase.rpc("notify_get_manager_ids");
+  const { data, error } = await supabase.rpc("notify_get_manager_ids", { p_org_id: orgId });
   if (error) {
     console.error("[api/managers]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

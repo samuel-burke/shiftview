@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { requireManager } from "@/lib/require-manager";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -10,26 +11,26 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export async function GET(request?: Request) {
   const mine = request ? new URL(request.url).searchParams.get("mine") === "true" : false;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
 
-  // Check if manager (non-throwing pattern)
-  const { error: managerError } = await requireManager(supabase);
-  const isManager = !managerError;
+  const { orgId, isManager, employeeId } = ctx!;
 
   if (isManager && !mine) {
-    // Fetch all pending requests
-    const { data: requests, error } = await supabase
+    // Fetch all pending requests for this org
+    const { data: requests, error: fetchError } = await supabase
       .from("time_off_requests")
       .select("id, employee_id, date, status, note")
+      .eq("org_id", orgId)
       .eq("status", "pending")
       .order("date", { ascending: true });
 
-    if (error) {
-      console.error("[api/time-off]", error);
+    if (fetchError) {
+      console.error("[api/time-off]", fetchError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 
@@ -40,6 +41,7 @@ export async function GET(request?: Request) {
       const { data: employees } = await supabase
         .from("employees")
         .select("id, name")
+        .eq("org_id", orgId)
         .in("id", employeeIds);
       for (const emp of employees ?? []) {
         employeeMap[emp.id] = emp.name;
@@ -59,10 +61,14 @@ export async function GET(request?: Request) {
   }
 
   // Employee: fetch own requests for next 90 days
+  if (!employeeId) return NextResponse.json({ requests: [] });
+
+  // Fetch employee name for response shaping
   const { data: emp } = await supabase
     .from("employees")
     .select("id, name")
-    .eq("user_id", user.id)
+    .eq("org_id", orgId)
+    .eq("id", employeeId)
     .maybeSingle();
 
   if (!emp) return NextResponse.json({ requests: [] });
@@ -72,16 +78,17 @@ export async function GET(request?: Request) {
     .toISOString()
     .slice(0, 10);
 
-  const { data: requests, error } = await supabase
+  const { data: requests, error: fetchError } = await supabase
     .from("time_off_requests")
     .select("id, employee_id, date, status, note")
+    .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("date", today)
     .lte("date", ninetyDaysOut)
     .order("date", { ascending: true });
 
-  if (error) {
-    console.error("[api/time-off]", error);
+  if (fetchError) {
+    console.error("[api/time-off]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -110,18 +117,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
 
-  // Verify the employee belongs to the current user
+  const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
+
+  // Verify the employee belongs to the current user and is in the same org
+  // (Only allow submitting for your own employee record)
+  if (!ctxEmployeeId || ctxEmployeeId !== employeeId)
+    return NextResponse.json(
+      { error: "Employee not found or not linked to your account" },
+      { status: 403 }
+    );
+
+  // Fetch employee name for audit log
   const { data: emp } = await supabase
     .from("employees")
     .select("id, name")
+    .eq("org_id", orgId)
     .eq("id", employeeId)
-    .eq("user_id", user.id)
     .maybeSingle();
 
   if (!emp)
@@ -130,26 +148,27 @@ export async function POST(request: Request) {
       { status: 403 }
     );
 
-  const insertData: Record<string, unknown> = { employee_id: employeeId, date };
-  if (note && typeof note === "string" && note.trim()) insertData.note = note.trim();
+  const insertRow: Record<string, unknown> = { employee_id: employeeId, date };
+  if (note && typeof note === "string" && note.trim()) insertRow.note = note.trim();
 
-  const { data, error } = await supabase
+  const { data, error: insertError } = await supabase
     .from("time_off_requests")
-    .insert(insertData)
+    .insert(withOrg(orgId, insertRow))
     .select("id")
     .single();
 
-  if (error) {
-    console.error("[api/time-off]", error);
+  if (insertError) {
+    console.error("[api/time-off]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
     action:       "time_off.request",
+    orgId,
     actorId:      user.id,
     resourceType: "time_off_request",
     resourceId:   String(data.id),
-    after: { employeeId, date, note: insertData.note ?? null },
+    after: { employeeId, date, note: insertRow.note ?? null },
     metadata: {
       employeeId,
       employeeName: emp.name,

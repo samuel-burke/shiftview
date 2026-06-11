@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
 import { DEMO_EMPLOYEES, getDemoSchedulesForEmployee } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
@@ -28,38 +29,48 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) {
+  if (error === "Not authenticated") {
     return NextResponse.json({
       employeeId: DEMO_EMPLOYEE_ID,
       employeeName: null,
       schedules: getDemoSchedulesForEmployee(DEMO_EMPLOYEE_ID, from!, to!),
     });
   }
+  if (error === "No organization membership") {
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
+  }
 
+  const { orgId, employeeId } = ctx!;
+
+  if (employeeId == null) {
+    return NextResponse.json({ employeeId: null, employeeName: null, schedules: [] });
+  }
+
+  // Fetch the employee name using the org-scoped employee record
   const { data: emp } = await supabase
     .from("employees")
     .select("id, name")
-    .eq("user_id", user.id)
+    .eq("org_id", orgId)
+    .eq("id", employeeId)
     .maybeSingle();
 
   if (!emp) {
     return NextResponse.json({ employeeId: null, employeeName: null, schedules: [] });
   }
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase
     .from("schedules")
     .select("*")
+    .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("date", from)
     .lte("date", to)
     .order("date");
 
-  if (error) {
-    console.error("[api/my-schedule]", error);
+  if (dbError) {
+    console.error("[api/my-schedule]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 

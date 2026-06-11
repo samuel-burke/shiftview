@@ -17,7 +17,7 @@ export async function PUT(
     return NextResponse.json({ error: "action must be 'promote' or 'demote'" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -30,6 +30,7 @@ export async function PUT(
   const { data: targetEmp } = await supabase
     .from("employees")
     .select("name")
+    .eq("org_id", orgId!)
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -43,6 +44,7 @@ export async function PUT(
 
   writeAuditLog({
     action:       action === "promote" ? "manager.promote" : "manager.demote",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "manager",
     resourceId:   userId,

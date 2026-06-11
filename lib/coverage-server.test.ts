@@ -19,7 +19,7 @@ describe("getCurveForDate", () => {
         coverage_profile_blocks: { data: BLOCKS_DB, error: null },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({ startMinutes: 480, endMinutes: 720, headcount: 2 });
     expect(result[1]).toMatchObject({ startMinutes: 720, endMinutes: 960, headcount: 3 });
@@ -34,7 +34,7 @@ describe("getCurveForDate", () => {
         coverage_profile_blocks: { data: BLOCKS_DB, error: null },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result).toHaveLength(3);
   });
 
@@ -46,7 +46,7 @@ describe("getCurveForDate", () => {
         coverage_profile_blocks: { data: [], error: null },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result).toEqual([]);
   });
 
@@ -58,7 +58,7 @@ describe("getCurveForDate", () => {
         coverage_profile_blocks: { data: [], error: null },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result).toEqual([]);
   });
 
@@ -70,7 +70,7 @@ describe("getCurveForDate", () => {
         coverage_profile_blocks: { data: null, error: null },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result).toEqual([]);
   });
 
@@ -85,7 +85,7 @@ describe("getCurveForDate", () => {
         },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({ startMinutes: 540, endMinutes: 1080, headcount: 4 });
     // Should not have snake_case keys
@@ -106,7 +106,7 @@ describe("getCurveForDate", () => {
     // The actual implementation only queries day_defaults if override is null,
     // so we just verify the result uses profile_id from the override path (profileId=10)
     // Since the mock returns the same blocks regardless, we just verify it returns blocks.
-    const result = await getCurveForDate(supabase as any, "2026-06-10");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-10");
     expect(result.length).toBeGreaterThan(0);
   });
 
@@ -119,7 +119,7 @@ describe("getCurveForDate", () => {
         coverage_profile_blocks: { data: [{ start_minutes: 600, end_minutes: 1080, headcount: 2 }], error: null },
       },
     });
-    const result = await getCurveForDate(supabase as any, "2026-06-07");
+    const result = await getCurveForDate(supabase as any, "00000000-0000-0000-0000-000000000001", "2026-06-07");
     expect(result).toHaveLength(1);
     expect(result[0].startMinutes).toBe(600);
   });

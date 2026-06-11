@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "@/app/api/schedules/validation";
 import { requireManager } from "@/lib/require-manager";
+import { withOrg } from "@/lib/org-scope";
 import { fmtMinutes } from "@/data/types";
 import { weekDates } from "@/lib/draft-metrics";
 
@@ -11,12 +12,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-/**
- * Same time-off / availability checks as live schedules. Returns a 409
- * response when a conflict is found (and override is false), else null.
- */
 async function findConflict(
   supabase: SupabaseClient,
+  orgId: string,
   employeeId: number,
   date: string,
   startMinutes: number,
@@ -27,6 +25,7 @@ async function findConflict(
   const { data: timeOff } = await supabase
     .from("time_off_requests")
     .select("id, status")
+    .eq("org_id", orgId)
     .eq("employee_id", employeeId)
     .eq("date", date)
     .eq("status", "approved")
@@ -42,6 +41,7 @@ async function findConflict(
   const { data: availRecord } = await supabase
     .from("availability")
     .select("id, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .eq("employee_id", employeeId)
     .eq("day_of_week", dayOfWeek)
     .maybeSingle();
@@ -74,13 +74,14 @@ export async function GET(request: Request) {
   if (!DATE_RE.test(weekStart)) return NextResponse.json({ error: "weekStart must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const dates = weekDates(weekStart);
   const { data, error } = await supabase
     .from("draft_schedules")
     .select("*")
+    .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6])
     .order("start_minutes");
@@ -113,12 +114,13 @@ export async function POST(request: Request) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("draft_schedules")
     .select("id")
+    .eq("org_id", orgId)
     .eq("employee_id", employeeId)
     .eq("date", date)
     .maybeSingle();
@@ -127,13 +129,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Employee already has a draft shift on this date" }, { status: 409 });
 
   if (!override) {
-    const conflict = await findConflict(supabase, employeeId, date, startMinutes, endMinutes);
+    const conflict = await findConflict(supabase, orgId!, employeeId, date, startMinutes, endMinutes);
     if (conflict) return conflict;
   }
 
   const { error } = await supabase
     .from("draft_schedules")
-    .insert({ employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes });
+    .insert(withOrg(orgId!, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes }));
 
   if (error) {
     console.error("[api/drafts]", error);
@@ -153,12 +155,13 @@ export async function PUT(request: Request) {
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { data: existing } = await supabase
     .from("draft_schedules")
     .select("employee_id, date")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
@@ -167,13 +170,14 @@ export async function PUT(request: Request) {
 
   if (!override) {
     const dateStr = typeof existing.date === "string" ? existing.date.slice(0, 10) : existing.date;
-    const conflict = await findConflict(supabase, existing.employee_id, dateStr, startMinutes, endMinutes);
+    const conflict = await findConflict(supabase, orgId!, existing.employee_id, dateStr, startMinutes, endMinutes);
     if (conflict) return conflict;
   }
 
   const { error } = await supabase
     .from("draft_schedules")
     .update({ start_minutes: startMinutes, end_minutes: endMinutes })
+    .eq("org_id", orgId)
     .eq("id", id);
 
   if (error) {
@@ -193,12 +197,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id must be an integer" }, { status: 400 });
 
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { error } = await supabase
     .from("draft_schedules")
     .delete()
+    .eq("org_id", orgId)
     .eq("id", id);
 
   if (error) {

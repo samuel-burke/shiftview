@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { withOrgAll } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
 import { weekDates } from "@/lib/draft-metrics";
@@ -9,11 +10,6 @@ export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * Promotes all draft shifts in the given week to live schedules.
- * Drafts whose employee is already scheduled on that date are skipped.
- * All drafts in the week are cleared afterwards.
- */
 export async function POST(request: Request) {
   const { weekStart } = await request.json();
 
@@ -23,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "weekStart must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const dates = weekDates(weekStart);
@@ -31,6 +27,7 @@ export async function POST(request: Request) {
   const { data: drafts, error: draftsError } = await supabase
     .from("draft_schedules")
     .select("id, employee_id, date, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6]);
 
@@ -45,6 +42,7 @@ export async function POST(request: Request) {
   const { data: existing, error: existingError } = await supabase
     .from("schedules")
     .select("employee_id, date")
+    .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6]);
 
@@ -61,12 +59,12 @@ export async function POST(request: Request) {
   if (toPublish.length > 0) {
     const { error: insertError } = await supabase
       .from("schedules")
-      .insert(toPublish.map((d) => ({
+      .insert(withOrgAll(orgId!, toPublish.map((d) => ({
         employee_id:   d.employee_id,
         date:          dateKey(d.date),
         start_minutes: d.start_minutes,
         end_minutes:   d.end_minutes,
-      })));
+      }))));
 
     if (insertError) {
       console.error("[api/drafts/publish]", insertError);
@@ -74,38 +72,39 @@ export async function POST(request: Request) {
     }
   }
 
-  // Clear every draft in the week (including skipped duplicates) — the week is now published.
   const { error: deleteError } = await supabase
     .from("draft_schedules")
     .delete()
+    .eq("org_id", orgId)
     .in("id", drafts.map((d) => d.id));
 
   if (deleteError) {
-    // Shifts are already live; surface the cleanup failure but don't fail the publish.
     console.error("[api/drafts/publish] cleanup failed", deleteError);
   }
 
-  // One notification per affected employee with a linked account.
   const publishedEmployeeIds = [...new Set(toPublish.map((d) => d.employee_id))];
   if (publishedEmployeeIds.length > 0) {
     const { data: emps } = await supabase
       .from("employees")
       .select("id, user_id")
+      .eq("org_id", orgId)
       .in("id", publishedEmployeeIds);
     for (const emp of emps ?? []) {
       if (!emp.user_id) continue;
       notify(supabase, {
+        orgId:  orgId!,
         userId: emp.user_id,
-        type: "shift_change",
-        title: "Schedule Published",
-        body: `Your schedule for the week of ${dates[0]} has been published`,
-        data: { weekStart: dates[0] },
+        type:   "shift_change",
+        title:  "Schedule Published",
+        body:   `Your schedule for the week of ${dates[0]} has been published`,
+        data:   { weekStart: dates[0] },
       }).catch(() => {});
     }
   }
 
   writeAuditLog({
     action:       "draft_schedule.publish",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "draft_schedule",
     resourceId:   weekStart,

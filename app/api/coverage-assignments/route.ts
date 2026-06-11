@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { DEMO_COVERAGE_DEFAULTS } from "@/data/demo-fixtures";
 
@@ -9,10 +11,6 @@ export const dynamic = "force-dynamic";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/**
- * Which coverage profile applies to which day: a default per day of week
- * plus date-specific overrides (holidays etc.).
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
@@ -22,16 +20,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "from/to must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) return NextResponse.json({ defaults: DEMO_COVERAGE_DEFAULTS, overrides: {} });
+  if (error === "Not authenticated")
+    return NextResponse.json({ defaults: DEMO_COVERAGE_DEFAULTS, overrides: {} });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
 
-  let overridesQuery = supabase.from("coverage_date_overrides").select("date, profile_id");
+  const { orgId } = ctx!;
+
+  let overridesQuery = supabase
+    .from("coverage_date_overrides")
+    .select("date, profile_id")
+    .eq("org_id", orgId);
   if (from) overridesQuery = overridesQuery.gte("date", from);
   if (to) overridesQuery = overridesQuery.lte("date", to);
 
   const [{ data: defaults, error: defaultsError }, { data: overrides, error: overridesError }] = await Promise.all([
-    supabase.from("coverage_day_defaults").select("day_of_week, profile_id"),
+    supabase.from("coverage_day_defaults").select("day_of_week, profile_id").eq("org_id", orgId),
     overridesQuery,
   ]);
 
@@ -48,7 +54,6 @@ export async function GET(request: Request) {
   });
 }
 
-/** Set (or clear, with profileId: null) the default profile for a day of week. */
 export async function PUT(request: Request) {
   const { dayOfWeek, profileId } = await request.json();
 
@@ -58,12 +63,21 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "profileId must be an integer or null" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { error } = profileId === null
-    ? await supabase.from("coverage_day_defaults").delete().eq("day_of_week", dayOfWeek)
-    : await supabase.from("coverage_day_defaults").upsert({ day_of_week: dayOfWeek, profile_id: profileId }, { onConflict: "day_of_week" });
+    ? await supabase
+        .from("coverage_day_defaults")
+        .delete()
+        .eq("org_id", orgId)
+        .eq("day_of_week", dayOfWeek)
+    : await supabase
+        .from("coverage_day_defaults")
+        .upsert(
+          withOrg(orgId!, { day_of_week: dayOfWeek, profile_id: profileId }),
+          { onConflict: "org_id,day_of_week" }
+        );
 
   if (error) {
     console.error("[api/coverage-assignments]", error);
@@ -72,6 +86,7 @@ export async function PUT(request: Request) {
 
   writeAuditLog({
     action:       "coverage_default.update",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "coverage_day_default",
     resourceId:   String(dayOfWeek),
@@ -82,7 +97,6 @@ export async function PUT(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-/** Override the profile for a specific calendar date. */
 export async function POST(request: Request) {
   const { date, profileId } = await request.json();
 
@@ -92,12 +106,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "profileId must be an integer" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { error } = await supabase
     .from("coverage_date_overrides")
-    .upsert({ date, profile_id: profileId }, { onConflict: "date" });
+    .upsert(
+      withOrg(orgId!, { date, profile_id: profileId }),
+      { onConflict: "org_id,date" }
+    );
 
   if (error) {
     console.error("[api/coverage-assignments]", error);
@@ -106,6 +123,7 @@ export async function POST(request: Request) {
 
   writeAuditLog({
     action:       "coverage_override.set",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "coverage_date_override",
     resourceId:   date,
@@ -116,7 +134,6 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-/** Remove a date override (the day falls back to its day-of-week default). */
 export async function DELETE(request: Request) {
   const { date } = await request.json();
 
@@ -124,12 +141,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
   const { error } = await supabase
     .from("coverage_date_overrides")
     .delete()
+    .eq("org_id", orgId)
     .eq("date", date);
 
   if (error) {
@@ -139,6 +157,7 @@ export async function DELETE(request: Request) {
 
   writeAuditLog({
     action:       "coverage_override.clear",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "coverage_date_override",
     resourceId:   date,
