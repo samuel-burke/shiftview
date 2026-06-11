@@ -2,7 +2,7 @@
 
 A mobile-first shift management app for retail and hospitality teams — scheduling, time clock, coverage analytics, and team messaging in a single installable PWA.
 
-**[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app?demo=true)
+**[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app) — click "View Demo"
 
 ![ShiftView screenshot](public/screenshot.png)
 
@@ -31,7 +31,7 @@ A mobile-first shift management app for retail and hospitality teams — schedul
 
 **Platform**
 - Installable PWA with service worker, offline-aware shell, and home-screen prompts
-- Demo mode (`/?demo=true`) — the full UI backed by static fixtures, no account or database required
+- Demo mode — one click signs you in anonymously to a seeded Demo organization with full read/write access; sample data resets nightly
 - Nightly shift reminders for tomorrow's schedule via a Vercel cron job
 
 ## Tech Stack
@@ -69,7 +69,7 @@ Key design decisions:
 - **Times are minutes since midnight** (`480` = 8:00 AM). Shifts never cross midnight in this domain, so this avoids timezone and DST edge cases entirely; dates are plain `YYYY-MM-DD` strings.
 - **"Off" is derived, not stored.** Employees with no schedule row for a date are off that day — computed by diffing the roster against the day's shifts, so there's no second source of truth to keep in sync.
 - **Privileged operations use a service-role client.** Tables like `managers` and the employee-invite flow are write-denied via RLS for all users; the API performs those writes with the Supabase admin client only after verifying manager status itself.
-- **Demo mode is a data-layer swap.** `?demo=true` serves static fixtures from `data/demo-fixtures.ts` through the same components and API contracts, so the entire UI is explorable with zero setup.
+- **Demo mode is a real tenant, not a mock layer.** "View Demo" signs the visitor in anonymously (`POST /api/demo/start`) as a manager of a seeded Demo organization, so demo traffic exercises the exact same routes, business logic, and RLS policies as production. A nightly cron resets and reseeds the data (see [docs/DEMO_ORG.md](docs/DEMO_ORG.md)).
 - **Messages are encrypted at rest** with AES-256-GCM using a server-held key; the database never sees plaintext message content.
 
 A full functional spec lives in [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md), and data handling is documented in [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
@@ -120,9 +120,9 @@ Optional variables enable additional features:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). To use demo mode without an account, visit [http://localhost:3000?demo=true](http://localhost:3000?demo=true).
+Open [http://localhost:3000](http://localhost:3000). To explore without creating an account, click **View Demo** on the landing page (requires the demo org to be migrated and seeded — see [docs/DEMO_ORG.md](docs/DEMO_ORG.md)).
 
-> The live app is deployed at [shiftview.app](https://shiftview.app). Try the demo at [shiftview.app?demo=true](https://shiftview.app?demo=true).
+> The live app is deployed at [shiftview.app](https://shiftview.app).
 
 ## Testing & Quality
 
@@ -131,10 +131,10 @@ npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest unit/integration tests
 npm run test:watch  # watch mode
-npm run test:e2e    # Playwright e2e (demo mode, no backend needed)
+npm run test:e2e    # Playwright e2e (APIs intercepted client-side, no backend needed)
 ```
 
-API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the demo-mode user flows end-to-end with Playwright. CI runs lint, typecheck, unit, and e2e suites on every push and pull request.
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). CI runs lint, typecheck, unit, and e2e suites on every push and pull request.
 
 ## Project Structure
 
@@ -150,7 +150,7 @@ app/
 components/       # UI components (one concern per file, co-located tests)
 data/
   types.ts        # shared domain types + pure schedule/coverage utilities
-  demo-fixtures.ts# static data backing demo mode
+  demo-fixtures.ts# seed-source data for the demo organization
 lib/              # Supabase clients, encryption, audit log, web push, payroll
 e2e/              # Playwright specs
 docs/             # functional requirements spec
@@ -171,7 +171,7 @@ docs/             # functional requirements spec
 
 Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
 
-> Demo mode (`?demo=true`) does not connect to Supabase at all — it uses static in-app fixtures from `data/demo-fixtures.ts`.
+> The demo organization lives in these same tables as a regular tenant (flagged `organizations.is_demo`); `lib/demo-seed.ts` populates it from `data/demo-fixtures.ts`.
 
 ## Row Level Security
 
@@ -191,7 +191,7 @@ RLS is enabled on all live tables. The following policies are in effect:
 | `app_settings` | SELECT | All users (including unauthenticated) |
 | `app_settings` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
 
-> Demo mode (`?demo=true`) does not connect to Supabase at all — no RLS policies apply.
+> The demo organization is isolated by the same org-scoped RLS policies as any other tenant; demo visitors are anonymous Supabase users with membership rows in the demo org.
 
 **Notes**
 

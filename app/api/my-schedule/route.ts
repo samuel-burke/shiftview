@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
-import { DEMO_EMPLOYEES, getDemoSchedulesForEmployee } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DEMO_EMPLOYEE_ID = DEMO_EMPLOYEES[0].id;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -20,23 +18,11 @@ export async function GET(request: Request) {
   if (from > to)
     return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
 
-  if (searchParams.get("demo") === "true") {
-    return NextResponse.json({
-      employeeId: null,
-      employeeName: "Demo Manager",
-      schedules: generateDemoSchedules(from!, to!),
-    });
-  }
-
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
 
   if (error === "Not authenticated") {
-    return NextResponse.json({
-      employeeId: DEMO_EMPLOYEE_ID,
-      employeeName: null,
-      schedules: getDemoSchedulesForEmployee(DEMO_EMPLOYEE_ID, from!, to!),
-    });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   if (error === "No organization membership") {
     return NextResponse.json({ error: "No organization membership" }, { status: 403 });
@@ -97,32 +83,4 @@ function mapSchedules(data: ScheduleRow[]) {
     startMinutes: s.start_minutes,
     endMinutes: s.end_minutes,
   }));
-}
-
-// Shift pattern by day-of-week (0=Sun): [startMinutes, endMinutes] or null for day off
-const DEMO_SHIFT_PATTERN: Record<number, [number, number] | null> = {
-  0: null,
-  1: [480, 960],   // Mon 8am–4pm
-  2: [540, 1020],  // Tue 9am–5pm
-  3: null,
-  4: [600, 1080],  // Thu 10am–6pm
-  5: [480, 1020],  // Fri 8am–5pm
-  6: [540, 900],   // Sat 9am–3pm
-};
-
-function generateDemoSchedules(from: string, to: string) {
-  const results = [];
-  let id = 1000;
-  const cur = new Date(from + "T12:00:00Z");
-  const end = new Date(to + "T12:00:00Z");
-  while (cur <= end) {
-    const dow = cur.getUTCDay();
-    const shift = DEMO_SHIFT_PATTERN[dow];
-    if (shift) {
-      const date = cur.toISOString().slice(0, 10);
-      results.push({ id: id++, employeeId: null, date, startMinutes: shift[0], endMinutes: shift[1] });
-    }
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return results;
 }

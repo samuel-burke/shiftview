@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPush, type PushPayload } from "./webpush";
+import { isDemoOrgId } from "./demo-org";
 
 export type NotificationType =
   | "shift_change"
@@ -64,7 +65,9 @@ export async function notify(
   });
   if (insertError) console.error("[notify] notify_insert failed:", insertError);
 
-  if (!options.userId) return;
+  // Demo org: keep the in-app notification (the bell works in the demo) but
+  // never push to devices.
+  if (!options.userId || isDemoOrgId(options.orgId)) return;
 
   await sendPushToUser(supabase, options.userId, {
     title: options.title,
@@ -94,6 +97,9 @@ export async function notifyManagers(
     p_data:    data ?? null,
   });
   if (mgrInsertError) console.error("[notify] notify_insert failed:", mgrInsertError);
+
+  // Demo org: in-app broadcast only, no device push.
+  if (isDemoOrgId(orgId)) return;
 
   const { data: managers, error: mgrIdsError } = await supabase.rpc("notify_get_manager_ids", { p_org_id: orgId });
   if (mgrIdsError) console.error("[notify] notify_get_manager_ids failed:", mgrIdsError);

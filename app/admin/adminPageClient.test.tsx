@@ -40,35 +40,6 @@ describe("AdminPageClient", () => {
     await screen.findByText("Alice Smith");
   }
 
-  // ── Demo mode ──────────────────────────────────────────────────────────────
-
-  it("renders demo employees without hitting the API", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch");
-    render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
-    await screen.findByText("Jordan Martinez");
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it("shows Manager badge for demo managers", async () => {
-    render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
-    await screen.findByText("Jordan Martinez");
-    const managerBadges = screen.getAllByText("Manager");
-    expect(managerBadges.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("optimistically toggles in demo mode without making an API call", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch");
-    render(<AdminPageClient currentUserId="demo-manager" isDemo={true} />);
-    await screen.findByText("Casey Lewis");
-
-    await userEvent.click(screen.getByRole("button", { name: /demote casey/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /promote casey/i })).toBeInTheDocument();
-    });
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
   // ── Rendering ──────────────────────────────────────────────────────────────
 
   it("shows the Admin heading", async () => {

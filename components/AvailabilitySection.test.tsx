@@ -276,21 +276,4 @@ describe("AvailabilitySection", () => {
     expect(screen.getByLabelText("availability bar")).toBeInTheDocument();
   });
 
-  it("demo mode: no API calls fired, state updates locally", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const mockFetch = vi.fn();
-    vi.stubGlobal("fetch", mockFetch);
-    render(<AvailabilitySection {...BASE_PROPS} isDemo={true} />);
-    await act(async () => { await Promise.resolve(); });
-
-    await openSheet(0);
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Off" })); });
-    await act(async () => { vi.advanceTimersByTime(1000); await Promise.resolve(); await Promise.resolve(); });
-
-    expect(mockFetch).not.toHaveBeenCalled();
-    // State still updates locally
-    expect(screen.getByRole("button", { name: "Off" }).getAttribute("aria-pressed")).toBe("true");
-    vi.useRealTimers();
-  });
 });
-

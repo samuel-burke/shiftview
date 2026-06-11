@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
-import { DEMO_AVAILABILITY } from "@/data/demo-fixtures";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +23,7 @@ export async function GET(request: Request) {
 
   const { ctx, error } = await getOrgContext(supabase, request);
   if (error === "Not authenticated") {
-    const records = DEMO_AVAILABILITY[employeeId] ?? [];
-    return NextResponse.json(records);
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   if (error) return NextResponse.json({ error }, { status: 403 });
 

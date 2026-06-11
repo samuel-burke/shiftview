@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
-import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
+import { isDemoOrgId } from "@/lib/demo-org";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const { ctx, error } = await getOrgContext(supabase, request);
 
   if (error === "Not authenticated") {
-    return NextResponse.json(sortByName(DEMO_EMPLOYEES));
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   if (error) {
     return NextResponse.json({ error: "No organization membership" }, { status: 403 });
@@ -63,6 +63,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
+    );
+
+  // Demo org: visitors may rename employees or unlink/claim a row for
+  // themselves, but must not attach arbitrary real user ids to demo rows.
+  if (
+    isDemoOrgId(orgId!) &&
+    typeof userId === "string" &&
+    userId !== user!.id
+  )
+    return NextResponse.json(
+      { error: "Linking other accounts is disabled in the demo organization" },
+      { status: 403 }
     );
 
   const { data: before } = await supabase

@@ -43,14 +43,11 @@ describe("GET /api/schedules", () => {
     expect(await res.json()).toMatchObject({ error: "date must be YYYY-MM-DD" });
   });
 
-  it("returns demo fixture schedules for unauthenticated users without querying Supabase", async () => {
+  it("returns 401 for unauthenticated users", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/schedules?date=2026-05-26"));
-    expect(res.status).toBe(200);
-    expect(client.from).not.toHaveBeenCalledWith("schedules_demo");
-    const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    expect(res.status).toBe(401);
   });
 
   it("queries schedules for authenticated users", async () => {

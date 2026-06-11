@@ -13,7 +13,7 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
-import { DEMO_EMPLOYEES, DEMO_STORE_HOURS, DEMO_SETTINGS } from "../../data/demo-fixtures";
+import { useAppData } from "../../lib/AppDataContext";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -187,15 +187,15 @@ function EmployeeAvailabilityRow({
 }
 
 export default function SettingsPageClient({
-  isDemo = false,
   isManagerInitial = false,
 }: {
-  isDemo?: boolean;
   isManagerInitial?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const { me } = useAppData();
+  const isDemo = me.isDemo;
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
@@ -203,13 +203,11 @@ export default function SettingsPageClient({
 
   async function saveCoverageAlerts(newValue: boolean) {
     setCoverageAlertsSaving(true);
-    if (!isDemo) {
-      await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverageAlertsEnabled: newValue }),
-      });
-    }
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coverageAlertsEnabled: newValue }),
+    });
     setCoverageAlertsSaving(false);
   }
 
@@ -220,12 +218,6 @@ export default function SettingsPageClient({
   async function saveFirstDay(value: number) {
     setFirstDayOfWeek(value);
     setFirstDayStatus("saving");
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setFirstDayStatus("saved");
-      setTimeout(() => setFirstDayStatus("idle"), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -247,12 +239,6 @@ export default function SettingsPageClient({
   async function saveTimezone(value: string) {
     setTimezone(value);
     setTimezoneStatus("saving");
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setTimezoneStatus("saved");
-      setTimeout(() => setTimezoneStatus("idle"), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -369,13 +355,6 @@ export default function SettingsPageClient({
     if (geofenceLat === null || geofenceLng === null) return;
     setGeofenceSaving(true);
     setGeofenceError(null);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setGeofenceSaving(false);
-      setGeofenceSaved(true);
-      setTimeout(() => setGeofenceSaved(false), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -397,13 +376,6 @@ export default function SettingsPageClient({
 
   async function saveTimeclockSetting(patch: { manualPunchesEnabled?: boolean; gpsRequired?: boolean; geofenceEnabled?: boolean }) {
     setTimeclockSaving(true);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setTimeclockSaving(false);
-      setTimeclockSaved(true);
-      setTimeout(() => setTimeclockSaved(false), 2000);
-      return;
-    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -466,26 +438,23 @@ export default function SettingsPageClient({
   const [notifPrefsSaving, setNotifPrefsSaving] = useState<Partial<Record<keyof NotifPrefs, boolean>>>({});
 
   useEffect(() => {
-    if (isDemo) return;
     fetch("/api/notification-preferences")
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((prefs: NotifPrefs) => setNotifPrefs(prefs))
       .catch(() => {});
-  }, [isDemo]);
+  }, []);
 
   async function toggleNotifPref(key: keyof NotifPrefs) {
     const next = !notifPrefs[key];
     setNotifPrefs((p) => ({ ...p, [key]: next }));
     setNotifPrefsSaving((s) => ({ ...s, [key]: true }));
-    if (!isDemo) {
-      const res = await fetch("/api/notification-preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [key]: next }),
-      }).catch(() => null);
-      if (!res?.ok) {
-        setNotifPrefs((p) => ({ ...p, [key]: !next }));
-      }
+    const res = await fetch("/api/notification-preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: next }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setNotifPrefs((p) => ({ ...p, [key]: !next }));
     }
     setNotifPrefsSaving((s) => ({ ...s, [key]: false }));
   }
@@ -494,8 +463,6 @@ export default function SettingsPageClient({
 
   // Supabase Realtime — live updates for employees and store hours
   useEffect(() => {
-    if (isDemo) return;
-
     function refetchEmployees() {
       fetch("/api/employees")
         .then((r) => r.ok ? r.json() : Promise.reject())
@@ -517,7 +484,7 @@ export default function SettingsPageClient({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo]);
+  }, []);
 
   function urlBase64ToUint8Array(base64: string): Uint8Array {
     const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -587,7 +554,7 @@ export default function SettingsPageClient({
     }
   }
 
-  const [loading, setLoading] = useState(!isDemo);
+  const [loading, setLoading] = useState(true);
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
 
@@ -600,67 +567,48 @@ export default function SettingsPageClient({
 
   // ── Initial data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isDemo) {
-      supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
-    }
-    if (!isDemo) {
-      fetch("/api/settings")
-        .then((r) => r.json())
-        .then((s) => {
-          if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
-          if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
-          if (s.timezone)                setTimezone(s.timezone);
-          if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
-          if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
-          if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
-          if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
-          if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
-          if (s.geofenceRadius  != null) setGeofenceRadius(s.geofenceRadius);
-          if (s.geofenceAddress != null) {
-            setGeofenceAddress(s.geofenceAddress);
-            setAddressInput(s.geofenceAddress);
-          }
-        })
-        .catch(() => {});
-      fetch("/api/employees")
-        .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((emps: Employee[]) => setEmployees(emps))
-        .catch(() => {});
-      fetch("/api/me")
-        .then((r) => r.json())
-        .then(({ isManager: mgr, employeeId: empId }) => {
-          if (mgr != null) setIsManager(mgr);
-          if (empId != null) setEmployeeId(empId);
-          if (mgr) {
-            fetch("/api/templates")
-              .then((r) => r.ok ? r.json() : Promise.reject())
-              .then(({ templates: t }) => setTemplates(t ?? []))
-              .catch(() => {});
-            fetch("/api/store-hours")
-              .then((r) => r.ok ? r.json() : Promise.reject())
-              .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
-              .catch(() => {});
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else {
-      setIsManager(true);
-      setCurrentUserId("demo-manager");
-      setEmployees(DEMO_EMPLOYEES.map(e => ({
-        id: e.id,
-        name: e.name,
-        email: e.email ?? null,
-        user_id: e.user_id ?? null,
-      })));
-      setWeeklyHours(DEMO_STORE_HOURS);
-      setCoverageAlertsEnabled(DEMO_SETTINGS.coverageAlertsEnabled);
-      setTimezone(DEMO_SETTINGS.timezone);
-      setFirstDayOfWeek(DEMO_SETTINGS.firstDayOfWeek);
-      setManualPunchesEnabled(DEMO_SETTINGS.manualPunchesEnabled);
-      setGpsRequired(DEMO_SETTINGS.gpsRequired);
-    }
-  }, [isDemo]);
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => {
+        if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
+        if (s.coverageAlertsEnabled != null) setCoverageAlertsEnabled(s.coverageAlertsEnabled);
+        if (s.timezone)                setTimezone(s.timezone);
+        if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
+        if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
+        if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
+        if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
+        if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
+        if (s.geofenceRadius  != null) setGeofenceRadius(s.geofenceRadius);
+        if (s.geofenceAddress != null) {
+          setGeofenceAddress(s.geofenceAddress);
+          setAddressInput(s.geofenceAddress);
+        }
+      })
+      .catch(() => {});
+    fetch("/api/employees")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((emps: Employee[]) => setEmployees(emps))
+      .catch(() => {});
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(({ isManager: mgr, employeeId: empId }) => {
+        if (mgr != null) setIsManager(mgr);
+        if (empId != null) setEmployeeId(empId);
+        if (mgr) {
+          fetch("/api/templates")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(({ templates: t }) => setTemplates(t ?? []))
+            .catch(() => {});
+          fetch("/api/store-hours")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then((data) => setWeeklyHours((prev) => ({ ...prev, ...data })))
+            .catch(() => {});
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────
   async function handleSignOut() {
@@ -673,13 +621,6 @@ export default function SettingsPageClient({
     if (!trimmed) { setEditError("Name cannot be empty"); return; }
     setEditSaving(true);
     setEditError(null);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setEmployees((prev) => prev.map((e) => e.id === id ? { ...e, name: trimmed } : e));
-      setEditSaving(false);
-      setEditingId(null);
-      return;
-    }
     const res = await fetch("/api/employees", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -699,12 +640,6 @@ export default function SettingsPageClient({
     setConfirmDeleteEmployee(null);
     setDeletingId(id);
     setDeleteErrorId(null);
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 250));
-      setDeletingId(null);
-      setEmployees((prev) => prev.filter((e) => e.id !== id));
-      return;
-    }
     const res = await fetch("/api/employees", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -766,7 +701,6 @@ export default function SettingsPageClient({
             employeeId={employeeId}
             weeklyHours={weeklyHours}
             firstDayOfWeek={firstDayOfWeek}
-            isDemo={isDemo}
           />
         )}
 
@@ -917,7 +851,7 @@ export default function SettingsPageClient({
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Store Hours
           </div>
-          <StoreHoursSection firstDayOfWeek={firstDayOfWeek} isDemo={isDemo} />
+          <StoreHoursSection firstDayOfWeek={firstDayOfWeek} />
         </section>
         )}
 
@@ -955,7 +889,7 @@ export default function SettingsPageClient({
 
             <button
               data-testid="coverage-profiles-link"
-              onClick={() => router.push(`/coverage${isDemo ? "?demo=true" : ""}`)}
+              onClick={() => router.push("/coverage")}
               className="w-full flex items-center justify-between bg-bg border border-slate-700 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-500/50 transition-colors text-left"
             >
               <div>
@@ -1442,13 +1376,13 @@ export default function SettingsPageClient({
           </div>
           <div className="flex flex-col gap-2">
             <button
-              onClick={() => router.push(isDemo ? "/reports?demo=true" : "/reports")}
+              onClick={() => router.push("/reports")}
               className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
             >
               View Reports
             </button>
             <button
-              onClick={() => router.push(isDemo ? "/admin?demo=true" : "/admin")}
+              onClick={() => router.push("/admin")}
               className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
             >
               Manage Roles
@@ -1457,23 +1391,14 @@ export default function SettingsPageClient({
         </section>
         )}
 
-        {/* Sign out / Sign in */}
+        {/* Sign out */}
         <section className="pb-2">
-          {isDemo ? (
-            <button
-              onClick={() => router.push("/login")}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-            >
-              Sign In
-            </button>
-          ) : (
-            <button
-              onClick={handleSignOut}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-            >
-              Sign Out
-            </button>
-          )}
+          <button
+            onClick={handleSignOut}
+            className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+          >
+            Sign Out
+          </button>
         </section>
       </div>
 
@@ -1483,22 +1408,11 @@ export default function SettingsPageClient({
         onClose={() => setShowInvite(false)}
         onSuccess={() => {
           setShowInvite(false);
-          if (!isDemo) {
-            fetch("/api/employees")
-              .then((r) => r.ok ? r.json() : Promise.reject())
-              .then(setEmployees)
-              .catch(() => {});
-          }
+          fetch("/api/employees")
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then(setEmployees)
+            .catch(() => {});
         }}
-        onSubmit={isDemo
-          ? async (name, email) => {
-              setEmployees((prev) => [
-                ...prev,
-                { id: Date.now(), name, email, user_id: null },
-              ]);
-            }
-          : undefined
-        }
       />
 
       {/* Delete confirmation modal */}

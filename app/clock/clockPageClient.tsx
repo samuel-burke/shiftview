@@ -2,7 +2,6 @@
 
 import { downloadCSV } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useAppData } from "@/lib/AppDataContext";
 import {
   Schedule,
@@ -27,9 +26,6 @@ import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
-import { DEMO_EMPLOYEES, getDemoSchedulesForDate } from "../../data/demo-fixtures";
-
-const DEMO_EMPLOYEE = DEMO_EMPLOYEES[0]; // Jordan Martinez, id 1
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -84,9 +80,6 @@ function formatPunchTime(iso: string): string {
 
 export default function ClockPageClient() {
   const today = new Date();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
 
   async function handleSignOut() {
@@ -104,6 +97,7 @@ export default function ClockPageClient() {
 
   const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache } = useAppData();
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
+  const isDemo = cachedMe.isDemo;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
   // initialize from context cache if available so return visits are instant.
@@ -113,7 +107,6 @@ export default function ClockPageClient() {
   const [meLoading, setMeLoading] = useState(!cachedMe.isManager && cachedMe.employeeId === null);
 
   useEffect(() => {
-    if (isDemo) return;
     fetch(`/api/me`)
       .then(r => r.json())
       .then(({ isManager: mgr, employeeId: empId, employeeName: empName }) => {
@@ -123,7 +116,7 @@ export default function ClockPageClient() {
         setMeLoading(false);
       })
       .catch(() => setMeLoading(false));
-  }, [isDemo]);
+  }, []);
 
   // Missed punch — open session detected from a previous day
   type MissedPunchInfo = {
@@ -206,13 +199,6 @@ export default function ClockPageClient() {
     if (!background) setLoading(true);
     setError(null);
     try {
-      if (isDemo) {
-        const scheds = getDemoSchedulesForDate(todayKey);
-        setSchedule(scheds.find((s) => s.employeeId === DEMO_EMPLOYEE.id) ?? null);
-        setPunches([]);
-        return;
-      }
-
       const [schedRes, punchRes, missedRes] = await Promise.all([
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
@@ -237,11 +223,10 @@ export default function ClockPageClient() {
     } finally {
       if (!background) setLoading(false);
     }
-  }, [todayKey, isDemo, setScheduleCache, setPunchCache]);
+  }, [todayKey, setScheduleCache, setPunchCache]);
 
   useEffect(() => {
     if (meLoading) return; // don't load data until employee identity is known
-    if (isDemo) { loadData(); return; }
     const empId = employeeIdRef.current;
     const cachedScheds = scheduleCache[todayKey];
     const cachedPunches = punchCache[todayKey];
@@ -253,11 +238,10 @@ export default function ClockPageClient() {
     } else {
       loadData();
     }
-  }, [todayKey, isDemo, meLoading]);
+  }, [todayKey, meLoading]);
 
   // Re-fetch when the tab comes back to the foreground
   useEffect(() => {
-    if (isDemo) return;
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -268,17 +252,16 @@ export default function ClockPageClient() {
     }
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [isDemo, loadData]);
+  }, [loadData]);
 
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
   useEffect(() => {
-    if (isDemo) return;
     const channel = supabase
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo, loadData]);
+  }, [loadData]);
 
   async function getGps(): Promise<{ lat: number; lng: number } | null> {
     if (!navigator.geolocation) return null;
@@ -319,31 +302,11 @@ export default function ClockPageClient() {
     setPendingWarning(null);
   }
 
-  const demoPunchIdRef = useRef(-1);
-
   async function submitPunch(punchType: PunchType) {
     if (actionPending) return;
     haptic();
     setActionPending(true);
     setActionError(null);
-
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 350));
-      const fakePunch: PunchRecord = {
-        id: demoPunchIdRef.current--,
-        employeeId: DEMO_EMPLOYEE.id,
-        scheduleId: schedule?.id ?? null,
-        punchType,
-        punchedAt: new Date().toISOString(),
-        lat: null,
-        lng: null,
-        isManual: false,
-        note: null,
-      };
-      setPunches((prev) => [...prev, fakePunch]);
-      setActionPending(false);
-      return;
-    }
 
     let lat: number | null = null;
     let lng: number | null = null;
@@ -398,11 +361,6 @@ export default function ClockPageClient() {
   async function submitCorrection() {
     if (!correctionNote.trim()) {
       setCorrectionError("A note is required for manual corrections");
-      return;
-    }
-    if (isDemo) {
-      setShowCorrection(false);
-      setCorrectionNote("");
       return;
     }
     setCorrectionSaving(true);
@@ -469,12 +427,8 @@ export default function ClockPageClient() {
         <span className="text-sm text-slate-400">
           {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
         </span>
-        {!isDemo && <NotificationBell />}
-        <UserMenu
-          name={employeeName}
-          onSignOut={isDemo ? undefined : handleSignOut}
-          onSignIn={isDemo ? () => router.push("/login") : undefined}
-        />
+        <NotificationBell />
+        <UserMenu name={employeeName} onSignOut={handleSignOut} />
       </div>
     </div>
   );
@@ -486,8 +440,7 @@ export default function ClockPageClient() {
     isManager,
     userName: employeeName,
     isDemo,
-    onSignOut: isDemo ? undefined : handleSignOut,
-    onSignIn: isDemo ? () => router.push("/login") : undefined,
+    onSignOut: handleSignOut,
   };
 
   if (loading || meLoading) {
@@ -524,7 +477,7 @@ export default function ClockPageClient() {
     <main className={mainClass}>
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
       )}

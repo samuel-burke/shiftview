@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
 
 type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
@@ -12,9 +11,6 @@ type Props = {
 };
 
 export default function SideNav({ active, isManager }: Props) {
-  const searchParams = useSearchParams();
-  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
-
   return (
     <motion.div
       role="complementary"
@@ -36,32 +32,32 @@ export default function SideNav({ active, isManager }: Props) {
       {/* Nav links */}
       <nav aria-label="Main navigation" className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
         <LayoutGroup id="sidenav">
-          <NavLink href={`/${demo}`} label="Team" isActive={active === "team"}>
+          <NavLink href="/" label="Team" isActive={active === "team"}>
             <TeamIcon />
           </NavLink>
-          <NavLink href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
+          <NavLink href="/schedule" label="Schedule" isActive={active === "schedule"}>
             <ScheduleIcon />
           </NavLink>
-          <NavLink href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
+          <NavLink href="/clock" label="Clock" isActive={active === "clock"}>
             <ClockIcon />
           </NavLink>
 
           <div className="h-px bg-slate-800 my-2" />
 
           {isManager && (
-            <NavLink href={`/draft${demo}`} label="Planner" isActive={active === "planner"}>
+            <NavLink href="/draft" label="Planner" isActive={active === "planner"}>
               <PlannerIcon />
             </NavLink>
           )}
           {isManager && (
-            <NavLink href={`/admin${demo}`} label="Admin" isActive={active === "admin"}>
+            <NavLink href="/admin" label="Admin" isActive={active === "admin"}>
               <AdminIcon />
             </NavLink>
           )}
-          <NavLink href={`/settings${demo}`} label="Settings" isActive={active === "settings"}>
+          <NavLink href="/settings" label="Settings" isActive={active === "settings"}>
             <SettingsIcon />
           </NavLink>
-          <NavLink href={`/reports${demo}`} label="Reports" isActive={active === "reports"}>
+          <NavLink href="/reports" label="Reports" isActive={active === "reports"}>
             <ReportsIcon />
           </NavLink>
         </LayoutGroup>

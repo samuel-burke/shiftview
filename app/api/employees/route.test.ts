@@ -3,7 +3,6 @@ import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
-import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
@@ -44,16 +43,11 @@ const MOCK_EMPLOYEES_SORTED = [
 // ── GET ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/employees", () => {
-  it("returns demo employees from fixtures for unauthenticated users without hitting DB", async () => {
+  it("returns 401 for unauthenticated users", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
-    expect(res.status).toBe(200);
-    expect(client.from).not.toHaveBeenCalledWith("employees_demo");
-    const body = await res.json();
-    expect(body.map((e: { name: string }) => e.name)).toEqual(
-      expect.arrayContaining(DEMO_EMPLOYEES.map((e) => e.name))
-    );
+    expect(res.status).toBe(401);
   });
 
   it("queries employees for authenticated users", async () => {

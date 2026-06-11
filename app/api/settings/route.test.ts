@@ -24,15 +24,11 @@ const MOCK_DB_SETTINGS = [
 // ── GET /api/settings ─────────────────────────────────────────────────────────
 
 describe("GET /api/settings", () => {
-  it("returns demo settings for unauthenticated users without querying the DB", async () => {
+  it("returns 401 for unauthenticated users without querying the DB", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET();
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toMatchObject({ firstDayOfWeek: 1, timezone: "America/New_York" });
-    expect(body).not.toHaveProperty("optimalCoverage");
-    expect(body).not.toHaveProperty("minCoverage");
+    expect(res.status).toBe(401);
     expect(client.from).not.toHaveBeenCalledWith("app_settings");
   });
 
