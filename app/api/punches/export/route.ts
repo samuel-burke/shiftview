@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -34,14 +35,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
+
+  const { orgId, user, isManager, employeeId } = ctx!;
 
   const rangeStart = `${from}T00:00:00+00:00`;
   const rangeEnd   = `${to}T23:59:59.999+00:00`;
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("punch_records")
     .select("*, employees(name)")
+    .eq("org_id", orgId)
     .gte("punched_at", rangeStart)
     .lte("punched_at", rangeEnd)
     .order("employee_id")
@@ -57,21 +59,16 @@ export async function GET(request: Request) {
 
   const filterEmpId = searchParams.get("employeeId");
 
-  if (!managerRow) {
-    const { data: emp } = await supabase
-      .from("employees")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!emp) return NextResponse.json({ error: "No employee record" }, { status: 403 });
-    query = query.eq("employee_id", emp.id);
+  if (!isManager) {
+    if (!employeeId) return NextResponse.json({ error: "No employee record" }, { status: 403 });
+    query = query.eq("employee_id", employeeId);
   } else {
     if (filterEmpId) query = query.eq("employee_id", Number(filterEmpId));
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("[api/punches/export GET]", error);
+  const { data, error: fetchError } = await query;
+  if (fetchError) {
+    console.error("[api/punches/export GET]", fetchError);
     return NextResponse.json({ error: "Failed to fetch punch records" }, { status: 500 });
   }
 
@@ -79,6 +76,7 @@ export async function GET(request: Request) {
 
   writeAuditLog({
     action:       "punch.export",
+    orgId,
     actorId:      user.id,
     resourceType: "punch_record",
     metadata: {
@@ -86,7 +84,7 @@ export async function GET(request: Request) {
       to,
       employeeId: filterEmpId ? Number(filterEmpId) : null,
       rowCount:   rows.length,
-      byManager:  !!managerRow,
+      byManager:  isManager,
     },
   }).catch(() => {});
 

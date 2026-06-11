@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { GET, POST } from "./route";
 import { PUT } from "./[id]/route";
 import { createClient } from "@/lib/supabase-server";
-import { MOCK_USER } from "../__tests__/helpers";
+import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -44,7 +44,8 @@ function makeSwapsClient({
   queryData = null as any,
   queryError = null as any,
 } = {}) {
-  const managerRow = isManager && user ? { user_id: user.id } : null;
+  const managerRow = isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
+  const empRowWithOrg = employeeRow ? { org_id: MOCK_ORG_ID, ...employeeRow } : null;
 
   function makeBuilder(result: { data: any; error: any }) {
     const b: any = {};
@@ -59,6 +60,7 @@ function makeSwapsClient({
       "lte",
       "order",
       "or",
+      "limit",
     ]) {
       b[m] = vi.fn().mockReturnValue(b);
     }
@@ -73,7 +75,7 @@ function makeSwapsClient({
     },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers") return makeBuilder({ data: managerRow, error: null });
-      if (table === "employees") return makeBuilder({ data: employeeRow, error: null });
+      if (table === "employees") return makeBuilder({ data: empRowWithOrg, error: null });
       if (tableData[table]) return makeBuilder(tableData[table]);
       return makeBuilder({ data: queryData, error: queryError });
     }),
@@ -165,11 +167,11 @@ describe("POST /api/swaps", () => {
     // We'll use a custom mock that tracks call count.
     let scheduleCallCount = 0;
     const managerRow = null;
-    const employeeRow = { id: 1 };
+    const employeeRow = { id: 1, org_id: MOCK_ORG_ID };
 
     function makeBuilder(result: { data: any; error: any }) {
       const b: any = {};
-      for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "or"]) {
+      for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "or", "limit"]) {
         b[m] = vi.fn().mockReturnValue(b);
       }
       b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -210,7 +212,7 @@ describe("POST /api/swaps", () => {
 
     function makeBuilder(result: { data: any; error: any }) {
       const b: any = {};
-      for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "or"]) {
+      for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "or", "limit"]) {
         b[m] = vi.fn().mockReturnValue(b);
       }
       b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -224,7 +226,7 @@ describe("POST /api/swaps", () => {
       },
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") return makeBuilder({ data: null, error: null });
-        if (table === "employees") return makeBuilder({ data: { id: 1 }, error: null });
+        if (table === "employees") return makeBuilder({ data: { id: 1, org_id: MOCK_ORG_ID }, error: null });
         if (table === "schedules") {
           scheduleCallCount++;
           const row = scheduleCallCount === 1 ? SCHEDULE_A : SCHEDULE_B;
@@ -284,7 +286,7 @@ describe("PUT /api/swaps/[id]", () => {
 
     function makeBuilder(result: { data: any; error: any }) {
       const b: any = {};
-      for (const m of ["select", "insert", "upsert", "gte", "lte", "order", "or"]) {
+      for (const m of ["select", "insert", "upsert", "gte", "lte", "order", "or", "limit"]) {
         b[m] = vi.fn().mockReturnValue(b);
       }
       // update().eq() chain
@@ -304,7 +306,7 @@ describe("PUT /api/swaps/[id]", () => {
         getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
       },
       from: vi.fn().mockImplementation((table: string) => {
-        if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id }, error: null });
+        if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
         if (table === "shift_swaps") return makeBuilder({ data: PENDING_SWAP, error: null });
         if (table === "schedules") {
           scheduleCallCount++;
@@ -337,7 +339,7 @@ describe("PUT /api/swaps/[id]", () => {
 
     function makeBuilder(result: { data: any; error: any }) {
       const b: any = {};
-      for (const m of ["select", "insert", "upsert", "gte", "lte", "order", "or"]) {
+      for (const m of ["select", "insert", "upsert", "gte", "lte", "order", "or", "limit"]) {
         b[m] = vi.fn().mockReturnValue(b);
       }
       b.update = vi.fn().mockImplementation(() => {
@@ -356,7 +358,7 @@ describe("PUT /api/swaps/[id]", () => {
         getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
       },
       from: vi.fn().mockImplementation((table: string) => {
-        if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id }, error: null });
+        if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
         if (table === "shift_swaps") return makeBuilder({ data: PENDING_SWAP, error: null });
         return makeBuilder({ data: null, error: null });
       }),
@@ -375,5 +377,33 @@ describe("PUT /api/swaps/[id]", () => {
     expect(body.ok).toBe(true);
     // Only 1 update: the status update on shift_swaps (no schedule updates)
     expect(updateCallCount).toBe(1);
+  });
+});
+
+// ── Org scoping ───────────────────────────────────────────────────────────────
+
+describe("org scoping — swaps routes", () => {
+  it("GET /api/swaps (manager) scopes shift_swaps query to org_id", async () => {
+    const swapsEqArgs: [string, unknown][] = [];
+    const client = makeSwapsClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableData: { shift_swaps: { data: [], error: null } },
+    });
+    const origFrom = (client as any).from.bind(client);
+    (client as any).from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "shift_swaps") {
+        const origEq = b.eq.bind(b);
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+          swapsEqArgs.push([col, val]);
+          return origEq(col, val);
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET();
+    expect(swapsEqArgs.some(([col]) => col === "org_id")).toBe(true);
   });
 });

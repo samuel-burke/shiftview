@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { DEMO_AVAILABILITY } from "@/data/demo-fixtures";
 
@@ -20,19 +22,23 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated") {
     const records = DEMO_AVAILABILITY[employeeId] ?? [];
     return NextResponse.json(records);
   }
+  if (error) return NextResponse.json({ error }, { status: 403 });
 
-  const { data, error } = await supabase
+  const { orgId } = ctx!;
+
+  const { data, error: fetchError } = await supabase
     .from("availability")
     .select("id, day_of_week, start_minutes, end_minutes, note")
+    .eq("org_id", orgId)
     .eq("employee_id", employeeId);
 
-  if (error) {
-    console.error("[api/availability]", error);
+  if (fetchError) {
+    console.error("[api/availability]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -72,51 +78,56 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // Check if manager
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
+
+  const { orgId, user, isManager, employeeId: ctxEmployeeId } = ctx!;
 
   let employeeName: string | null = null;
-  if (!managerRow) {
+  if (!isManager) {
     // Non-manager: must be setting own availability
+    if (!ctxEmployeeId || ctxEmployeeId !== employeeId)
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { data: linkedEmployee } = await supabase
       .from("employees")
-      .select("id, user_id, name")
-      .eq("user_id", user.id)
+      .select("id, name")
+      .eq("org_id", orgId)
+      .eq("id", ctxEmployeeId)
       .maybeSingle();
 
-    if (!linkedEmployee || linkedEmployee.id !== employeeId)
+    if (!linkedEmployee)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     employeeName = linkedEmployee.name;
   } else {
     const { data: emp } = await supabase
       .from("employees")
       .select("name")
+      .eq("org_id", orgId)
       .eq("id", employeeId)
       .maybeSingle();
     employeeName = emp?.name ?? null;
   }
 
-  const { error } = await supabase
+  const { error: upsertError } = await supabase
     .from("availability")
     .upsert(
-      { employee_id: employeeId, day_of_week: dayOfWeek, start_minutes: startMinutes, end_minutes: endMinutes, note },
+      withOrg(orgId, { employee_id: employeeId, day_of_week: dayOfWeek, start_minutes: startMinutes, end_minutes: endMinutes, note }),
       { onConflict: "employee_id,day_of_week" }
     );
 
-  if (error) {
-    console.error("[api/availability]", error);
+  if (upsertError) {
+    console.error("[api/availability]", upsertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
     action:       "availability.upsert",
+    orgId,
     actorId:      user.id,
     resourceType: "availability",
     after: { employeeId, dayOfWeek, startMinutes, endMinutes, note },
@@ -125,7 +136,7 @@ export async function POST(request: Request) {
       employeeName,
       dayOfWeek,
       dayName: DAY_NAMES[dayOfWeek] ?? null,
-      byManager: !!managerRow,
+      byManager: isManager,
     },
   }).catch(() => {});
 
@@ -140,56 +151,63 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // Fetch the availability record to check ownership
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
+
+  const { orgId, user, isManager, employeeId: ctxEmployeeId } = ctx!;
+
+  // Fetch the availability record to check ownership — scoped to org
   const { data: record } = await supabase
     .from("availability")
     .select("id, employee_id, day_of_week")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
-  // Check if manager
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
   let employeeName: string | null = null;
-  if (!managerRow) {
+  if (!isManager) {
     // Non-manager: must own the record
+    if (!ctxEmployeeId || !record || ctxEmployeeId !== record.employee_id)
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { data: linkedEmployee } = await supabase
       .from("employees")
-      .select("id, user_id, name")
-      .eq("user_id", user.id)
+      .select("id, name")
+      .eq("org_id", orgId)
+      .eq("id", ctxEmployeeId)
       .maybeSingle();
 
-    if (!linkedEmployee || !record || linkedEmployee.id !== record.employee_id)
+    if (!linkedEmployee)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     employeeName = linkedEmployee.name;
   } else if (record?.employee_id) {
     const { data: emp } = await supabase
       .from("employees")
       .select("name")
+      .eq("org_id", orgId)
       .eq("id", record.employee_id)
       .maybeSingle();
     employeeName = emp?.name ?? null;
   }
 
-  const { error } = await supabase
+  const { error: deleteError } = await supabase
     .from("availability")
     .delete()
+    .eq("org_id", orgId)
     .eq("id", id);
 
-  if (error) {
-    console.error("[api/availability]", error);
+  if (deleteError) {
+    console.error("[api/availability]", deleteError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
     action:       "availability.delete",
+    orgId,
     actorId:      user.id,
     resourceType: "availability",
     resourceId:   String(id),
@@ -201,7 +219,7 @@ export async function DELETE(request: Request) {
       employeeName,
       dayOfWeek:    record?.day_of_week ?? null,
       dayName:      record?.day_of_week != null ? DAY_NAMES[record.day_of_week] : null,
-      byManager:    !!managerRow,
+      byManager:    isManager,
     },
   }).catch(() => {});
 

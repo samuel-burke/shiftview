@@ -22,6 +22,7 @@ describe("GET /api/availability", () => {
   it("returns full record array (id, dayOfWeek, startMinutes, endMinutes, note)", async () => {
     const client = makeSupabaseClient({
       user: MOCK_USER,
+      linkedEmployee: { id: 1, user_id: MOCK_USER.id },
       queryData: [
         { id: 1, day_of_week: 0, start_minutes: null, end_minutes: null, note: "Family time" },
         { id: 2, day_of_week: 6, start_minutes: 720, end_minutes: 1320, note: null },
@@ -38,7 +39,11 @@ describe("GET /api/availability", () => {
   });
 
   it("returns empty array when no records", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: [] });
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      linkedEmployee: { id: 1, user_id: MOCK_USER.id },
+      queryData: [],
+    });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/availability?employeeId=1"));
     expect(res.status).toBe(200);
@@ -64,7 +69,11 @@ describe("GET /api/availability", () => {
   });
 
   it("returns 500 on database error", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } });
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      linkedEmployee: { id: 1, user_id: MOCK_USER.id },
+      queryError: { message: "db error" },
+    });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/availability?employeeId=1"));
     expect(res.status).toBe(500);

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { GET, POST, PATCH } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { MOCK_USER, MOCK_ORG_ID, makeSupabaseClient } from "../__tests__/helpers";
+import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -37,7 +37,6 @@ function makeMessagesClient({
   // When isManager, org context comes from manager row; employee lookup for sender name returns null
   const senderEmpRow = { name: "Test Employee" };
   const counterpartEmpRow = counterpartInOrg ? { id: 99 } : null;
-  const counterpartMgrRow = null;
 
   return {
     auth: {
@@ -113,7 +112,7 @@ describe("GET /api/messages", () => {
       isManager: true,
     });
     mockCreateClient.mockResolvedValue(client as any);
-    const res = await GET(new Request(`http://localhost/api/messages?with=other-user`));
+    await GET(new Request(`http://localhost/api/messages?with=other-user`));
     // Org scoping is applied — verify messages table was accessed
     const msgCalls = (client.from as any).mock.calls.filter((c: any) => c[0] === "messages");
     expect(msgCalls.length).toBeGreaterThan(0);

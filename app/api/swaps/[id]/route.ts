@@ -27,7 +27,7 @@ export async function PUT(
   }
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError) {
     return NextResponse.json(
       { error: authError },
@@ -35,10 +35,11 @@ export async function PUT(
     );
   }
 
-  // Fetch the swap request
+  // Fetch the swap request — scoped to this org
   const { data: swap, error: fetchError } = await supabase
     .from("shift_swaps")
     .select("id, status, schedule_a_id, schedule_b_id, requester_id, target_id")
+    .eq("org_id", orgId!)
     .eq("id", swapId)
     .maybeSingle();
 
@@ -54,10 +55,10 @@ export async function PUT(
   }
 
   if (status === "approved") {
-    // Fetch both schedules to get their employee_ids
+    // Fetch both schedules to get their employee_ids — scoped to org
     const [{ data: scheduleA, error: errA }, { data: scheduleB, error: errB }] = await Promise.all([
-      supabase.from("schedules").select("id, employee_id").eq("id", swap.schedule_a_id).maybeSingle(),
-      supabase.from("schedules").select("id, employee_id").eq("id", swap.schedule_b_id).maybeSingle(),
+      supabase.from("schedules").select("id, employee_id").eq("org_id", orgId!).eq("id", swap.schedule_a_id).maybeSingle(),
+      supabase.from("schedules").select("id, employee_id").eq("org_id", orgId!).eq("id", swap.schedule_b_id).maybeSingle(),
     ]);
 
     if (errA || !scheduleA) {
@@ -71,6 +72,7 @@ export async function PUT(
     const { error: updateAError } = await supabase
       .from("schedules")
       .update({ employee_id: scheduleB.employee_id })
+      .eq("org_id", orgId!)
       .eq("id", scheduleA.id);
 
     if (updateAError) {
@@ -81,6 +83,7 @@ export async function PUT(
     const { error: updateBError } = await supabase
       .from("schedules")
       .update({ employee_id: scheduleA.employee_id })
+      .eq("org_id", orgId!)
       .eq("id", scheduleB.id);
 
     if (updateBError) {
@@ -88,6 +91,7 @@ export async function PUT(
       await supabase
         .from("schedules")
         .update({ employee_id: scheduleA.employee_id })
+        .eq("org_id", orgId!)
         .eq("id", scheduleA.id);
       console.error("[api/swaps/[id]]", updateBError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -98,6 +102,7 @@ export async function PUT(
   const { error: statusError } = await supabase
     .from("shift_swaps")
     .update({ status })
+    .eq("org_id", orgId!)
     .eq("id", swapId);
 
   if (statusError) {
@@ -109,17 +114,20 @@ export async function PUT(
   const { data: requesterEmp } = await supabase
     .from("employees")
     .select("user_id, name")
+    .eq("org_id", orgId!)
     .eq("id", swap.requester_id)
     .maybeSingle();
 
   const { data: targetEmp } = await supabase
     .from("employees")
     .select("name")
+    .eq("org_id", orgId!)
     .eq("id", swap.target_id)
     .maybeSingle();
 
   if (requesterEmp?.user_id) {
     notify(supabase, {
+      orgId: orgId!,
       userId: requesterEmp.user_id,
       type: status === "approved" ? "swap_approved" : "swap_denied",
       title: status === "approved" ? "Swap Request Approved" : "Swap Request Denied",
@@ -132,6 +140,7 @@ export async function PUT(
 
   writeAuditLog({
     action:       status === "approved" ? "swap.approve" : "swap.deny",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "shift_swap",
     resourceId:   String(swapId),

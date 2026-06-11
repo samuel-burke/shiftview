@@ -5,7 +5,6 @@ import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
 import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
 import { writeAuditLog } from "@/lib/audit";
-import { withOrg } from "@/lib/org-scope";
 
 export const dynamic = "force-dynamic";
 

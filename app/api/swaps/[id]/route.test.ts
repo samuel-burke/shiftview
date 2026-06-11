@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { MOCK_USER } from "../../__tests__/helpers";
+import { MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/require-manager", () => ({
@@ -52,6 +52,16 @@ function makeClient({
   scheduleError = null as any,
   updateError = null as any,
 } = {}) {
+  // Build a chainable update builder that supports multiple .eq() calls and
+  // resolves at the end (thenable).
+  function makeUpdateChain(err: any) {
+    const u: any = {};
+    u.eq = vi.fn().mockReturnValue(u);
+    u.then = (resolve: any, reject: any) =>
+      Promise.resolve({ data: null, error: err }).then(resolve, reject);
+    return u;
+  }
+
   let scheduleCallCount = 0;
   return {
     auth: {
@@ -60,10 +70,8 @@ function makeClient({
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "shift_swaps") {
         const b = makeQueryBuilder({ data: swapData, error: swapError });
-        // .update().eq() for status update
-        b.update = vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ data: null, error: updateError }),
-        });
+        // .update().eq().eq() chain (org_id + id) for status update
+        b.update = vi.fn().mockReturnValue(makeUpdateChain(updateError));
         return b;
       }
       if (table === "schedules") {
@@ -80,7 +88,7 @@ function makeClient({
 
 describe("PUT /api/swaps/:id", () => {
   beforeEach(() => {
-    mockRequireManager.mockResolvedValue({ user: MOCK_USER as any, error: null });
+    mockRequireManager.mockResolvedValue({ user: MOCK_USER as any, orgId: MOCK_ORG_ID, error: null });
   });
 
   // ── Validation ───────────────────────────────────────────────────────────────
@@ -103,7 +111,7 @@ describe("PUT /api/swaps/:id", () => {
   // ── Auth ─────────────────────────────────────────────────────────────────────
 
   it("returns 401 for unauthenticated requests", async () => {
-    mockRequireManager.mockResolvedValue({ user: null, error: "Not authenticated" });
+    mockRequireManager.mockResolvedValue({ user: null, orgId: null, error: "Not authenticated" });
     mockCreateClient.mockResolvedValue(makeClient() as any);
     const [req, ctx] = putReq("1", { status: "approved" });
     const res = await PUT(req, ctx);
@@ -111,7 +119,7 @@ describe("PUT /api/swaps/:id", () => {
   });
 
   it("returns 403 for authenticated non-managers", async () => {
-    mockRequireManager.mockResolvedValue({ user: MOCK_USER as any, error: "Manager access required" });
+    mockRequireManager.mockResolvedValue({ user: MOCK_USER as any, orgId: null, error: "Manager access required" });
     mockCreateClient.mockResolvedValue(makeClient() as any);
     const [req, ctx] = putReq("1", { status: "approved" });
     const res = await PUT(req, ctx);
@@ -170,6 +178,15 @@ describe("PUT /api/swaps/:id", () => {
     // Provide a full client that chains correctly for the approved path
     let scheduleCallCount = 0;
 
+    // Build a chainable update that supports multiple .eq() and is thenable
+    function makeUpdateChain(err: any = null) {
+      const u: any = {};
+      u.eq = vi.fn().mockReturnValue(u);
+      u.then = (resolve: any, reject: any) =>
+        Promise.resolve({ data: null, error: err }).then(resolve, reject);
+      return u;
+    }
+
     const client = {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
@@ -183,9 +200,7 @@ describe("PUT /api/swaps/:id", () => {
             data: { schedule_a_id: 1, schedule_b_id: 2, status: "pending" },
             error: null,
           });
-          b.update = vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-          });
+          b.update = vi.fn().mockReturnValue(makeUpdateChain());
           b.then = (resolve: any, reject: any) =>
             Promise.resolve({ data: null, error: null }).then(resolve, reject);
           return b;
@@ -198,9 +213,7 @@ describe("PUT /api/swaps/:id", () => {
           const b: any = {};
           for (const m of ["select", "eq"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
-          b.update = vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-          });
+          b.update = vi.fn().mockReturnValue(makeUpdateChain());
           b.then = (resolve: any, reject: any) =>
             Promise.resolve({ data: null, error: null }).then(resolve, reject);
           return b;
@@ -214,5 +227,32 @@ describe("PUT /api/swaps/:id", () => {
     const res = await PUT(req, ctx);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+});
+
+// ── Org scoping ───────────────────────────────────────────────────────────────
+
+describe("org scoping — swaps/[id] route", () => {
+  it("fetches shift_swaps with org_id filter", async () => {
+    const swapsEqArgs: [string, unknown][] = [];
+    const client = makeClient({
+      swapData: { id: 1, status: "pending", schedule_a_id: 1, schedule_b_id: 2 },
+    });
+    const origFrom = (client as any).from.bind(client);
+    (client as any).from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "shift_swaps") {
+        const origEq = b.eq.bind(b);
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+          swapsEqArgs.push([col, val]);
+          return origEq(col, val);
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "denied" });
+    await PUT(req, ctx);
+    expect(swapsEqArgs.some(([col]) => col === "org_id")).toBe(true);
   });
 });
