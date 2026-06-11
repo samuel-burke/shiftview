@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrg } from "@/lib/org-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "email format is invalid" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
 
   const { data: employee, error: insertError } = await admin
     .from("employees")
-    .insert({ name: formattedName, email })
+    .insert(withOrg(orgId!, { name: formattedName, email }))
     .select("id")
     .single();
 
@@ -52,13 +53,14 @@ export async function POST(request: Request) {
 
   if (inviteError) {
     // Roll back the employee row so retrying the invite starts clean
-    await admin.from("employees").delete().eq("id", employee.id);
+    await admin.from("employees").delete().eq("org_id", orgId!).eq("id", employee.id);
     console.error("[api/invites]", inviteError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
     action:       "employee.invite",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
     resourceId:   String(employee.id),
@@ -80,7 +82,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
@@ -99,6 +101,7 @@ export async function PUT(request: Request) {
 
   writeAuditLog({
     action:       "employee.reinvite",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
     metadata: { email },

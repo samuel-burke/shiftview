@@ -41,7 +41,7 @@ describe("GET /api/managers", () => {
     const json = await res.json();
     expect(json.managerUserIds).toContain(MOCK_USER.id);
     expect(json.managerUserIds).toContain("other-manager-uuid");
-    expect(client.rpc).toHaveBeenCalledWith("notify_get_manager_ids");
+    expect(client.rpc).toHaveBeenCalledWith("notify_get_manager_ids", { p_org_id: expect.any(String) });
   });
 
   it("returns 500 on RPC error", async () => {
