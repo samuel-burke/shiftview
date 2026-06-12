@@ -51,7 +51,7 @@ function HeroSection() {
           Real-time team coverage, effortless scheduling, and mobile clock-in — everything your team needs on one screen.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-center lg:justify-start">
           <a
             href="/login"
             className="bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold px-7 py-3.5 rounded-xl text-sm text-center hover:opacity-90 transition-opacity"

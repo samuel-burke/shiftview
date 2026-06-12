@@ -7,7 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import TryDemoButton from "@/components/TryDemoButton";
-import { TURNSTILE_SITE_KEY, loadTurnstile } from "@/lib/turnstile-client";
+import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 
 type Step = "email" | "code";
 
@@ -42,6 +42,8 @@ export default function LoginPage() {
         widgetIdRef.current = turnstile.render(container, {
           sitekey: siteKey,
           appearance: "always",
+          theme: turnstileTheme(),
+          size: "flexible",
           callback: (token) => setCaptchaToken(token),
           "expired-callback": () => setCaptchaToken(null),
           "error-callback": (errorCode) =>
