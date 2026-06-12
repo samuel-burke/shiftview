@@ -10,7 +10,10 @@ export async function GET(request: Request) {
 
   // Unauthenticated or no org membership — return a blank identity, not an error.
   if (error) {
-    return NextResponse.json({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
+    return NextResponse.json({
+      isManager: false, isOwner: false, orgName: null,
+      employeeId: null, employeeName: null, isDemo: false,
+    });
   }
 
   // Fetch the employee name if the caller has a linked employee in this org.
@@ -28,8 +31,22 @@ export async function GET(request: Request) {
     employeeName = emp?.name ?? null;
   }
 
+  // Owners get the org name so the delete-organization confirmation can ask
+  // them to type it back.
+  let orgName: string | null = null;
+  if (ctx.isOwner) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", ctx.orgId)
+      .maybeSingle();
+    orgName = org?.name ?? null;
+  }
+
   return NextResponse.json({
     isManager: ctx.isManager,
+    isOwner: ctx.isOwner,
+    orgName,
     employeeId,
     employeeName,
     isDemo: ctx.isDemo,
