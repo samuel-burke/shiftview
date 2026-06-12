@@ -17,9 +17,18 @@ export type TurnstileApi = {
     "error-callback"?: (errorCode?: string) => void;
     "expired-callback"?: () => void;
     appearance?: "always" | "execute" | "interaction-only";
+    theme?: "light" | "dark" | "auto";
+    size?: "normal" | "flexible" | "compact";
   }) => string;
   reset: (widgetId: string) => void;
 };
+
+// Match the widget to the app theme (ThemeProvider reflects the resolved
+// scheme onto <html data-theme>); Turnstile's "auto" follows the OS instead,
+// which can clash when the user overrides the theme in-app.
+export function turnstileTheme(): "light" | "dark" {
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
 
 declare global {
   interface Window { turnstile?: TurnstileApi }

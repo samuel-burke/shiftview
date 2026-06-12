@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ME_CACHE_KEY } from "@/lib/AppDataContext";
-import { TURNSTILE_SITE_KEY, loadTurnstile } from "@/lib/turnstile-client";
+import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 
 // Starts a demo session (anonymous sign-in + demo-org membership via
 // POST /api/demo/start) and lands on the dashboard with a real session.
@@ -64,6 +64,7 @@ export default function TryDemoButton({
       widgetIdRef.current = turnstile.render(widgetContainerRef.current!, {
         sitekey: TURNSTILE_SITE_KEY,
         appearance: "always",
+        theme: turnstileTheme(),
         callback: (token) => startDemo(token),
         // Surface Cloudflare's code: 110200 means the current hostname isn't
         // on the widget's allowlist, 4xxxx are bad-sitekey families.
@@ -79,8 +80,11 @@ export default function TryDemoButton({
     }
   }
 
+  // The wrapper keeps the challenge widget stacked under the button instead
+  // of becoming a sibling item in whatever flex row hosts this component
+  // (e.g. the landing page CTA row).
   return (
-    <>
+    <div className="flex flex-col gap-2">
       <button onClick={handleClick} disabled={loading} className={className}>
         {loading ? "Starting demo…" : children}
       </button>
@@ -90,6 +94,6 @@ export default function TryDemoButton({
           {error}
         </div>
       )}
-    </>
+    </div>
   );
 }
