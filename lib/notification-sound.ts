@@ -29,3 +29,20 @@ export function playNotificationSound() {
   tone(880, 0.18, 0.3);
   tone(1100, 0.14, 0.2, 0.12);
 }
+
+// Browsers keep AudioContexts suspended until the page receives a user
+// gesture, which would swallow the sound of any banner that arrives before
+// the user first interacts. Create/resume the shared context on the first
+// gesture so it's already running when a banner fires. Returns a cleanup
+// function for the listeners.
+export function primeNotificationSound(): () => void {
+  const prime = () => {
+    try { getCtx(); } catch {}
+  };
+  window.addEventListener("pointerdown", prime, { once: true });
+  window.addEventListener("keydown", prime, { once: true });
+  return () => {
+    window.removeEventListener("pointerdown", prime);
+    window.removeEventListener("keydown", prime);
+  };
+}

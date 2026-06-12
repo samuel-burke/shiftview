@@ -39,27 +39,19 @@ self.addEventListener("push", (event) => {
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        // If any window is currently visible, hand off to in-app UI instead of
-        // showing an OS notification (which would be redundant and jarring).
-        const focusedClient = clientList.find(
-          (c) => c.visibilityState === "visible"
-        );
-
-        if (focusedClient) {
-          focusedClient.postMessage({ type: "PUSH_FOREGROUND", payload });
-          // Still tell all windows to refresh the notification list.
-          clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
-          return;
-        }
-
-        // App is in the background or closed.
-        // Refresh the in-app bell count for any open (but hidden) windows.
+        // Tell all windows to refresh the notification bell.
         clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
 
-        // Respect the user's OS notification preference (_osEnabled is set by
-        // the server and included in the push payload).
-        if (data?._osEnabled === false) return;
+        // If any window is currently visible, skip the OS notification — the
+        // page shows its own in-app banner via Supabase Realtime on the
+        // notifications table.
+        const anyVisible = clientList.some(
+          (c) => c.visibilityState === "visible"
+        );
+        if (anyVisible) return;
 
+        // App is in the background or closed; the server only pushes types
+        // the user has enabled, so always show.
         return self.registration.showNotification(title ?? "ShiftView", {
           body:  body ?? "",
           icon:  icon  ?? "/icon-192.png",
