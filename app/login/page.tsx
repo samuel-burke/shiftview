@@ -147,6 +147,12 @@ export default function LoginPage() {
               <TryDemoButton className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors">
                 View Demo
               </TryDemoButton>
+              <p className="text-center text-xs text-slate-500 mt-1">
+                New to ShiftView?{" "}
+                <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold">
+                  Create an organization
+                </Link>
+              </p>
             </>
           ) : (
             <>

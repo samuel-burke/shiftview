@@ -28,6 +28,25 @@ export async function PUT(
   if (action === "demote" && userId === user!.id)
     return NextResponse.json({ error: "You cannot demote yourself" }, { status: 400 });
 
+  // Owner policy: when the org has an owner (orgs created through sign-up),
+  // only the owner may promote or demote, and the owner can never be demoted.
+  // Orgs predating the sign-up flow have no owner; any manager may change
+  // roles there, preserving the original behavior. The managers_protect_owner
+  // DB trigger backstops the owner's immunity on every write path.
+  const { data: ownerRow } = await supabase
+    .from("managers")
+    .select("user_id")
+    .eq("org_id", orgId!)
+    .eq("is_owner", true)
+    .maybeSingle();
+  if (ownerRow && ownerRow.user_id !== user!.id)
+    return NextResponse.json(
+      { error: "Only the organization owner can change manager roles" },
+      { status: 403 }
+    );
+  if (action === "demote" && ownerRow?.user_id === userId)
+    return NextResponse.json({ error: "The organization owner cannot be demoted" }, { status: 403 });
+
   const { data: targetEmp } = await supabase
     .from("employees")
     .select("name")

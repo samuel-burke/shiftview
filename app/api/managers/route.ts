@@ -19,5 +19,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  return NextResponse.json({ managerUserIds: (data ?? []).map((r: { user_id: string }) => r.user_id) });
+  // The org's owner (at most one), so the UI can mark them and gate demotion.
+  const { data: ownerRows } = await supabase
+    .from("managers")
+    .select("user_id")
+    .eq("org_id", orgId!)
+    .eq("is_owner", true);
+
+  return NextResponse.json({
+    managerUserIds: (data ?? []).map((r: { user_id: string }) => r.user_id),
+    ownerUserIds: (ownerRows ?? []).map((r: { user_id: string }) => r.user_id),
+  });
 }

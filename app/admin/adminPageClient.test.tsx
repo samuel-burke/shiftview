@@ -145,6 +145,35 @@ describe("AdminPageClient", () => {
     expect(screen.getByText("Manager access required")).toBeInTheDocument();
   });
 
+  // ── Owner policy ───────────────────────────────────────────────────────────
+
+  it("shows the Owner badge and hides role buttons from non-owner managers", async () => {
+    mockFetch({ managers: { managerUserIds: [CURRENT_USER_ID, "user-bob"], ownerUserIds: ["user-bob"] } });
+    render(<AdminPageClient currentUserId={CURRENT_USER_ID} />);
+    await screen.findByText("Bob Jones");
+
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    // The org has an owner and the current user isn't it — no role changes.
+    expect(screen.queryByRole("button", { name: /demote/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /promote/i })).not.toBeInTheDocument();
+  });
+
+  it("shows role buttons to the owner but never a demote button for the owner row", async () => {
+    mockFetch({
+      managers: { managerUserIds: [CURRENT_USER_ID, "user-bob"], ownerUserIds: [CURRENT_USER_ID] },
+      employees: [
+        ...MOCK_EMPLOYEES,
+        { id: 4, name: "Dan Green", email: "dan@example.com", user_id: "user-dan" },
+      ],
+    });
+    render(<AdminPageClient currentUserId={CURRENT_USER_ID} />);
+    await screen.findByText("Bob Jones");
+
+    expect(screen.getByRole("button", { name: /demote bob/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /promote dan/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /demote alice/i })).not.toBeInTheDocument();
+  });
+
   it("shows empty state when there are no employees", async () => {
     vi.spyOn(global, "fetch").mockImplementation(async (input) => {
       const url = input.toString();

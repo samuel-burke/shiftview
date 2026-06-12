@@ -41,7 +41,24 @@ describe("GET /api/managers", () => {
     const json = await res.json();
     expect(json.managerUserIds).toContain(MOCK_USER.id);
     expect(json.managerUserIds).toContain("other-manager-uuid");
+    expect(json.ownerUserIds).toEqual([]);
     expect(client.rpc).toHaveBeenCalledWith("notify_get_manager_ids", { p_org_id: expect.any(String) });
+  });
+
+  it("returns the org owner in ownerUserIds when one exists", async () => {
+    const rpcData = [{ user_id: MOCK_USER.id }];
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      ownerUserId: MOCK_USER.id,
+      rpcData,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    const res = await GET(new Request("http://localhost/api/managers"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ownerUserIds).toEqual([MOCK_USER.id]);
   });
 
   it("returns 500 on RPC error", async () => {
