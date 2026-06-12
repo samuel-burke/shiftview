@@ -235,6 +235,13 @@ The plan in §6 is implemented. Map of the moving parts:
    Sign In / Up → "Allow anonymous sign-ins". Without this,
    `POST /api/demo/start` returns 503 and the "View Demo" button surfaces
    "Demo is unavailable right now".
+1a. **(Recommended) Bot gate**: create a Cloudflare Turnstile widget
+   (Cloudflare dashboard → Turnstile → Add widget, hostname = the app's
+   domain, "Managed" mode) and set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and
+   `TURNSTILE_SECRET_KEY` in Vercel. With both set, starting a NEW demo
+   session requires passing the challenge; the self-heal path for existing
+   anonymous sessions is exempt (no new auth user is minted). With the keys
+   unset the gate is off — local dev and e2e need no configuration.
 2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
    (after 0001–0005) in the SQL editor or via the Supabase CLI.
 3. **Seeding is automatic**: the first `POST /api/demo/start` against an
