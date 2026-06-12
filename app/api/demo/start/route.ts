@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
+  const { turnstileToken = null } = await request.json().catch(() => ({}));
+
   const supabase = await createClient();
 
   // Re-use an existing session where possible; never hijack a real account.
@@ -49,6 +52,17 @@ export async function POST(request: Request) {
 
   let userId = existing?.id ?? null;
   if (!userId) {
+    // Bot gate (Cloudflare Turnstile) applies only when minting a NEW
+    // anonymous auth user — that's the abusable resource. Re-provisioning an
+    // existing session (the self-heal path) skips it: that visitor already
+    // passed the challenge once, and no new user is created.
+    if (!(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
+      return NextResponse.json(
+        { error: "Verification failed — please try again" },
+        { status: 403 }
+      );
+    }
+
     const { data, error } = await supabase.auth.signInAnonymously();
     if (error || !data.user) {
       console.error("[api/demo/start] anonymous sign-in failed:", error);
