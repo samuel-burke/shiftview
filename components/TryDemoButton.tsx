@@ -14,7 +14,7 @@ type TurnstileApi = {
   render: (el: HTMLElement, opts: {
     sitekey: string;
     callback: (token: string) => void;
-    "error-callback"?: () => void;
+    "error-callback"?: (errorCode?: string) => void;
     "expired-callback"?: () => void;
     appearance?: "always" | "execute" | "interaction-only";
   }) => string;
@@ -98,8 +98,10 @@ export default function TryDemoButton({
         sitekey: TURNSTILE_SITE_KEY,
         appearance: "always",
         callback: (token) => startDemo(token),
-        "error-callback": () => {
-          setError("Verification failed — please try again");
+        // Surface Cloudflare's code: 110200 means the current hostname isn't
+        // on the widget's allowlist, 4xxxx are bad-sitekey families.
+        "error-callback": (errorCode) => {
+          setError(`Verification failed${errorCode ? ` (${errorCode})` : ""} — please try again`);
           setLoading(false);
         },
         "expired-callback": () => setLoading(false),
