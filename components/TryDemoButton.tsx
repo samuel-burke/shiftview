@@ -2,45 +2,12 @@
 
 import { useRef, useState } from "react";
 import { ME_CACHE_KEY } from "@/lib/AppDataContext";
-
-// Cloudflare Turnstile bot gate for the demo entry point. Active only when
-// NEXT_PUBLIC_TURNSTILE_SITE_KEY is set (TURNSTILE_SECRET_KEY enforces
-// server-side in /api/demo/start); without it the button starts the demo
-// directly, so local dev and e2e need no keys.
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-
-type TurnstileApi = {
-  render: (el: HTMLElement, opts: {
-    sitekey: string;
-    callback: (token: string) => void;
-    "error-callback"?: (errorCode?: string) => void;
-    "expired-callback"?: () => void;
-    appearance?: "always" | "execute" | "interaction-only";
-  }) => string;
-  reset: (widgetId: string) => void;
-};
-
-declare global {
-  interface Window { turnstile?: TurnstileApi }
-}
-
-let scriptPromise: Promise<TurnstileApi> | null = null;
-function loadTurnstile(): Promise<TurnstileApi> {
-  if (window.turnstile) return Promise.resolve(window.turnstile);
-  scriptPromise ??= new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = TURNSTILE_SRC;
-    script.async = true;
-    script.onload = () => window.turnstile ? resolve(window.turnstile) : reject(new Error("turnstile missing"));
-    script.onerror = () => { scriptPromise = null; reject(new Error("turnstile script failed")); };
-    document.head.appendChild(script);
-  });
-  return scriptPromise;
-}
+import { TURNSTILE_SITE_KEY, loadTurnstile } from "@/lib/turnstile-client";
 
 // Starts a demo session (anonymous sign-in + demo-org membership via
 // POST /api/demo/start) and lands on the dashboard with a real session.
+// When Turnstile is configured, the token is collected here and verified
+// by Supabase Auth's CAPTCHA protection during the anonymous sign-in.
 export default function TryDemoButton({
   className,
   children,
