@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
+  const { turnstileToken = null } = await request.json().catch(() => ({}));
+
   const supabase = await createClient();
 
   // Re-use an existing session where possible; never hijack a real account.
@@ -49,10 +52,38 @@ export async function POST(request: Request) {
 
   let userId = existing?.id ?? null;
   if (!userId) {
-    const { data, error } = await supabase.auth.signInAnonymously();
+    // Bot gate applies only when minting a NEW anonymous auth user — that's
+    // the abusable resource. Re-provisioning an existing session (the
+    // self-heal path) skips it: that visitor already passed the challenge
+    // once, and no new user is created.
+    //
+    // Turnstile tokens are single-use, so verify in exactly ONE place:
+    // - Supabase Auth CAPTCHA protection enabled (recommended — it also
+    //   covers direct calls to the public auth endpoint): leave
+    //   TURNSTILE_SECRET_KEY unset here and pass the token through.
+    // - Supabase CAPTCHA off: set TURNSTILE_SECRET_KEY and this route
+    //   verifies against siteverify itself.
+    let captchaToken: string | undefined = turnstileToken ?? undefined;
+    if (process.env.TURNSTILE_SECRET_KEY) {
+      if (!(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
+        return NextResponse.json(
+          { error: "Verification failed — please try again" },
+          { status: 403 }
+        );
+      }
+      captchaToken = undefined; // consumed by siteverify; don't reuse
+    }
+
+    const { data, error } = await supabase.auth.signInAnonymously(
+      captchaToken ? { options: { captchaToken } } : undefined
+    );
     if (error || !data.user) {
       console.error("[api/demo/start] anonymous sign-in failed:", error);
-      return NextResponse.json({ error: "Demo is unavailable right now" }, { status: 503 });
+      const captchaRejected = error?.code === "captcha_failed";
+      return NextResponse.json(
+        { error: captchaRejected ? "Verification failed — please try again" : "Demo is unavailable right now" },
+        { status: captchaRejected ? 403 : 503 }
+      );
     }
     userId = data.user.id;
   }

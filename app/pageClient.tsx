@@ -229,8 +229,10 @@ export default function Page() {
     }
     const dateKey = toDateKey(date, timezone);
     const data = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
-    setSchedules(data);
-    setScheduleCache(dateKey, data);
+    if (Array.isArray(data)) {
+      setSchedules(data);
+      setScheduleCache(dateKey, data);
+    }
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -252,8 +254,10 @@ export default function Page() {
       throw new Error(body.error ?? "Failed to add shift");
     }
     const data2 = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
-    setSchedules(data2);
-    setScheduleCache(dateKey, data2);
+    if (Array.isArray(data2)) {
+      setSchedules(data2);
+      setScheduleCache(dateKey, data2);
+    }
   }
 
   async function handleResendInvite(email: string) {
@@ -360,7 +364,9 @@ export default function Page() {
       const dk = toDateKey(dateRef.current, timezoneRef.current);
       apiFetch(`/api/schedules?date=${dk}`)
         .then((r) => r.json())
-        .then((data) => { setSchedules(data); setScheduleCache(dk, data); })
+        .then((data) => {
+          if (Array.isArray(data)) { setSchedules(data); setScheduleCache(dk, data); }
+        })
         .catch(() => {});
     }
 
@@ -439,6 +445,10 @@ export default function Page() {
       apiFetch(`/api/schedules?date=${dateKey}`)
         .then((r) => r.json())
         .then((data) => {
+          // Non-array means an error payload (e.g. 403 after a demo reset
+          // orphaned the session) — keep the previous state instead of
+          // crashing downstream .filter() calls.
+          if (!Array.isArray(data)) throw new Error("schedules fetch failed");
           setSchedules(data);
           setScheduleCache(dateKey, data);
         }),

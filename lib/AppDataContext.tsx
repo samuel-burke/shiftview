@@ -144,7 +144,30 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     };
     setMe(newMe);
     if (newMe.employeeId !== null || newMe.isManager) writeMeCache(newMe);
-    else clearMeCache();
+    else {
+      clearMeCache();
+      healDemoSession();
+    }
+  };
+
+  // Returning demo visitors can outlive their membership rows: a demo reset
+  // wipes the demo org's managers/employees, but the visitor's anonymous auth
+  // session survives in their browser (the SQL reset can't delete auth users,
+  // and the cron's purge only covers users it saw). They'd land authenticated
+  // but org-less, and every org-scoped API would 403. Re-running /api/demo/start
+  // re-provisions them; rate-limited per tab so a failing heal can't reload-loop.
+  const healDemoSession = () => {
+    try {
+      const lastAttempt = Number(sessionStorage.getItem("sv_demo_heal") ?? 0);
+      if (Date.now() - lastAttempt < 5 * 60_000) return;
+    } catch {}
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.is_anonymous) return;
+      try { sessionStorage.setItem("sv_demo_heal", String(Date.now())); } catch {}
+      fetch("/api/demo/start", { method: "POST" })
+        .then((res) => { if (res.ok) window.location.reload(); })
+        .catch(() => {});
+    });
   };
 
   const refreshMe = useCallback(() => {

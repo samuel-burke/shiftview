@@ -2,11 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import TryDemoButton from "@/components/TryDemoButton";
+import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 
 type Step = "email" | "code";
 
@@ -22,15 +23,61 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Supabase Auth CAPTCHA protection (when enabled) requires a Turnstile
+  // token on signInWithOtp. Tokens are single-use, so the widget is reset
+  // after every send attempt.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const widgetContainerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const siteKey = TURNSTILE_SITE_KEY;
+    if (!siteKey || step !== "email") return;
+    const container = widgetContainerRef.current;
+    if (!container) return;
+    let cancelled = false;
+    loadTurnstile()
+      .then((turnstile) => {
+        if (cancelled || container.childElementCount > 0) return;
+        widgetIdRef.current = turnstile.render(container, {
+          sitekey: siteKey,
+          appearance: "always",
+          theme: turnstileTheme(),
+          size: "flexible",
+          callback: (token) => setCaptchaToken(token),
+          "expired-callback": () => setCaptchaToken(null),
+          "error-callback": (errorCode) =>
+            setError(`Verification failed${errorCode ? ` (${errorCode})` : ""} — please reload and try again`),
+        });
+      })
+      .catch(() => setError("Could not load the verification widget"));
+    // Leaving the email step unmounts the container; coming back renders a
+    // fresh widget, so the previous widget id is simply forgotten.
+    return () => { cancelled = true; widgetIdRef.current = null; };
+  }, [step]);
+
+  function resetCaptcha() {
+    setCaptchaToken(null);
+    if (widgetIdRef.current) {
+      try { window.turnstile?.reset(widgetIdRef.current); } catch {}
+    }
+  }
+
   async function handleSendCode() {
     if (!email.trim()) { setError("Email is required."); return; }
+    if (TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the verification first."); return; }
     setLoading(true);
     setError(null);
     const supabase = getSupabase();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: false,
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     });
+    // The token was consumed by this attempt either way.
+    resetCaptcha();
     if (error) {
       setError(error.message);
     } else {
@@ -89,10 +136,11 @@ export default function LoginPage() {
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
               />
               {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
               <button
                 onClick={handleSendCode}
-                disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
+                disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? "Sending…" : "Send Code"}
               </button>
