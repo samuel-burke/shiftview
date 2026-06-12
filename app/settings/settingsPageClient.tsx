@@ -558,6 +558,17 @@ export default function SettingsPageClient({
   const [isManager, setIsManager] = useState(isManagerInitial);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
 
+  // ── Danger Zone ─────────────────────────────────────────────────────────────
+  const [isOwner, setIsOwner] = useState(false);
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [confirmDeleteOrg, setConfirmDeleteOrg] = useState(false);
+  const [orgNameInput, setOrgNameInput] = useState("");
+  const [deletingOrg, setDeletingOrg] = useState(false);
+  const [deleteOrgError, setDeleteOrgError] = useState<string | null>(null);
+
   type Template = { id: number; name: string; rowCount: number };
   const [templates, setTemplates] = useState<Template[]>([]);
   const [applyingId, setApplyingId] = useState<number | null>(null);
@@ -592,9 +603,11 @@ export default function SettingsPageClient({
       .catch(() => {});
     fetch("/api/me")
       .then((r) => r.json())
-      .then(({ isManager: mgr, employeeId: empId }) => {
+      .then(({ isManager: mgr, employeeId: empId, isOwner: owner, orgName: org }) => {
         if (mgr != null) setIsManager(mgr);
         if (empId != null) setEmployeeId(empId);
+        setIsOwner(!!owner);
+        setOrgName(org ?? null);
         if (mgr) {
           fetch("/api/templates")
             .then((r) => r.ok ? r.json() : Promise.reject())
@@ -652,6 +665,40 @@ export default function SettingsPageClient({
       setDeleteErrorId(id);
       setTimeout(() => setDeleteErrorId(null), 3000);
     }
+  }
+
+  // ── Danger Zone actions ─────────────────────────────────────────────────────
+  async function deleteAccount() {
+    setDeletingAccount(true);
+    setDeleteAccountError(null);
+    const res = await fetch("/api/account", { method: "DELETE" }).catch(() => null);
+    if (res?.ok) {
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+      return;
+    }
+    const json = await res?.json().catch(() => ({}));
+    setDeleteAccountError(json?.error ?? "Failed to delete account");
+    setDeletingAccount(false);
+  }
+
+  async function deleteOrganization() {
+    setDeletingOrg(true);
+    setDeleteOrgError(null);
+    const res = await fetch("/api/organizations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmName: orgNameInput.trim() }),
+    }).catch(() => null);
+    if (res?.ok) {
+      // The caller keeps their account but has no membership here anymore;
+      // the landing page routes org-less users to sign-up/onboarding.
+      window.location.href = "/";
+      return;
+    }
+    const json = await res?.json().catch(() => ({}));
+    setDeleteOrgError(json?.error ?? "Failed to delete organization");
+    setDeletingOrg(false);
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -1400,6 +1447,40 @@ export default function SettingsPageClient({
             Sign Out
           </button>
         </section>
+
+        {/* Danger Zone — hidden in demo (anonymous throwaway sessions) */}
+        {!isDemo && (
+          <section className="pb-2">
+            <div className="text-[11px] text-red-400/70 font-semibold tracking-wider uppercase mb-2 px-1">
+              Danger Zone
+            </div>
+            <div className="flex flex-col gap-2">
+              {isOwner && (
+                <button
+                  data-testid="delete-organization-button"
+                  onClick={() => {
+                    setOrgNameInput("");
+                    setDeleteOrgError(null);
+                    setConfirmDeleteOrg(true);
+                  }}
+                  className="w-full py-3 rounded-2xl bg-card border border-red-500/20 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                >
+                  Delete Organization
+                </button>
+              )}
+              <button
+                data-testid="delete-account-button"
+                onClick={() => {
+                  setDeleteAccountError(null);
+                  setConfirmDeleteAccount(true);
+                }}
+                className="w-full py-3 rounded-2xl bg-card border border-red-500/20 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              >
+                Delete Account
+              </button>
+            </div>
+          </section>
+        )}
       </div>
 
 
@@ -1414,6 +1495,126 @@ export default function SettingsPageClient({
             .catch(() => {});
         }}
       />
+
+      {/* Delete account confirmation modal */}
+      {confirmDeleteAccount && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => { if (!deletingAccount) setConfirmDeleteAccount(false); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-account-heading"
+            className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
+                ⚠️
+              </div>
+              <div>
+                <div id="confirm-delete-account-heading" className="text-base font-bold text-slate-100">Delete your account?</div>
+                <div className="text-sm text-slate-400 mt-1">
+                  Your login and personal data will be permanently deleted. This cannot be undone.
+                  {isOwner
+                    ? " You own this organization — delete the organization first."
+                    : " Your organization keeps its schedule and time clock records."}
+                </div>
+              </div>
+              {deleteAccountError && (
+                <div role="alert" className="text-xs text-red-400">{deleteAccountError}</div>
+              )}
+            </div>
+            <div className="flex border-t border-slate-800">
+              <button
+                onClick={() => setConfirmDeleteAccount(false)}
+                autoFocus
+                disabled={deletingAccount}
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteAccount}
+                disabled={deletingAccount}
+                aria-busy={deletingAccount}
+                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingAccount ? "Deleting…" : "Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete organization confirmation modal */}
+      {confirmDeleteOrg && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => { if (!deletingOrg) setConfirmDeleteOrg(false); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-org-heading"
+            className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
+                ⚠️
+              </div>
+              <div>
+                <div id="confirm-delete-org-heading" className="text-base font-bold text-slate-100">
+                  Delete {orgName ?? "this organization"}?
+                </div>
+                <div className="text-sm text-slate-400 mt-1">
+                  All employees, schedules, time clock records, and settings will be permanently
+                  deleted for everyone in the organization. This cannot be undone.
+                </div>
+              </div>
+              <div className="w-full text-left">
+                <label htmlFor="confirm-org-name" className="text-xs text-slate-400">
+                  Type <span className="font-semibold text-slate-300">{orgName ?? "the organization name"}</span> to confirm
+                </label>
+                <input
+                  id="confirm-org-name"
+                  autoFocus
+                  value={orgNameInput}
+                  onChange={(e) => setOrgNameInput(e.target.value)}
+                  placeholder={orgName ?? "Organization name"}
+                  className="mt-1.5 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-red-500/70 transition-colors"
+                />
+              </div>
+              {deleteOrgError && (
+                <div role="alert" className="text-xs text-red-400">{deleteOrgError}</div>
+              )}
+            </div>
+            <div className="flex border-t border-slate-800">
+              <button
+                onClick={() => setConfirmDeleteOrg(false)}
+                disabled={deletingOrg}
+                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteOrganization}
+                disabled={deletingOrg || orgNameInput.trim() !== (orgName ?? "")}
+                aria-busy={deletingOrg}
+                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingOrg ? "Deleting…" : "Delete Organization"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {confirmDeleteEmployee && (

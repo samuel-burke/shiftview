@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { writeAuditLog } from "@/lib/audit";
+import { getOrgContext, DEFAULT_ORG_ID } from "@/lib/org-context";
 
 export const dynamic = "force-dynamic";
 
@@ -124,4 +125,65 @@ export async function POST(request: Request) {
 
   console.error("[api/organizations] slug generation exhausted for base:", base);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+}
+
+// Owner-only organization deletion. The org is resolved the same way as every
+// other route (getOrgContext — never from the request body), the caller must
+// be its owner, and they must type the organization's exact name back as a
+// confirmation. All tenant data is removed atomically by the org_delete RPC.
+// Members' auth accounts are kept: they may belong to other orgs, and an
+// org-less account can still create its own organization.
+export async function DELETE(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const confirmName = body?.confirmName;
+
+  const supabase = await createClient();
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error)
+    return NextResponse.json(
+      { error },
+      { status: error === "Not authenticated" ? 401 : 403 }
+    );
+
+  if (!ctx.isOwner)
+    return NextResponse.json(
+      { error: "Only the organization owner can delete the organization" },
+      { status: 403 }
+    );
+  // The seeded default and demo orgs have no owner, so this is unreachable in
+  // practice — but the guard (and its twin inside org_delete) stays anyway.
+  if (ctx.orgId === DEFAULT_ORG_ID || ctx.isDemo)
+    return NextResponse.json(
+      { error: "This organization cannot be deleted" },
+      { status: 403 }
+    );
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("id", ctx.orgId)
+    .maybeSingle();
+  if (!org)
+    return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+
+  if (typeof confirmName !== "string" || confirmName.trim() !== org.name)
+    return NextResponse.json(
+      { error: "Type the organization name exactly to confirm deletion" },
+      { status: 400 }
+    );
+
+  const admin = createAdminClient();
+  const { error: rpcError } = await admin.rpc("org_delete", { p_org: ctx.orgId });
+  if (rpcError) {
+    console.error("[api/organizations]", rpcError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // The org's audit_logs rows are deleted with it (and the FK forbids new
+  // ones), so the deletion itself is recorded in server logs only.
+  console.log(
+    `[api/organizations] organization deleted: "${org.name}" (${ctx.orgId}) by user ${ctx.user.id}`
+  );
+
+  return NextResponse.json({ ok: true });
 }
