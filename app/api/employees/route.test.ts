@@ -253,6 +253,34 @@ describe("DELETE /api/employees", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 403 when the target employee is the organization owner", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        ownerUserId: "owner-user-789",
+        linkedEmployee: { id: 1, user_id: "owner-user-789" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
+  });
+
+  it("returns 403 when a non-owner manager deletes another manager in an owned org", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        ownerUserId: "owner-user-789",
+        linkedEmployee: { id: 1, user_id: "other-manager-456" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
+  });
+
   it("returns 200 on success for an unlinked employee", async () => {
     mockCreateClient.mockResolvedValue(
       makeSupabaseClient({

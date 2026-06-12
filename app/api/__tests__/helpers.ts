@@ -26,6 +26,9 @@ export function makeQueryBuilder(result: { data: any; error: any }) {
 export function makeSupabaseClient({
   user = null as any,
   isManager = false,
+  // The org's owner (managers.is_owner), when one exists. Queries that filter
+  // on is_owner resolve to this row instead of the caller's membership row.
+  ownerUserId = null as string | null,
   // When explicitly set (even to null), used for `from("employees")` lookups.
   // When omitted (undefined), `from("employees")` falls through to queryData/queryError.
   linkedEmployee = undefined as Record<string, unknown> | null | undefined,
@@ -36,7 +39,12 @@ export function makeSupabaseClient({
   rpcError = null as any,
 } = {}) {
   const managerRow =
-    isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
+    isManager && user
+      ? { user_id: user.id, org_id: MOCK_ORG_ID, is_owner: ownerUserId === user.id }
+      : null;
+  const ownerRow = ownerUserId
+    ? { user_id: ownerUserId, org_id: MOCK_ORG_ID, is_owner: true }
+    : null;
   // Org-aware code resolves the caller's org from the employees row; default
   // org_id in so existing tests don't have to specify it.
   const employeeRow =
@@ -46,8 +54,24 @@ export function makeSupabaseClient({
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
     from: vi.fn().mockImplementation((table: string) => {
-      if (table === "managers")
-        return makeQueryBuilder({ data: managerRow, error: null });
+      if (table === "managers") {
+        // eq-aware: an .eq("is_owner", true) filter switches the result to
+        // the owner row, mirroring the real per-query semantics.
+        let isOwnerFilter = false;
+        const rowFor = () => (isOwnerFilter ? ownerRow : managerRow);
+        const b = makeQueryBuilder({ data: managerRow, error: null });
+        b.eq = vi.fn().mockImplementation((column: string, value: unknown) => {
+          if (column === "is_owner" && value === true) isOwnerFilter = true;
+          return b;
+        });
+        b.maybeSingle = vi.fn().mockImplementation(async () => ({ data: rowFor(), error: null }));
+        b.single = vi.fn().mockImplementation(async () => ({ data: rowFor(), error: null }));
+        b.then = (resolve: any, reject: any) => {
+          const row = rowFor();
+          return Promise.resolve({ data: row ? [row] : [], error: null }).then(resolve, reject);
+        };
+        return b;
+      }
       if (table === "employees" && linkedEmployee !== undefined)
         return makeQueryBuilder({ data: employeeRow, error: null });
       if (tableOverrides[table] !== undefined)

@@ -146,6 +146,33 @@ export async function DELETE(request: Request) {
   if (employee.user_id && employee.user_id === user?.id)
     return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
 
+  // Deleting a linked employee also removes their manager role and auth
+  // account below, so it follows the owner policy: the owner can never be
+  // removed, and in owned orgs only the owner may remove another manager.
+  if (employee.user_id) {
+    const { data: ownerRow } = await supabase
+      .from("managers")
+      .select("user_id")
+      .eq("org_id", orgId!)
+      .eq("is_owner", true)
+      .maybeSingle();
+    if (ownerRow?.user_id === employee.user_id)
+      return NextResponse.json({ error: "The organization owner cannot be deleted" }, { status: 403 });
+    if (ownerRow && ownerRow.user_id !== user?.id) {
+      const { data: targetManager } = await supabase
+        .from("managers")
+        .select("user_id")
+        .eq("org_id", orgId!)
+        .eq("user_id", employee.user_id)
+        .maybeSingle();
+      if (targetManager)
+        return NextResponse.json(
+          { error: "Only the organization owner can remove a manager" },
+          { status: 403 }
+        );
+    }
+  }
+
   // Delete schedules first so FK constraint doesn't block employee removal
   const { error: scheduleError } = await supabase
     .from("schedules")
