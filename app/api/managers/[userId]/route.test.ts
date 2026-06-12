@@ -78,6 +78,58 @@ describe("PUT /api/managers/:userId", () => {
     expect(res.status).toBe(200);
   });
 
+  // ── Owner policy ───────────────────────────────────────────────────────────
+
+  it("allows the org owner to demote another manager", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      ownerUserId: MOCK_USER.id,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "demote" });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(200);
+    expect(client.rpc).toHaveBeenCalledWith("manager_demote", { target_user_id: TARGET_USER });
+  });
+
+  it("returns 403 when a non-owner manager tries to demote in an owned org", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, ownerUserId: "owner-xyz" }) as any
+    );
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "demote" });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
+  });
+
+  it("returns 403 when a non-owner manager tries to promote in an owned org", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, ownerUserId: "owner-xyz" }) as any
+    );
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "promote" });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
+  });
+
+  it("returns 403 when the demote target is the organization owner", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, ownerUserId: TARGET_USER }) as any
+    );
+
+    const [req, ctx] = putReq(TARGET_USER, { action: "demote" });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(403);
+  });
+
   // ── Promote via RPC ────────────────────────────────────────────────────────
 
   it("calls manager_promote RPC with the target userId and returns 200", async () => {
