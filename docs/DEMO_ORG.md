@@ -237,7 +237,10 @@ The plan in §6 is implemented. Map of the moving parts:
    "Demo is unavailable right now".
 2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
    (after 0001–0005) in the SQL editor or via the Supabase CLI.
-3. **Seed the demo org** by invoking the reset endpoint once:
+3. **Seeding is automatic**: the first `POST /api/demo/start` against an
+   empty demo org seeds it (guarded by an `app_settings` mutex row so
+   concurrent first visitors can't double-seed). To force a reset/reseed on
+   demand:
    `curl -H "x-cron-secret: $CRON_SECRET" https://<site>/api/cron/demo-reset`
    — it returns `{ employees, schedules, punches, deletedUsers }` counts.
 4. **Deploy**: `vercel.json` already schedules the nightly reset at 08:00 UTC
