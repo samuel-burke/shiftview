@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { playNotificationSound } from "@/lib/notification-sound";
+import { playNotificationSound, primeNotificationSound } from "@/lib/notification-sound";
 import { createClient } from "@/lib/supabase-browser";
 import {
   CalendarIcon,
@@ -13,6 +13,7 @@ import {
   WarningIcon,
   MegaphoneIcon,
   BellIcon,
+  ChatBubbleIcon,
 } from "./ShiftIcons";
 
 function ChessPieceIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
@@ -41,10 +42,24 @@ const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string 
   pto_denied:         { Icon: TimeOffDeniedIcon,   color: "#f87171" },
   late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
   schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
+  message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
 };
 
 const AUTO_DISMISS_MS = 5000;
+// Show at most this many banners at once; the rest queue behind a "+N more"
+// pill and surface as the visible ones auto-dismiss.
+const MAX_VISIBLE_BANNERS = 3;
 let nextId = 1;
+
+async function hasPushSubscription(): Promise<boolean> {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+    const reg = await navigator.serviceWorker.ready;
+    return !!(await reg.pushManager.getSubscription());
+  } catch {
+    return false;
+  }
+}
 
 export default function InAppNotificationBanner() {
   const [banners, setBanners] = useState<BannerItem[]>([]);
@@ -52,6 +67,10 @@ export default function InAppNotificationBanner() {
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Warm up the audio context on the first user gesture so the first banner's
+  // sound isn't muted by the browser's autoplay policy.
+  useEffect(() => primeNotificationSound(), []);
 
   const showBanner = useCallback((title: string, body: string, type?: string, onTap?: () => void) => {
     const id = nextId++;
@@ -66,7 +85,9 @@ export default function InAppNotificationBanner() {
     setBanners((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  // Path 1: service worker push (mobile / browsers with Push API support)
+  // Path 1: service worker push relay. The SW only forwards PUSH_FOREGROUND
+  // for chess moves — every other notification type banners via the Realtime
+  // subscription below (Path 3), which works whether or not push is set up.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
@@ -102,7 +123,9 @@ export default function InAppNotificationBanner() {
               )
           : undefined;
 
-      showBanner(title ?? "ShiftView", body ?? "", tag, onTap);
+      // Prefer data.type for the icon — chess pushes tag per-conversation
+      // ("chess:<convId>"), which would miss the icon map.
+      showBanner(title ?? "ShiftView", body ?? "", (data?.type as string | undefined) ?? tag, onTap);
     }
 
     navigator.serviceWorker.addEventListener("message", onMessage);
@@ -117,64 +140,64 @@ export default function InAppNotificationBanner() {
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [showBanner]);
 
-  // Path 2: chess fallback for browsers without Push API (e.g. Safari desktop).
-  // Push-capable browsers handle this via the SW PUSH_FOREGROUND path (Path 1) instead.
+  // Path 2: chess fallback for users without an active push subscription
+  // (push unsupported, permission denied, or simply never enabled). Users with
+  // a subscription get chess banners via the SW PUSH_FOREGROUND path (Path 1).
   useEffect(() => {
     function onChessMove(e: Event) {
-      if ("PushManager" in window) return; // push-capable: Path 1 handles it
       const { status, opponentName, fromUserId, convId } = (e as CustomEvent).detail ?? {};
-      let title = "Your move!";
-      let body = `${opponentName ?? "Opponent"} made their move`;
-      if (status === "white_wins" || status === "black_wins") {
-        title = "Checkmate!";
-        body = `${opponentName ?? "Opponent"} won the game`;
-      } else if (status === "draw") {
-        title = "Draw!";
-        body = "The game ended in a draw";
-      }
-      const onTap = fromUserId
-        ? () =>
-            window.dispatchEvent(
-              new CustomEvent("open-chess-board", {
-                detail: { fromUserId, fromName: opponentName ?? "", convId },
-              })
-            )
-        : undefined;
-      showBanner(title, body, "chess_move", onTap);
+      hasPushSubscription().then((subscribed) => {
+        if (subscribed) return; // Path 1 handles it
+        let title = "Your move!";
+        let body = `${opponentName ?? "Opponent"} made their move`;
+        if (status === "white_wins" || status === "black_wins") {
+          title = "Checkmate!";
+          body = `${opponentName ?? "Opponent"} won the game`;
+        } else if (status === "draw") {
+          title = "Draw!";
+          body = "The game ended in a draw";
+        }
+        const onTap = fromUserId
+          ? () =>
+              window.dispatchEvent(
+                new CustomEvent("open-chess-board", {
+                  detail: { fromUserId, fromName: opponentName ?? "", convId },
+                })
+              )
+          : undefined;
+        showBanner(title, body, "chess_move", onTap);
+      });
     }
     window.addEventListener("chess-move-received", onChessMove);
     return () => window.removeEventListener("chess-move-received", onChessMove);
   }, [showBanner]);
 
-  // Path 3: Supabase Realtime (desktop browsers without Push API, e.g. Safari on macOS)
-  // Fires on every INSERT into notifications for the current user, which is how the
-  // server delivers notifications regardless of push subscription status.
+  // Path 3: Supabase Realtime on the notifications table — the universal
+  // banner source for every signed-in user, regardless of push subscription
+  // state (and including the demo org, which never pushes). No double-banner
+  // risk: the SW only relays foreground payloads for chess moves, which have
+  // no notifications row.
   useEffect(() => {
     if (!supabaseRef.current) supabaseRef.current = createClient();
     const sb = supabaseRef.current;
 
-    let userId: string | null = null;
     let channel: ReturnType<typeof sb.channel> | null = null;
 
     sb.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      userId = user.id;
 
       channel = sb
-        .channel(`banner:${userId}:${Math.random().toString(36).slice(2)}`)
+        .channel(`banner:${user.id}:${Math.random().toString(36).slice(2)}`)
         .on(
           "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${userId}`,
-          },
+          // No user_id filter: RLS scopes the stream to the user's own rows
+          // plus broadcast rows (user_id null) when they're a manager — a
+          // filter on user_id would drop the broadcasts.
+          { event: "INSERT", schema: "public", table: "notifications" },
           (payload) => {
-            // Skip if push is supported — the service worker PUSH_FOREGROUND message
-            // handles it there to avoid double-banners on push-capable browsers.
-            if ("PushManager" in window) return;
-            const row = payload.new as { title?: string; body?: string; type?: string };
+            const row = payload.new as { user_id?: string | null; title?: string; body?: string; type?: string };
+            // Belt-and-braces: RLS already restricts what we receive.
+            if (row.user_id != null && row.user_id !== user.id) return;
             showBanner(row.title ?? "ShiftView", row.body ?? "", row.type);
           }
         )
@@ -188,6 +211,9 @@ export default function InAppNotificationBanner() {
 
   if (!mounted) return null;
 
+  const visibleBanners = banners.slice(0, MAX_VISIBLE_BANNERS);
+  const overflowCount = banners.length - visibleBanners.length;
+
   return createPortal(
     <div
       aria-live="polite"
@@ -195,7 +221,7 @@ export default function InAppNotificationBanner() {
       className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
     >
       <AnimatePresence initial={false}>
-        {banners.map((banner) => {
+        {visibleBanners.map((banner) => {
           const entry = banner.type ? (TYPE_ICON_MAP[banner.type] ?? null) : null;
           const Icon = entry?.Icon ?? BellIcon;
           const color = entry?.color ?? "#94a3b8";
@@ -233,6 +259,11 @@ export default function InAppNotificationBanner() {
           );
         })}
       </AnimatePresence>
+      {overflowCount > 0 && (
+        <div className="pointer-events-none self-end bg-card border border-slate-800 rounded-full px-3 py-1 text-xs text-slate-400 shadow-xl">
+          +{overflowCount} more
+        </div>
+      )}
     </div>,
     document.body
   );

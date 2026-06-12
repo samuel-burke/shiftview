@@ -114,24 +114,31 @@ export async function notifyManagers(
   );
 }
 
+// What to do when the user has disabled the push preference for this type:
+//  - "skip": don't push at all. Used for notifications that insert a row into
+//    the notifications table — the in-app banner is delivered via Supabase
+//    Realtime, so the push exists purely for the background OS notification.
+//    Skipping avoids silent pushes, which violate the userVisibleOnly promise
+//    and can get the subscription revoked (iOS Safari especially).
+//  - "flag": push anyway with data._osEnabled = false. The SW still relays a
+//    foreground banner to a visible window but suppresses the OS notification.
+//    Used for chess moves, which have no notifications row to drive Realtime.
+type PrefOffBehavior = "skip" | "flag";
+
 async function sendPushToUser(
   supabase: SupabaseClient,
   userId: string,
   payload: PushPayload,
-  type?: NotificationType
+  type: NotificationType,
+  prefOffBehavior: PrefOffBehavior = "skip"
 ): Promise<void> {
-  // Check the user's OS notification preference. We still send the push
-  // regardless — when the app is in the foreground the SW delivers it as an
-  // in-app banner (always shown). _osEnabled only gates the background/closed
-  // OS notification inside the SW.
-  let osEnabled = true;
-  if (type) {
-    const prefKey = TYPE_TO_PREF[type];
-    if (prefKey) {
-      const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
-      osEnabled = prefs?.[0]?.[prefKey] !== false;
-    }
+  let prefEnabled = true;
+  const prefKey = TYPE_TO_PREF[type];
+  if (prefKey) {
+    const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
+    prefEnabled = prefs?.[0]?.[prefKey] !== false;
   }
+  if (!prefEnabled && prefOffBehavior === "skip") return;
 
   const { data: subs, error: subsError } = await supabase.rpc("notify_get_push_subs", {
     p_user_id: userId,
@@ -139,10 +146,9 @@ async function sendPushToUser(
   if (subsError) console.error("[notify] notify_get_push_subs failed:", subsError);
   if (!subs?.length) return;
 
-  const payloadWithPref: PushPayload = {
-    ...payload,
-    data: { ...(payload.data ?? {}), _osEnabled: osEnabled },
-  };
+  const payloadWithPref: PushPayload = prefEnabled
+    ? payload
+    : { ...payload, data: { ...(payload.data ?? {}), _osEnabled: false } };
 
   const stale: string[] = [];
   await Promise.all(
@@ -175,7 +181,9 @@ function chessCopyFromStatus(
 }
 
 // Send a push for a chess move without inserting into the notifications table.
-// Chess moves are ephemeral game events, not persistent notifications.
+// Chess moves are ephemeral game events, not persistent notifications. Because
+// there's no row for Realtime to deliver, the push is sent even when the chess
+// pref is off ("flag" behavior) so a visible window can still show the banner.
 export async function notifyChessMove(
   supabase: SupabaseClient,
   options: {
@@ -197,5 +205,5 @@ export async function notifyChessMove(
       fromName:   options.fromName,
       convId:     options.convId,
     },
-  }, "chess_move");
+  }, "chess_move", "flag");
 }

@@ -12,6 +12,7 @@ import {
   WarningIcon,
   MegaphoneIcon,
   BellIcon,
+  ChatBubbleIcon,
 } from "./ShiftIcons";
 import MessageThread from "./MessageThread";
 
@@ -24,20 +25,6 @@ type Notification = {
   created_at: string;
   data?: { fromUserId?: string; fromName?: string; [key: string]: unknown };
 };
-
-function ChatBubbleIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
   shift_change:       { Icon: CalendarIcon,        color: "#60a5fa" },
@@ -110,12 +97,10 @@ export default function NotificationBell() {
       .channel(`notifications:${userId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
+        // No user_id filter: RLS scopes the stream to the user's own rows plus
+        // broadcast rows (user_id null) when they're a manager — a filter on
+        // user_id would drop the broadcasts.
+        { event: "INSERT", schema: "public", table: "notifications" },
         () => { fetchNotifications(); }
       )
       .subscribe();

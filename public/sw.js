@@ -39,25 +39,27 @@ self.addEventListener("push", (event) => {
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        // If any window is currently visible, hand off to in-app UI instead of
-        // showing an OS notification (which would be redundant and jarring).
+        // Tell all windows to refresh the notification bell.
+        clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
+
+        // If any window is currently visible, skip the OS notification — the
+        // page shows its own in-app banner via Supabase Realtime on the
+        // notifications table. Chess moves are the exception: they have no
+        // notifications row, so relay the payload for the in-app banner.
         const focusedClient = clientList.find(
           (c) => c.visibilityState === "visible"
         );
 
         if (focusedClient) {
-          focusedClient.postMessage({ type: "PUSH_FOREGROUND", payload });
-          // Still tell all windows to refresh the notification list.
-          clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
+          if (data?.type === "chess_move") {
+            focusedClient.postMessage({ type: "PUSH_FOREGROUND", payload });
+          }
           return;
         }
 
-        // App is in the background or closed.
-        // Refresh the in-app bell count for any open (but hidden) windows.
-        clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
-
-        // Respect the user's OS notification preference (_osEnabled is set by
-        // the server and included in the push payload).
+        // App is in the background or closed. The server only pushes types the
+        // user has enabled, except chess moves with the pref off, which arrive
+        // flagged _osEnabled=false (foreground-banner-only delivery).
         if (data?._osEnabled === false) return;
 
         return self.registration.showNotification(title ?? "ShiftView", {

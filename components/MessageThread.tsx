@@ -126,12 +126,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       .then(({ data: { user } }) => setMyUserId(user?.id ?? null));
   }, []);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (): Promise<Message[]> => {
     const res = await fetch(`/api/messages?with=${encodeURIComponent(otherUserId)}&limit=50`);
-    if (res.ok) {
-      const data = await res.json();
-      setMessages(Array.isArray(data) ? data : []);
-    }
+    if (!res.ok) return [];
+    const data = await res.json();
+    const msgs: Message[] = Array.isArray(data) ? data : [];
+    setMessages(msgs);
+    return msgs;
   }, [otherUserId]);
 
   // Load + subscribe when drawer opens
@@ -160,36 +161,34 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
         (payload) => {
-          fetchMessages();
+          const row = payload.new as { id?: unknown; from_user_id?: string };
+          fetchMessages().then((msgs) => {
+            // For users without a push subscription, dispatch a local event so
+            // InAppNotificationBanner can show a chess banner as a fallback.
+            // Realtime rows carry the *encrypted* body, so the chess move is
+            // detected from the decrypted refetch, not the raw row.
+            if (!row.from_user_id || row.from_user_id === myUserId || chessOpenRef.current) return;
+            if (row.id !== undefined && dispatchedIds.has(row.id)) return;
+            const newMsg = msgs.find((m) => m.id === row.id);
+            const game = newMsg ? parseChessMessage(newMsg.body) : null;
+            if (!game) return;
+            if (row.id !== undefined) dispatchedIds.add(row.id);
+            window.dispatchEvent(
+              new CustomEvent("chess-move-received", {
+                detail: {
+                  status: game.status,
+                  opponentName: otherName,
+                  fromUserId: otherUserId,
+                  convId,
+                },
+              })
+            );
+          });
           fetch("/api/messages", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ withUserId: otherUserId }),
           });
-          // For browsers without Push API (e.g. Safari desktop), dispatch a local
-          // event so InAppNotificationBanner can show a banner as a fallback.
-          // Push-capable browsers handle this via the SW PUSH_FOREGROUND path instead.
-          const row = payload.new as { id?: unknown; from_user_id?: string; body?: string };
-          if (row.from_user_id && row.from_user_id !== myUserId && !chessOpenRef.current) {
-            try {
-              const parsed = JSON.parse(row.body ?? "");
-              if (parsed._chess === true) {
-                if (row.id !== undefined && dispatchedIds.has(row.id)) return;
-                if (row.id !== undefined) dispatchedIds.add(row.id);
-                const localConvId = [myUserId, otherUserId].sort().join("_");
-                window.dispatchEvent(
-                  new CustomEvent("chess-move-received", {
-                    detail: {
-                      status: parsed.status,
-                      opponentName: otherName,
-                      fromUserId: otherUserId,
-                      convId: localConvId,
-                    },
-                  })
-                );
-              }
-            } catch {}
-          }
         }
       )
       .on(
