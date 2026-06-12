@@ -54,11 +54,18 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Module-level cache: the bell is mounted inside per-page headers, so it
+// remounts on every navigation. Seeding state from the previous mount keeps
+// the bell (and its badge) visible immediately instead of flickering out
+// while auth.getUser() and the notifications fetch resolve.
+let cachedUserId: string | null = null;
+let cachedNotifications: Notification[] = [];
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>(cachedNotifications);
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(cachedUserId);
   const [chatTarget, setChatTarget] = useState<{ userId: string; name: string; openChess?: boolean } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Lazily initialised on the client only — never called during SSR / test renders
@@ -68,12 +75,24 @@ export default function NotificationBell() {
     return supabaseRef.current;
   }
 
-  // Get current user ID
+  // Get current user ID. The cached value renders immediately; this verifies
+  // it and clears the cache if the session changed (sign-out / account switch).
   useEffect(() => {
     getSupabase().auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id ?? null);
+      const id = user?.id ?? null;
+      if (id !== cachedUserId) {
+        cachedNotifications = [];
+        setNotifications([]);
+      }
+      cachedUserId = id;
+      setUserId(id);
     });
   }, []);
+
+  // Mirror notifications into the cache so the next mount seeds from them.
+  useEffect(() => {
+    cachedNotifications = notifications;
+  }, [notifications]);
 
   const unread = notifications.filter((n) => !n.read).length;
 
