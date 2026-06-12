@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import PageClient from "./pageClient";
 import LandingPage from "./landing";
@@ -16,6 +17,17 @@ export default async function Page() {
     } = await supabase.auth.getUser();
     if (!user) {
       return <LandingPage />;
+    }
+
+    // Signed in but not a member of any organization — typically a sign-up
+    // that authenticated via the email verification link before the org was
+    // created. Send them to finish onboarding instead of an empty dashboard.
+    const [{ data: managerRow }, { data: employeeRow }] = await Promise.all([
+      supabase.from("managers").select("org_id").eq("user_id", user.id).limit(1).maybeSingle(),
+      supabase.from("employees").select("id").eq("user_id", user.id).limit(1).maybeSingle(),
+    ]);
+    if (!managerRow && !employeeRow) {
+      redirect("/signup");
     }
   }
 

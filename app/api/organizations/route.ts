@@ -106,8 +106,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, organizationId: orgId }, { status: 201 });
     }
 
-    // unique_violation: another org claimed this slug — retry with a suffix.
-    if (error.code === "23505") continue;
+    // unique_violation: retry only when the org slug collided — any other
+    // unique constraint (e.g. a legacy global unique on employees.email,
+    // see migration 0008) is a real conflict, not a slug race.
+    if (error.code === "23505") {
+      if ((error.message ?? "").includes("slug")) continue;
+      console.error("[api/organizations] conflict:", error);
+      return NextResponse.json(
+        { error: "This email is already linked to an employee record in another organization" },
+        { status: 409 }
+      );
+    }
 
     console.error("[api/organizations]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -27,6 +27,20 @@ export default function SignupPage() {
   // organization creation instead of re-running the whole code exchange.
   const [verified, setVerified] = useState(false);
 
+  // Users who are already signed in (clicked the verification link, or
+  // belong to another organization) skip the OTP exchange entirely and go
+  // straight to creating the organization.
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSupabase()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        if (user && !user.is_anonymous && user.email) setSessionEmail(user.email);
+      })
+      .catch(() => {});
+  }, []);
+
   // Supabase Auth CAPTCHA protection (when enabled) requires a Turnstile
   // token on signInWithOtp. Tokens are single-use, so the widget is reset
   // after every send attempt.
@@ -36,7 +50,8 @@ export default function SignupPage() {
 
   useEffect(() => {
     const siteKey = TURNSTILE_SITE_KEY;
-    if (!siteKey || step !== "details") return;
+    // Signed-in users never send an OTP, so no challenge is needed.
+    if (!siteKey || step !== "details" || sessionEmail) return;
     const container = widgetContainerRef.current;
     if (!container) return;
     let cancelled = false;
@@ -58,7 +73,7 @@ export default function SignupPage() {
     // Leaving the details step unmounts the container; coming back renders a
     // fresh widget, so the previous widget id is simply forgotten.
     return () => { cancelled = true; widgetIdRef.current = null; };
-  }, [step]);
+  }, [step, sessionEmail]);
 
   function resetCaptcha() {
     setCaptchaToken(null);
@@ -79,6 +94,10 @@ export default function SignupPage() {
       email: email.trim(),
       options: {
         shouldCreateUser: true,
+        // New-user verification emails may contain a link instead of a code
+        // (depending on the Supabase email template); make sure it lands
+        // back in this app, where the signed-in flow finishes the sign-up.
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         ...(captchaToken ? { captchaToken } : {}),
       },
     });
@@ -104,6 +123,26 @@ export default function SignupPage() {
       return false;
     }
     return true;
+  }
+
+  // Already signed in — no OTP exchange, just provision the organization.
+  async function handleCreateSignedIn() {
+    if (!orgName.trim()) { setError("Organization name is required."); return; }
+    if (!ownerName.trim()) { setError("Your name is required."); return; }
+    setLoading(true);
+    setError(null);
+    if (await createOrganization()) {
+      router.push("/");
+      router.refresh();
+    } else {
+      setLoading(false);
+    }
+  }
+
+  async function handleSwitchAccount() {
+    await getSupabase().auth.signOut();
+    setSessionEmail(null);
+    setError(null);
   }
 
   async function handleVerify() {
@@ -174,32 +213,56 @@ export default function SignupPage() {
                 onChange={(e) => { setOwnerName(e.target.value); setError(null); }}
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
               />
-              <label htmlFor="signup-email" className="sr-only">Email address</label>
-              <input
-                id="signup-email"
-                type="email"
-                placeholder="Email"
-                aria-describedby={error ? "signup-error" : undefined}
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
-              />
-              {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
-              <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
-              <button
-                onClick={handleSendCode}
-                disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
-              >
-                {loading ? "Sending…" : "Send Code"}
-              </button>
-              <Link
-                href="/login"
-                className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm text-center cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
-              >
-                Already have an account? Sign in
-              </Link>
+              {sessionEmail ? (
+                <>
+                  <div className="text-xs text-slate-500 text-center">
+                    Signed in as <span className="text-slate-300 font-semibold">{sessionEmail}</span>
+                  </div>
+                  {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+                  <button
+                    onClick={handleCreateSignedIn}
+                    disabled={loading}
+                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                  >
+                    {loading ? "Creating…" : "Create Organization"}
+                  </button>
+                  <button
+                    onClick={handleSwitchAccount}
+                    className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
+                  >
+                    Use a different account
+                  </button>
+                </>
+              ) : (
+                <>
+                  <label htmlFor="signup-email" className="sr-only">Email address</label>
+                  <input
+                    id="signup-email"
+                    type="email"
+                    placeholder="Email"
+                    aria-describedby={error ? "signup-error" : undefined}
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
+                    className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                  />
+                  {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+                  <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
+                  <button
+                    onClick={handleSendCode}
+                    disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                  >
+                    {loading ? "Sending…" : "Send Code"}
+                  </button>
+                  <Link
+                    href="/login"
+                    className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm text-center cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
+                  >
+                    Already have an account? Sign in
+                  </Link>
+                </>
+              )}
             </>
           ) : (
             <>

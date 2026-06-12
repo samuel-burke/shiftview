@@ -153,7 +153,10 @@ describe("POST /api/organizations — provisioning", () => {
   it("retries with a suffixed slug when the slug is already taken", async () => {
     const rpc = vi
       .fn()
-      .mockResolvedValueOnce({ data: null, error: { code: "23505", message: "duplicate key" } })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: "23505", message: 'duplicate key value violates unique constraint "organizations_slug_key"' },
+      })
       .mockResolvedValueOnce({ data: NEW_ORG_ID, error: null });
     mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
 
@@ -162,6 +165,20 @@ describe("POST /api/organizations — provisioning", () => {
     expect(res.status).toBe(201);
     expect(rpc).toHaveBeenCalledTimes(2);
     expect(rpc.mock.calls[1][1].p_slug).toMatch(/^acme-coffee-/);
+  });
+
+  it("returns 409 instead of retrying when a non-slug unique constraint fires", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "employees_email_key"' },
+    });
+    mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
+
+    const res = await POST(postReq({ name: "Acme Coffee", ownerName: "Alice Smith" }));
+
+    expect(res.status).toBe(409);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("already linked") });
   });
 
   it("never hands out reserved slugs unsuffixed", async () => {
