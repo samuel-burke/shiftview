@@ -11,11 +11,13 @@ function conversationId(a: string, b: string): string {
   return [a, b].sort().join("_");
 }
 
-// GET /api/messages?with=<userId>&limit=50
+// GET /api/messages?with=<userId>&limit=50&before=<messageId>
+// `before` is a cursor: returns the page of messages older than that message id.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const withUserId = searchParams.get("with");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 200);
+  const before = parseInt(searchParams.get("before") ?? "", 10);
 
   if (!withUserId)
     return NextResponse.json({ error: "with param required" }, { status: 400 });
@@ -50,13 +52,18 @@ export async function GET(request: Request) {
 
   const convId = conversationId(user!.id, withUserId);
 
-  const { data, error: dbError } = await supabase
+  let query = supabase
     .from("messages")
     .select("id, from_user_id, to_user_id, body, read, created_at")
     .eq("org_id", orgId)
     .eq("conversation_id", convId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
+
+  if (!Number.isNaN(before)) query = query.lt("id", before);
+
+  const { data, error: dbError } = await query;
 
   if (dbError) {
     console.error("[api/messages GET]", dbError);
