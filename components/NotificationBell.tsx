@@ -12,6 +12,8 @@ import {
   WarningIcon,
   MegaphoneIcon,
   BellIcon,
+  ChatBubbleIcon,
+  ChessPieceIcon,
 } from "./ShiftIcons";
 import MessageThread from "./MessageThread";
 
@@ -25,20 +27,6 @@ type Notification = {
   data?: { fromUserId?: string; fromName?: string; [key: string]: unknown };
 };
 
-function ChatBubbleIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
   shift_change:       { Icon: CalendarIcon,        color: "#60a5fa" },
   shift_reminder:     { Icon: AlarmIcon,           color: "#fbbf24" },
@@ -49,6 +37,7 @@ const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string 
   late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
   schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
   message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
+  chess_move:         { Icon: ChessPieceIcon,      color: "#f59e0b" },
 };
 
 function NotifIcon({ type }: { type: string }) {
@@ -67,11 +56,18 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Module-level cache: the bell is mounted inside per-page headers, so it
+// remounts on every navigation. Seeding state from the previous mount keeps
+// the bell (and its badge) visible immediately instead of flickering out
+// while auth.getUser() and the notifications fetch resolve.
+let cachedUserId: string | null = null;
+let cachedNotifications: Notification[] = [];
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>(cachedNotifications);
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(cachedUserId);
   const [chatTarget, setChatTarget] = useState<{ userId: string; name: string; openChess?: boolean } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Lazily initialised on the client only — never called during SSR / test renders
@@ -81,12 +77,24 @@ export default function NotificationBell() {
     return supabaseRef.current;
   }
 
-  // Get current user ID
+  // Get current user ID. The cached value renders immediately; this verifies
+  // it and clears the cache if the session changed (sign-out / account switch).
   useEffect(() => {
     getSupabase().auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id ?? null);
+      const id = user?.id ?? null;
+      if (id !== cachedUserId) {
+        cachedNotifications = [];
+        setNotifications([]);
+      }
+      cachedUserId = id;
+      setUserId(id);
     });
   }, []);
+
+  // Mirror notifications into the cache so the next mount seeds from them.
+  useEffect(() => {
+    cachedNotifications = notifications;
+  }, [notifications]);
 
   const unread = notifications.filter((n) => !n.read).length;
 
@@ -110,12 +118,10 @@ export default function NotificationBell() {
       .channel(`notifications:${userId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
+        // No user_id filter: RLS scopes the stream to the user's own rows plus
+        // broadcast rows (user_id null) when they're a manager — a filter on
+        // user_id would drop the broadcasts.
+        { event: "INSERT", schema: "public", table: "notifications" },
         () => { fetchNotifications(); }
       )
       .subscribe();
@@ -287,6 +293,7 @@ export default function NotificationBell() {
             )}
             {notifications.map((n) => {
               const isMsg = n.type === "message" && !!n.data?.fromUserId;
+              const isChess = n.type === "chess_move" && !!n.data?.fromUserId;
               return (
                 <div
                   key={n.id}
@@ -298,15 +305,19 @@ export default function NotificationBell() {
                     <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[11px] text-slate-500">{timeAgo(n.created_at)}</span>
-                      {isMsg && (
+                      {(isMsg || isChess) && (
                         <button
                           onClick={() => {
-                            setChatTarget({ userId: n.data!.fromUserId as string, name: n.data!.fromName as string || n.title });
+                            setChatTarget({
+                              userId: n.data!.fromUserId as string,
+                              name: (n.data!.fromName as string) || (isChess ? "Opponent" : n.title),
+                              openChess: isChess,
+                            });
                             setOpen(false);
                           }}
                           className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium flex items-center gap-0.5 transition-colors py-2 -my-2 pr-1"
                         >
-                          Reply
+                          {isChess ? "Open game" : "Reply"}
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </button>
                       )}

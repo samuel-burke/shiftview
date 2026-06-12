@@ -59,13 +59,10 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [chessOpen, setChessOpen] = useState(false);
-  const chessOpenRef = useRef(false);
   // When the thread was opened solely to show chess (via notification tap), closing
   // the chess overlay should also close the whole thread — no need to strand the user
   // in a bare message view they never explicitly opened.
   const openedViaChessRef = useRef(false);
-  // Keep ref in sync so Realtime callbacks can read the current value without stale closure
-  useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
 
   // Stable per-instance ID used to detect other simultaneously-open threads.
   const instanceId = useId();
@@ -140,10 +137,6 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
 
     setLoading(true);
     fetchMessages().finally(() => setLoading(false));
-    // Track message IDs we've already dispatched chess-move-received for,
-    // so StrictMode double-invocation or overlapping subscriptions don't
-    // fire the event (and show a banner) twice for the same message.
-    const dispatchedIds = new Set<unknown>();
 
     fetch("/api/messages", {
       method: "PATCH",
@@ -159,37 +152,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
-        (payload) => {
+        () => {
           fetchMessages();
           fetch("/api/messages", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ withUserId: otherUserId }),
           });
-          // For browsers without Push API (e.g. Safari desktop), dispatch a local
-          // event so InAppNotificationBanner can show a banner as a fallback.
-          // Push-capable browsers handle this via the SW PUSH_FOREGROUND path instead.
-          const row = payload.new as { id?: unknown; from_user_id?: string; body?: string };
-          if (row.from_user_id && row.from_user_id !== myUserId && !chessOpenRef.current) {
-            try {
-              const parsed = JSON.parse(row.body ?? "");
-              if (parsed._chess === true) {
-                if (row.id !== undefined && dispatchedIds.has(row.id)) return;
-                if (row.id !== undefined) dispatchedIds.add(row.id);
-                const localConvId = [myUserId, otherUserId].sort().join("_");
-                window.dispatchEvent(
-                  new CustomEvent("chess-move-received", {
-                    detail: {
-                      status: parsed.status,
-                      opponentName: otherName,
-                      fromUserId: otherUserId,
-                      convId: localConvId,
-                    },
-                  })
-                );
-              }
-            } catch {}
-          }
         }
       )
       .on(
