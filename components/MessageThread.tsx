@@ -59,13 +59,10 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [chessOpen, setChessOpen] = useState(false);
-  const chessOpenRef = useRef(false);
   // When the thread was opened solely to show chess (via notification tap), closing
   // the chess overlay should also close the whole thread — no need to strand the user
   // in a bare message view they never explicitly opened.
   const openedViaChessRef = useRef(false);
-  // Keep ref in sync so Realtime callbacks can read the current value without stale closure
-  useEffect(() => { chessOpenRef.current = chessOpen; }, [chessOpen]);
 
   // Stable per-instance ID used to detect other simultaneously-open threads.
   const instanceId = useId();
@@ -126,13 +123,12 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       .then(({ data: { user } }) => setMyUserId(user?.id ?? null));
   }, []);
 
-  const fetchMessages = useCallback(async (): Promise<Message[]> => {
+  const fetchMessages = useCallback(async () => {
     const res = await fetch(`/api/messages?with=${encodeURIComponent(otherUserId)}&limit=50`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    const msgs: Message[] = Array.isArray(data) ? data : [];
-    setMessages(msgs);
-    return msgs;
+    if (res.ok) {
+      const data = await res.json();
+      setMessages(Array.isArray(data) ? data : []);
+    }
   }, [otherUserId]);
 
   // Load + subscribe when drawer opens
@@ -141,10 +137,6 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
 
     setLoading(true);
     fetchMessages().finally(() => setLoading(false));
-    // Track message IDs we've already dispatched chess-move-received for,
-    // so StrictMode double-invocation or overlapping subscriptions don't
-    // fire the event (and show a banner) twice for the same message.
-    const dispatchedIds = new Set<unknown>();
 
     fetch("/api/messages", {
       method: "PATCH",
@@ -160,30 +152,8 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
-        (payload) => {
-          const row = payload.new as { id?: unknown; from_user_id?: string };
-          fetchMessages().then((msgs) => {
-            // For users without a push subscription, dispatch a local event so
-            // InAppNotificationBanner can show a chess banner as a fallback.
-            // Realtime rows carry the *encrypted* body, so the chess move is
-            // detected from the decrypted refetch, not the raw row.
-            if (!row.from_user_id || row.from_user_id === myUserId || chessOpenRef.current) return;
-            if (row.id !== undefined && dispatchedIds.has(row.id)) return;
-            const newMsg = msgs.find((m) => m.id === row.id);
-            const game = newMsg ? parseChessMessage(newMsg.body) : null;
-            if (!game) return;
-            if (row.id !== undefined) dispatchedIds.add(row.id);
-            window.dispatchEvent(
-              new CustomEvent("chess-move-received", {
-                detail: {
-                  status: game.status,
-                  opponentName: otherName,
-                  fromUserId: otherUserId,
-                  convId,
-                },
-              })
-            );
-          });
+        () => {
+          fetchMessages();
           fetch("/api/messages", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },

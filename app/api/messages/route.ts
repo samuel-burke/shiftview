@@ -147,6 +147,7 @@ export async function POST(request: Request) {
 
   if (isChessMove) {
     await notifyChessMove(supabase, {
+      orgId,
       toUserId,
       fromUserId: user!.id,
       fromName:   senderName,

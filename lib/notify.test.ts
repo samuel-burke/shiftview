@@ -56,10 +56,7 @@ describe("notify", () => {
       p_type: "message",
     }));
     expect(mockSendPush).toHaveBeenCalledTimes(1);
-    // No _osEnabled flag: the server only pushes enabled types, so the SW
-    // shows every background push it receives.
-    const payload = mockSendPush.mock.calls[0][1];
-    expect(payload.data ?? {}).not.toHaveProperty("_osEnabled");
+    expect(mockSendPush.mock.calls[0][1]).toMatchObject({ title: "Alice", body: "hi" });
   });
 
   it("still inserts the row but skips the push entirely when the pref is disabled", async () => {
@@ -128,29 +125,55 @@ describe("notifyManagers", () => {
 });
 
 describe("notifyChessMove", () => {
-  it("pushes without the _osEnabled flag when the chess pref is enabled", async () => {
-    const { client } = makeSupabase({ prefs: { chess_alerts: true } });
-    await notifyChessMove(client, {
-      toUserId: USER_ID,
-      fromUserId: "user-2",
-      fromName: "Alice",
-      convId: "user-1_user-2",
-      chessStatus: "active",
-    });
+  const MOVE = {
+    orgId: ORG_ID,
+    toUserId: USER_ID,
+    fromUserId: "user-2",
+    fromName: "Alice",
+    convId: "user-1_user-2",
+    chessStatus: "active",
+  };
+
+  it("upserts the self-replacing notification row and pushes when the pref is enabled", async () => {
+    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: true } });
+    await notifyChessMove(client, MOVE);
+
+    expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.objectContaining({
+      p_org_id: ORG_ID,
+      p_user_id: USER_ID,
+      p_title: "Your move!",
+      p_data: expect.objectContaining({ type: "chess_move", convId: MOVE.convId }),
+    }));
     expect(mockSendPush).toHaveBeenCalledTimes(1);
-    expect(mockSendPush.mock.calls[0][1].data).not.toHaveProperty("_osEnabled");
+    expect(mockSendPush.mock.calls[0][1].data).toMatchObject({
+      type: "chess_move",
+      fromUserId: "user-2",
+      convId: MOVE.convId,
+    });
   });
 
-  it("still pushes when the chess pref is disabled, flagged _osEnabled=false for foreground-only delivery", async () => {
-    const { client } = makeSupabase({ prefs: { chess_alerts: false } });
-    await notifyChessMove(client, {
-      toUserId: USER_ID,
-      fromUserId: "user-2",
-      fromName: "Alice",
-      convId: "user-1_user-2",
-      chessStatus: "active",
-    });
-    expect(mockSendPush).toHaveBeenCalledTimes(1);
-    expect(mockSendPush.mock.calls[0][1].data).toMatchObject({ _osEnabled: false });
+  it("still upserts the row but skips the push when the chess pref is disabled", async () => {
+    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: false } });
+    await notifyChessMove(client, MOVE);
+
+    expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.anything());
+    expect(mockSendPush).not.toHaveBeenCalled();
+  });
+
+  it("upserts the row but never pushes for the demo org", async () => {
+    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: true } });
+    await notifyChessMove(client, { ...MOVE, orgId: DEMO_ORG_ID });
+
+    expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.anything());
+    expect(mockSendPush).not.toHaveBeenCalled();
+  });
+
+  it("uses end-of-game copy for a finished game", async () => {
+    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: true } });
+    await notifyChessMove(client, { ...MOVE, chessStatus: "white_wins" });
+
+    expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.objectContaining({
+      p_title: "Checkmate!",
+    }));
   });
 });

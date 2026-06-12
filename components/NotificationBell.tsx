@@ -13,6 +13,7 @@ import {
   MegaphoneIcon,
   BellIcon,
   ChatBubbleIcon,
+  ChessPieceIcon,
 } from "./ShiftIcons";
 import MessageThread from "./MessageThread";
 
@@ -36,6 +37,7 @@ const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string 
   late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
   schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
   message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
+  chess_move:         { Icon: ChessPieceIcon,      color: "#f59e0b" },
 };
 
 function NotifIcon({ type }: { type: string }) {
@@ -291,6 +293,7 @@ export default function NotificationBell() {
             )}
             {notifications.map((n) => {
               const isMsg = n.type === "message" && !!n.data?.fromUserId;
+              const isChess = n.type === "chess_move" && !!n.data?.fromUserId;
               return (
                 <div
                   key={n.id}
@@ -302,15 +305,19 @@ export default function NotificationBell() {
                     <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[11px] text-slate-500">{timeAgo(n.created_at)}</span>
-                      {isMsg && (
+                      {(isMsg || isChess) && (
                         <button
                           onClick={() => {
-                            setChatTarget({ userId: n.data!.fromUserId as string, name: n.data!.fromName as string || n.title });
+                            setChatTarget({
+                              userId: n.data!.fromUserId as string,
+                              name: (n.data!.fromName as string) || (isChess ? "Opponent" : n.title),
+                              openChess: isChess,
+                            });
                             setOpen(false);
                           }}
                           className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium flex items-center gap-0.5 transition-colors py-2 -my-2 pr-1"
                         >
-                          Reply
+                          {isChess ? "Open game" : "Reply"}
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </button>
                       )}

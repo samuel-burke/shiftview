@@ -14,15 +14,8 @@ import {
   MegaphoneIcon,
   BellIcon,
   ChatBubbleIcon,
+  ChessPieceIcon,
 } from "./ShiftIcons";
-
-function ChessPieceIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M9 2h6M12 2v3M8 5h8l-1 5H9L8 5zM7 10h10l1 9H6l1-9zM5 19h14" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 type BannerItem = {
   id: number;
@@ -51,16 +44,6 @@ const AUTO_DISMISS_MS = 5000;
 const MAX_VISIBLE_BANNERS = 3;
 let nextId = 1;
 
-async function hasPushSubscription(): Promise<boolean> {
-  try {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
-    const reg = await navigator.serviceWorker.ready;
-    return !!(await reg.pushManager.getSubscription());
-  } catch {
-    return false;
-  }
-}
-
 export default function InAppNotificationBanner() {
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -85,47 +68,20 @@ export default function InAppNotificationBanner() {
     setBanners((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  // Path 1: service worker push relay. The SW only forwards PUSH_FOREGROUND
-  // for chess moves — every other notification type banners via the Realtime
-  // subscription below (Path 3), which works whether or not push is set up.
+  // Relay OPEN_CHESS from the SW after an OS chess notification is tapped —
+  // covers two cases:
+  // 1. App was backgrounded and the user tapped the notification (SW posts directly)
+  // 2. App was cold-started by the tap (SW replies to CLIENT_READY below)
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
     function onMessage(e: MessageEvent) {
-      // Relay OPEN_CHESS from SW — covers two cases:
-      // 1. App was backgrounded and user tapped the OS notification (SW posts directly)
-      // 2. App was cold-started by a notification tap (SW replies to CLIENT_READY below)
-      if (e.data?.type === "OPEN_CHESS") {
-        window.dispatchEvent(
-          new CustomEvent("open-chess-board", {
-            detail: { fromUserId: e.data.fromUserId, fromName: e.data.fromName ?? "" },
-          })
-        );
-        return;
-      }
-
-      if (e.data?.type !== "PUSH_FOREGROUND") return;
-      const { title, body, tag, data } = e.data.payload ?? {};
-
-      // Suppress if this exact chess board is already visible.
-      if (
-        data?.type === "chess_move" &&
-        (window as Window & { __chessOpen?: string }).__chessOpen === data.convId
-      ) return;
-
-      const onTap =
-        data?.type === "chess_move" && data.fromUserId
-          ? () =>
-              window.dispatchEvent(
-                new CustomEvent("open-chess-board", {
-                  detail: { fromUserId: data.fromUserId, fromName: data.fromName ?? "" },
-                })
-              )
-          : undefined;
-
-      // Prefer data.type for the icon — chess pushes tag per-conversation
-      // ("chess:<convId>"), which would miss the icon map.
-      showBanner(title ?? "ShiftView", body ?? "", (data?.type as string | undefined) ?? tag, onTap);
+      if (e.data?.type !== "OPEN_CHESS") return;
+      window.dispatchEvent(
+        new CustomEvent("open-chess-board", {
+          detail: { fromUserId: e.data.fromUserId, fromName: e.data.fromName ?? "" },
+        })
+      );
     }
 
     navigator.serviceWorker.addEventListener("message", onMessage);
@@ -138,45 +94,12 @@ export default function InAppNotificationBanner() {
       .catch(() => {});
 
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
-  }, [showBanner]);
+  }, []);
 
-  // Path 2: chess fallback for users without an active push subscription
-  // (push unsupported, permission denied, or simply never enabled). Users with
-  // a subscription get chess banners via the SW PUSH_FOREGROUND path (Path 1).
-  useEffect(() => {
-    function onChessMove(e: Event) {
-      const { status, opponentName, fromUserId, convId } = (e as CustomEvent).detail ?? {};
-      hasPushSubscription().then((subscribed) => {
-        if (subscribed) return; // Path 1 handles it
-        let title = "Your move!";
-        let body = `${opponentName ?? "Opponent"} made their move`;
-        if (status === "white_wins" || status === "black_wins") {
-          title = "Checkmate!";
-          body = `${opponentName ?? "Opponent"} won the game`;
-        } else if (status === "draw") {
-          title = "Draw!";
-          body = "The game ended in a draw";
-        }
-        const onTap = fromUserId
-          ? () =>
-              window.dispatchEvent(
-                new CustomEvent("open-chess-board", {
-                  detail: { fromUserId, fromName: opponentName ?? "", convId },
-                })
-              )
-          : undefined;
-        showBanner(title, body, "chess_move", onTap);
-      });
-    }
-    window.addEventListener("chess-move-received", onChessMove);
-    return () => window.removeEventListener("chess-move-received", onChessMove);
-  }, [showBanner]);
-
-  // Path 3: Supabase Realtime on the notifications table — the universal
-  // banner source for every signed-in user, regardless of push subscription
-  // state (and including the demo org, which never pushes). No double-banner
-  // risk: the SW only relays foreground payloads for chess moves, which have
-  // no notifications row.
+  // Supabase Realtime on the notifications table — the single banner source
+  // for every signed-in user, regardless of push subscription state (and
+  // including the demo org, which never pushes). Chess moves are rows too
+  // (self-replacing per conversation), so they banner here like everything else.
   useEffect(() => {
     if (!supabaseRef.current) supabaseRef.current = createClient();
     const sb = supabaseRef.current;
@@ -195,10 +118,32 @@ export default function InAppNotificationBanner() {
           // filter on user_id would drop the broadcasts.
           { event: "INSERT", schema: "public", table: "notifications" },
           (payload) => {
-            const row = payload.new as { user_id?: string | null; title?: string; body?: string; type?: string };
+            const row = payload.new as {
+              user_id?: string | null;
+              title?: string;
+              body?: string;
+              type?: string;
+              data?: Record<string, unknown> | null;
+            };
             // Belt-and-braces: RLS already restricts what we receive.
             if (row.user_id != null && row.user_id !== user.id) return;
-            showBanner(row.title ?? "ShiftView", row.body ?? "", row.type);
+
+            const data = (row.data ?? {}) as { fromUserId?: string; fromName?: string; convId?: string };
+            let onTap: (() => void) | undefined;
+            if (row.type === "chess_move") {
+              // Suppress if this exact chess board is already visible.
+              if ((window as Window & { __chessOpen?: string }).__chessOpen === data.convId) return;
+              if (data.fromUserId) {
+                onTap = () =>
+                  window.dispatchEvent(
+                    new CustomEvent("open-chess-board", {
+                      detail: { fromUserId: data.fromUserId, fromName: data.fromName ?? "" },
+                    })
+                  );
+              }
+            }
+
+            showBanner(row.title ?? "ShiftView", row.body ?? "", row.type, onTap);
           }
         )
         .subscribe();

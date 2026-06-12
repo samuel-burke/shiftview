@@ -44,24 +44,14 @@ self.addEventListener("push", (event) => {
 
         // If any window is currently visible, skip the OS notification — the
         // page shows its own in-app banner via Supabase Realtime on the
-        // notifications table. Chess moves are the exception: they have no
-        // notifications row, so relay the payload for the in-app banner.
-        const focusedClient = clientList.find(
+        // notifications table.
+        const anyVisible = clientList.some(
           (c) => c.visibilityState === "visible"
         );
+        if (anyVisible) return;
 
-        if (focusedClient) {
-          if (data?.type === "chess_move") {
-            focusedClient.postMessage({ type: "PUSH_FOREGROUND", payload });
-          }
-          return;
-        }
-
-        // App is in the background or closed. The server only pushes types the
-        // user has enabled, except chess moves with the pref off, which arrive
-        // flagged _osEnabled=false (foreground-banner-only delivery).
-        if (data?._osEnabled === false) return;
-
+        // App is in the background or closed; the server only pushes types
+        // the user has enabled, so always show.
         return self.registration.showNotification(title ?? "ShiftView", {
           body:  body ?? "",
           icon:  icon  ?? "/icon-192.png",
