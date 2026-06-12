@@ -28,6 +28,8 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: false,
+      isOwner: false,
+      orgName: null,
       employeeId: null,
       employeeName: null,
       isDemo: false,
@@ -44,6 +46,8 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: false,
+      isOwner: false,
+      orgName: null,
       employeeId: null,
       employeeName: null,
       isDemo: false,
@@ -64,6 +68,8 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: false,
+      isOwner: false,
+      orgName: null,
       employeeId: MOCK_EMPLOYEE.id,
       employeeName: MOCK_EMPLOYEE.name,
       isDemo: false,
@@ -80,6 +86,8 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: true,
+      isOwner: false,
+      orgName: null,
       employeeId: null,
       employeeName: null,
       isDemo: false,
@@ -100,8 +108,38 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: true,
+      isOwner: false,
+      orgName: null,
       employeeId: MOCK_EMPLOYEE.id,
       employeeName: MOCK_EMPLOYEE.name,
+      isDemo: false,
+    });
+  });
+
+  // ── Organization owner ────────────────────────────────────────────────────
+
+  it("returns isOwner: true and the org name for the organization owner", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      ownerUserId: MOCK_USER.id,
+      linkedEmployee: null,
+    });
+    const baseFrom = client.from.getMockImplementation()!;
+    client.from.mockImplementation((table: string) => {
+      if (table === "organizations")
+        return makeQueryBuilder({ data: { name: "Acme Coffee" }, error: null });
+      return baseFrom(table);
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/me"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      isManager: true,
+      isOwner: true,
+      orgName: "Acme Coffee",
+      employeeId: null,
+      employeeName: null,
       isDemo: false,
     });
   });
@@ -124,6 +162,8 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       isManager: true,
+      isOwner: false,
+      orgName: null,
       employeeId: null,
       employeeName: null,
       isDemo: true,

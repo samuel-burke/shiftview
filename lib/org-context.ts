@@ -17,6 +17,9 @@ export type OrgContext = {
   user: User;
   orgId: string;
   isManager: boolean;
+  // True when the caller is this org's owner (managers.is_owner) — the
+  // sign-up creator, who alone may delete the organization.
+  isOwner: boolean;
   // The caller's employee record in this org, when one exists.
   employeeId: number | null;
   // True when operating on the demo organization. Used to suppress outbound
@@ -49,7 +52,7 @@ export async function getOrgContext(
   // filters keep behavior identical in tests and with permissive policies.
   let managerQuery = supabase
     .from("managers")
-    .select("user_id, org_id")
+    .select("user_id, org_id, is_owner")
     .eq("user_id", user.id);
   if (requestedOrg) managerQuery = managerQuery.eq("org_id", requestedOrg);
   const { data: managerRow } = await managerQuery.limit(1).maybeSingle();
@@ -70,6 +73,7 @@ export async function getOrgContext(
       user,
       orgId,
       isManager: Boolean(managerRow),
+      isOwner: Boolean(managerRow?.is_owner),
       employeeId: employeeRow?.org_id === orgId ? (employeeRow?.id ?? null) : null,
       isDemo: isDemoOrgId(orgId),
     },

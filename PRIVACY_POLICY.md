@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**ShiftView** · Last updated: June 3, 2026
+**ShiftView** · Last updated: June 12, 2026
 
 This policy describes what information ShiftView collects, how it is used, and how it is protected.
 
@@ -70,7 +70,8 @@ Messages in transit are protected by TLS (HTTPS).
 - **Schedule and employee data** is retained for as long as you have an active account.
 - **Messages** are retained indefinitely unless deleted by an administrator.
 - **Push subscriptions** are automatically removed when a device unsubscribes or the subscription becomes stale.
-- On account deletion, your data is removed in accordance with Supabase's cascade delete policies.
+- **Account deletion:** you can delete your account at any time from **Settings → Delete Account**. This permanently removes your login, push subscriptions, and notification preferences. Your name and your past schedule and clock records are retained by your organization as part of its business records (for example, payroll); ask your administrator to remove your employee record if you want those deleted as well.
+- **Organization deletion:** an organization owner can permanently delete the entire organization from **Settings → Delete Organization**. This removes all of the organization's data — employee records, schedules, clock records, messages, settings, and audit logs. Members' accounts are not deleted; they keep their logins and can join or create other organizations.
 
 ---
 
@@ -83,7 +84,7 @@ Depending on where you are located, you may have the right to:
 - **Request deletion** of your account and associated data
 - **Object** to or **restrict** certain types of processing
 
-To exercise any of these rights, contact your account administrator (the manager who invited you) or reach out via the contact information below.
+You can delete your account yourself at any time from **Settings → Delete Account** (organization owners must first delete their organization or transfer it). To exercise any other right, contact your account administrator (the manager who invited you) or reach out via the contact information below.
 
 ---
 
