@@ -44,7 +44,7 @@ function makeMessagesClient({
     },
     from: vi.fn().mockImplementation((table: string) => {
       const b: any = {};
-      const chainMethods = ["select", "eq", "neq", "gte", "lte", "in", "or", "not", "is",
+      const chainMethods = ["select", "eq", "neq", "gte", "lte", "lt", "in", "or", "not", "is",
         "order", "limit", "filter", "match", "upsert", "delete"];
       for (const m of chainMethods) {
         b[m] = vi.fn().mockReturnValue(b);
@@ -116,6 +116,30 @@ describe("GET /api/messages", () => {
     // Org scoping is applied — verify messages table was accessed
     const msgCalls = (client.from as any).mock.calls.filter((c: any) => c[0] === "messages");
     expect(msgCalls.length).toBeGreaterThan(0);
+  });
+
+  it("applies a before-cursor filter when paginating", async () => {
+    const client = makeMessagesClient({ isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(
+      new Request("http://localhost/api/messages?with=other-user&limit=50&before=123")
+    );
+    expect(res.status).toBe(200);
+    const builder = (client.from as any).mock.results
+      .filter((_: any, i: number) => (client.from as any).mock.calls[i]?.[0] === "messages")
+      .map((r: any) => r.value)[0];
+    expect(builder.lt).toHaveBeenCalledWith("id", 123);
+  });
+
+  it("does not apply a cursor filter when before is absent", async () => {
+    const client = makeMessagesClient({ isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/messages?with=other-user"));
+    expect(res.status).toBe(200);
+    const builder = (client.from as any).mock.results
+      .filter((_: any, i: number) => (client.from as any).mock.calls[i]?.[0] === "messages")
+      .map((r: any) => r.value)[0];
+    expect(builder.lt).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useId, useRef, useCallback } from "react";
+import { useState, useEffect, useId, useRef, useCallback, useLayoutEffect } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase-browser";
 import { parseChessMessage, type ChessMessage } from "./ChessBoard";
@@ -52,9 +52,13 @@ function chessResultLabel(game: ChessMessage, myUserId: string, otherName: strin
   return myTurn ? "Your move" : `${otherName}'s move`;
 }
 
+const PAGE_SIZE = 50;
+
 export default function MessageThread({ open, otherUserId, otherName, onClose, openChess }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -109,8 +113,20 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
   }, [chessOpen, convId]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  // Mirror of `messages` so async fetch callbacks can merge without stale closures
+  const messagesRef = useRef<Message[]>([]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  // Pending scroll restore after prepending older messages: keeps the viewport
+  // anchored to the message the user was looking at instead of jumping
+  const scrollRestoreRef = useRef<{ height: number; top: number } | null>(null);
+  // Suppresses the scroll-to-bottom effect for prepend-only updates
+  const skipAutoScrollRef = useRef(false);
+  // First load jumps straight to the bottom; later updates scroll smoothly
+  const initialScrollDoneRef = useRef(false);
+  const loadingOlderRef = useRef(false);
 
   function getSupabase() {
     if (!supabaseRef.current) supabaseRef.current = createClient();
@@ -123,13 +139,65 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       .then(({ data: { user } }) => setMyUserId(user?.id ?? null));
   }, []);
 
+  // Fetch the newest page and merge it with any older pages already loaded
+  // via scroll-back, so realtime refreshes don't discard history.
   const fetchMessages = useCallback(async () => {
-    const res = await fetch(`/api/messages?with=${encodeURIComponent(otherUserId)}&limit=50`);
-    if (res.ok) {
+    const res = await fetch(`/api/messages?with=${encodeURIComponent(otherUserId)}&limit=${PAGE_SIZE}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    const oldestFetchedId = data[0]?.id;
+    const keptOlder =
+      oldestFetchedId === undefined
+        ? []
+        : messagesRef.current.filter((m) => m.id < oldestFetchedId);
+    setMessages([...keptOlder, ...data]);
+    // Only the newest page is loaded — a full page means older ones may exist
+    if (keptOlder.length === 0) setHasMore(data.length === PAGE_SIZE);
+  }, [otherUserId]);
+
+  const loadOlder = useCallback(async () => {
+    const oldest = messagesRef.current[0];
+    if (!oldest || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const res = await fetch(
+        `/api/messages?with=${encodeURIComponent(otherUserId)}&limit=${PAGE_SIZE}&before=${oldest.id}`
+      );
+      if (!res.ok) return;
       const data = await res.json();
-      setMessages(Array.isArray(data) ? data : []);
+      if (!Array.isArray(data)) return;
+      const el = listRef.current;
+      if (el) scrollRestoreRef.current = { height: el.scrollHeight, top: el.scrollTop };
+      skipAutoScrollRef.current = true;
+      setMessages((prev) => {
+        const oldestId = prev[0]?.id;
+        const older = oldestId === undefined ? data : data.filter((m: Message) => m.id < oldestId);
+        return [...older, ...prev];
+      });
+      setHasMore(data.length === PAGE_SIZE);
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
     }
   }, [otherUserId]);
+
+  function handleListScroll() {
+    const el = listRef.current;
+    if (!el || !hasMore || loadingOlderRef.current || !initialScrollDoneRef.current) return;
+    if (el.scrollTop < 80) loadOlder();
+  }
+
+  // Restore scroll position after older messages were prepended, before paint
+  useLayoutEffect(() => {
+    const restore = scrollRestoreRef.current;
+    const el = listRef.current;
+    if (restore && el) {
+      el.scrollTop = el.scrollHeight - restore.height + restore.top;
+      scrollRestoreRef.current = null;
+    }
+  }, [messages]);
 
   // Load + subscribe when drawer opens
   useEffect(() => {
@@ -171,10 +239,20 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
     return () => { sb.removeChannel(channel); };
   }, [open, otherUserId, myUserId, fetchMessages]);
 
-  // Scroll to bottom when messages update
+  // Scroll to bottom when messages update — instantly on first load (so the
+  // pagination scroll handler never sees the transient top position), smoothly
+  // afterwards. Skipped when the update only prepended older history.
   useEffect(() => {
+    if (skipAutoScrollRef.current) {
+      skipAutoScrollRef.current = false;
+      return;
+    }
     if (open && messages.length > 0) {
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      const behavior = initialScrollDoneRef.current ? "smooth" : "auto";
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior });
+        initialScrollDoneRef.current = true;
+      }, 50);
     }
   }, [messages, open]);
 
@@ -189,6 +267,10 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       setBody("");
       setMessages([]);
       setChessOpen(false);
+      setHasMore(false);
+      initialScrollDoneRef.current = false;
+      skipAutoScrollRef.current = false;
+      scrollRestoreRef.current = null;
     }
   }, [open]);
 
@@ -360,9 +442,14 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         )}
 
         {/* Messages list */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
+        <div ref={listRef} onScroll={handleListScroll} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
           {loading && (
             <div role="status" aria-label="Loading messages" className="text-center text-sm text-slate-500 mt-8">Loading…</div>
+          )}
+          {!loading && loadingOlder && (
+            <div role="status" aria-label="Loading older messages" className="text-center text-[11px] text-slate-500 py-2">
+              Loading older messages…
+            </div>
           )}
           {!loading && messages.length === 0 && (
             <div className="text-center text-sm text-slate-500 mt-8">
