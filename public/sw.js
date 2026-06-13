@@ -42,16 +42,14 @@ self.addEventListener("push", (event) => {
         // Tell all windows to refresh the notification bell.
         clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
 
-        // If any window is currently visible, skip the OS notification — the
-        // page shows its own in-app banner via Supabase Realtime on the
-        // notifications table.
-        const anyVisible = clientList.some(
-          (c) => c.visibilityState === "visible"
-        );
-        if (anyVisible) return;
-
-        // App is in the background or closed; the server only pushes types
-        // the user has enabled, so always show.
+        // Always show the OS notification. Suppression of the duplicate while
+        // the app is open now happens server-side — the server withholds the
+        // push from any device that currently has the app in the foreground
+        // (per-device presence; see lib/notify.ts), so anything that actually
+        // reaches the service worker should be shown. Skipping showNotification
+        // here would violate iOS's userVisibleOnly contract, which gets the
+        // push subscription revoked after a few offences (then no pushes at
+        // all, even when the app is closed).
         return self.registration.showNotification(title ?? "ShiftView", {
           body:  body ?? "",
           icon:  icon  ?? "/icon-192.png",
