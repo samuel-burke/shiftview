@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { playNotificationSound, primeNotificationSound } from "@/lib/notification-sound";
+import { playNotificationSound, primeSounds } from "@/lib/sounds";
 import { createClient } from "@/lib/supabase-browser";
 import {
   CalendarIcon,
@@ -53,7 +53,7 @@ export default function InAppNotificationBanner() {
 
   // Warm up the audio context on the first user gesture so the first banner's
   // sound isn't muted by the browser's autoplay policy.
-  useEffect(() => primeNotificationSound(), []);
+  useEffect(() => primeSounds(), []);
 
   const showBanner = useCallback((title: string, body: string, type?: string, onTap?: () => void) => {
     const id = nextId++;

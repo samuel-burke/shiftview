@@ -4,6 +4,7 @@ import { useState, useEffect, useId, useRef, useCallback, useLayoutEffect } from
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase-browser";
 import { parseChessMessage, type ChessMessage } from "./ChessBoard";
+import { playMessageSent, playMessageReceived } from "@/lib/sounds";
 
 const ChessBoard = dynamic(() => import("./ChessBoard"), { ssr: false });
 
@@ -220,7 +221,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
-        () => {
+        (payload) => {
+          // Subtle chime for an incoming message — skip our own messages (which
+          // get the send sound) and chess moves (ChessBoard plays its own).
+          const row = payload.new as { from_user_id?: string; body?: string };
+          if (row?.from_user_id && row.from_user_id !== myUserId && !parseChessMessage(row.body ?? "")) {
+            playMessageReceived();
+          }
           fetchMessages();
           fetch("/api/messages", {
             method: "PATCH",
@@ -301,6 +308,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
     setSending(true);
     try {
       await sendMessage(text);
+      playMessageSent();
     } finally {
       setSending(false);
     }
