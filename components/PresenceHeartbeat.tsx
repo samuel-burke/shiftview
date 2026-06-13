@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-// Tells the server when the app is in the foreground so it can suppress
-// duplicate OS push notifications while the user is actively looking at the app
-// (the in-app banner via Supabase Realtime already shows them). This is the
-// reliable cross-platform mechanism: on iOS installed PWAs the service worker
-// can't dependably detect an open window at push time, so the push has to be
-// skipped server-side before it's sent. See app/api/presence/route.ts and
-// lib/notify.ts.
+// Tells the server which device currently has the app in the foreground so it
+// can skip the duplicate OS push to *that* device (the in-app banner already
+// shows it there). Presence is keyed by the device's push subscription
+// endpoint, so having the app open on one device never suppresses pushes to
+// your other devices. See app/api/presence/route.ts and lib/notify.ts.
+//
+// A device with no push subscription has nothing to suppress, so it never
+// heartbeats.
 
 // Re-assert presence comfortably inside the server's 60s window.
 const HEARTBEAT_MS = 25_000;
 
-function send(active: boolean, viaBeacon = false) {
-  const payload = JSON.stringify({ active });
+function postPresence(endpoint: string, active: boolean, viaBeacon = false) {
+  const payload = JSON.stringify({ endpoint, active });
 
   // On hide/unload, sendBeacon is the most reliable way to get the request out.
   if (viaBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
@@ -42,12 +43,38 @@ function send(active: boolean, viaBeacon = false) {
 }
 
 export default function PresenceHeartbeat() {
+  // This device's push subscription endpoint, resolved lazily and cached so the
+  // hide/unload beacon can fire synchronously.
+  const endpointRef = useRef<string | null>(null);
+
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
 
-    function startBeating() {
-      send(true);
-      timer ??= setInterval(() => send(true), HEARTBEAT_MS);
+    async function resolveEndpoint(): Promise<string | null> {
+      if (endpointRef.current) return endpointRef.current;
+      if (!("serviceWorker" in navigator)) return null;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        endpointRef.current = sub?.endpoint ?? null;
+      } catch {
+        endpointRef.current = null;
+      }
+      return endpointRef.current;
+    }
+
+    function beat(active: boolean, viaBeacon = false) {
+      const endpoint = endpointRef.current;
+      if (endpoint) postPresence(endpoint, active, viaBeacon);
+    }
+
+    async function startBeating() {
+      const endpoint = await resolveEndpoint();
+      // No push subscription on this device → nothing to suppress.
+      if (cancelled || !endpoint) return;
+      postPresence(endpoint, true);
+      timer ??= setInterval(() => beat(true), HEARTBEAT_MS);
     }
     function stopBeating() {
       if (timer != null) {
@@ -58,24 +85,25 @@ export default function PresenceHeartbeat() {
 
     function onVisibility() {
       if (document.visibilityState === "visible") {
-        startBeating();
+        void startBeating();
       } else {
         // Backgrounded — stop beating and expire presence so OS pushes resume.
         stopBeating();
-        send(false, true);
+        beat(false, true);
       }
     }
 
     function onPageHide() {
       stopBeating();
-      send(false, true);
+      beat(false, true);
     }
 
-    if (document.visibilityState === "visible") startBeating();
+    if (document.visibilityState === "visible") void startBeating();
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", onPageHide);
 
     return () => {
+      cancelled = true;
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
       stopBeating();

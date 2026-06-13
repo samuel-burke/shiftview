@@ -23,15 +23,16 @@ type MockOptions = {
   prefs?: Record<string, boolean>;
   subs?: (typeof SUB)[];
   managers?: { user_id: string }[];
-  active?: boolean;
+  activeEndpoints?: string[];
 };
 
-function makeSupabase({ prefs = {}, subs = [SUB], managers = [], active = false }: MockOptions = {}) {
+function makeSupabase({ prefs = {}, subs = [SUB], managers = [], activeEndpoints = [] }: MockOptions = {}) {
   const rpc = vi.fn().mockImplementation((fn: string) => {
     if (fn === "notify_get_push_prefs") return Promise.resolve({ data: [prefs], error: null });
     if (fn === "notify_get_push_subs") return Promise.resolve({ data: subs, error: null });
     if (fn === "notify_get_manager_ids") return Promise.resolve({ data: managers, error: null });
-    if (fn === "notify_is_user_active") return Promise.resolve({ data: active, error: null });
+    if (fn === "notify_get_active_endpoints")
+      return Promise.resolve({ data: activeEndpoints.map((endpoint) => ({ endpoint })), error: null });
     return Promise.resolve({ data: null, error: null });
   });
   return { client: { rpc } as unknown as SupabaseClient, rpc };
@@ -100,8 +101,8 @@ describe("notify", () => {
     expect(mockSendPush).not.toHaveBeenCalled();
   });
 
-  it("still inserts the row but skips the push when the recipient is active in the app", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { message_alerts: true }, active: true });
+  it("still inserts the row but skips the push to a device that has the app open", async () => {
+    const { client, rpc } = makeSupabase({ prefs: { message_alerts: true }, activeEndpoints: [SUB.endpoint] });
     await notify(client, {
       orgId: ORG_ID,
       userId: USER_ID,
@@ -112,6 +113,25 @@ describe("notify", () => {
 
     expect(rpc).toHaveBeenCalledWith("notify_insert", expect.anything());
     expect(mockSendPush).not.toHaveBeenCalled();
+  });
+
+  it("still pushes to other devices when only one of them has the app open", async () => {
+    const OTHER = { endpoint: "https://push.example/other", p256dh: "key2", auth_key: "auth2" };
+    const { client } = makeSupabase({
+      prefs: { message_alerts: true },
+      subs: [SUB, OTHER],
+      activeEndpoints: [SUB.endpoint],
+    });
+    await notify(client, {
+      orgId: ORG_ID,
+      userId: USER_ID,
+      type: "message",
+      title: "Alice",
+      body: "hi",
+    });
+
+    expect(mockSendPush).toHaveBeenCalledTimes(1);
+    expect(mockSendPush.mock.calls[0][0]).toMatchObject({ endpoint: OTHER.endpoint });
   });
 });
 

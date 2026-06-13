@@ -13,32 +13,10 @@ self.addEventListener("activate", (event) =>
 // Set in notificationclick, cleared once the page sends CLIENT_READY.
 let _pendingChess = null;
 
-// Timestamp of the most recent "app is on screen" heartbeat from any client.
-// The page pings APP_FOREGROUND while it's visible (and APP_BACKGROUND the
-// moment it's hidden), so we can suppress the OS notification whenever the
-// user is actively using the app — the in-app banner covers it instead.
-// We use a freshness window rather than reading client.visibilityState at push
-// time because that value is unreliable on some platforms (notably iOS PWAs)
-// and unavailable when the SW was just respawned to handle the push.
-let _foregroundAt = 0;
-// Heartbeat cadence is ~15s on the client; allow a margin for a missed beat.
-const FOREGROUND_TTL_MS = 45000;
-
 // The page sends CLIENT_READY once its SW message listener is mounted.
 // If there's a pending chess action (cold-start tap), we reply immediately.
 self.addEventListener("message", (event) => {
-  const type = event.data?.type;
-
-  if (type === "APP_FOREGROUND") {
-    _foregroundAt = Date.now();
-    return;
-  }
-  if (type === "APP_BACKGROUND") {
-    _foregroundAt = 0;
-    return;
-  }
-
-  if (type === "CLIENT_READY" && _pendingChess && event.source) {
+  if (event.data?.type === "CLIENT_READY" && _pendingChess && event.source) {
     const pending = _pendingChess;
     _pendingChess = null;
     event.source.postMessage({ type: "OPEN_CHESS", ...pending });
@@ -64,21 +42,14 @@ self.addEventListener("push", (event) => {
         // Tell all windows to refresh the notification bell.
         clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
 
-        // Skip the OS notification while the user is actively using the app —
-        // the page shows its own in-app banner via Supabase Realtime on the
-        // notifications table. Two signals, either of which means "in use":
-        //   1. a client reports visibilityState "visible" right now, and
-        //   2. a recent APP_FOREGROUND heartbeat (covers platforms where the
-        //      visibilityState read is unreliable or the SW was just respawned).
-        const anyVisible = clientList.some(
-          (c) => c.visibilityState === "visible"
-        );
-        const recentlyForeground =
-          _foregroundAt > 0 && Date.now() - _foregroundAt < FOREGROUND_TTL_MS;
-        if (anyVisible || recentlyForeground) return;
-
-        // App is in the background or closed; the server only pushes types
-        // the user has enabled, so always show.
+        // Always show the OS notification. Suppression of the duplicate while
+        // the app is open now happens server-side — the server withholds the
+        // push from any device that currently has the app in the foreground
+        // (per-device presence; see lib/notify.ts), so anything that actually
+        // reaches the service worker should be shown. Skipping showNotification
+        // here would violate iOS's userVisibleOnly contract, which gets the
+        // push subscription revoked after a few offences (then no pushes at
+        // all, even when the app is closed).
         return self.registration.showNotification(title ?? "ShiftView", {
           body:  body ?? "",
           icon:  icon  ?? "/icon-192.png",

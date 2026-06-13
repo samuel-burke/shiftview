@@ -126,17 +126,7 @@ async function sendPushToUser(
   payload: PushPayload,
   type: NotificationType
 ): Promise<void> {
-  // Skip the OS push when the user currently has the app in the foreground:
-  // the in-app banner (Supabase Realtime on the notifications table) already
-  // shows them this, so a push would just be a duplicate. This is the reliable
-  // suppression point for iOS PWAs, where the service worker can't detect an
-  // open window at push time. Presence is kept fresh by a foreground heartbeat
-  // (components/PresenceHeartbeat.tsx + /api/presence).
-  const { data: isActive } = await supabase.rpc("notify_is_user_active", {
-    p_user_id: userId,
-  });
-  if (isActive === true) return;
-
+  // Don't push for a type the user has turned off.
   const prefKey = TYPE_TO_PREF[type];
   if (prefKey) {
     const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
@@ -149,14 +139,30 @@ async function sendPushToUser(
   if (subsError) console.error("[notify] notify_get_push_subs failed:", subsError);
   if (!subs?.length) return;
 
+  // Skip the OS push to any device that currently has the app in the
+  // foreground: the in-app banner (Supabase Realtime on the notifications
+  // table) already shows it there, so the push would be a duplicate. Other
+  // devices still get it. This is the reliable suppression point for iOS PWAs,
+  // where the service worker can't detect an open window at push time.
+  // Presence is per-device, kept fresh by a heartbeat keyed on each device's
+  // push endpoint (components/PresenceHeartbeat.tsx + /api/presence).
+  const { data: activeRows } = await supabase.rpc("notify_get_active_endpoints", {
+    p_user_id: userId,
+  });
+  const activeEndpoints = new Set(
+    (activeRows as { endpoint: string }[] | null ?? []).map((r) => r.endpoint)
+  );
+
+  const targets = (subs as { endpoint: string; p256dh: string; auth_key: string }[])
+    .filter((sub) => !activeEndpoints.has(sub.endpoint));
+  if (!targets.length) return;
+
   const stale: string[] = [];
   await Promise.all(
-    (subs as { endpoint: string; p256dh: string; auth_key: string }[]).map(
-      async (sub) => {
-        const result = await sendPush(sub, payload);
-        if (result === "gone") stale.push(sub.endpoint);
-      }
-    )
+    targets.map(async (sub) => {
+      const result = await sendPush(sub, payload);
+      if (result === "gone") stale.push(sub.endpoint);
+    })
   );
 
   if (stale.length > 0) {
