@@ -14,6 +14,7 @@ import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
+import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -196,6 +197,17 @@ export default function SettingsPageClient({
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { me } = useAppData();
   const isDemo = me.isDemo;
+
+  // ── Sounds ────────────────────────────────────────────────────────────────
+  // Device-local preference (localStorage); initialized after mount to avoid an
+  // SSR/client hydration mismatch.
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  useEffect(() => { setSoundEnabled(isSoundEnabled()); }, []);
+  function toggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    persistSoundEnabled(next);
+  }
 
   // ── Coverage ────────────────────────────────────────────────────────────────
   const [coverageAlertsEnabled, setCoverageAlertsEnabled] = useState(true);
@@ -799,6 +811,37 @@ export default function SettingsPageClient({
               ))}
             </div>
             </LayoutGroup>
+          </div>
+        </section>
+
+        {/* Sounds — all users (device-local) */}
+        <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Sounds
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Sound Effects</div>
+                <div className="text-xs text-slate-500 mt-0.5">Punch, message, and notification sounds on this device</div>
+              </div>
+              <button
+                role="switch"
+                aria-label="Sound effects"
+                aria-checked={soundEnabled}
+                data-testid="toggle-sound-effects"
+                onClick={toggleSound}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
+                  soundEnabled ? "bg-indigo-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                    soundEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </section>
 
