@@ -26,6 +26,7 @@ import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
+import { playPunchSound } from "@/lib/punch-sounds";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -351,6 +352,7 @@ export default function ClockPageClient() {
       }
       const newPunch: PunchRecord = await res.json();
       setPunches((prev) => [...prev, newPunch]);
+      playPunchSound(punchType);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Unknown error");
     } finally {
