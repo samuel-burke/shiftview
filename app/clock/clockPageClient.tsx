@@ -335,6 +335,26 @@ export default function ClockPageClient() {
       }
     }
 
+    // Optimistically apply the punch so the status, timer and history update
+    // the instant the user taps — no waiting on the server. We use a negative
+    // temp id so we can swap in (or roll back) this exact record once the
+    // request resolves. Play the confirmation sound here too, for the same
+    // reason. Invalid punches (GPS/geofence) were already rejected above.
+    const tempId = -Date.now();
+    const optimisticPunch: PunchRecord = {
+      id: tempId,
+      employeeId: employeeId ?? 0,
+      scheduleId: schedule?.id ?? null,
+      punchType,
+      punchedAt: new Date().toISOString(),
+      lat,
+      lng,
+      isManual: false,
+      note: null,
+    };
+    setPunches((prev) => [...prev, optimisticPunch]);
+    playPunchSound(punchType);
+
     try {
       const res = await fetch("/api/punches", {
         method: "POST",
@@ -350,10 +370,12 @@ export default function ClockPageClient() {
         const body = await res.json();
         throw new Error(body.error ?? "Failed to record punch");
       }
+      // Replace the optimistic record with the authoritative server one.
       const newPunch: PunchRecord = await res.json();
-      setPunches((prev) => [...prev, newPunch]);
-      playPunchSound(punchType);
+      setPunches((prev) => prev.map((p) => (p.id === tempId ? newPunch : p)));
     } catch (e) {
+      // Roll back the optimistic punch so the UI reflects reality.
+      setPunches((prev) => prev.filter((p) => p.id !== tempId));
       setActionError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setActionPending(false);
