@@ -27,12 +27,14 @@ function send(active: boolean, viaBeacon = false) {
   }
 
   try {
-    // keepalive lets a heartbeat survive the page being backgrounded/closed.
     void fetch("/api/presence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: payload,
-      keepalive: true,
+      // keepalive only matters for the hide/unload beacon fallback. Using it on
+      // every foreground heartbeat tripped reliability bugs in iOS Safari,
+      // which could stop the heartbeat from landing at all.
+      keepalive: viaBeacon,
     }).catch(() => {});
   } catch {
     // presence is best-effort; ignore failures
