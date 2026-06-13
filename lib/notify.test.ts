@@ -23,13 +23,15 @@ type MockOptions = {
   prefs?: Record<string, boolean>;
   subs?: (typeof SUB)[];
   managers?: { user_id: string }[];
+  active?: boolean;
 };
 
-function makeSupabase({ prefs = {}, subs = [SUB], managers = [] }: MockOptions = {}) {
+function makeSupabase({ prefs = {}, subs = [SUB], managers = [], active = false }: MockOptions = {}) {
   const rpc = vi.fn().mockImplementation((fn: string) => {
     if (fn === "notify_get_push_prefs") return Promise.resolve({ data: [prefs], error: null });
     if (fn === "notify_get_push_subs") return Promise.resolve({ data: subs, error: null });
     if (fn === "notify_get_manager_ids") return Promise.resolve({ data: managers, error: null });
+    if (fn === "notify_is_user_active") return Promise.resolve({ data: active, error: null });
     return Promise.resolve({ data: null, error: null });
   });
   return { client: { rpc } as unknown as SupabaseClient, rpc };
@@ -94,6 +96,20 @@ describe("notify", () => {
       title: "Alice",
       body: "hi",
     });
+    expect(rpc).toHaveBeenCalledWith("notify_insert", expect.anything());
+    expect(mockSendPush).not.toHaveBeenCalled();
+  });
+
+  it("still inserts the row but skips the push when the recipient is active in the app", async () => {
+    const { client, rpc } = makeSupabase({ prefs: { message_alerts: true }, active: true });
+    await notify(client, {
+      orgId: ORG_ID,
+      userId: USER_ID,
+      type: "message",
+      title: "Alice",
+      body: "hi",
+    });
+
     expect(rpc).toHaveBeenCalledWith("notify_insert", expect.anything());
     expect(mockSendPush).not.toHaveBeenCalled();
   });

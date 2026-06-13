@@ -126,6 +126,17 @@ async function sendPushToUser(
   payload: PushPayload,
   type: NotificationType
 ): Promise<void> {
+  // Skip the OS push when the user currently has the app in the foreground:
+  // the in-app banner (Supabase Realtime on the notifications table) already
+  // shows them this, so a push would just be a duplicate. This is the reliable
+  // suppression point for iOS PWAs, where the service worker can't detect an
+  // open window at push time. Presence is kept fresh by a foreground heartbeat
+  // (components/PresenceHeartbeat.tsx + /api/presence).
+  const { data: isActive } = await supabase.rpc("notify_is_user_active", {
+    p_user_id: userId,
+  });
+  if (isActive === true) return;
+
   const prefKey = TYPE_TO_PREF[type];
   if (prefKey) {
     const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
