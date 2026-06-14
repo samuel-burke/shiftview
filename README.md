@@ -1,6 +1,6 @@
 # ShiftView
 
-A mobile-first shift management app for retail and hospitality teams — scheduling, time clock, coverage analytics, and team messaging in a single installable PWA.
+A mobile-first shift management app for scheduling, time clock, coverage analytics, and team messaging in a single installable PWA.
 
 **[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app) — click "View Demo"
 
