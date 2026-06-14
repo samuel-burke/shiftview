@@ -225,19 +225,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   // never re-runs — without this the user would stay "unauthenticated" (no
   // avatar, no manager buttons) until a full page refresh.
   useEffect(() => {
-    if (isDemo) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         refreshMe();
         refreshStoreHours();
         refreshSettings();
       } else if (event === "SIGNED_OUT") {
-        applyMe({ isManager: false, employeeId: null, employeeName: null });
+        applyMe({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
       }
     });
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, refreshMe, refreshStoreHours, refreshSettings]);
+  }, [refreshMe, refreshStoreHours, refreshSettings]);
 
   // Re-fetch shared data when the tab comes back to the foreground after being hidden
   useEffect(() => {
