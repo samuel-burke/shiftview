@@ -9,6 +9,11 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
+  // Anonymous demo visitors are deleted on every demo reset; their device
+  // subscriptions would be orphaned, so don't accept them.
+  if (user.is_anonymous)
+    return NextResponse.json({ error: "Push notifications are not available in demo mode" }, { status: 403 });
+
   const body = await request.json();
   const { endpoint, keys } = body;
 

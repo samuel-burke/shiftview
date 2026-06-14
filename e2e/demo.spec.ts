@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// These specs exercise the dashboard UI with all /api/* calls intercepted
+// client-side. The Playwright webServer runs with E2E_BYPASS_AUTH=1 (see
+// playwright.config.ts) so the server-side auth gate is skipped — no Supabase
+// instance is required.
+
 // Shared mock data
 const MOCK_EMPLOYEES = [
   { id: 1, name: "Alice Smith" },
@@ -25,6 +30,9 @@ const MOCK_STORE_HOURS = {
 };
 
 async function interceptAPIs(page: Page) {
+  // Catch-all FIRST so later, more specific routes take precedence. Without
+  // this, unmocked endpoints hit the real handlers, 401, and bounce to /login.
+  await page.route("**/api/**", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/employees**", (route) =>
     route.fulfill({ json: MOCK_EMPLOYEES })
   );
@@ -32,20 +40,23 @@ async function interceptAPIs(page: Page) {
     route.fulfill({ json: MOCK_SCHEDULES })
   );
   await page.route("**/api/me**", (route) =>
-    route.fulfill({ json: { isManager: false } })
+    route.fulfill({ json: { isManager: false, employeeId: null, employeeName: null, isDemo: false } })
   );
   await page.route("**/api/store-hours**", (route) =>
     route.fulfill({ json: MOCK_STORE_HOURS })
   );
   await page.route("**/api/settings**", (route) =>
-    route.fulfill({ json: { firstDayOfWeek: 6, optimalCoverage: 3, minCoverage: 2, coverageAlertsEnabled: true, timezone: "America/New_York", emailNotifications: false, manualPunchesEnabled: true, gpsRequired: false, geofenceEnabled: false, geofenceLat: null, geofenceLng: null, geofenceRadius: 100, geofenceAddress: null } })
+    route.fulfill({ json: { firstDayOfWeek: 6, coverageAlertsEnabled: true, timezone: "America/New_York", emailNotifications: false, manualPunchesEnabled: true, gpsRequired: false, geofenceEnabled: false, geofenceLat: null, geofenceLng: null, geofenceRadius: 100, geofenceAddress: null } })
+  );
+  await page.route("**/api/coverage-assignments**", (route) =>
+    route.fulfill({ json: { defaults: {}, overrides: {} } })
   );
 }
 
-test.describe("Demo mode — schedule view", () => {
+test.describe("Dashboard — schedule view", () => {
   test.beforeEach(async ({ page }) => {
     await interceptAPIs(page);
-    await page.goto("/?demo=true");
+    await page.goto("/");
   });
 
   test("page loads and shows scheduled employees", async ({ page }) => {
@@ -66,10 +77,10 @@ test.describe("Demo mode — schedule view", () => {
     await expect(page.getByText("Scheduled", { exact: true }).first()).toBeVisible();
   });
 
-  test("shows a Sign In option in the user menu in demo mode (not Sign Out)", async ({ page }) => {
+  test("shows a Sign Out option in the user menu", async ({ page }) => {
     await page.getByRole("button", { name: "User menu" }).click();
-    await expect(page.getByRole("menuitem", { name: /sign in/i })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: /sign out/i })).not.toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /sign in/i })).not.toBeVisible();
   });
 
   test("shows today's date in the header", async ({ page }) => {
@@ -78,10 +89,10 @@ test.describe("Demo mode — schedule view", () => {
   });
 });
 
-test.describe("Demo mode — date navigation", () => {
+test.describe("Dashboard — date navigation", () => {
   test.beforeEach(async ({ page }) => {
     await interceptAPIs(page);
-    await page.goto("/?demo=true");
+    await page.goto("/");
   });
 
   test("navigates to the previous day with the back button", async ({ page }) => {
@@ -109,10 +120,10 @@ test.describe("Demo mode — date navigation", () => {
   });
 });
 
-test.describe("Demo mode — employee drawer", () => {
+test.describe("Dashboard — employee drawer", () => {
   test.beforeEach(async ({ page }) => {
     await interceptAPIs(page);
-    await page.goto("/?demo=true");
+    await page.goto("/");
   });
 
   test("opens drawer when a shift card is tapped", async ({ page }) => {
@@ -136,7 +147,7 @@ test.describe("Demo mode — employee drawer", () => {
     await expect(drawer.getByText("6:00 AM")).not.toBeVisible();
   });
 
-  test("does not show Edit Shift button in demo mode (non-manager)", async ({ page }) => {
+  test("does not show Edit Shift button for non-managers", async ({ page }) => {
     await page.getByText("Alice S.").first().click();
     await expect(page.getByRole("button", { name: /edit shift/i })).not.toBeVisible();
   });

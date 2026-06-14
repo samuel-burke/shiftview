@@ -126,7 +126,7 @@ function quickbooksIIF(rows: EmployeePayroll[]): string {
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -150,20 +150,24 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("punch_records")
     .select("id, employee_id, punch_type, punched_at, employees(name)")
+    .eq("org_id", orgId!)
     .gte("punched_at", `${from}T00:00:00+00:00`)
     .lte("punched_at", `${to}T23:59:59.999+00:00`)
     .order("employee_id")
     .order("punched_at")
     .limit(50_000);
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/reports/payroll/export]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const payroll = computePayroll((data ?? []) as unknown as PunchRow[]);
 
   writeAuditLog({
     action:       "payroll.export",
-    actorId:      user.id,
+    orgId:        orgId!,
+    actorId:      user!.id,
     resourceType: "punch_record",
     metadata:     { from, to, format, employeeCount: payroll.length },
   }).catch(() => {});

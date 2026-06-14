@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
@@ -34,45 +36,46 @@ export async function GET(request: Request) {
   if (!DATE_RE.test(date)) return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return NextResponse.json([]);
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated") return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error) return NextResponse.json({ error }, { status: 403 });
+
+  const { orgId, isManager, employeeId } = ctx!;
 
   // Resolve store timezone so the day window is in local time, not UTC.
-  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+  const { data: settingsData } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .eq("org_id", orgId);
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
   const tz = settingsMap.timezone ?? "America/New_York";
   const { start: dayStart, end: dayEnd } = localDayBoundsUtc(date, tz);
 
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // A day's view never includes punches that haven't happened yet. Attendance
+  // status is derived from the latest punch, so a future-dated row (manual
+  // correction typos, or the demo org's pre-seeded day) would flip someone to
+  // "clocked out" hours before their shift ends.
+  const upperBound = new Date(Math.min(dayEnd.getTime(), Date.now()));
 
   let query = supabase
     .from("punch_records")
     .select("*")
+    .eq("org_id", orgId)
     .gte("punched_at", dayStart.toISOString())
-    .lte("punched_at", dayEnd.toISOString())
+    .lte("punched_at", upperBound.toISOString())
     .order("punched_at");
 
-  if (!managerRow) {
-    // Scope to employee's own records
-    const { data: emp } = await supabase
-      .from("employees")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!emp) return NextResponse.json([]);
-    query = query.eq("employee_id", emp.id);
+  if (!isManager) {
+    if (!employeeId) return NextResponse.json([]);
+    query = query.eq("employee_id", employeeId);
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("[api/punches]", error);
+  const { data, error: fetchError } = await query;
+  if (fetchError) {
+    console.error("[api/punches]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -90,15 +93,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "punchType must be one of: " + VALID_TYPES.join(", ") }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user)
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
 
+  const { orgId, user, employeeId } = ctx!;
+
+  if (!employeeId)
+    return NextResponse.json({ error: "No employee record linked to this account" }, { status: 403 });
+
+  // Fetch the employee name for notifications/audit
   const { data: emp } = await supabase
     .from("employees")
     .select("id, name")
-    .eq("user_id", user.id)
+    .eq("org_id", orgId)
+    .eq("id", employeeId)
     .maybeSingle();
 
   if (!emp)
@@ -106,7 +118,10 @@ export async function POST(request: Request) {
 
   // Fetch settings up front — needed for timezone (day-scoped state machine),
   // geofence enforcement, and late clock-in notifications.
-  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+  const { data: settingsData } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .eq("org_id", orgId);
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
@@ -120,6 +135,7 @@ export async function POST(request: Request) {
   const { data: todayLastPunch, error: todayPunchError } = await supabase
     .from("punch_records")
     .select("punch_type, punched_at")
+    .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("punched_at", todayStart.toISOString())
     .lte("punched_at", todayEnd.toISOString())
@@ -168,6 +184,7 @@ export async function POST(request: Request) {
         if (dist > geofenceRadius) {
           writeAuditLog({
             action:       "punch.geofence_rejected",
+            orgId,
             actorId:      user.id,
             resourceType: "punch_record",
             after: { employeeId: emp.id, punchType, lat, lng },
@@ -191,20 +208,20 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await supabase
+  const { data, error: insertError } = await supabase
     .from("punch_records")
-    .insert({
+    .insert(withOrg(orgId, {
       employee_id: emp.id,
       schedule_id: scheduleId ?? null,
       punch_type:  punchType,
       lat:         lat ?? null,
       lng:         lng ?? null,
-    })
+    }))
     .select()
     .single();
 
-  if (error) {
-    console.error("[api/punches]", error);
+  if (insertError) {
+    console.error("[api/punches]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -213,6 +230,7 @@ export async function POST(request: Request) {
     const { data: sched } = await supabase
       .from("schedules")
       .select("start_minutes, date, employee_id")
+      .eq("org_id", orgId)
       .eq("id", scheduleId)
       .maybeSingle();
     if (sched) {
@@ -222,6 +240,7 @@ export async function POST(request: Request) {
       if (lateMinutes > 5) {
         notifyManagers(
           supabase,
+          orgId,
           "late_clock_in",
           "Late Clock-In",
           `${emp.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
@@ -233,6 +252,7 @@ export async function POST(request: Request) {
 
   writeAuditLog({
     action:       `punch.${punchType}`,
+    orgId,
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   String(data.id),
@@ -274,77 +294,85 @@ export async function PUT(request: Request) {
 
   const supabase = await createClient();
 
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
+
+  const { orgId, user, isManager } = ctx!;
+
   // Check if manual punch corrections are enabled
-  const { data: settingsData } = await supabase.from("app_settings").select("key, value");
+  const { data: settingsData } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .eq("org_id", orgId);
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
   if (settingsMap.manual_punches_enabled === "false") {
     return NextResponse.json({ error: "Manual punch corrections are disabled" }, { status: 403 });
   }
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
 
   // Determine target employee
   let targetEmployeeId: number;
   let targetEmployeeName: string | null = null;
-  if (managerRow) {
+  if (isManager) {
     if (!employeeId) return NextResponse.json({ error: "employeeId required for manager corrections" }, { status: 400 });
     targetEmployeeId = employeeId;
     const { data: empData } = await supabase
       .from("employees")
       .select("name")
+      .eq("org_id", orgId)
       .eq("id", employeeId)
       .maybeSingle();
     targetEmployeeName = empData?.name ?? null;
   } else {
-    const { data: emp } = await supabase
+    const { employeeId: ctxEmployeeId } = ctx!;
+    if (!ctxEmployeeId) return NextResponse.json({ error: "No employee record" }, { status: 403 });
+    targetEmployeeId = ctxEmployeeId;
+    const { data: empData } = await supabase
       .from("employees")
-      .select("id, name")
-      .eq("user_id", user.id)
+      .select("name")
+      .eq("org_id", orgId)
+      .eq("id", ctxEmployeeId)
       .maybeSingle();
-    if (!emp) return NextResponse.json({ error: "No employee record" }, { status: 403 });
-    targetEmployeeId = emp.id;
-    targetEmployeeName = emp.name;
+    targetEmployeeName = empData?.name ?? null;
   }
 
   if (id != null) {
     // Update existing punch
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from("punch_records")
       .update({ punch_type: punchType, punched_at: punchedAt, note: note ?? null, is_manual: true })
+      .eq("org_id", orgId)
       .eq("id", id)
       .eq("employee_id", targetEmployeeId);
-    if (error) {
-      console.error("[api/punches]", error);
+    if (updateError) {
+      console.error("[api/punches]", updateError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   } else {
     // Insert a new manual punch
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from("punch_records")
-      .insert({
+      .insert(withOrg(orgId, {
         employee_id: targetEmployeeId,
         schedule_id: scheduleId ?? null,
         punch_type:  punchType,
         punched_at:  punchedAt,
         is_manual:   true,
         note:        note ?? null,
-      });
-    if (error) {
-      console.error("[api/punches]", error);
+      }));
+    if (insertError) {
+      console.error("[api/punches]", insertError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
   writeAuditLog({
     action:       "punch.correction",
+    orgId,
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   id != null ? String(id) : null,
@@ -355,7 +383,7 @@ export async function PUT(request: Request) {
       punchType,
       punchedAt,
       isUpdate:     id != null,
-      byManager:    !!managerRow,
+      byManager:    isManager,
     },
   }).catch(() => {});
 

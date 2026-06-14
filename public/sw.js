@@ -1,4 +1,6 @@
-// ShiftView Service Worker — handles Web Push notifications
+// ShiftView Service Worker — handles Web Push notifications.
+// "Chess" below refers to the in-app chess easter egg played over direct
+// messages; tapping a chess-move notification deep-links into that game.
 
 // Activate immediately without waiting for existing tabs to close.
 // This ensures notification click handlers always run the latest code.
@@ -37,27 +39,17 @@ self.addEventListener("push", (event) => {
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        // If any window is currently visible, hand off to in-app UI instead of
-        // showing an OS notification (which would be redundant and jarring).
-        const focusedClient = clientList.find(
-          (c) => c.visibilityState === "visible"
-        );
-
-        if (focusedClient) {
-          focusedClient.postMessage({ type: "PUSH_FOREGROUND", payload });
-          // Still tell all windows to refresh the notification list.
-          clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
-          return;
-        }
-
-        // App is in the background or closed.
-        // Refresh the in-app bell count for any open (but hidden) windows.
+        // Tell all windows to refresh the notification bell.
         clientList.forEach((c) => c.postMessage({ type: "PUSH_RECEIVED" }));
 
-        // Respect the user's OS notification preference (_osEnabled is set by
-        // the server and included in the push payload).
-        if (data?._osEnabled === false) return;
-
+        // Always show the OS notification. Suppression of the duplicate while
+        // the app is open now happens server-side — the server withholds the
+        // push from any device that currently has the app in the foreground
+        // (per-device presence; see lib/notify.ts), so anything that actually
+        // reaches the service worker should be shown. Skipping showNotification
+        // here would violate iOS's userVisibleOnly contract, which gets the
+        // push subscription revoked after a few offences (then no pushes at
+        // all, even when the app is closed).
         return self.registration.showNotification(title ?? "ShiftView", {
           body:  body ?? "",
           icon:  icon  ?? "/icon-192.png",

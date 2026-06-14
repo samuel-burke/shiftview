@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { notify, notifyChessMove } from "@/lib/notify";
 import { encrypt, decrypt } from "@/lib/encryption";
 
@@ -9,30 +11,62 @@ function conversationId(a: string, b: string): string {
   return [a, b].sort().join("_");
 }
 
-// GET /api/messages?with=<userId>&limit=50
+// GET /api/messages?with=<userId>&limit=50&before=<messageId>
+// `before` is a cursor: returns the page of messages older than that message id.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const withUserId = searchParams.get("with");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 200);
+  const before = parseInt(searchParams.get("before") ?? "", 10);
 
   if (!withUserId)
     return NextResponse.json({ error: "with param required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json([]);
+  const { ctx, user, error } = await getOrgContext(supabase, request);
 
-  const convId = conversationId(user.id, withUserId);
+  // Not authenticated — keep existing unauthenticated behavior
+  if (error === "Not authenticated") return NextResponse.json([]);
+  if (error) return NextResponse.json({ error: "No organization membership" }, { status: 403 });
 
-  const { data, error } = await supabase
+  const { orgId } = ctx!;
+
+  // Verify that the counterpart user is in the same org (org-scoped employee lookup)
+  const { data: counterpartEmp } = await supabase
+    .from("employees")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("user_id", withUserId)
+    .maybeSingle();
+
+  // Also check if counterpart is a manager in this org
+  const { data: counterpartMgr } = await supabase
+    .from("managers")
+    .select("user_id")
+    .eq("org_id", orgId)
+    .eq("user_id", withUserId)
+    .maybeSingle();
+
+  if (!counterpartEmp && !counterpartMgr)
+    return NextResponse.json({ error: "User not found in organization" }, { status: 403 });
+
+  const convId = conversationId(user!.id, withUserId);
+
+  let query = supabase
     .from("messages")
     .select("id, from_user_id, to_user_id, body, read, created_at")
+    .eq("org_id", orgId)
     .eq("conversation_id", convId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
 
-  if (error) {
-    console.error("[api/messages GET]", error);
+  if (!Number.isNaN(before)) query = query.lt("id", before);
+
+  const { data, error: dbError } = await query;
+
+  if (dbError) {
+    console.error("[api/messages GET]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -62,21 +96,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Message too long" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { ctx, user, error } = await getOrgContext(supabase, request);
 
-  if (user.id === toUserId)
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
+
+  const { orgId } = ctx!;
+
+  if (user!.id === toUserId)
     return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
 
-  // Resolve sender's display name from employees table, fall back to email prefix
+  // Resolve sender's display name from employees table (org-scoped), fall back to email prefix
   const { data: emp } = await supabase
     .from("employees")
     .select("name")
-    .eq("user_id", user.id)
+    .eq("org_id", orgId)
+    .eq("user_id", user!.id)
     .maybeSingle();
-  const senderName = emp?.name ?? user.email?.split("@")[0] ?? "Someone";
+  const senderName = emp?.name ?? user!.email?.split("@")[0] ?? "Someone";
 
-  const convId = conversationId(user.id, toUserId);
+  const convId = conversationId(user!.id, toUserId);
   const trimmed = msgBody.trim();
 
   let encryptedBody: string;
@@ -87,12 +128,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Message encryption is not configured" }, { status: 500 });
   }
 
-  const { error: insertError } = await supabase.from("messages").insert({
-    conversation_id: convId,
-    from_user_id: user.id,
-    to_user_id: toUserId,
-    body: encryptedBody,
-  });
+  const { error: insertError } = await supabase.from("messages").insert(
+    withOrg(orgId, {
+      conversation_id: convId,
+      from_user_id: user!.id,
+      to_user_id: toUserId,
+      body: encryptedBody,
+    })
+  );
 
   if (insertError) {
     console.error("[api/messages POST]", insertError);
@@ -111,19 +154,21 @@ export async function POST(request: Request) {
 
   if (isChessMove) {
     await notifyChessMove(supabase, {
+      orgId,
       toUserId,
-      fromUserId: user.id,
+      fromUserId: user!.id,
       fromName:   senderName,
       convId,
       chessStatus,
     }).catch(() => {});
   } else {
     await notify(supabase, {
+      orgId,
       userId: toUserId,
       type: "message",
       title: senderName,
       body: trimmed,
-      data: { fromUserId: user.id, fromName: senderName },
+      data: { fromUserId: user!.id, fromName: senderName },
     }).catch(() => {});
   }
 
@@ -139,20 +184,27 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "withUserId required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { ctx, user, error } = await getOrgContext(supabase, request);
 
-  const convId = conversationId(user.id, withUserId);
+  if (error === "Not authenticated")
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (error)
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
 
-  const { error } = await supabase
+  const { orgId } = ctx!;
+
+  const convId = conversationId(user!.id, withUserId);
+
+  const { error: dbError } = await supabase
     .from("messages")
     .update({ read: true })
+    .eq("org_id", orgId)
     .eq("conversation_id", convId)
-    .eq("to_user_id", user.id)
+    .eq("to_user_id", user!.id)
     .eq("read", false);
 
-  if (error) {
-    console.error("[api/messages PATCH]", error);
+  if (dbError) {
+    console.error("[api/messages PATCH]", dbError);
     return NextResponse.json({ error: "Failed to mark read" }, { status: 500 });
   }
 

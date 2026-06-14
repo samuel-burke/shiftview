@@ -1,60 +1,27 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { getOrgContext } from "@/lib/org-context";
+import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request?: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user) {
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
 
-  // Check if user is a manager
-  const { data: managerRow } = await supabase
-    .from("managers")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const isManager = !!managerRow;
-
-  let query = supabase
-    .from("shift_swaps")
-    .select(`
-      id,
-      status,
-      created_at,
-      requester_id,
-      target_id,
-      schedule_a_id,
-      schedule_b_id,
-      requester:employees!shift_swaps_requester_id_fkey(id, name),
-      target:employees!shift_swaps_target_id_fkey(id, name),
-      schedule_a:schedules!shift_swaps_schedule_a_id_fkey(id, date, start_minutes, end_minutes, employee_id),
-      schedule_b:schedules!shift_swaps_schedule_b_id_fkey(id, date, start_minutes, end_minutes, employee_id)
-    `)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+  const { orgId, isManager, employeeId } = ctx!;
 
   if (!isManager) {
     // Employee sees only their own requests (as requester or target)
-    const { data: employeeRow } = await supabase
-      .from("employees")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    if (!employeeId) return NextResponse.json([]);
 
-    if (!employeeRow) {
-      return NextResponse.json([]);
-    }
-
-    // Re-query with filter
-    const { data, error } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("shift_swaps")
       .select(`
         id,
@@ -69,20 +36,40 @@ export async function GET() {
         schedule_a:schedules!shift_swaps_schedule_a_id_fkey(id, date, start_minutes, end_minutes, employee_id),
         schedule_b:schedules!shift_swaps_schedule_b_id_fkey(id, date, start_minutes, end_minutes, employee_id)
       `)
+      .eq("org_id", orgId)
       .eq("status", "pending")
-      .or(`requester_id.eq.${employeeRow.id},target_id.eq.${employeeRow.id}`)
+      .or(`requester_id.eq.${employeeId},target_id.eq.${employeeId}`)
       .order("created_at", { ascending: false });
 
-    if (error) {
-    console.error("[api/swaps]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    if (fetchError) {
+      console.error("[api/swaps]", fetchError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
     return NextResponse.json(data ?? []);
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("[api/swaps]", error);
+  // Manager sees all pending swaps for the org
+  const { data, error: fetchError } = await supabase
+    .from("shift_swaps")
+    .select(`
+      id,
+      status,
+      created_at,
+      requester_id,
+      target_id,
+      schedule_a_id,
+      schedule_b_id,
+      requester:employees!shift_swaps_requester_id_fkey(id, name),
+      target:employees!shift_swaps_target_id_fkey(id, name),
+      schedule_a:schedules!shift_swaps_schedule_a_id_fkey(id, date, start_minutes, end_minutes, employee_id),
+      schedule_b:schedules!shift_swaps_schedule_b_id_fkey(id, date, start_minutes, end_minutes, employee_id)
+    `)
+    .eq("org_id", orgId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  if (fetchError) {
+    console.error("[api/swaps]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
   return NextResponse.json(data ?? []);
@@ -100,29 +87,33 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user) {
+  const { ctx, error } = await getOrgContext(supabase, request);
+  if (error === "Not authenticated")
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  if (error)
+    return NextResponse.json({ error }, { status: 403 });
 
-  // Look up the employee linked to the current user
+  const { orgId, user, employeeId } = ctx!;
+
+  if (!employeeId)
+    return NextResponse.json({ error: "No employee record found" }, { status: 403 });
+
+  // Fetch the requester's employee record for name
   const { data: requesterEmployee } = await supabase
     .from("employees")
     .select("id, name")
-    .eq("user_id", user.id)
+    .eq("org_id", orgId)
+    .eq("id", employeeId)
     .maybeSingle();
 
-  if (!requesterEmployee) {
+  if (!requesterEmployee)
     return NextResponse.json({ error: "No employee record found" }, { status: 403 });
-  }
 
-  // Fetch both schedules
+  // Fetch both schedules — must belong to this org
   const [{ data: scheduleA, error: errA }, { data: scheduleB, error: errB }] = await Promise.all([
-    supabase.from("schedules").select("id, employee_id, date").eq("id", scheduleAId).maybeSingle(),
-    supabase.from("schedules").select("id, employee_id, date").eq("id", scheduleBId).maybeSingle(),
+    supabase.from("schedules").select("id, employee_id, date").eq("org_id", orgId).eq("id", scheduleAId).maybeSingle(),
+    supabase.from("schedules").select("id, employee_id, date").eq("org_id", orgId).eq("id", scheduleBId).maybeSingle(),
   ]);
 
   if (errA || !scheduleA) {
@@ -150,26 +141,29 @@ export async function POST(request: Request) {
   const { data: targetEmployee } = await supabase
     .from("employees")
     .select("name")
+    .eq("org_id", orgId)
     .eq("id", targetId)
     .maybeSingle();
 
   const { data: inserted, error: insertError } = await supabase
     .from("shift_swaps")
-    .insert({
-      requester_id: requesterEmployee.id,
-      target_id: targetId,
+    .insert(withOrg(orgId, {
+      requester_id:  requesterEmployee.id,
+      target_id:     targetId,
       schedule_a_id: scheduleAId,
       schedule_b_id: scheduleBId,
-    })
+    }))
     .select("id")
     .maybeSingle();
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    console.error("[api/swaps]", insertError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
     action:       "swap.request",
+    orgId,
     actorId:      user.id,
     resourceType: "shift_swap",
     resourceId:   inserted?.id != null ? String(inserted.id) : null,

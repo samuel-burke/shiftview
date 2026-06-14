@@ -7,57 +7,44 @@ import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
 import { motion } from "framer-motion";
-import { DEMO_EMPLOYEES as DEMO_EMPLOYEES_FIXTURE, DEMO_MANAGER_USER_IDS } from "../../data/demo-fixtures";
+import { useAppData } from "../../lib/AppDataContext";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type Employee = { id: number; name: string; email: string | null; user_id: string | null };
 
-const DEMO_EMPLOYEES: Employee[] = DEMO_EMPLOYEES_FIXTURE.map(e => ({
-  id: e.id,
-  name: e.name,
-  email: e.email ?? null,
-  user_id: e.user_id ?? null,
-}));
-const DEMO_MANAGER_IDS = DEMO_MANAGER_USER_IDS;
-
 export default function AdminPageClient({
   currentUserId,
-  isDemo = false,
 }: {
   currentUserId: string;
-  isDemo?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { me } = useAppData();
+  const isDemo = me.isDemo;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
+  const [ownerUserIds, setOwnerUserIds] = useState<Set<string>>(new Set());
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [errorId, setErrorId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isDemo) {
-      setEmployees(DEMO_EMPLOYEES);
-      setManagerUserIds(new Set(DEMO_MANAGER_IDS));
-      return;
-    }
     Promise.all([
       fetch("/api/employees").then((r) => r.ok ? r.json() : Promise.reject()),
       fetch("/api/managers").then((r) => r.ok ? r.json() : Promise.reject()),
     ])
-      .then(([emps, { managerUserIds: ids }]) => {
+      .then(([emps, { managerUserIds: ids, ownerUserIds: ownerIds }]) => {
         setEmployees(emps);
         setManagerUserIds(new Set(ids));
+        setOwnerUserIds(new Set(ownerIds ?? []));
       })
       .catch(() => {});
-  }, [isDemo]);
+  }, []);
 
   // Supabase Realtime — live updates for employees and manager roles
   useEffect(() => {
-    if (isDemo) return;
-
     function refetchEmployees() {
       fetch("/api/employees")
         .then((r) => r.ok ? r.json() : Promise.reject())
@@ -68,7 +55,10 @@ export default function AdminPageClient({
     function refetchManagers() {
       fetch("/api/managers")
         .then((r) => r.ok ? r.json() : Promise.reject())
-        .then(({ managerUserIds: ids }: { managerUserIds: string[] }) => setManagerUserIds(new Set(ids)))
+        .then(({ managerUserIds: ids, ownerUserIds: ownerIds }: { managerUserIds: string[]; ownerUserIds?: string[] }) => {
+          setManagerUserIds(new Set(ids));
+          setOwnerUserIds(new Set(ownerIds ?? []));
+        })
         .catch(() => {});
     }
 
@@ -79,7 +69,7 @@ export default function AdminPageClient({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isDemo]);
+  }, []);
 
   async function toggleRole(emp: Employee) {
     if (!emp.user_id) return;
@@ -95,12 +85,6 @@ export default function AdminPageClient({
       else next.add(emp.user_id!);
       return next;
     });
-
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 400));
-      setTogglingId(null);
-      return;
-    }
 
     let res: Response;
     try {
@@ -140,12 +124,16 @@ export default function AdminPageClient({
     }
   }
 
+  // Owner policy: in orgs with an owner, only the owner can change roles.
+  // Ownerless orgs (predating the sign-up flow) keep the any-manager behavior.
+  const canManageRoles = ownerUserIds.size === 0 || ownerUserIds.has(currentUserId);
+
   return (
     <AppShell active="admin" isManager>
     <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Changes are not saved</span>
+          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
       )}
@@ -183,6 +171,7 @@ export default function AdminPageClient({
               employees.map((emp) => {
                 const isSelf = emp.user_id === currentUserId;
                 const isMgr = emp.user_id ? managerUserIds.has(emp.user_id) : false;
+                const isOwner = emp.user_id ? ownerUserIds.has(emp.user_id) : false;
                 const isToggling = togglingId === emp.id;
                 const hasError = errorId === emp.id;
 
@@ -197,11 +186,13 @@ export default function AdminPageClient({
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs font-semibold py-1.5 rounded-lg w-20 text-center border ${
-                        isMgr
+                        isOwner
+                          ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
+                          : isMgr
                           ? "bg-violet-500/15 text-violet-300 border-violet-500/25"
                           : "bg-slate-700/60 text-slate-400 border-slate-700"
                       }`}>
-                        {isMgr ? "Manager" : "Employee"}
+                        {isOwner ? "Owner" : isMgr ? "Manager" : "Employee"}
                       </span>
                       {!emp.user_id ? (
                         <span className="text-xs text-slate-500 w-20 py-1.5 text-center">No account</span>
@@ -211,6 +202,15 @@ export default function AdminPageClient({
                           aria-label="You — cannot change your own role"
                         >
                           You
+                        </span>
+                      ) : isOwner || !canManageRoles ? (
+                        <span
+                          className="text-xs text-slate-600 w-20 py-1.5 text-center"
+                          aria-label={isOwner
+                            ? "Organization owner — cannot be demoted"
+                            : "Only the organization owner can change roles"}
+                        >
+                          —
                         </span>
                       ) : (
                         <button

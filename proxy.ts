@@ -28,10 +28,14 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
-  const isPublic = pathname === "/" || pathname === "/login" || pathname === "/privacy" || pathname.startsWith("/auth/");
-  const isDemo = request.nextUrl.searchParams.get("demo") === "true";
+  // API routes authenticate themselves and must answer with JSON status
+  // codes (401/403), never an HTML redirect — redirecting turns an
+  // unauthenticated POST (e.g. /api/demo/start, cron jobs) into a
+  // method-preserving 307 to /login, which then 405s.
+  const isApi = pathname.startsWith("/api/");
+  const isPublic = pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname.startsWith("/auth/");
 
-  if (!user && !isPublic && !isDemo) {
+  if (!user && !isPublic && !isApi) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, LayoutGroup } from "framer-motion";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Schedule,
-  StoreHours,
   TimeOffRequest,
   getShiftType,
   fmtMinutes,
@@ -98,8 +97,6 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 export default function SchedulePageClient() {
   const [today] = useState(() => new Date());
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
 
   const [view, setView] = useState<View>("week");
@@ -109,7 +106,7 @@ export default function SchedulePageClient() {
   const [loading, setLoading] = useState(true);
 
   const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading } = useAppData();
-  const { isManager, employeeId, employeeName } = me;
+  const { isManager, employeeId, employeeName, isDemo } = me;
   const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -165,17 +162,16 @@ export default function SchedulePageClient() {
 
   // Load pending time-off once manager status is known
   useEffect(() => {
-    if (isManager && !isDemo) {
+    if (isManager) {
       fetch("/api/time-off")
         .then((r) => r.json())
         .then(({ requests }) => { if (Array.isArray(requests)) setPendingManagerTimeOff(requests); })
         .catch(() => {});
     }
-  }, [isManager, isDemo]);
+  }, [isManager]);
 
   // Load user's own time-off requests on mount
   useEffect(() => {
-    if (isDemo) return;
     fetch("/api/time-off?mine=true")
       .then((r) => r.json())
       .then(({ requests }) => {
@@ -189,7 +185,7 @@ export default function SchedulePageClient() {
         }
       })
       .catch(() => {});
-  }, [isDemo]);
+  }, []);
 
   useEffect(() => {
     let from: Date, to: Date;
@@ -214,7 +210,7 @@ export default function SchedulePageClient() {
       setLoading(true);
     }
 
-    fetch(`/api/my-schedule?from=${fromKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
+    fetch(`/api/my-schedule?from=${fromKey}&to=${toKey}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         const scheds = data.schedules ?? [];
@@ -232,7 +228,7 @@ export default function SchedulePageClient() {
   }, [selectedDate]);
 
   async function handleRequestDayOff() {
-    if (!employeeId || isDemo) return;
+    if (!employeeId) return;
     setTimeOffStatus("loading");
     setTimeOffError(null);
     try {
@@ -273,7 +269,7 @@ export default function SchedulePageClient() {
       // Do a supplemental fetch for next 30 days
       const to = new Date(today); to.setDate(today.getDate() + 30);
       const toKey = toDateKey(to);
-      fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}${isDemo ? "&demo=true" : ""}`)
+      fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
         .then(r => r.json())
         .then(data => {
           if (cancelled) return;
@@ -289,8 +285,6 @@ export default function SchedulePageClient() {
 
   // Supabase Realtime — live updates for schedule, time-off, store hours, settings
   useEffect(() => {
-    if (isDemo) return;
-
     function refetchSchedule() {
       const nd = navDateRef.current;
       const v = viewRef.current;
@@ -360,7 +354,7 @@ export default function SchedulePageClient() {
       document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
-  }, [isDemo]);
+  }, []);
 
   function goToPrev() {
     if (view === "week") {
@@ -447,7 +441,6 @@ export default function SchedulePageClient() {
     !selectedSchedule &&
     selectedDateKey > todayKey &&
     employeeId !== null &&
-    !isDemo &&
     selectedTimeOff?.status !== "pending" &&
     selectedTimeOff?.status !== "approved";
 
@@ -662,7 +655,7 @@ export default function SchedulePageClient() {
               <TimeOffDeniedIcon size={16} color="rgb(248 113 113)" />
               <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
             </div>
-            {employeeId !== null && !isDemo && (
+            {employeeId !== null && (
               <button
                 onClick={handleRequestDayOff}
                 disabled={timeOffStatus === "loading"}
@@ -718,7 +711,18 @@ export default function SchedulePageClient() {
         </div>
       </div>
 
-      {isManager && !isDemo && (
+      {isManager && (
+        <motion.button
+          onClick={() => router.push("/draft")}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+        >
+          Plan Draft Schedule
+        </motion.button>
+      )}
+
+      {isManager && (
         <div className="mt-4">
           <PendingTimeOffSection
             requests={pendingManagerTimeOff}
@@ -736,8 +740,7 @@ export default function SchedulePageClient() {
       isManager={isManager}
       userName={sharedLoading ? null : employeeName}
       isDemo={isDemo}
-      onSignOut={isDemo ? undefined : handleSignOut}
-      onSignIn={isDemo ? () => router.push("/login") : undefined}
+      onSignOut={handleSignOut}
     >
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
         {/* Desktop header (hidden on mobile) */}
@@ -748,12 +751,10 @@ export default function SchedulePageClient() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400">{todayStr}</span>
-            {!isDemo && <NotificationBell />}
+            <NotificationBell />
             <UserMenu
               name={sharedLoading ? null : employeeName}
-              isManager={isManager}
-              onSignOut={isDemo ? undefined : handleSignOut}
-              onSignIn={isDemo ? () => router.push("/login") : undefined}
+              onSignOut={handleSignOut}
             />
           </div>
         </div>

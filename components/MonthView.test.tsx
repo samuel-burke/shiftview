@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MonthView from "./MonthView";
-import type { Schedule, TimeOffRequest } from "../data/types";
+import type { TimeOffRequest } from "../data/types";
 
 const WEEKLY_HOURS = {
   0: { open: 480, close: 1200 },
@@ -16,11 +16,6 @@ const WEEKLY_HOURS = {
 
 const TODAY = new Date(2026, 4, 25); // Mon May 25 2026
 const NAV_MAY = new Date(2026, 4, 1);
-
-const SCHEDULES: Schedule[] = [
-  { id: 1, employeeId: 1, date: "2026-05-25", startMinutes: 360, endMinutes: 840 }, // opener
-  { id: 2, employeeId: 1, date: "2026-05-28", startMinutes: 1320, endMinutes: 1440 }, // closer
-];
 
 describe("MonthView", () => {
   it("renders all 7 day-of-week headers", () => {

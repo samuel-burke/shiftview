@@ -6,11 +6,11 @@ import { writeAuditLog } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -21,18 +21,24 @@ export async function DELETE(
   const { data: template } = await supabase
     .from("schedule_templates")
     .select("id, name")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
   const { error } = await supabase
     .from("schedule_templates")
     .delete()
+    .eq("org_id", orgId)
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/templates/[id]]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "template.delete",
+    orgId,
     actorId:      user?.id,
     resourceType: "schedule_template",
     resourceId:   String(id),

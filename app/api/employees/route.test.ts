@@ -3,7 +3,6 @@ import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
-import { DEMO_EMPLOYEES } from "@/data/demo-fixtures";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
@@ -44,20 +43,15 @@ const MOCK_EMPLOYEES_SORTED = [
 // ── GET ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/employees", () => {
-  it("returns demo employees from fixtures for unauthenticated users without hitting DB", async () => {
+  it("returns 401 for unauthenticated users", async () => {
     const client = makeSupabaseClient({ user: null });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
-    expect(res.status).toBe(200);
-    expect(client.from).not.toHaveBeenCalledWith("employees_demo");
-    const body = await res.json();
-    expect(body.map((e: { name: string }) => e.name)).toEqual(
-      expect.arrayContaining(DEMO_EMPLOYEES.map((e) => e.name))
-    );
+    expect(res.status).toBe(401);
   });
 
   it("queries employees for authenticated users", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_EMPLOYEES });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(200);
@@ -65,14 +59,14 @@ describe("GET /api/employees", () => {
   });
 
   it("returns the employee list sorted by last name", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryData: MOCK_EMPLOYEES });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED);
   });
 
   it("returns 500 on database error", async () => {
-    const client = makeSupabaseClient({ user: MOCK_USER, queryError: { message: "db error" } });
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { message: "db error" } });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(500);
@@ -257,6 +251,34 @@ describe("DELETE /api/employees", () => {
     );
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when the target employee is the organization owner", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        ownerUserId: "owner-user-789",
+        linkedEmployee: { id: 1, user_id: "owner-user-789" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
+  });
+
+  it("returns 403 when a non-owner manager deletes another manager in an owned org", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        ownerUserId: "owner-user-789",
+        linkedEmployee: { id: 1, user_id: "other-manager-456" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
   });
 
   it("returns 200 on success for an unlinked employee", async () => {

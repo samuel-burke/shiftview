@@ -3,7 +3,7 @@
 import SideNav from "./SideNav";
 import TopBar from "./TopBar";
 
-export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports";
+export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
 
 type Props = {
   active: NavItem;

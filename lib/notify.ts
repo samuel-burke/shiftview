@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPush, type PushPayload } from "./webpush";
+import { isDemoOrgId } from "./demo-org";
 
 export type NotificationType =
   | "shift_change"
@@ -37,6 +38,9 @@ const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
 };
 
 export type NotifyOptions = {
+  // Organization the notification belongs to; always resolved server-side via
+  // getOrgContext()/requireManager(), never taken from client input.
+  orgId: string;
   userId: string | null;
   type: NotificationType;
   title: string;
@@ -52,6 +56,7 @@ export async function notify(
   options: NotifyOptions
 ): Promise<void> {
   const { error: insertError } = await supabase.rpc("notify_insert", {
+    p_org_id:  options.orgId,
     p_user_id: options.userId,
     p_type:    options.type,
     p_title:   options.title,
@@ -60,7 +65,9 @@ export async function notify(
   });
   if (insertError) console.error("[notify] notify_insert failed:", insertError);
 
-  if (!options.userId) return;
+  // Demo org: keep the in-app notification (the bell works in the demo) but
+  // never push to devices.
+  if (!options.userId || isDemoOrgId(options.orgId)) return;
 
   await sendPushToUser(supabase, options.userId, {
     title: options.title,
@@ -70,17 +77,19 @@ export async function notify(
   }, options.type);
 }
 
-// Helper: notify all managers.
+// Helper: notify all managers of one organization.
 // Inserts one broadcast notification (user_id = null) for the in-app feed,
 // then sends a push to each manager's devices individually.
 export async function notifyManagers(
   supabase: SupabaseClient,
+  orgId: string,
   type: NotificationType,
   title: string,
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
   const { error: mgrInsertError } = await supabase.rpc("notify_insert", {
+    p_org_id:  orgId,
     p_user_id: null,
     p_type:    type,
     p_title:   title,
@@ -89,7 +98,10 @@ export async function notifyManagers(
   });
   if (mgrInsertError) console.error("[notify] notify_insert failed:", mgrInsertError);
 
-  const { data: managers, error: mgrIdsError } = await supabase.rpc("notify_get_manager_ids");
+  // Demo org: in-app broadcast only, no device push.
+  if (isDemoOrgId(orgId)) return;
+
+  const { data: managers, error: mgrIdsError } = await supabase.rpc("notify_get_manager_ids", { p_org_id: orgId });
   if (mgrIdsError) console.error("[notify] notify_get_manager_ids failed:", mgrIdsError);
   if (!managers?.length) return;
 
@@ -102,23 +114,23 @@ export async function notifyManagers(
   );
 }
 
+// Send the push only when the user's preference for this type is enabled.
+// The in-app banner is delivered via Supabase Realtime on the notifications
+// table, so the push exists purely for the background OS notification —
+// skipping (rather than sending a silent push) avoids violating the
+// userVisibleOnly promise, which can get the subscription revoked
+// (iOS Safari especially).
 async function sendPushToUser(
   supabase: SupabaseClient,
   userId: string,
   payload: PushPayload,
-  type?: NotificationType
+  type: NotificationType
 ): Promise<void> {
-  // Check the user's OS notification preference. We still send the push
-  // regardless — when the app is in the foreground the SW delivers it as an
-  // in-app banner (always shown). _osEnabled only gates the background/closed
-  // OS notification inside the SW.
-  let osEnabled = true;
-  if (type) {
-    const prefKey = TYPE_TO_PREF[type];
-    if (prefKey) {
-      const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
-      osEnabled = prefs?.[0]?.[prefKey] !== false;
-    }
+  // Don't push for a type the user has turned off.
+  const prefKey = TYPE_TO_PREF[type];
+  if (prefKey) {
+    const { data: prefs } = await supabase.rpc("notify_get_push_prefs", { p_user_id: userId });
+    if (prefs?.[0]?.[prefKey] === false) return;
   }
 
   const { data: subs, error: subsError } = await supabase.rpc("notify_get_push_subs", {
@@ -127,19 +139,30 @@ async function sendPushToUser(
   if (subsError) console.error("[notify] notify_get_push_subs failed:", subsError);
   if (!subs?.length) return;
 
-  const payloadWithPref: PushPayload = {
-    ...payload,
-    data: { ...(payload.data ?? {}), _osEnabled: osEnabled },
-  };
+  // Skip the OS push to any device that currently has the app in the
+  // foreground: the in-app banner (Supabase Realtime on the notifications
+  // table) already shows it there, so the push would be a duplicate. Other
+  // devices still get it. This is the reliable suppression point for iOS PWAs,
+  // where the service worker can't detect an open window at push time.
+  // Presence is per-device, kept fresh by a heartbeat keyed on each device's
+  // push endpoint (components/PresenceHeartbeat.tsx + /api/presence).
+  const { data: activeRows } = await supabase.rpc("notify_get_active_endpoints", {
+    p_user_id: userId,
+  });
+  const activeEndpoints = new Set(
+    (activeRows as { endpoint: string }[] | null ?? []).map((r) => r.endpoint)
+  );
+
+  const targets = (subs as { endpoint: string; p256dh: string; auth_key: string }[])
+    .filter((sub) => !activeEndpoints.has(sub.endpoint));
+  if (!targets.length) return;
 
   const stale: string[] = [];
   await Promise.all(
-    (subs as { endpoint: string; p256dh: string; auth_key: string }[]).map(
-      async (sub) => {
-        const result = await sendPush(sub, payloadWithPref);
-        if (result === "gone") stale.push(sub.endpoint);
-      }
-    )
+    targets.map(async (sub) => {
+      const result = await sendPush(sub, payload);
+      if (result === "gone") stale.push(sub.endpoint);
+    })
   );
 
   if (stale.length > 0) {
@@ -162,11 +185,15 @@ function chessCopyFromStatus(
   return { title: "Your move!", body: `${fromName} made their move` };
 }
 
-// Send a push for a chess move without inserting into the notifications table.
-// Chess moves are ephemeral game events, not persistent notifications.
+// Notify a player of a chess move. Inserts a *self-replacing* notification
+// row (notify_upsert_chess deletes the previous chess_move row for the same
+// conversation first), so the feed holds at most one chess entry per game
+// showing its current state, and the Realtime banner pipeline covers users
+// without a push subscription. Push then follows the standard pref-gated path.
 export async function notifyChessMove(
   supabase: SupabaseClient,
   options: {
+    orgId: string;
     toUserId: string;
     fromUserId: string;
     fromName: string;
@@ -175,15 +202,29 @@ export async function notifyChessMove(
   }
 ): Promise<void> {
   const { title, body } = chessCopyFromStatus(options.chessStatus, options.fromName);
+  const data = {
+    type:       "chess_move",
+    fromUserId: options.fromUserId,
+    fromName:   options.fromName,
+    convId:     options.convId,
+  };
+
+  const { error: upsertError } = await supabase.rpc("notify_upsert_chess", {
+    p_org_id:  options.orgId,
+    p_user_id: options.toUserId,
+    p_title:   title,
+    p_body:    body,
+    p_data:    data,
+  });
+  if (upsertError) console.error("[notify] notify_upsert_chess failed:", upsertError);
+
+  // Demo org: in-app only, never push to devices.
+  if (isDemoOrgId(options.orgId)) return;
+
   await sendPushToUser(supabase, options.toUserId, {
     title,
     body,
-    tag: `chess:${options.convId}`,
-    data: {
-      type:       "chess_move",
-      fromUserId: options.fromUserId,
-      fromName:   options.fromName,
-      convId:     options.convId,
-    },
+    tag:  `chess:${options.convId}`,
+    data,
   }, "chess_move");
 }

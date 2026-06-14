@@ -2,8 +2,23 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrgAll } from "@/lib/org-scope";
 
 export const dynamic = "force-dynamic";
+
+type TemplateRow = {
+  employee_id: number;
+  day_of_week: number;
+  start_minutes: number;
+  end_minutes: number;
+};
+
+type ScheduleInsert = {
+  employee_id: number;
+  date: string;
+  start_minutes: number;
+  end_minutes: number;
+};
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T12:00:00Z");
@@ -16,7 +31,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -36,6 +51,7 @@ export async function POST(
   const { data: template } = await supabase
     .from("schedule_templates")
     .select("id, name")
+    .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
 
@@ -43,43 +59,55 @@ export async function POST(
   const { data: rows, error: rowErr } = await supabase
     .from("schedule_template_rows")
     .select("employee_id, day_of_week, start_minutes, end_minutes")
+    .eq("org_id", orgId)
     .eq("template_id", id);
 
-  if (rowErr) return NextResponse.json({ error: rowErr.message }, { status: 500 });
+  if (rowErr) {
+    console.error("[api/templates/[id]/apply]", rowErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   if (!rows || rows.length === 0) return NextResponse.json({ created: 0, skipped: 0 });
 
   // Compute target dates
-  const targetDates = rows.map((r: any) => addDays(weekStartDate, r.day_of_week));
+  const templateRows: TemplateRow[] = rows;
+  const targetDates = templateRows.map((r) => addDays(weekStartDate, r.day_of_week));
   const uniqueDates = [...new Set(targetDates)];
 
   // Fetch existing schedules for those dates
   const { data: existing } = await supabase
     .from("schedules")
     .select("employee_id, date")
+    .eq("org_id", orgId)
     .in("date", uniqueDates);
 
   const existingSet = new Set(
-    (existing ?? []).map((s: any) => `${s.employee_id}__${s.date}`)
+    (existing ?? []).map((s: { employee_id: number; date: string }) => `${s.employee_id}__${s.date}`)
   );
 
-  const toInsert = rows
-    .map((r: any, i: number) => ({
+  const toInsert: ScheduleInsert[] = templateRows
+    .map((r, i) => ({
       employee_id: r.employee_id,
       date: targetDates[i],
       start_minutes: r.start_minutes,
       end_minutes: r.end_minutes,
     }))
-    .filter((r: any) => !existingSet.has(`${r.employee_id}__${r.date}`));
+    .filter((r) => !existingSet.has(`${r.employee_id}__${r.date}`));
 
   const skipped = rows.length - toInsert.length;
 
   if (toInsert.length === 0) return NextResponse.json({ created: 0, skipped });
 
-  const { error: insertErr } = await supabase.from("schedules").insert(toInsert);
-  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
+  const { error: insertErr } = await supabase
+    .from("schedules")
+    .insert(withOrgAll(orgId, toInsert));
+  if (insertErr) {
+    console.error("[api/templates/[id]/apply]", insertErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "template.apply",
+    orgId,
     actorId:      user?.id,
     resourceType: "schedule_template",
     resourceId:   String(id),

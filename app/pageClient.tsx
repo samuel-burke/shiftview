@@ -1,9 +1,8 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
-import { useSearchParams } from "next/navigation";
 import {
   Employee,
   Schedule,
@@ -26,6 +25,7 @@ import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
+import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 
 function toDateKey(d: Date, tz = "America/New_York") {
@@ -127,14 +127,11 @@ export default function Page() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
   const supabase = createClient();
-  const apiFetch = createApiFetch(isDemo, () => router.push("/login"));
+  const apiFetch = createApiFetch(() => router.push("/login"));
 
   const {
     me, storeHours: weeklyHoursCtx, settings, sharedLoading,
@@ -145,17 +142,16 @@ export default function Page() {
 
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
-  const { isManager, employeeName: userName } = me;
-  const { optimalCoverage, minCoverage, coverageAlertsEnabled, timezone } = settings;
+  const { isManager, employeeName: userName, isDemo } = me;
+  const { coverageAlertsEnabled, timezone } = settings;
   const weeklyHours = weeklyHoursCtx;
+  const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
 
   // Mutable refs so subscription callbacks always see the latest date/timezone/role
   const dateRef = useRef(date);
   dateRef.current = date;
   const timezoneRef = useRef(timezone);
   timezoneRef.current = timezone;
-  const isManagerRef = useRef(isManager);
-  isManagerRef.current = isManager;
 
   // Compute Mon–Sun week dates for the week containing `date`
   const weekDatesForExport = useMemo((): string[] => {
@@ -173,7 +169,7 @@ export default function Page() {
 
     const results = await Promise.allSettled(
       capturedDates.map(d =>
-        fetch(`/api/schedules?date=${d}&demo=${isDemo}`).then(r => r.json())
+        fetch(`/api/schedules?date=${d}`).then(r => r.json())
       )
     );
 
@@ -209,28 +205,12 @@ export default function Page() {
     setExportLoading(false);
   }
 
-  type TimeOffRequest = {
-    id: number;
-    employeeId: number;
-    employeeName: string;
-    date: string;
-    note?: string;
-    status: string;
-  };
-  const [pendingTimeOff, setPendingTimeOff] = useState<TimeOffRequest[]>([]);
-
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
   }
 
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
-    if (isDemo) {
-      setSchedules((prev) =>
-        prev.map((s) => s.id === scheduleId ? { ...s, startMinutes, endMinutes } : s)
-      );
-      return;
-    }
     const res = await apiFetch("/api/schedules", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -248,20 +228,14 @@ export default function Page() {
       throw new Error(body.error ?? "Failed to save shift");
     }
     const dateKey = toDateKey(date, timezone);
-    const data = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
-    setSchedules(data);
-    setScheduleCache(dateKey, data);
-    setLastFetchedAt(new Date());
+    const data = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
+    if (Array.isArray(data)) {
+      setSchedules(data);
+      setScheduleCache(dateKey, data);
+    }
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
-    if (isDemo) {
-      setSchedules((prev) => [
-        ...prev,
-        { id: Date.now(), employeeId, date: toDateKey(date, timezone), startMinutes, endMinutes },
-      ]);
-      return;
-    }
     const dateKey = toDateKey(date, timezone);
     const res = await apiFetch("/api/schedules", {
       method: "POST",
@@ -279,14 +253,14 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to add shift");
     }
-    const data2 = await apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`).then((r) => r.json());
-    setSchedules(data2);
-    setScheduleCache(dateKey, data2);
-    setLastFetchedAt(new Date());
+    const data2 = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
+    if (Array.isArray(data2)) {
+      setSchedules(data2);
+      setScheduleCache(dateKey, data2);
+    }
   }
 
   async function handleResendInvite(email: string) {
-    if (isDemo) return;
     const res = await apiFetch("/api/invites", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -299,10 +273,6 @@ export default function Page() {
   }
 
   async function handleMarkOff(scheduleId: number) {
-    if (isDemo) {
-      setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
-      return;
-    }
     const res = await apiFetch("/api/schedules", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -316,44 +286,11 @@ export default function Page() {
   }
   // Redirect to /login when Supabase session expires
   useEffect(() => {
-    if (isDemo) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") window.location.href = "/login";
     });
     return () => subscription.unsubscribe();
-  }, [isDemo]);
-
-  async function handleApproveTimeOff(id: number) {
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to approve request");
-    }
-    setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
-    // Refresh schedules for current date after approval
-    const dateKey = toDateKey(date, timezone);
-    apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
-      .then((r) => r.json())
-      .then(setSchedules)
-      .catch(() => {});
-  }
-
-  async function handleDenyTimeOff(id: number) {
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "denied" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to deny request");
-    }
-    setPendingTimeOff((prev) => prev.filter((r) => r.id !== id));
-  }
+  }, []);
 
   // Live clock
   useEffect(() => {
@@ -364,7 +301,7 @@ export default function Page() {
   // Supabase Realtime — live punch updates while viewing today (manager only)
   useEffect(() => {
     const viewingToday = toDateKey(date, timezone) === toDateKey(new Date(), timezone);
-    if (!viewingToday || isDemo || !isManager) return;
+    if (!viewingToday || !isManager) return;
 
     const todayKey = toDateKey(new Date(), timezone);
 
@@ -419,17 +356,17 @@ export default function Page() {
       supabase.removeChannel(channel);
       clearInterval(t);
     };
-  }, [isDemo, isManager, date, timezone]);
+  }, [isManager, date, timezone]);
 
   // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
   useEffect(() => {
-    if (isDemo) return;
-
     function refetchSchedules() {
       const dk = toDateKey(dateRef.current, timezoneRef.current);
       apiFetch(`/api/schedules?date=${dk}`)
         .then((r) => r.json())
-        .then((data) => { setSchedules(data); setScheduleCache(dk, data); })
+        .then((data) => {
+          if (Array.isArray(data)) { setSchedules(data); setScheduleCache(dk, data); }
+        })
         .catch(() => {});
     }
 
@@ -440,14 +377,6 @@ export default function Page() {
         .catch(() => {});
     }
 
-    function refetchTimeOff() {
-      if (!isManagerRef.current) return;
-      fetch("/api/time-off")
-        .then((r) => r.json())
-        .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
-        .catch(() => {});
-    }
-
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -455,7 +384,6 @@ export default function Page() {
       } else if (Date.now() - hiddenAt > 5_000) {
         refetchSchedules();
         refetchEmployees();
-        refetchTimeOff();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -464,37 +392,27 @@ export default function Page() {
       .channel("main-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
       .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
-      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .subscribe();
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
-  }, [isDemo]);
+  }, []);
 
 
   // Fetch employees directly — reliable primary source.
   // If context already has employees (return visit), start with those and refresh in background.
   useEffect(() => {
     const controller = new AbortController();
-    apiFetch(`/api/employees?demo=${isDemo}`, { signal: controller.signal })
+    apiFetch("/api/employees", { signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: Employee[]) => {
         if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); }
       })
       .catch(err => { if (err?.name !== "AbortError") console.error("[pageClient] /api/employees failed", err); });
     return () => controller.abort();
-  }, [isDemo]);
-
-  // Load pending time-off requests once we know the user is a manager
-  useEffect(() => {
-    if (!isManager || isDemo) return;
-    fetch("/api/time-off")
-      .then(r => r.json())
-      .then(({ requests }) => { if (Array.isArray(requests)) setPendingTimeOff(requests); })
-      .catch(() => {});
-  }, [isManager, isDemo]);
+  }, []);
 
   // Fetch schedules (and punch records for today) whenever date changes.
   // If the cache already has data for this date, apply it immediately so the
@@ -510,7 +428,6 @@ export default function Page() {
     if (cachedSchedules) {
       // Instant render from cache
       setSchedules(cachedSchedules);
-      setLastFetchedAt(new Date());
       setLoading(false);
       if (isViewingToday) {
         if (cachedPunches) { setPunchRecords(cachedPunches); setPunchesLoaded(true); }
@@ -525,15 +442,18 @@ export default function Page() {
 
     // Always fetch fresh data (background refresh if cache hit, primary fetch if not)
     const fetches: Promise<void>[] = [
-      apiFetch(`/api/schedules?date=${dateKey}&demo=${isDemo}`)
+      apiFetch(`/api/schedules?date=${dateKey}`)
         .then((r) => r.json())
         .then((data) => {
+          // Non-array means an error payload (e.g. 403 after a demo reset
+          // orphaned the session) — keep the previous state instead of
+          // crashing downstream .filter() calls.
+          if (!Array.isArray(data)) throw new Error("schedules fetch failed");
           setSchedules(data);
           setScheduleCache(dateKey, data);
-          setLastFetchedAt(new Date());
         }),
     ];
-    if (isViewingToday && !isDemo) {
+    if (isViewingToday) {
       fetches.push(
         apiFetch(`/api/punches?date=${dateKey}`)
           .then((r) => r.json())
@@ -545,7 +465,7 @@ export default function Page() {
           })
           .catch(() => { setPunchRecords([]); setPunchesLoaded(true); })
       );
-    } else if (!isViewingToday) {
+    } else {
       setPunchRecords([]);
       setPunchesLoaded(false);
     }
@@ -554,6 +474,27 @@ export default function Page() {
       .catch(() => {
         if (!cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
       });
+  }, [date, timezone]);
+
+  // Target coverage curve for the viewed date (override → day-of-week default)
+  useEffect(() => {
+    const dk = toDateKey(date, timezone);
+    let cancelled = false;
+    Promise.all([
+      apiFetch("/api/coverage-profiles").then((r) => r.json()),
+      apiFetch(`/api/coverage-assignments?from=${dk}&to=${dk}`).then((r) => r.json()),
+    ])
+      .then(([profiles, assignments]) => {
+        if (cancelled) return;
+        setDayCurve(curveForDate(
+          dk,
+          assignments?.overrides ?? {},
+          assignments?.defaults ?? {},
+          Array.isArray(profiles) ? (profiles as CoverageProfile[]) : []
+        ));
+      })
+      .catch(() => { if (!cancelled) setDayCurve([]); });
+    return () => { cancelled = true; };
   }, [date, timezone]);
 
   const isToday = toDateKey(date, timezone) === toDateKey(today, timezone);
@@ -681,10 +622,8 @@ export default function Page() {
   const coverageStatus = useMemo((): CoverageStatus => {
     if (!isToday) return "closed";
     if (!isStoreOpen) return "closed";
-    if (hereNowCount < minCoverage) return "critical";
-    if (hereNowCount < optimalCoverage) return "low";
-    return "optimal";
-  }, [isToday, isStoreOpen, hereNowCount]);
+    return liveCoverageStatus(hereNowCount, targetAt(dayCurve, nowMinutes));
+  }, [isToday, isStoreOpen, hereNowCount, dayCurve, nowMinutes]);
 
 
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
@@ -695,12 +634,11 @@ export default function Page() {
     date, today, isToday, hereCount: hereNowCount,
     nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
-    onPrev: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, -1)); },
-    onNext: () => { setLastFetchedAt(null); setDate((d) => offsetDate(d, 1)); },
+    onPrev: () => setDate((d) => offsetDate(d, -1)),
+    onNext: () => setDate((d) => offsetDate(d, 1)),
     onNow: () => setDate(new Date()),
     onDateSelect: (d: Date) => setDate(d),
-    onSignOut: isDemo ? undefined : handleSignOut,
-    onSignIn: isDemo ? () => router.push("/login") : undefined,
+    onSignOut: handleSignOut,
   };
 
   const timeline = isLoading ? <SkeletonTimeline /> : (
@@ -712,6 +650,7 @@ export default function Page() {
       closeMinutes={storeHours.close}
       punchRecords={punchRecords}
       timezone={timezone}
+      targetBlocks={dayCurve}
     />
   );
 
@@ -845,6 +784,17 @@ export default function Page() {
     </div>
   ) : null;
 
+  const draftButton = isManager ? (
+    <motion.button
+      onClick={() => router.push("/draft")}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+    >
+      Plan Draft Schedule
+    </motion.button>
+  ) : null;
+
   const exportButton = isManager ? (
     <motion.button
       onClick={handleExportCSV}
@@ -864,8 +814,7 @@ export default function Page() {
       isManager={isManager}
       userName={userName}
       isDemo={isDemo}
-      onSignOut={isDemo ? undefined : handleSignOut}
-      onSignIn={isDemo ? () => router.push("/login") : undefined}
+      onSignOut={handleSignOut}
     >
       {/*
        * Single responsive layout — no JS fork.
@@ -886,6 +835,7 @@ export default function Page() {
           </div>
           <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
             {teamSections}
+            {draftButton}
             {exportButton}
           </div>
         </div>

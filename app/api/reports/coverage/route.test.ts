@@ -22,6 +22,7 @@ async function callRoute(url: string) {
 function makeSchedulesBuilder(result: { data: any; error: any }) {
   const b: any = {
     select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     lte: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue(result),
@@ -40,15 +41,12 @@ describe("GET /api/reports/coverage", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns demo coverage data when not authenticated", async () => {
+  it("returns 401 when not authenticated", async () => {
     vi.mocked(createClient).mockResolvedValue(
       makeSupabaseClient({ user: null }) as any
     );
     const res = await callRoute("http://localhost/api/reports/coverage?from=2026-06-01&to=2026-06-07");
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json).toHaveProperty("days");
-    expect(Array.isArray(json.days)).toBe(true);
+    expect(res.status).toBe(401);
   });
 
   it("returns 403 for non-manager", async () => {
@@ -88,13 +86,12 @@ describe("GET /api/reports/coverage", () => {
 
     const schedulesBuilder = makeSchedulesBuilder({ data: scheduleData, error: null });
 
-    const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
+    const base = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     const supabase = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
       from: vi.fn().mockImplementation((table: string) => {
-        if (table === "managers") return managersBuilder;
         if (table === "schedules") return schedulesBuilder;
-        return {} as any;
+        return base.from(table);
       }),
     };
     vi.mocked(createClient).mockResolvedValue(supabase as any);
@@ -113,13 +110,12 @@ describe("GET /api/reports/coverage", () => {
   it("returns 500 on DB error", async () => {
     const schedulesBuilder = makeSchedulesBuilder({ data: null, error: { message: "DB error" } });
 
-    const managersBuilder = makeSupabaseClient({ user: MOCK_USER, isManager: true }).from("managers");
+    const base = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     const supabase = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
       from: vi.fn().mockImplementation((table: string) => {
-        if (table === "managers") return managersBuilder;
         if (table === "schedules") return schedulesBuilder;
-        return {} as any;
+        return base.from(table);
       }),
     };
     vi.mocked(createClient).mockResolvedValue(supabase as any);

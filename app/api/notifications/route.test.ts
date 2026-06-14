@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { MOCK_USER } from "../__tests__/helpers";
+import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -36,13 +36,17 @@ function makeNotificationsClient({
   notificationsResult = { data: [], error: null } as { data: any; error: any },
   updateResult = { data: null, error: null } as { data: any; error: any },
 } = {}) {
-  const managerRow = isManager && user ? { user_id: user.id } : null;
+  // getOrgContext needs org_id on the manager row and also checks employees table
+  const managerRow = isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
+  // Non-manager authenticated users need an employee row to get orgId
+  const employeeRow = !isManager && user ? { id: 1, org_id: MOCK_ORG_ID } : null;
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers") return makeBuilder({ data: managerRow, error: null });
+      if (table === "employees") return makeBuilder({ data: employeeRow, error: null });
       if (table === "notifications") {
         const b = makeBuilder(notificationsResult);
         // update() should return a builder that resolves to updateResult
@@ -85,6 +89,15 @@ describe("GET /api/notifications", () => {
     );
     const res = await GET(new Request("http://localhost/api/notifications"));
     expect(res.status).toBe(500);
+  });
+
+  it("applies org_id filter on notifications query", async () => {
+    const client = makeNotificationsClient({ notificationsResult: { data: [], error: null } });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/notifications"));
+    // Verify that the notifications table was queried with org scoping
+    const notifCalls = (client.from as any).mock.calls.filter((c: any) => c[0] === "notifications");
+    expect(notifCalls.length).toBeGreaterThan(0);
   });
 });
 

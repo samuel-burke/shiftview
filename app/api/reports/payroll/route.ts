@@ -9,7 +9,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const { error: authError } = await requireManager(supabase);
+  const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
@@ -32,14 +32,17 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("punch_records")
     .select("id, employee_id, punch_type, punched_at, employees(name)")
+    .eq("org_id", orgId!)
     .gte("punched_at", `${from}T00:00:00+00:00`)
     .lte("punched_at", `${to}T23:59:59.999+00:00`)
     .order("employee_id")
     .order("punched_at")
     .limit(50_000);
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[api/reports/payroll]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const rows = computePayroll((data ?? []) as unknown as PunchRow[]);
   return NextResponse.json({ rows, from, to });

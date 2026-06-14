@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function writeAuditLog(entry: {
   action: string;
+  orgId: string;
   actorId?: string | null;
   resourceType?: string | null;
   resourceId?: string | null;
@@ -13,6 +14,7 @@ export async function writeAuditLog(entry: {
     const admin = createAdminClient();
     await admin.from("audit_logs").insert({
       action:        entry.action,
+      org_id:        entry.orgId,
       actor_id:      entry.actorId ?? null,
       resource_type: entry.resourceType ?? null,
       resource_id:   entry.resourceId != null ? String(entry.resourceId) : null,

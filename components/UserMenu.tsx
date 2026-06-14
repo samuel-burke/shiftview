@@ -1,24 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { getMonogram } from "../data/types";
 
 type Props = {
   name: string | null;
-  isManager?: boolean;
   onSignOut?: () => void;
   onSignIn?: () => void;
 };
 
-export default function UserMenu({ name, isManager, onSignOut, onSignIn }: Props) {
+export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
-  const settingsHref = isDemo ? "/settings?demo=true" : "/settings";
+  const settingsHref = "/settings";
 
   useEffect(() => {
     if (!open) return;

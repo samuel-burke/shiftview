@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { NavItem } from "./AppShell";
 import { motion } from "framer-motion";
@@ -13,10 +12,8 @@ type Props = {
 const TABS = ["team", "schedule", "clock"] as const;
 
 export default function BottomNav({ active }: Props) {
-  const searchParams = useSearchParams();
   const tabIndex = (TABS as readonly NavItem[]).indexOf(active);
 
-  const demo = searchParams.get("demo") === "true" ? "?demo=true" : "";
   return (
     <nav
       aria-label="Main navigation"
@@ -39,13 +36,13 @@ export default function BottomNav({ active }: Props) {
           />
         </div>
 
-        <NavTab href={`/${demo}`} label="Team" isActive={active === "team"}>
+        <NavTab href="/" label="Team" isActive={active === "team"}>
           <TeamIcon />
         </NavTab>
-        <NavTab href={`/schedule${demo}`} label="Schedule" isActive={active === "schedule"}>
+        <NavTab href="/schedule" label="Schedule" isActive={active === "schedule"}>
           <ScheduleIcon />
         </NavTab>
-        <NavTab href={`/clock${demo}`} label="Clock" isActive={active === "clock"}>
+        <NavTab href="/clock" label="Clock" isActive={active === "clock"}>
           <ClockIcon />
         </NavTab>
       </div>

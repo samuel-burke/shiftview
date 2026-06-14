@@ -1,3 +1,5 @@
+import TryDemoButton from "@/components/TryDemoButton";
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-bg text-slate-100 overflow-x-hidden">
@@ -49,19 +51,16 @@ function HeroSection() {
           Real-time team coverage, effortless scheduling, and mobile clock-in — everything your team needs on one screen.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-center lg:justify-start">
           <a
-            href="/login"
+            href="/signup"
             className="bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold px-7 py-3.5 rounded-xl text-sm text-center hover:opacity-90 transition-opacity"
           >
-            Sign In
+            Get Started Free
           </a>
-          <a
-            href="/?demo=true"
-            className="border border-slate-700 text-slate-300 font-semibold px-7 py-3.5 rounded-xl text-sm text-center hover:border-slate-500 hover:text-slate-100 transition-colors"
-          >
+          <TryDemoButton className="border border-slate-700 text-slate-300 font-semibold px-7 py-3.5 rounded-xl text-sm text-center hover:border-slate-500 hover:text-slate-100 transition-colors cursor-pointer">
             View Demo <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="inline-block align-[-1px]"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </a>
+          </TryDemoButton>
         </div>
 
         <p className="mt-4 text-xs text-slate-500">
@@ -150,7 +149,7 @@ function MockDashboard() {
             key={label}
             className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold ${active ? "text-blue-400" : "text-slate-500"}`}
           >
-            <Icon active={active} />
+            <Icon />
             {label}
           </div>
         ))}
@@ -228,7 +227,7 @@ function LandingFooter() {
 
 // ── Mini nav icons ──────────────────────────────────────────
 
-function TeamIcon({ active }: { active: boolean }) {
+function TeamIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -239,7 +238,7 @@ function TeamIcon({ active }: { active: boolean }) {
   );
 }
 
-function CalendarIcon({ active }: { active: boolean }) {
+function CalendarIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -250,7 +249,7 @@ function CalendarIcon({ active }: { active: boolean }) {
   );
 }
 
-function ClockIcon({ active }: { active: boolean }) {
+function ClockIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />

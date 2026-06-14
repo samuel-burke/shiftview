@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { MOCK_USER } from "../../__tests__/helpers";
+import { MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -27,11 +27,25 @@ function makeCopyClient({
   existingError = null as { message: string } | null,
   fromError = null as { message: string } | null,
 } = {}) {
-  const managerRow = isManager && user ? { user_id: user.id } : null;
+  const managerRow =
+    isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
 
   // Track how many times "schedules" table has been called to distinguish
   // the first call (existing/toDate) from the second call (fromDate)
   let scheduleCallCount = 0;
+
+  // Build a full-featured query builder that supports limit() for getOrgContext
+  function makeFullBuilder(result: { data: any; error: any }) {
+    const b: any = {};
+    for (const m of ["select", "eq", "limit", "order", "gte", "lte", "like", "in", "or"]) {
+      b[m] = vi.fn().mockReturnValue(b);
+    }
+    b.maybeSingle = vi.fn().mockResolvedValue(result);
+    b.single = vi.fn().mockResolvedValue(result);
+    b.range = vi.fn().mockReturnValue(b);
+    b.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
+    return b;
+  }
 
   return {
     auth: {
@@ -39,10 +53,12 @@ function makeCopyClient({
     },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers") {
-        const b: any = {};
-        ["select", "eq"].forEach((m) => (b[m] = vi.fn().mockReturnValue(b)));
-        b.maybeSingle = vi.fn().mockResolvedValue({ data: managerRow, error: null });
-        return b;
+        return makeFullBuilder({ data: managerRow, error: null });
+      }
+
+      // getOrgContext also queries employees table
+      if (table === "employees") {
+        return makeFullBuilder({ data: null, error: null });
       }
 
       if (table === "schedules") {
@@ -253,5 +269,29 @@ describe("POST /api/schedules/copy", () => {
       })
     );
     expect(res.status).toBe(500);
+  });
+
+  it("scopes insert to org_id", async () => {
+    const client = makeCopyClient({
+      existingSchedules: [],
+      fromSchedules: FROM_SCHEDULES,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(
+      new Request("http://localhost/api/schedules/copy", {
+        method: "POST",
+        body: JSON.stringify(validBody),
+      })
+    );
+    // Find the insert call on schedules (3rd call to from("schedules"))
+    const schedulesInsertBuilder = (client.from as any).mock.results.find(
+      (_: any, i: number) => (client.from as any).mock.calls[i]?.[0] === "schedules" &&
+        (client.from as any).mock.results[i]?.value?.insert != null
+    )?.value;
+    if (schedulesInsertBuilder) {
+      const insertArg = schedulesInsertBuilder.insert.mock.calls[0]?.[0];
+      expect(Array.isArray(insertArg)).toBe(true);
+      expect(insertArg[0]).toMatchObject({ org_id: MOCK_ORG_ID });
+    }
   });
 });

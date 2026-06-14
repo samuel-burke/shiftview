@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
-import { MOCK_USER } from "../__tests__/helpers";
+import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -46,7 +46,7 @@ function makeBuilder(result: { data: any; error: any }) {
  */
 function makePunchClient({
   user = MOCK_USER as any,
-  empRow = { id: 1 } as Record<string, unknown> | null,
+  empRow = { id: 1, org_id: MOCK_ORG_ID } as Record<string, unknown> | null,
   lastPunch = null as { punch_type: string } | null,
   lastPunchError = null as any,
   insertData = {
@@ -344,7 +344,7 @@ function makeTimezoneClockInClient({
     },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers")    return buildSimple(null);
-      if (table === "employees")   return buildSimple({ id: 1, name: empName });
+      if (table === "employees")   return buildSimple({ id: 1, name: empName, org_id: MOCK_ORG_ID });
       if (table === "app_settings") return buildSimple([{ key: "timezone", value: timezone }]);
       if (table === "schedules")   return buildSimple({ start_minutes: scheduleStartMinutes, date: "2026-05-26", employee_id: 1 });
       if (table === "punch_records") {
@@ -391,8 +391,8 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
     await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
     expect(mockNotifyManagers).toHaveBeenCalledOnce();
     const callArgs = mockNotifyManagers.mock.calls[0];
-    expect(callArgs[4]).toMatchObject({ lateMinutes: 15 });
-    expect(callArgs[3]).toContain("15m late");
+    expect(callArgs[5]).toMatchObject({ lateMinutes: 15 });
+    expect(callArgs[4]).toContain("15m late");
   });
 
   it("does NOT fire notification when within the 5-minute grace window", async () => {
@@ -441,7 +441,7 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
     );
     await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
     expect(mockNotifyManagers).toHaveBeenCalledOnce();
-    const msg = mockNotifyManagers.mock.calls[0][3] as string;
+    const msg = mockNotifyManagers.mock.calls[0][4] as string;
     expect(msg).toContain("Bob");
     expect(msg).toContain("12m late");
     expect(msg).toContain("9:00 AM");
@@ -460,8 +460,8 @@ function makeManualPunchClient({ manualEnabled = true }: { manualEnabled?: boole
     },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "app_settings") return makeBuilder({ data: settingsRow, error: null });
-      if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id }, error: null });
-      if (table === "employees") return makeBuilder({ data: { id: 1 }, error: null });
+      if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
+      if (table === "employees") return makeBuilder({ data: { id: 1, org_id: MOCK_ORG_ID }, error: null });
       if (table === "punch_records") return makeBuilder({ data: null, error: null });
       return makeBuilder({ data: null, error: null });
     }),
@@ -546,14 +546,14 @@ function makeGetClient({
 
       if (table === "managers") {
         b.maybeSingle = vi.fn().mockResolvedValue({
-          data: isManager ? { user_id: MOCK_USER.id } : null,
+          data: isManager ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID } : null,
           error: null,
         });
         return b;
       }
 
       if (table === "employees") {
-        b.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1 }, error: null });
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1, org_id: MOCK_ORG_ID }, error: null });
         return b;
       }
 
@@ -665,6 +665,7 @@ describe("GET /api/punches — timezone-aware day filtering", () => {
       if (table === "app_settings") {
         const b: any = {};
         b.select = vi.fn().mockReturnValue(b);
+        b.eq = vi.fn().mockReturnValue(b);
         b.then = (resolve: any, _rej: any) =>
           Promise.resolve({ data: [], error: null }).then(resolve, _rej);
         return b;
@@ -705,7 +706,7 @@ function makeMissedPunchClient({
     },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers")   return makeBuilder({ data: null, error: null });
-      if (table === "employees")  return makeBuilder({ data: { id: 1, name: "Alice" }, error: null });
+      if (table === "employees")  return makeBuilder({ data: { id: 1, name: "Alice", org_id: MOCK_ORG_ID }, error: null });
       if (table === "app_settings") return makeBuilder({ data: null, error: null });
       if (table === "schedules")  return makeBuilder({ data: null, error: null });
       if (table === "punch_records") {
@@ -789,4 +790,50 @@ describe("POST /api/punches — missed punch detection", () => {
   });
 
 
+});
+
+// ── Org scoping assertions ────────────────────────────────────────────────────
+
+describe("org scoping — punches routes", () => {
+  it("POST /api/punches scopes punch_records insert to the resolved org_id", async () => {
+    // Spy on the eq calls on the punch_records builder to verify org_id is stamped.
+    const client = makePunchClient({ lastPunch: null });
+    const origFrom = (client as any).from.bind(client);
+    const punchRecordsEqArgs: [string, unknown][] = [];
+    (client as any).from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "punch_records") {
+        const origEq = b.eq.bind(b);
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+          punchRecordsEqArgs.push([col, val]);
+          return origEq(col, val);
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(makePostRequest({ punchType: "clock_in" }));
+    // The state-machine query on punch_records must include org_id scoping
+    expect(punchRecordsEqArgs.some(([col]) => col === "org_id")).toBe(true);
+  });
+
+  it("GET /api/punches scopes app_settings to the resolved org_id", async () => {
+    const client = makeGetClient({ timezone: "America/New_York", isManager: true });
+    const origFrom = client.from.bind(client);
+    const appSettingsEqArgs: [string, unknown][] = [];
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "app_settings") {
+        const origEq = b.eq.bind(b);
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+          appSettingsEqArgs.push([col, val]);
+          return origEq(col, val);
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(makeGetRequest("2026-06-01"));
+    expect(appSettingsEqArgs.some(([col]) => col === "org_id")).toBe(true);
+  });
 });

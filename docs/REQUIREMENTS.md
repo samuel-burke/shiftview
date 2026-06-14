@@ -10,7 +10,7 @@ ShiftView is a mobile-first shift scheduling dashboard for retail and hospitalit
 
 | Role | Description |
 |---|---|
-| **Visitor** | Unauthenticated. Can browse demo data only. No write access. |
+| **Visitor** | Unauthenticated. Sees the landing page; can start a demo session (anonymous sign-in into the Demo organization). |
 | **Authenticated User** | Signed in via Supabase Auth. Can view live schedule data. No write access. |
 | **Manager** | Signed in and present in the `managers` table. Full read/write access. |
 
@@ -105,11 +105,12 @@ ShiftView is a mobile-first shift scheduling dashboard for retail and hospitalit
 
 | ID | Requirement | Actor |
 |---|---|---|
-| FR-7.1 | Visiting `/?demo=true` shall show a read-only demo experience using pre-seeded demo data. | Visitor |
-| FR-7.2 | Demo mode shall not require authentication. | Visitor |
-| FR-7.3 | In demo mode, the header shall show a "Sign In" button instead of "Sign Out". | Visitor |
-| FR-7.4 | Demo data shall cover a rolling ±30-day window, refreshed nightly via a scheduled database function. | System |
-| FR-7.5 | Write operations (edit, mark off, add shift) shall not be available in demo mode. | System |
+| FR-7.1 | Clicking "View Demo" shall sign the visitor in anonymously and grant manager access to a dedicated, seeded Demo organization. | Visitor |
+| FR-7.2 | Demo mode shall not require account creation; one click starts a session. | Visitor |
+| FR-7.3 | Demo pages shall display a banner indicating demo mode and that sample data resets nightly. | Visitor |
+| FR-7.4 | Demo data shall cover a rolling window around today, reset and reseeded nightly via a scheduled job (`/api/cron/demo-reset`). | System |
+| FR-7.5 | Demo writes shall behave like production writes within the Demo organization, except for outbound side effects (email, push, auth invites), which shall be suppressed. | System |
+| FR-7.6 | Demo data shall be isolated from customer organizations by the same org-scoped RLS policies as any tenant. | System |
 
 ---
 

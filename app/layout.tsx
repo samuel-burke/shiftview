@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
 import AddToHomeScreenBanner from "../components/AddToHomeScreenBanner";
 import InAppNotificationBanner from "../components/InAppNotificationBanner";
+import PresenceHeartbeat from "../components/PresenceHeartbeat";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "../components/ThemeProvider";
 import { AppDataProvider } from "../lib/AppDataContext";
@@ -56,6 +57,7 @@ export default function RootLayout({
         <ServiceWorkerRegistrar />
         <AddToHomeScreenBanner />
         <InAppNotificationBanner />
+        <PresenceHeartbeat />
         <SpeedInsights />
       </body>
     </html>

@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
+import { withOrg } from "@/lib/org-scope";
+import { isDemoOrgId } from "@/lib/demo-org";
+
+// Demo visitors hold manager access, and invites send real emails through
+// Supabase Auth — an open spam vector if left enabled for the demo org.
+const DEMO_BLOCKED = "Inviting employees is disabled in the demo organization";
 
 export const dynamic = "force-dynamic";
 
@@ -25,24 +31,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "email format is invalid" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
+  if (isDemoOrgId(orgId!))
+    return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
 
   const admin = createAdminClient();
   const formattedName = formatName(name);
 
   const { data: employee, error: insertError } = await admin
     .from("employees")
-    .insert({ name: formattedName, email })
+    .insert(withOrg(orgId!, { name: formattedName, email }))
     .select("id")
     .single();
 
-  if (insertError)
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError) {
+    console.error("[api/invites]", insertError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
@@ -50,12 +60,14 @@ export async function POST(request: Request) {
 
   if (inviteError) {
     // Roll back the employee row so retrying the invite starts clean
-    await admin.from("employees").delete().eq("id", employee.id);
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    await admin.from("employees").delete().eq("org_id", orgId!).eq("id", employee.id);
+    console.error("[api/invites]", inviteError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   writeAuditLog({
     action:       "employee.invite",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
     resourceId:   String(employee.id),
@@ -77,23 +89,28 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
 
   const supabase = await createClient();
-  const { user, error: authError } = await requireManager(supabase);
+  const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json(
       { error: authError },
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
+  if (isDemoOrgId(orgId!))
+    return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
 
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
   });
 
-  if (inviteError)
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+  if (inviteError) {
+    console.error("[api/invites]", inviteError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "employee.reinvite",
+    orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
     metadata: { email },

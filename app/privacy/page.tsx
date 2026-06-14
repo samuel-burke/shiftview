@@ -43,7 +43,7 @@ export default function PrivacyPage() {
         </Link>
 
         <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-500 mb-10">Last updated: June 3, 2026</p>
+        <p className="text-xs text-slate-500 mb-10">Last updated: June 12, 2026</p>
 
         <div className="text-sm text-slate-400 leading-relaxed space-y-1">
           <Section title="1. Who We Are">
@@ -105,7 +105,20 @@ export default function PrivacyPage() {
               <li>Schedule and employee data is retained for as long as you have an active account.</li>
               <li>Messages are retained indefinitely unless deleted by an administrator.</li>
               <li>Push subscriptions are removed automatically when a device unsubscribes or the subscription becomes stale.</li>
-              <li>On account deletion, your data is removed in accordance with Supabase&apos;s cascade delete policies.</li>
+              <li>
+                <span className="text-slate-300">Account deletion:</span> you can delete your account at any time from
+                Settings → Delete Account. This permanently removes your login, push subscriptions, and notification
+                preferences. Your name and your past schedule and clock records are retained by your organization as
+                part of its business records (for example, payroll); ask your administrator to remove your employee
+                record if you want those deleted as well.
+              </li>
+              <li>
+                <span className="text-slate-300">Organization deletion:</span> an organization owner can permanently
+                delete the entire organization from Settings → Delete Organization. This removes all of the
+                organization&apos;s data — employee records, schedules, clock records, messages, settings, and audit
+                logs. Members&apos; accounts are not deleted; they keep their logins and can join or create other
+                organizations.
+              </li>
             </ul>
           </Section>
 
@@ -118,8 +131,9 @@ export default function PrivacyPage() {
               <li><span className="text-slate-300">Object to or restrict</span> certain types of processing</li>
             </ul>
             <p className="mt-3">
-              To exercise any of these rights, contact your account administrator or reach out via the contact
-              information below.
+              You can delete your account yourself at any time from Settings → Delete Account (organization owners
+              must first delete their organization or transfer it). To exercise any other right, contact your account
+              administrator or reach out via the contact information below.
             </p>
           </Section>
 

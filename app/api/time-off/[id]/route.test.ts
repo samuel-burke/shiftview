@@ -88,3 +88,35 @@ describe("PUT /api/time-off/[id]", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 });
+
+// ── Org scoping ───────────────────────────────────────────────────────────────
+
+describe("org scoping — time-off/[id] route", () => {
+  it("scopes time_off_requests update to org_id", async () => {
+    const timeOffEqArgs: [string, unknown][] = [];
+
+    // Build a client where time_off_requests tracks eq calls on update
+    const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any;
+    const origFrom = supabase.from.bind(supabase);
+    supabase.from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "time_off_requests") {
+        const origEq = b.eq.bind(b);
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
+          timeOffEqArgs.push([col, val]);
+          return origEq(col, val);
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+    await PUT(
+      new Request("http://localhost/api/time-off/1", {
+        method: "PUT",
+        body: JSON.stringify({ status: "approved" }),
+      }),
+      makeParams("1")
+    );
+    expect(timeOffEqArgs.some(([col]) => col === "org_id")).toBe(true);
+  });
+});

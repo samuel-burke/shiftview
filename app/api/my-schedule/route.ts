@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { DEMO_EMPLOYEES, getDemoSchedulesForEmployee } from "@/data/demo-fixtures";
+import { getOrgContext } from "@/lib/org-context";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DEMO_EMPLOYEE_ID = DEMO_EMPLOYEES[0].id;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -19,47 +18,45 @@ export async function GET(request: Request) {
   if (from > to)
     return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
 
-  if (searchParams.get("demo") === "true") {
-    return NextResponse.json({
-      employeeId: null,
-      employeeName: "Demo Manager",
-      schedules: generateDemoSchedules(from!, to!),
-    });
-  }
-
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { ctx, error } = await getOrgContext(supabase, request);
 
-  if (!user) {
-    return NextResponse.json({
-      employeeId: DEMO_EMPLOYEE_ID,
-      employeeName: null,
-      schedules: getDemoSchedulesForEmployee(DEMO_EMPLOYEE_ID, from!, to!),
-    });
+  if (error === "Not authenticated") {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  if (error === "No organization membership") {
+    return NextResponse.json({ error: "No organization membership" }, { status: 403 });
   }
 
+  const { orgId, employeeId } = ctx!;
+
+  if (employeeId == null) {
+    return NextResponse.json({ employeeId: null, employeeName: null, schedules: [] });
+  }
+
+  // Fetch the employee name using the org-scoped employee record
   const { data: emp } = await supabase
     .from("employees")
     .select("id, name")
-    .eq("user_id", user.id)
+    .eq("org_id", orgId)
+    .eq("id", employeeId)
     .maybeSingle();
 
   if (!emp) {
     return NextResponse.json({ employeeId: null, employeeName: null, schedules: [] });
   }
 
-  const { data, error } = await supabase
+  const { data, error: dbError } = await supabase
     .from("schedules")
     .select("*")
+    .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("date", from)
     .lte("date", to)
     .order("date");
 
-  if (error) {
-    console.error("[api/my-schedule]", error);
+  if (dbError) {
+    console.error("[api/my-schedule]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -70,7 +67,15 @@ export async function GET(request: Request) {
   });
 }
 
-function mapSchedules(data: any[]) {
+type ScheduleRow = {
+  id: number;
+  employee_id: number;
+  date: string;
+  start_minutes: number;
+  end_minutes: number;
+};
+
+function mapSchedules(data: ScheduleRow[]) {
   return data.map((s) => ({
     id: s.id,
     employeeId: s.employee_id,
@@ -78,32 +83,4 @@ function mapSchedules(data: any[]) {
     startMinutes: s.start_minutes,
     endMinutes: s.end_minutes,
   }));
-}
-
-// Shift pattern by day-of-week (0=Sun): [startMinutes, endMinutes] or null for day off
-const DEMO_SHIFT_PATTERN: Record<number, [number, number] | null> = {
-  0: null,
-  1: [480, 960],   // Mon 8am–4pm
-  2: [540, 1020],  // Tue 9am–5pm
-  3: null,
-  4: [600, 1080],  // Thu 10am–6pm
-  5: [480, 1020],  // Fri 8am–5pm
-  6: [540, 900],   // Sat 9am–3pm
-};
-
-function generateDemoSchedules(from: string, to: string) {
-  const results = [];
-  let id = 1000;
-  const cur = new Date(from + "T12:00:00Z");
-  const end = new Date(to + "T12:00:00Z");
-  while (cur <= end) {
-    const dow = cur.getUTCDay();
-    const shift = DEMO_SHIFT_PATTERN[dow];
-    if (shift) {
-      const date = cur.toISOString().slice(0, 10);
-      results.push({ id: id++, employeeId: null, date, startMinutes: shift[0], endMinutes: shift[1] });
-    }
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return results;
 }

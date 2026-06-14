@@ -18,12 +18,14 @@ vi.mock("next/server", () => ({
 const mockCreateClient = vi.mocked(createClient);
 const mockCreateAdminClient = vi.mocked(createAdminClient);
 
+import { MOCK_ORG_ID } from "../__tests__/helpers";
+
 const MOCK_USER = { id: "user-123", email: "manager@test.com" };
 const MOCK_NEW_EMPLOYEE = { id: 5 };
 
 function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "update", "delete", "eq", "order"]) {
+  for (const m of ["select", "insert", "update", "delete", "eq", "order", "limit"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -36,7 +38,8 @@ function makeServerClient({
   user = MOCK_USER as any,
   isManager = true,
 } = {}) {
-  const managerRow = isManager && user ? { user_id: user.id } : null;
+  const managerRow =
+    isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
@@ -127,7 +130,7 @@ describe("POST /api/invites — business logic", () => {
     );
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "duplicate email" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   it("returns 500 when the Supabase invite call fails", async () => {
@@ -136,7 +139,7 @@ describe("POST /api/invites — business logic", () => {
     );
     const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "User already registered" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   it("returns 201 with employeeId on success", async () => {
@@ -155,6 +158,7 @@ describe("POST /api/invites — business logic", () => {
     expect(insertBuilder.insert).toHaveBeenCalledWith({
       name: "Alice Smith",
       email: "alice@example.com",
+      org_id: MOCK_ORG_ID,
     });
   });
 
@@ -229,7 +233,7 @@ describe("PUT /api/invites — business logic", () => {
     );
     const res = await PUT(putReq({ email: "alice@example.com" }));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: "rate limit exceeded" });
+    expect(await res.json()).toMatchObject({ error: "Internal server error" });
   });
 
   it("returns 200 on success", async () => {
