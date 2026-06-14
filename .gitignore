@@ -44,4 +44,3 @@ next-env.d.ts
 
 # local tooling
 /memory
-/.claude
