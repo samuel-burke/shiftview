@@ -9,11 +9,13 @@ import {
   PunchRecord,
   AttendanceStatus,
   AvailabilityRecord,
+  Callout,
   isHere,
   CoverageStatus,
   getAttendanceStatus,
   fmtMinutes,
   SHIFT_COLORS,
+  CALLOUT_COLOR,
 } from "../data/types";
 import { useAppData } from "../lib/AppDataContext";
 import CoverageHeader from "../components/CoverageHeader";
@@ -130,6 +132,7 @@ export default function Page() {
   const [exportLoading, setExportLoading] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
+  const [callouts, setCallouts] = useState<Callout[]>([]);
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
 
@@ -377,6 +380,14 @@ export default function Page() {
         .catch(() => {});
     }
 
+    function refetchCallouts() {
+      const dk = toDateKey(dateRef.current, timezoneRef.current);
+      apiFetch(`/api/callouts?date=${dk}`)
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d?.callouts)) setCallouts(d.callouts); })
+        .catch(() => {});
+    }
+
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -384,6 +395,7 @@ export default function Page() {
       } else if (Date.now() - hiddenAt > 5_000) {
         refetchSchedules();
         refetchEmployees();
+        refetchCallouts();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -392,6 +404,7 @@ export default function Page() {
       .channel("main-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedules)
       .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, refetchEmployees)
+      .on("postgres_changes", { event: "*", schema: "public", table: "callouts" }, refetchCallouts)
       .subscribe();
 
     return () => {
@@ -497,6 +510,17 @@ export default function Page() {
     return () => { cancelled = true; };
   }, [date, timezone]);
 
+  // Call-outs for the viewed date — drives the "Called Out" team section.
+  useEffect(() => {
+    const dk = toDateKey(date, timezone);
+    let cancelled = false;
+    apiFetch(`/api/callouts?date=${dk}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setCallouts(Array.isArray(d?.callouts) ? d.callouts : []); })
+      .catch(() => { if (!cancelled) setCallouts([]); });
+    return () => { cancelled = true; };
+  }, [date, timezone]);
+
   const isToday = toDateKey(date, timezone) === toDateKey(today, timezone);
   const dateKey = toDateKey(date, timezone);
 
@@ -542,16 +566,33 @@ export default function Page() {
     return result;
   }, [isToday, punchesLoaded, punchRecords, daySchedules, dateKey]);
 
+  // Employees who've called out for the viewed date. They're pulled out of the
+  // scheduled/off groupings below and shown in their own "Called Out" section.
+  const calloutIds = useMemo(
+    () => new Set(callouts.map((c) => c.employeeId)),
+    [callouts],
+  );
+
+  const calledOutEmployees = useMemo(() => {
+    const empMap = new Map(employees.map((e) => [e.id, e]));
+    return callouts
+      .map((c) => empMap.get(c.employeeId))
+      .filter((e): e is Employee => !!e);
+  }, [callouts, employees]);
+
   const off = useMemo(() => {
     const walkInIds = new Set(walkInSchedules.map((s) => s.employeeId));
     return employees.filter(
-      (emp) => !daySchedules.some((s) => s.employeeId === emp.id) && !walkInIds.has(emp.id),
+      (emp) =>
+        !daySchedules.some((s) => s.employeeId === emp.id) &&
+        !walkInIds.has(emp.id) &&
+        !calloutIds.has(emp.id),
     );
-  }, [employees, daySchedules, walkInSchedules]);
+  }, [employees, daySchedules, walkInSchedules, calloutIds]);
 
   const sortedScheduled = useMemo(
-    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes),
-    [scheduled],
+    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes).filter((s) => !calloutIds.has(s.employeeId)),
+    [scheduled, calloutIds],
   );
 
   // Split sortedScheduled (plus walk-ins) into the three attendance-based sub-groups.
@@ -742,6 +783,24 @@ export default function Page() {
     onSelect: handleSelectShift,
   };
 
+  const calledOutSection = (
+    <TeamSection
+      label="Called Out"
+      count={calledOutEmployees.length}
+      employees={calledOutEmployees}
+      nowMinutes={nowMinutes}
+      isToday={isToday}
+      onSelectOff={handleSelectOff}
+      canSelectOff={(emp) => isManager || !!emp.user_id}
+      statusLabel="Called Out"
+      statusColor={CALLOUT_COLOR}
+    />
+  );
+
+  const offSection = (
+    <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
+  );
+
   const teamSections = isLoading ? (
     <><SkeletonTeamSection count={4} /><SkeletonTeamSection count={2} /></>
   ) : isToday && punchesLoaded ? (
@@ -749,12 +808,14 @@ export default function Page() {
       <TeamSection label="Here Now"  count={hereNowSchedules.length}   schedules={hereNowSchedules}   {...sharedSectionProps} />
       <TeamSection label="On Break"  count={onBreakSchedules.length}   schedules={onBreakSchedules}   {...sharedSectionProps} />
       <TeamSection label="Scheduled" count={scheduledRemaining.length}  schedules={scheduledRemaining}  {...sharedSectionProps} />
-      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
+      {calledOutSection}
+      {offSection}
     </>
   ) : (
     <>
-      <TeamSection label="Scheduled" count={scheduled.length} schedules={sortedScheduled} {...sharedSectionProps} />
-      <TeamSection label="Off Today" count={off.length} employees={off} nowMinutes={nowMinutes} isToday={isToday} onSelectOff={handleSelectOff} canSelectOff={(emp) => isManager || !!emp.user_id} />
+      <TeamSection label="Scheduled" count={sortedScheduled.length} schedules={sortedScheduled} {...sharedSectionProps} />
+      {calledOutSection}
+      {offSection}
     </>
   );
 
@@ -767,6 +828,7 @@ export default function Page() {
       nowMinutes={nowMinutes}
       isToday={isToday}
       attendanceStatus={selected?.emp ? attendanceMap[selected.emp.id] : undefined}
+      calledOut={selected?.emp ? calloutIds.has(selected.emp.id) : false}
       onClose={() => setSelected(null)}
       onSave={handleSaveShift}
       onCreate={handleCreateShift}

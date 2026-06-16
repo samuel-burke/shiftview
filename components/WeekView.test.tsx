@@ -224,3 +224,40 @@ describe("WeekView time-off indicators", () => {
     expect(screen.queryByText("APR")).not.toBeInTheDocument();
   });
 });
+
+// ── Call-out indicators ────────────────────────────────────────────────────────
+
+describe("WeekView call-out indicators", () => {
+  it("shows an 'OUT' label and hides the shift time for a called-out day", () => {
+    render(
+      <WeekView
+        schedules={SCHEDULES}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        calloutDates={["2026-05-25"]}
+      />,
+    );
+    // May 25 is a scheduled opener (6a–2p); the call-out overrides it.
+    expect(screen.getByText("OUT")).toBeInTheDocument();
+    expect(screen.queryByText("6a–2p")).not.toBeInTheDocument();
+    expect(screen.queryByText("EARLY")).not.toBeInTheDocument();
+  });
+
+  it("exposes 'Called out' to assistive tech for a called-out day", () => {
+    render(
+      <WeekView
+        schedules={[]}
+        weeklyHours={WEEKLY_HOURS}
+        selectedDate={TODAY}
+        weekStart={WEEK_START}
+        onSelectDate={vi.fn()}
+        today={TODAY}
+        calloutDates={["2026-05-26"]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /called out/i })).toBeInTheDocument();
+  });
+});

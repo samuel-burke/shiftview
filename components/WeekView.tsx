@@ -1,7 +1,7 @@
 "use client";
 
-import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS } from "../data/types";
-import { ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon } from "./ShiftIcons";
+import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS, CALLOUT_COLOR } from "../data/types";
+import { ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon, MegaphoneIcon } from "./ShiftIcons";
 
 const TIME_OFF_LABELS: Record<TimeOffRequest["status"], string> = {
   pending: "REQ",
@@ -19,6 +19,7 @@ type Props = {
   onSelectDate: (d: Date) => void;
   today: Date;
   timeOffRequests?: TimeOffRequest[];
+  calloutDates?: string[];
 };
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -42,7 +43,7 @@ function shortTime(minutes: number): string {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, "0")}${suffix}`;
 }
 
-export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, weekStart, onSelectDate, today, timeOffRequests = [] }: Props) {
+export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, weekStart, onSelectDate, today, timeOffRequests = [], calloutDates = [] }: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
   const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
@@ -63,12 +64,15 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
         const dayHours = weeklyHours[d.getDay()] ?? { open: 360, close: 1320 };
         const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, dayHours.open, dayHours.close) : null;
         const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
+        const calledOut = calloutDates.includes(dateKey);
         const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
-        const shiftLabel = shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
-        const labelColor = shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "#94a3b8");
+        const shiftLabel = calledOut ? "OUT" : shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
+        const labelColor = calledOut ? CALLOUT_COLOR : (shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "#94a3b8"));
 
         const fullDayLabel = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-        const statusText = shiftType
+        const statusText = calledOut
+          ? "Called out"
+          : shiftType
           ? `${shiftType} shift, ${shortTime(schedule!.startMinutes)} to ${shortTime(schedule!.endMinutes)}`
           : timeOff
           ? `Time off request, ${timeOff.status}`
@@ -99,10 +103,12 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             </div>
             <div
               className="w-6 h-[3px] rounded-full mb-1"
-              style={{ background: labelColor ?? "transparent", visibility: (shiftColor || timeOff) ? "visible" : "hidden" }}
+              style={{ background: labelColor ?? "transparent", visibility: (calledOut || shiftColor || timeOff) ? "visible" : "hidden" }}
             />
             <div className="mb-0.5 h-[14px] flex items-center justify-center">
-              {shiftType ? (
+              {calledOut ? (
+                <MegaphoneIcon size={13} color={CALLOUT_COLOR} />
+              ) : shiftType ? (
                 <ShiftIcon shiftType={shiftType} size={13} color={shiftColor ?? "#94a3b8"} />
               ) : timeOff?.status === "pending" ? (
                 <TimeOffPendingIcon size={13} color={TIME_OFF_COLORS.pending} />
@@ -122,7 +128,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             >
               {shiftLabel}
             </div>
-            {schedule && shiftType && (
+            {!calledOut && schedule && shiftType && (
               <div className="text-[8px] text-slate-400 mt-0.5 leading-tight">
                 {shortTime(schedule.startMinutes)}–{shortTime(schedule.endMinutes)}
               </div>
