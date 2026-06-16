@@ -149,6 +149,37 @@ describe("TeamSection", () => {
     expect(screen.queryByRole("button", { name: /view alice/i })).not.toBeInTheDocument();
   });
 
+  it("renders a custom status badge in the employee-list mode", () => {
+    render(
+      <TeamSection
+        label="Out Today"
+        count={1}
+        employees={[employees[0]]}
+        nowMinutes={600}
+        isToday={true}
+        onSelectOff={vi.fn()}
+        statusLabel="Called Out"
+        statusColor="#f87171"
+      />
+    );
+    // The badge carries the custom status text (the section header is "Out Today").
+    expect(screen.getByText("Called Out")).toBeInTheDocument();
+  });
+
+  it("defaults the employee-list badge to 'Off'", () => {
+    render(
+      <TeamSection
+        label="Off Today"
+        count={1}
+        employees={[employees[0]]}
+        nowMinutes={600}
+        isToday={true}
+        onSelectOff={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Off")).toBeInTheDocument();
+  });
+
   it("calls onSelectOff when an off-employee button is clicked", async () => {
     const onSelectOff = vi.fn();
     render(

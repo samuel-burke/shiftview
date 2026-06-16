@@ -83,6 +83,20 @@ export type TimeOffRequest = {
   note?: string;
 };
 
+// An employee calling out — they can't make it to work on `date`. Unlike a
+// time-off request this carries no approval status: it's effective immediately
+// and simply reflects "Called Out" across the app until rescinded.
+export type Callout = {
+  id: number;
+  employeeId: number;
+  employeeName?: string;
+  date: string;       // YYYY-MM-DD
+  reason?: string;
+};
+
+// Red, consistent with the denied/absent tone used elsewhere in the UI.
+export const CALLOUT_COLOR = "var(--color-timeoff-denied)";
+
 export type PunchType = "clock_in" | "clock_out" | "break_start" | "break_end";
 export type AttendanceStatus = "clocked_in" | "on_break" | "clocked_out" | "not_clocked_in";
 

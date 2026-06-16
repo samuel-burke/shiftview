@@ -8,6 +8,7 @@ import {
   PunchRecord,
   PunchType,
   AttendanceStatus,
+  Callout,
   getAttendanceStatus,
   getTotalClockedSeconds,
   getBreakElapsedSeconds,
@@ -20,6 +21,7 @@ import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
+import { MegaphoneIcon } from "../../components/ShiftIcons";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { SkeletonClockBody } from "../../components/Skeleton";
@@ -152,6 +154,13 @@ export default function ClockPageClient() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState<"idle" | "acquiring" | "ok" | "denied">("idle");
 
+  // Call-out ("can't make it in today") state.
+  const [myCallout, setMyCallout] = useState<Callout | null>(null);
+  const [showCalloutForm, setShowCalloutForm] = useState(false);
+  const [calloutReason, setCalloutReason] = useState("");
+  const [calloutPending, setCalloutPending] = useState(false);
+  const [calloutError, setCalloutError] = useState<string | null>(null);
+
   // Pre-punch warning confirmation
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
   const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
@@ -263,6 +272,59 @@ export default function ClockPageClient() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadData]);
+
+  // Load today's call-out (if any) so we can show "Called out" instead of the
+  // call-out button.
+  useEffect(() => {
+    if (meLoading || !employeeId) return;
+    fetch("/api/callouts?mine=true")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: Callout[] = Array.isArray(d?.callouts) ? d.callouts : [];
+        setMyCallout(list.find((c) => c.date === todayKey) ?? null);
+      })
+      .catch(() => {});
+  }, [meLoading, employeeId, todayKey]);
+
+  async function submitCallout() {
+    if (!employeeId) return;
+    setCalloutPending(true);
+    setCalloutError(null);
+    try {
+      const res = await fetch("/api/callouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, date: todayKey, reason: calloutReason.trim() || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to call out");
+      setMyCallout({ id: json.id, employeeId, date: todayKey, reason: calloutReason.trim() || undefined });
+      setShowCalloutForm(false);
+      setCalloutReason("");
+    } catch (e) {
+      setCalloutError(e instanceof Error ? e.message : "Failed to call out");
+    } finally {
+      setCalloutPending(false);
+    }
+  }
+
+  async function undoCallout() {
+    if (!myCallout) return;
+    setCalloutPending(true);
+    setCalloutError(null);
+    try {
+      const res = await fetch(`/api/callouts/${myCallout.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error ?? "Failed to undo call-out");
+      }
+      setMyCallout(null);
+    } catch (e) {
+      setCalloutError(e instanceof Error ? e.message : "Failed to undo call-out");
+    } finally {
+      setCalloutPending(false);
+    }
+  }
 
   async function getGps(): Promise<{ lat: number; lng: number } | null> {
     if (!navigator.geolocation) return null;
@@ -712,6 +774,77 @@ export default function ClockPageClient() {
             </div>
           )}
         </div>
+
+        {/* Call out — "can't make it in today" */}
+        {employeeId && (
+          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden" style={myCallout ? { borderColor: "rgba(248,113,113,0.3)" } : {}}>
+            {myCallout ? (
+              <div className="px-4 py-3.5 space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="#f87171" /></span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-red-300">You&apos;ve called out for today</div>
+                    <div className="text-xs text-red-400/80 mt-0.5">Your manager has been notified.</div>
+                    {myCallout.reason && (
+                      <div className="text-xs text-slate-400 mt-1.5 italic">“{myCallout.reason}”</div>
+                    )}
+                  </div>
+                </div>
+                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
+                <button
+                  onClick={undoCallout}
+                  disabled={calloutPending}
+                  aria-busy={calloutPending}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {calloutPending ? "…" : "Undo call-out"}
+                </button>
+              </div>
+            ) : showCalloutForm ? (
+              <div className="px-4 py-4 space-y-3">
+                <div className="text-sm font-semibold text-slate-200">Call out for today</div>
+                <div className="text-xs text-slate-400 -mt-1">This notifies your manager that you can&apos;t make it in today.</div>
+                <div>
+                  <label htmlFor="callout-reason" className="text-xs text-slate-400 block mb-1">Reason <span className="text-slate-500">(optional)</span></label>
+                  <textarea
+                    id="callout-reason"
+                    value={calloutReason}
+                    onChange={(e) => setCalloutReason(e.target.value)}
+                    placeholder="e.g. Feeling unwell"
+                    rows={2}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-red-500/70 transition-colors"
+                  />
+                </div>
+                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => { setShowCalloutForm(false); setCalloutError(null); }}
+                    disabled={calloutPending}
+                    className="py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitCallout}
+                    disabled={calloutPending}
+                    aria-busy={calloutPending}
+                    className="py-2.5 rounded-xl text-sm font-bold bg-red-500/20 text-red-300 border border-red-500/30 cursor-pointer hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {calloutPending ? "Submitting…" : "Call Out"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCalloutForm(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors text-sm font-semibold text-slate-300"
+              >
+                <MegaphoneIcon size={15} color="#94a3b8" />
+                Can&apos;t make it in today? Call out
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Punch history */}
         {punches.length > 0 && (

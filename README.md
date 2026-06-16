@@ -19,6 +19,7 @@ A mobile-first shift management app for scheduling, time clock, coverage analyti
 - Week and month views with drag-free editing, reusable shift templates, and copy-week
 - Employee availability tracking with conflict detection against time-off and availability when scheduling
 - Shift swap requests with manager approval, and time-off requests with approval workflow
+- Employee call-outs — one tap to report "I can't make it in" for a day; managers are notified instantly and the person shows as **Called Out** across the dashboard, schedule, and team status
 
 **Time clock**
 - Clock in/out with optional geofence enforcement (server-validated, not just client-side)
@@ -140,7 +141,7 @@ API route handlers are tested directly against mocked Supabase clients, componen
 
 ```
 app/
-  api/            # route handlers: schedules, swaps, time-off, punches,
+  api/            # route handlers: schedules, swaps, time-off, callouts, punches,
                   # templates, messages, notifications, reports, invites, …
   clock/          # time clock (geofenced punch in/out)
   schedule/       # week/month schedule editor
@@ -166,6 +167,7 @@ docs/             # functional requirements spec
 |---|---|
 | `employees` | `id`, `name`, `email`, `user_id` |
 | `schedules` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
+| `callouts` | `id`, `org_id`, `employee_id`, `date`, `reason`, `created_by`, `created_at` |
 | `store_hours` | `day_of_week` (0–6), `open_minutes`, `close_minutes` |
 | `managers` | `user_id` |
 
@@ -184,6 +186,8 @@ RLS is enabled on all live tables. The following policies are in effect:
 | `employees` | UPDATE / DELETE | Users with a row in `managers` |
 | `schedules` | SELECT | Authenticated users |
 | `schedules` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
+| `callouts` | SELECT | Members of the row's organization |
+| `callouts` | INSERT / UPDATE / DELETE | Members of the row's organization (the API additionally restricts writes to your own call-out, or a manager) |
 | `managers` | SELECT | Authenticated users |
 | `managers` | INSERT / UPDATE / DELETE | Denied for all (managed via service role) |
 | `store_hours` | SELECT | All users (including unauthenticated) |
