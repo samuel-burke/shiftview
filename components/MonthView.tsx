@@ -7,6 +7,7 @@ import {
   getShiftType,
   SHIFT_COLORS,
   TIME_OFF_COLORS,
+  CALLOUT_COLOR,
 } from "../data/types";
 import {
   SunriseIcon,
@@ -16,6 +17,7 @@ import {
   TimeOffPendingIcon,
   TimeOffApprovedIcon,
   TimeOffDeniedIcon,
+  MegaphoneIcon,
 } from "./ShiftIcons";
 
 const TIME_OFF_STATUS_LABELS: Record<TimeOffRequest["status"], string> = {
@@ -33,6 +35,7 @@ type Props = {
   onSelectDate: (d: Date) => void;
   today: Date;
   timeOffRequests?: TimeOffRequest[];
+  calloutDates?: string[];
 };
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -50,6 +53,7 @@ export default function MonthView({
   onSelectDate,
   today,
   timeOffRequests = [],
+  calloutDates = [],
 }: Props) {
   const todayKey = toDateKey(today);
   const selectedKey = toDateKey(selectedDate);
@@ -174,6 +178,7 @@ export default function MonthView({
                   )
                 : null;
               const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
+              const calledOut = calloutDates.includes(dateKey);
               const timeOff = !schedule
                 ? (timeOffRequests.find((r) => r.date === dateKey) ?? null)
                 : null;
@@ -182,7 +187,9 @@ export default function MonthView({
                 month: "long",
                 day: "numeric",
               });
-              const statusText = shiftType
+              const statusText = calledOut
+                ? "Called out"
+                : shiftType
                 ? `${shiftType} shift`
                 : timeOff
                   ? TIME_OFF_STATUS_LABELS[timeOff.status]
@@ -209,30 +216,36 @@ export default function MonthView({
                     {d.getDate()}
                   </div>
                   <div className="h-[14px] mt-0.5 flex items-center justify-center">
-                    {shiftType && shiftColor && (
-                      <ShiftIcon
-                        shiftType={shiftType}
-                        size={20}
-                        color={shiftColor}
-                      />
-                    )}
-                    {timeOff?.status === "pending" && (
-                      <TimeOffPendingIcon
-                        size={12}
-                        color={TIME_OFF_COLORS.pending}
-                      />
-                    )}
-                    {timeOff?.status === "approved" && (
-                      <TimeOffApprovedIcon
-                        size={12}
-                        color={TIME_OFF_COLORS.approved}
-                      />
-                    )}
-                    {timeOff?.status === "denied" && (
-                      <TimeOffDeniedIcon
-                        size={12}
-                        color={TIME_OFF_COLORS.denied}
-                      />
+                    {calledOut ? (
+                      <MegaphoneIcon size={14} color={CALLOUT_COLOR} />
+                    ) : (
+                      <>
+                        {shiftType && shiftColor && (
+                          <ShiftIcon
+                            shiftType={shiftType}
+                            size={20}
+                            color={shiftColor}
+                          />
+                        )}
+                        {timeOff?.status === "pending" && (
+                          <TimeOffPendingIcon
+                            size={12}
+                            color={TIME_OFF_COLORS.pending}
+                          />
+                        )}
+                        {timeOff?.status === "approved" && (
+                          <TimeOffApprovedIcon
+                            size={12}
+                            color={TIME_OFF_COLORS.approved}
+                          />
+                        )}
+                        {timeOff?.status === "denied" && (
+                          <TimeOffDeniedIcon
+                            size={12}
+                            color={TIME_OFF_COLORS.denied}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
                 </button>

@@ -890,7 +890,7 @@ export default function SettingsPageClient({
                         { key: "newShiftAlerts"      as const, label: "New Shift Alerts",     desc: "Notify when a new schedule is published" },
                         { key: "shiftChangeAlerts"   as const, label: "Shift Change Alerts",  desc: "Notify when a shift is modified" },
                         { key: "swapAlerts"          as const, label: "Swap Request Alerts",  desc: "Notify on swap approvals and denials" },
-                        { key: "ptoAlerts"           as const, label: "Time Off Alerts",      desc: "Notify on time off approvals and denials" },
+                        { key: "ptoAlerts"           as const, label: "Time Off & Call-Out Alerts", desc: "Notify on time off decisions and when someone calls out" },
                         { key: "shiftReminderAlerts" as const, label: "Shift Reminders",      desc: "Remind you before an upcoming shift" },
                       ] : [
                         { key: "newShiftAlerts"      as const, label: "New Shift Alerts",     desc: "Notify when a new schedule is published" },

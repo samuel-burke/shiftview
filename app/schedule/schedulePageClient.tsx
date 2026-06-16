@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Schedule,
   TimeOffRequest,
+  Callout,
   getShiftType,
   fmtMinutes,
   SHIFT_COLORS,
@@ -29,6 +30,7 @@ import {
   TimeOffPendingIcon,
   TimeOffApprovedIcon,
   TimeOffDeniedIcon,
+  MegaphoneIcon,
 } from "../../components/ShiftIcons";
 import PendingTimeOffSection from "../../components/PendingTimeOffSection";
 
@@ -113,6 +115,9 @@ export default function SchedulePageClient() {
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
+  const [myCallouts, setMyCallouts] = useState<Callout[]>([]);
+  const [calloutStatus, setCalloutStatus] = useState<"idle" | "loading">("idle");
+  const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
@@ -187,6 +192,54 @@ export default function SchedulePageClient() {
       .catch(() => {});
   }, []);
 
+  // Load user's own upcoming call-outs on mount
+  useEffect(() => {
+    fetch("/api/callouts?mine=true")
+      .then((r) => r.json())
+      .then(({ callouts }) => { if (Array.isArray(callouts)) setMyCallouts(callouts); })
+      .catch(() => {});
+  }, []);
+
+  async function handleCallOut() {
+    if (!employeeId) return;
+    setCalloutStatus("loading");
+    setCalloutError(null);
+    try {
+      const res = await fetch("/api/callouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, date: selectedDateKey }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to call out");
+      setMyCallouts((prev) => [
+        ...prev.filter((c) => c.date !== selectedDateKey),
+        { id: json.id, employeeId, date: selectedDateKey },
+      ]);
+    } catch (e) {
+      setCalloutError(e instanceof Error ? e.message : "Failed to call out");
+    } finally {
+      setCalloutStatus("idle");
+    }
+  }
+
+  async function handleUndoCallOut(id: number) {
+    setCalloutStatus("loading");
+    setCalloutError(null);
+    try {
+      const res = await fetch(`/api/callouts/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error ?? "Failed to undo call-out");
+      }
+      setMyCallouts((prev) => prev.filter((c) => c.id !== id));
+    } catch (e) {
+      setCalloutError(e instanceof Error ? e.message : "Failed to undo call-out");
+    } finally {
+      setCalloutStatus("idle");
+    }
+  }
+
   useEffect(() => {
     let from: Date, to: Date;
     if (view === "week") {
@@ -225,6 +278,7 @@ export default function SchedulePageClient() {
   useEffect(() => {
     setTimeOffStatus("idle");
     setTimeOffError(null);
+    setCalloutError(null);
   }, [selectedDate]);
 
   async function handleRequestDayOff() {
@@ -344,10 +398,18 @@ export default function SchedulePageClient() {
     }
     document.addEventListener("visibilitychange", onVisibility);
 
+    function refetchCallouts() {
+      fetch("/api/callouts?mine=true")
+        .then((r) => r.json())
+        .then(({ callouts }) => { if (Array.isArray(callouts)) setMyCallouts(callouts); })
+        .catch(() => {});
+    }
+
     const channel = supabase
       .channel("schedule-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
+      .on("postgres_changes", { event: "*", schema: "public", table: "callouts" }, refetchCallouts)
       .subscribe();
 
     return () => {
@@ -435,6 +497,17 @@ export default function SchedulePageClient() {
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 
   const selectedTimeOff = timeOffRequests.find((r) => r.date === selectedDateKey) ?? null;
+
+  const calloutDates = useMemo(() => myCallouts.map((c) => c.date), [myCallouts]);
+  const selectedCallout = myCallouts.find((c) => c.date === selectedDateKey) ?? null;
+
+  // Show "Call Out" when: the selected day is today or later, the user has an
+  // employee record, and they haven't already called out for it. (You can call
+  // out whether or not a shift is posted yet.)
+  const canCallOut =
+    !selectedCallout &&
+    selectedDateKey >= todayKey &&
+    employeeId !== null;
 
   // Show "Request Day Off" when: no shift, future date, has employeeId, no existing pending/approved request
   const canRequestDayOff =
@@ -566,6 +639,7 @@ export default function SchedulePageClient() {
           onSelectDate={setSelectedDate}
           today={today}
           timeOffRequests={timeOffRequests}
+          calloutDates={calloutDates}
         />
       ) : (
         <MonthView
@@ -577,6 +651,7 @@ export default function SchedulePageClient() {
           onSelectDate={setSelectedDate}
           today={today}
           timeOffRequests={timeOffRequests}
+          calloutDates={calloutDates}
         />
       )}
     </>
@@ -688,6 +763,38 @@ export default function SchedulePageClient() {
             )}
           </div>
         )}
+
+        {/* Call-out status / action */}
+        {selectedCallout ? (
+          <div className="mt-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
+              <MegaphoneIcon size={16} color="rgb(248 113 113)" />
+              <span className="text-sm text-red-300 font-semibold">Called out{isSelectedToday ? " today" : ""}</span>
+            </div>
+            <button
+              onClick={() => handleUndoCallOut(selectedCallout.id)}
+              disabled={calloutStatus === "loading"}
+              aria-busy={calloutStatus === "loading"}
+              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
+            >
+              {calloutStatus === "loading" ? "…" : "Undo call-out"}
+            </button>
+            {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
+          </div>
+        ) : canCallOut ? (
+          <div className="mt-3">
+            <button
+              onClick={handleCallOut}
+              disabled={calloutStatus === "loading"}
+              aria-busy={calloutStatus === "loading"}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-red-500/30 text-red-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-500/10 transition-colors"
+            >
+              <MegaphoneIcon size={15} color="rgb(248 113 113)" />
+              {calloutStatus === "loading" ? "Submitting…" : selectedSchedule ? "Can't make this shift? Call out" : "Call out"}
+            </button>
+            {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
+          </div>
+        ) : null}
       </div>
 
       {/* Stats row */}

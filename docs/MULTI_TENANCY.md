@@ -32,6 +32,7 @@ Migrations live in `supabase/migrations/` and follow the
 | `0002_multitenancy_enforce.sql` | Enforce | `org_id` NOT NULL; re-keys `app_settings` → `(org_id, key)`, `store_hours` → `(org_id, day_of_week)`, `managers` → `(org_id, user_id)`; **composite FKs** so a child row's org must equal its parent's (schedules→employees, punches→schedules, swaps→both, template rows→templates/employees); partial unique on `employees (org_id, user_id)` | **Yes** |
 | `0003_multitenancy_rls.sql` | Enforce | `is_org_member()` / `is_org_manager()` SECURITY DEFINER helpers; enables RLS + org-scoped policies on every tenant table; replaces the `notify_*` RPCs with org-aware versions | Deploy together with org-aware app code (the RPC signatures change) |
 | `0004_multitenancy_contract.sql` | Contract | Drops the `org_id` column defaults so an unscoped write fails loudly instead of landing in the default org | Only after all old code is gone |
+| `0013_callouts.sql` | New table | Creates `callouts` (employee "can't make it in" notices) following the time-off shape exactly: `org_id`, composite `(employee_id, org_id)` FK, `is_org_member` member-writable RLS, `(org_id, date)` index, and Realtime publication | **Yes** — additive |
 
 Tables deliberately **not** org-scoped: `user_notification_preferences` and
 `push_subscriptions` — they are keyed to the auth user and are personal

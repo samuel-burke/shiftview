@@ -34,6 +34,7 @@ type Props = {
   nowMinutes: number;
   isToday: boolean;
   attendanceStatus?: AttendanceStatus;
+  calledOut?: boolean;
   date?: string;
   availabilityRecords?: AvailabilityRecord[];
   onClose: () => void;
@@ -62,6 +63,7 @@ export default function EmployeeDrawer({
   nowMinutes,
   isToday,
   attendanceStatus,
+  calledOut,
   date,
   availabilityRecords,
   onClose,
@@ -122,7 +124,10 @@ export default function EmployeeDrawer({
 
   let statusLabel: string;
   let statusColor: string;
-  if (isToday && attendanceStatus && attendanceStatus !== "not_clocked_in") {
+  if (calledOut) {
+    statusLabel = "Called Out";
+    statusColor = "#f87171";
+  } else if (isToday && attendanceStatus && attendanceStatus !== "not_clocked_in") {
     const ATTENDANCE_LABELS: Record<Exclude<AttendanceStatus, "not_clocked_in">, { label: string; color: string }> = {
       clocked_in:  { label: "Clocked In",  color: "#22c55e" },
       on_break:    { label: "On Break",    color: "#f59e0b" },

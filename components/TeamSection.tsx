@@ -25,6 +25,10 @@ type Props = {
   onSelect?: (emp: Employee, sch: Schedule) => void;
   onSelectOff?: (emp: Employee) => void;
   canSelectOff?: (emp: Employee) => boolean;
+  // Badge shown on the right of each row in the employee-list (no-schedule)
+  // mode. Defaults to a neutral "Off". Used to render "Called Out" in red.
+  statusLabel?: string;
+  statusColor?: string;
 };
 
 function SectionHeader({ label, count }: { label: string; count: number }) {
@@ -55,6 +59,8 @@ export default function TeamSection({
   onSelect,
   onSelectOff,
   canSelectOff,
+  statusLabel = "Off",
+  statusColor,
 }: Props) {
   if (count === 0) return null;
 
@@ -107,13 +113,29 @@ export default function TeamSection({
                   {formatDisplayName(emp.name)}
                 </div>
               </div>
-              <div className="text-[11px] font-medium text-slate-600 bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/40">
-                Off
-              </div>
+              {statusColor ? (
+                <div
+                  className="text-[11px] font-bold px-2 py-0.5 rounded-md border"
+                  style={{
+                    color: statusColor,
+                    background: `color-mix(in srgb, ${statusColor} 14%, transparent)`,
+                    borderColor: `color-mix(in srgb, ${statusColor} 35%, transparent)`,
+                  }}
+                >
+                  {statusLabel}
+                </div>
+              ) : (
+                <div className="text-[11px] font-medium text-slate-600 bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/40">
+                  {statusLabel}
+                </div>
+              )}
             </>
           );
           const baseClass =
-            "flex items-center gap-3 w-full bg-card/60 border border-white/[0.05] border-l-[3px] border-l-slate-700/50 rounded-xl px-[14px] py-3 mb-2";
+            "flex items-center gap-3 w-full bg-card/60 border border-white/[0.05] border-l-[3px] rounded-xl px-[14px] py-3 mb-2";
+          const baseStyle = statusColor
+            ? { borderLeftColor: `color-mix(in srgb, ${statusColor} 55%, transparent)` }
+            : { borderLeftColor: "rgb(51 65 85 / 0.5)" };
           const selectable = onSelectOff && (!canSelectOff || canSelectOff(emp));
           return (
             <motion.div key={emp.id} variants={cardItem}>
@@ -124,12 +146,13 @@ export default function TeamSection({
                   whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.25)" }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className={`${baseClass} cursor-pointer text-left`}
+                  style={baseStyle}
                   aria-label={`View ${emp.name}`}
                 >
                   {inner}
                 </motion.button>
               ) : (
-                <div className={`${baseClass} cursor-default`}>
+                <div className={`${baseClass} cursor-default`} style={baseStyle}>
                   {inner}
                 </div>
               )}
