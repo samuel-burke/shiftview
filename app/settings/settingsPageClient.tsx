@@ -15,7 +15,6 @@ import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
-import { isStatusRingEnabled, setStatusRingEnabled as persistStatusRing } from "../../lib/status-ring-preference";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -219,15 +218,6 @@ export default function SettingsPageClient({
     const next = !soundEnabled;
     setSoundEnabled(next);
     persistSoundEnabled(next);
-  }
-
-  // ── Status ring (device-local) ───────────────────────────────────────────
-  const [statusRingEnabled, setStatusRingEnabled] = useState(true);
-  useEffect(() => { setStatusRingEnabled(isStatusRingEnabled()); }, []);
-  function toggleStatusRing() {
-    const next = !statusRingEnabled;
-    setStatusRingEnabled(next);
-    persistStatusRing(next);
   }
 
   // ── Coverage ────────────────────────────────────────────────────────────────
@@ -862,37 +852,6 @@ export default function SettingsPageClient({
                 <span
                   className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
                     soundEnabled ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Display — clock status ring (device-local) */}
-        <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Display
-          </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-200">Clock Status Glow</div>
-                <div className="text-xs text-slate-500 mt-0.5">Soft screen-edge glow — green when clocked in, amber on break</div>
-              </div>
-              <button
-                role="switch"
-                aria-label="Clock status glow"
-                aria-checked={statusRingEnabled}
-                data-testid="toggle-status-ring"
-                onClick={toggleStatusRing}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  statusRingEnabled ? "bg-indigo-500" : "bg-slate-700"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
-                    statusRingEnabled ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>
