@@ -837,3 +837,69 @@ describe("org scoping — punches routes", () => {
     expect(appSettingsEqArgs.some(([col]) => col === "org_id")).toBe(true);
   });
 });
+
+// ── POST /api/punches — configurable break cap ───────────────────────────────
+
+describe("POST /api/punches — max breaks per shift", () => {
+  const emp = { id: 1, org_id: MOCK_ORG_ID, name: "Tester" };
+  const insertData = {
+    id: 99, employee_id: 1, schedule_id: null, punch_type: "break_start",
+    punched_at: new Date().toISOString(), lat: null, lng: null, is_manual: false, note: null,
+  };
+
+  // Custom client: distinguishes the three punch_records uses (state-machine
+  // read, break-count read, insert) by creation order.
+  function makeBreakClient({ maxBreaks, todayPunches }: { maxBreaks: number; todayPunches: { punch_type: string }[] }) {
+    const settingsRows = [
+      { key: "timezone", value: "America/New_York" },
+      { key: "punch_max_breaks_per_shift", value: String(maxBreaks) },
+    ];
+    let punchCall = 0;
+    return {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "managers") return makeBuilder({ data: null, error: null });
+        if (table === "employees") return makeBuilder({ data: emp, error: null });
+        if (table === "app_settings") return makeBuilder({ data: settingsRows, error: null });
+        if (table === "punch_records") {
+          punchCall++;
+          const idx = punchCall;
+          const b: any = {};
+          for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+            b[m] = vi.fn().mockReturnValue(b);
+          }
+          // idx 1 = state-machine last-punch (a completed break, so break_start is valid)
+          b.maybeSingle = vi.fn().mockResolvedValue({ data: { punch_type: "break_end" }, error: null });
+          b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
+          // idx 2 = today's punches (awaited array); other awaits = insert result
+          b.then = (resolve: any, reject: any) =>
+            Promise.resolve(idx === 2 ? { data: todayPunches, error: null } : { data: insertData, error: null })
+              .then(resolve, reject);
+          return b;
+        }
+        return makeBuilder({ data: null, error: null });
+      }),
+    };
+  }
+
+  it("rejects break_start once the per-shift limit is reached", async () => {
+    const client = makeBreakClient({
+      maxBreaks: 1,
+      todayPunches: [{ punch_type: "clock_in" }, { punch_type: "break_start" }, { punch_type: "break_end" }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "break_start" }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/Break limit/);
+  });
+
+  it("allows break_start when under the limit", async () => {
+    const client = makeBreakClient({
+      maxBreaks: 2,
+      todayPunches: [{ punch_type: "clock_in" }, { punch_type: "break_start" }, { punch_type: "break_end" }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "break_start" }));
+    expect(res.status).toBe(201);
+  });
+});

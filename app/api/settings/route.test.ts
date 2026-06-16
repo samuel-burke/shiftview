@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
+import { DEFAULT_PUNCH_POLICY } from "@/lib/punch-policy";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -51,6 +52,7 @@ describe("GET /api/settings", () => {
       geofenceLng: null,
       geofenceRadius: 100,
       geofenceAddress: null,
+      punchPolicy: DEFAULT_PUNCH_POLICY,
     });
     expect(body).not.toHaveProperty("optimalCoverage");
     expect(body).not.toHaveProperty("minCoverage");
@@ -84,6 +86,7 @@ describe("GET /api/settings", () => {
       geofenceLng: null,
       geofenceRadius: 100,
       geofenceAddress: null,
+      punchPolicy: DEFAULT_PUNCH_POLICY,
     });
     expect(body).not.toHaveProperty("optimalCoverage");
     expect(body).not.toHaveProperty("minCoverage");
