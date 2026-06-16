@@ -42,10 +42,17 @@ export default function PrivacyPage() {
           Back
         </Link>
 
-        <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-500 mb-10">Last updated: June 12, 2026</p>
+        <div className="text-xl font-extrabold text-slate-100 tracking-tight mb-3">
+          Shift
+          <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
+            View
+          </span>
+        </div>
 
-        <div className="text-sm text-slate-400 leading-relaxed space-y-1">
+        <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
+        <p className="text-xs text-slate-500 mb-8">Last updated: June 12, 2026</p>
+
+        <div className="bg-card border border-slate-800/60 rounded-2xl px-5 py-6 [@media(min-width:640px)]:px-7 [@media(min-width:640px)]:py-7 text-sm text-slate-400 leading-relaxed space-y-1">
           <Section title="1. Who We Are">
             <p>
               ShiftView is a shift management tool for retail and hospitality teams. The service is operated by the

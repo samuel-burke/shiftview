@@ -98,7 +98,7 @@ export default function ClockPageClient() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache } = useAppData();
+  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
   const isDemo = cachedMe.isDemo;
 
@@ -201,6 +201,12 @@ export default function ClockPageClient() {
     return () => clearInterval(t);
   }, []);
 
+  // Keep the app-wide ambient status ring in sync with this screen's punches —
+  // including optimistic ones — so it reflects a tap the instant it happens.
+  useEffect(() => {
+    setLiveStatus(status);
+  }, [status, setLiveStatus]);
+
   // employeeId from context, but we need it in loadData which is a callback
   const employeeIdRef = useRef(employeeId);
   employeeIdRef.current = employeeId;
@@ -264,11 +270,15 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
-  // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
+  // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context).
+  // The punches listener keeps this screen in sync across the user's devices: a
+  // punch made elsewhere updates the status, timer and history here too (a
+  // background reload, so it never flashes the skeleton).
   useEffect(() => {
     const channel = supabase
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_records" }, () => loadData(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadData]);

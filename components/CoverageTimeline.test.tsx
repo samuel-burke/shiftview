@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import CoverageTimeline from "./CoverageTimeline";
 
 // Recharts uses ResizeObserver and SVG which jsdom doesn't fully support — stub them
@@ -43,6 +43,19 @@ describe("CoverageTimeline 15-minute sampling", () => {
       <CoverageTimeline {...baseProps} isToday={false} />
     );
     expect(container.firstChild).not.toBeNull();
+  });
+});
+
+describe('"here now" / clocked-in series', () => {
+  it("shows the Clocked In series once punches are loaded, even with nobody clocked in", () => {
+    render(<CoverageTimeline {...baseProps} punchRecords={[]} punchesLoaded={true} />);
+    // The green "Clocked In" legend chip only renders when the actual series is active.
+    expect(screen.getByText("Clocked In")).toBeInTheDocument();
+  });
+
+  it("does not show the Clocked In series before punches have loaded", () => {
+    render(<CoverageTimeline {...baseProps} punchRecords={[]} punchesLoaded={false} />);
+    expect(screen.queryByText("Clocked In")).not.toBeInTheDocument();
   });
 });
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
+import ClockStatusBadge from "./ClockStatusBadge";
 
 type Props = {
   userName: string | null;
@@ -13,14 +13,6 @@ type Props = {
 };
 
 export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }: Props) {
-  const [todayStr, setTodayStr] = useState("");
-
-  useEffect(() => {
-    setTodayStr(
-      new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-    );
-  }, []);
-
   return (
     <div className="[@media(min-width:900px)]:hidden sticky top-0 z-30 bg-bg border-b border-slate-800">
       {isDemo && (
@@ -54,7 +46,7 @@ export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }
           </span>
         </span>
         <div className="flex items-center gap-2">
-          {todayStr && <span className="text-sm text-slate-400">{todayStr}</span>}
+          <ClockStatusBadge />
           <NotificationBell />
           <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
         </div>
