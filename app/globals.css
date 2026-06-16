@@ -180,58 +180,6 @@ header {
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
-/* ── Ambient clock-status ring ────────────────────────────── */
-/*
- * A soft inset glow hugging the screen edge that signals live clock status.
- * Fixed and non-interactive so it overlays every screen without affecting
- * layout or taps. It wraps the full screen — including around the top, behind
- * the status bar (this needs viewport-fit=cover, set in the layout). The glow
- * is a soft inset shadow only — no crisp border line, which looked off at the
- * corners.
- *
- * The element is a full-bleed rectangle with no border-radius: a rounded ring
- * would leave the screen's true corners outside the glow, exposing the page
- * background on devices whose bezels are squarer than the radius. Squared
- * corners fill into the real corner instead, and on rounded screens iOS masks
- * the web view to the curve, so the soft glow naturally follows it.
- *
- * Color comes from --ring-color (set per status below) and intensity from
- * --ring-core / --ring-halo, which are bumped up in light mode where a soft
- * glow on white would otherwise wash out.
- */
-.status-ring {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-  --ring-core: 45%;
-  --ring-halo: 22%;
-  box-shadow:
-    inset 0 0 11px 0 color-mix(in srgb, var(--ring-color) var(--ring-core), transparent),
-    inset 0 0 30px 3px color-mix(in srgb, var(--ring-color) var(--ring-halo), transparent);
-  animation: status-ring-breathe 3.4s ease-in-out infinite;
-}
-
-.status-ring-green { --ring-color: #22c55e; }
-.status-ring-amber { --ring-color: #f59e0b; }
-
-/* Light mode: deeper hues + stronger glow so it stays legible on a white bg. */
-[data-theme="light"] .status-ring { --ring-core: 70%; --ring-halo: 38%; }
-[data-theme="light"] .status-ring-green { --ring-color: #16a34a; }
-[data-theme="light"] .status-ring-amber { --ring-color: #d97706; }
-
-@keyframes status-ring-breathe {
-  0%, 100% { opacity: 0.55; }
-  50%      { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .status-ring {
-    animation: none;
-    opacity: 0.8;
-  }
-}
-
 /* ── Focus-visible ring ───────────────────────────────────── */
 :focus-visible {
   outline: 2px solid #6366f1;
