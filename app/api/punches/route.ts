@@ -7,6 +7,7 @@ import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
 import { getLocalMinutes, localDayBoundsUtc, todayKeyInTz } from "@/lib/punch-date-utils";
+import { parsePunchPolicy } from "@/lib/punch-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -162,6 +163,40 @@ export async function POST(request: Request) {
       ? `Cannot ${punchType}: current state is ${lastType}`
       : `Cannot ${punchType}: no active clock-in`;
     return NextResponse.json({ error: msg }, { status: 409 });
+  }
+
+  // Configurable break cap: orgs can limit how many breaks a single shift may
+  // contain. Count break_start punches since the most recent clock-in today and
+  // reject the new break_start once the limit is reached.
+  const policy = parsePunchPolicy(settingsMap);
+  if (punchType === "break_start" && policy.maxBreaksPerShift > 0) {
+    const { data: todayPunches, error: todayPunchesError } = await supabase
+      .from("punch_records")
+      .select("punch_type, punched_at")
+      .eq("org_id", orgId)
+      .eq("employee_id", emp.id)
+      .gte("punched_at", todayStart.toISOString())
+      .lte("punched_at", todayEnd.toISOString())
+      .order("punched_at", { ascending: true });
+    if (todayPunchesError) {
+      console.error("[api/punches]", todayPunchesError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    let breaksThisShift = 0;
+    for (const p of todayPunches ?? []) {
+      if (p.punch_type === "clock_in") breaksThisShift = 0;
+      else if (p.punch_type === "break_start") breaksThisShift++;
+    }
+    if (breaksThisShift >= policy.maxBreaksPerShift) {
+      return NextResponse.json(
+        {
+          error: `Break limit reached — only ${policy.maxBreaksPerShift} ${
+            policy.maxBreaksPerShift === 1 ? "break" : "breaks"
+          } allowed per shift`,
+        },
+        { status: 409 }
+      );
+    }
   }
 
 

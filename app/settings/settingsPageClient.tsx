@@ -15,6 +15,7 @@ import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
+import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -411,6 +412,31 @@ export default function SettingsPageClient({
     }
   }
 
+  // ── Punch Violations ─────────────────────────────────────────────────────────
+  const [punchPolicy, setPunchPolicy] = useState<PunchPolicy>(DEFAULT_PUNCH_POLICY);
+  const [punchPolicyStatus, setPunchPolicyStatus] = useState<SaveStatus>("idle");
+
+  // Optimistically apply a policy patch, then persist it. Reverts on failure.
+  async function savePunchPolicy(patch: Partial<PunchPolicy>) {
+    const prev = punchPolicy;
+    const next = { ...punchPolicy, ...patch };
+    setPunchPolicy(next);
+    setPunchPolicyStatus("saving");
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ punchPolicy: patch }),
+    }).catch(() => null);
+    if (res?.ok) {
+      setPunchPolicyStatus("saved");
+      setTimeout(() => setPunchPolicyStatus("idle"), 2000);
+    } else {
+      setPunchPolicy(prev);
+      setPunchPolicyStatus("error");
+      setTimeout(() => setPunchPolicyStatus("idle"), 4000);
+    }
+  }
+
   // ── Employees ───────────────────────────────────────────────────────────────
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -618,6 +644,7 @@ export default function SettingsPageClient({
           setGeofenceAddress(s.geofenceAddress);
           setAddressInput(s.geofenceAddress);
         }
+        if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
       })
       .catch(() => {});
     fetch("/api/employees")
@@ -1223,6 +1250,92 @@ export default function SettingsPageClient({
                 <div className="text-xs text-emerald-400">Saved ✓</div>
               )}
             </div>
+          </div>
+        </section>}
+
+        {/* Punch Violations — manager only. Orgs precisely define what counts as
+            a violation and cap breaks per shift (enforced at clock-in time). */}
+        {isManager && <section>
+          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            Punch Violations
+          </div>
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
+            {([
+              { enabledKey: "lateInEnabled",     minutesKey: "lateInMinutes",     label: "Late Clock-In",   desc: "Flag when clocking in past the scheduled start" },
+              { enabledKey: "earlyInEnabled",    minutesKey: "earlyInMinutes",    label: "Early Clock-In",  desc: "Flag when clocking in before the scheduled start" },
+              { enabledKey: "lateOutEnabled",    minutesKey: "lateOutMinutes",    label: "Late Clock-Out",  desc: "Flag when clocking out past the scheduled end" },
+              { enabledKey: "earlyOutEnabled",   minutesKey: "earlyOutMinutes",   label: "Early Clock-Out", desc: "Flag when clocking out before the scheduled end" },
+              { enabledKey: "longBreakEnabled",  minutesKey: "longBreakMinutes",  label: "Long Break",      desc: "Flag breaks longer than the limit" },
+              { enabledKey: "shortBreakEnabled", minutesKey: "shortBreakMinutes", label: "Short Break",     desc: "Flag breaks shorter than the minimum" },
+              { enabledKey: "ncnsEnabled",       minutesKey: "ncnsMinutes",       label: "No Call No Show", desc: "Flag a scheduled shift with no punch and no call-out" },
+            ] as { enabledKey: keyof PunchPolicy; minutesKey: keyof PunchPolicy; label: string; desc: string }[]).map(
+              ({ enabledKey, minutesKey, label, desc }, i, arr) => {
+                const enabled = punchPolicy[enabledKey] as boolean;
+                const minutes = punchPolicy[minutesKey] as number;
+                return (
+                  <div key={enabledKey} className={`flex items-center justify-between gap-3 ${i < arr.length - 1 ? "pb-4 border-b border-slate-800/60" : ""}`}>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-200">{label}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {enabled && (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={1}
+                            max={1440}
+                            aria-label={`${label} threshold in minutes`}
+                            value={minutes}
+                            onChange={(e) => setPunchPolicy((p) => ({ ...p, [minutesKey]: Number(e.target.value) }))}
+                            onBlur={(e) => {
+                              const v = clamp(Math.round(Number(e.target.value) || 0), 1, 1440);
+                              if (v !== (DEFAULT_PUNCH_POLICY[minutesKey] as number) || v !== minutes) savePunchPolicy({ [minutesKey]: v } as Partial<PunchPolicy>);
+                            }}
+                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                          />
+                          <span className="text-xs text-slate-500">min</span>
+                        </div>
+                      )}
+                      <button
+                        role="switch"
+                        aria-label={label}
+                        aria-checked={enabled}
+                        onClick={() => savePunchPolicy({ [enabledKey]: !enabled } as Partial<PunchPolicy>)}
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
+                          enabled ? "bg-indigo-500" : "bg-slate-700"
+                        }`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+            )}
+
+            {/* Max breaks per shift — a hard cap enforced by the punch state machine */}
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-200">Max Breaks Per Shift</div>
+                <div className="text-xs text-slate-500 mt-0.5">Block extra breaks at clock-in time · 0 = unlimited</div>
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={20}
+                aria-label="Max breaks per shift"
+                value={punchPolicy.maxBreaksPerShift}
+                onChange={(e) => setPunchPolicy((p) => ({ ...p, maxBreaksPerShift: Number(e.target.value) }))}
+                onBlur={(e) => {
+                  const v = clamp(Math.round(Number(e.target.value) || 0), 0, 20);
+                  savePunchPolicy({ maxBreaksPerShift: v });
+                }}
+                className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 [color-scheme:dark] shrink-0"
+              />
+            </div>
+
+            <SaveStatusText status={punchPolicyStatus} testId="punch-policy-status" />
           </div>
         </section>}
 

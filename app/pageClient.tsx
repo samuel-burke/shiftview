@@ -22,6 +22,7 @@ import CoverageHeader from "../components/CoverageHeader";
 import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
+import TimeCardDrawer from "../components/TimeCardDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
@@ -133,6 +134,7 @@ export default function Page() {
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
   const [callouts, setCallouts] = useState<Callout[]>([]);
+  const [timeCardEmp, setTimeCardEmp] = useState<Employee | null>(null);
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
 
@@ -835,9 +837,19 @@ export default function Page() {
       onCreate={handleCreateShift}
       onMarkOff={handleMarkOff}
       onResendInvite={handleResendInvite}
+      onViewTimeCard={isManager && selected?.emp ? () => setTimeCardEmp(selected.emp) : undefined}
       isManager={isManager}
       date={toDateKey(date)}
       availabilityRecords={availabilityRecords}
+    />
+  );
+
+  const timeCardDrawer = (
+    <TimeCardDrawer
+      open={!!timeCardEmp}
+      employee={timeCardEmp}
+      timezone={timezone}
+      onClose={() => setTimeCardEmp(null)}
     />
   );
 
@@ -903,6 +915,7 @@ export default function Page() {
           </div>
         </div>
         {drawer}
+        {timeCardDrawer}
         <BottomNav active="team" />
       </main>
     </AppShell>

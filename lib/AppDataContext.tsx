@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedule, type PunchRecord, type StoreHours } from "@/data/types";
+import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -15,6 +16,7 @@ export type AppSettings = {
   geofenceLng: number | null;
   geofenceRadius: number;
   geofenceAddress: string | null;
+  punchPolicy: PunchPolicy;
 };
 
 export type MeData = {
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geofenceLng: null,
   geofenceRadius: 100,
   geofenceAddress: null,
+  punchPolicy: DEFAULT_PUNCH_POLICY,
 };
 
 type AppDataContextValue = {
