@@ -217,7 +217,7 @@ export default function MonthView({
                   </div>
                   <div className="h-[14px] mt-0.5 flex items-center justify-center">
                     {calledOut ? (
-                      <MegaphoneIcon size={14} color={CALLOUT_COLOR} />
+                      <MegaphoneIcon size={20} color={CALLOUT_COLOR} />
                     ) : (
                       <>
                         {shiftType && shiftColor && (
@@ -229,19 +229,19 @@ export default function MonthView({
                         )}
                         {timeOff?.status === "pending" && (
                           <TimeOffPendingIcon
-                            size={12}
+                            size={20}
                             color={TIME_OFF_COLORS.pending}
                           />
                         )}
                         {timeOff?.status === "approved" && (
                           <TimeOffApprovedIcon
-                            size={12}
+                            size={20}
                             color={TIME_OFF_COLORS.approved}
                           />
                         )}
                         {timeOff?.status === "denied" && (
                           <TimeOffDeniedIcon
-                            size={12}
+                            size={20}
                             color={TIME_OFF_COLORS.denied}
                           />
                         )}
