@@ -21,7 +21,7 @@ export default function SideNav({ active, isManager }: Props) {
       className="w-[220px] shrink-0 bg-bg border-r border-slate-800 flex flex-col h-screen sticky top-0 z-20"
     >
       {/* Brand */}
-      <div className="px-5 py-[18px] border-b border-slate-800 shrink-0 flex items-center justify-between gap-2">
+      <div className="px-5 py-[18px] border-b border-slate-800 shrink-0 flex flex-col items-start gap-2.5">
         <span className="text-[22px] font-extrabold text-slate-100 tracking-tight">
           Shift
           <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
