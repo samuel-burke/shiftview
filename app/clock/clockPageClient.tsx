@@ -270,11 +270,15 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
-  // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context)
+  // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context).
+  // The punches listener keeps this screen in sync across the user's devices: a
+  // punch made elsewhere updates the status, timer and history here too (a
+  // background reload, so it never flashes the skeleton).
   useEffect(() => {
     const channel = supabase
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "punches" }, () => loadData(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadData]);
