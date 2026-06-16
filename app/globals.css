@@ -184,10 +184,16 @@ header {
 /*
  * A soft inset glow hugging the screen edge that signals live clock status.
  * Fixed and non-interactive so it overlays every screen without affecting
- * layout or taps. It wraps the full screen (including around the top, behind
- * the status bar) with rounded corners that match the device, so it reads as
- * a deliberate ambient frame rather than a hard border. The glow is a soft
- * inset shadow only — no crisp border line, which looked off at the corners.
+ * layout or taps. It wraps the full screen — including around the top, behind
+ * the status bar (this needs viewport-fit=cover, set in the layout). The glow
+ * is a soft inset shadow only — no crisp border line, which looked off at the
+ * corners.
+ *
+ * The element is a full-bleed rectangle with no border-radius: a rounded ring
+ * would leave the screen's true corners outside the glow, exposing the page
+ * background on devices whose bezels are squarer than the radius. Squared
+ * corners fill into the real corner instead, and on rounded screens iOS masks
+ * the web view to the curve, so the soft glow naturally follows it.
  *
  * Color comes from --ring-color (set per status below) and intensity from
  * --ring-core / --ring-halo, which are bumped up in light mode where a soft
@@ -198,7 +204,6 @@ header {
   inset: 0;
   z-index: 60;
   pointer-events: none;
-  border-radius: 44px;
   --ring-core: 45%;
   --ring-halo: 22%;
   box-shadow:
