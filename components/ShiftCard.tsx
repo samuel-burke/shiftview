@@ -13,6 +13,7 @@ import {
   SHIFT_COLORS,
   fmtMinutes,
 } from "../data/types";
+import { ShiftIcon } from "./ShiftIcons";
 
 type Props = {
   employee: Employee;
@@ -103,7 +104,8 @@ export default function ShiftCard({
           {formatDisplayName(employee.name)}
         </div>
         {(shiftType || isWalkIn) && (
-          <div className="text-[11px] mt-0.5 capitalize" style={{ color: shiftColor }}>
+          <div className="text-[11px] mt-0.5 capitalize flex items-center gap-1" style={{ color: shiftColor }}>
+            {shiftType && <ShiftIcon shiftType={shiftType} size={12} color={shiftColor} />}
             {isWalkIn ? "Walk-in" : shiftType}
           </div>
         )}

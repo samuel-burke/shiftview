@@ -69,6 +69,17 @@ function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string
   );
 }
 
+// Top-level grouping divider — sits above a cluster of related settings
+// sections to give the page a clear two-tier hierarchy (group → section → card).
+function SettingsGroupHeader({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 mt-3 first:mt-0 select-none">
+      <span className="text-sm font-bold text-slate-100 tracking-tight">{label}</span>
+      <div className="flex-1 h-px bg-slate-800" />
+    </div>
+  );
+}
+
 const DEFAULT_STORE_HOURS: Record<number, { open: number; close: number }> = {
   0: { open: 480, close: 1200 }, 1: { open: 360, close: 1320 }, 2: { open: 360, close: 1320 },
   3: { open: 360, close: 1320 }, 4: { open: 360, close: 1320 }, 5: { open: 360, close: 1320 },
@@ -764,6 +775,9 @@ export default function SettingsPageClient({
 
       <div className={`px-4 pt-5 pb-12 flex flex-col gap-5${loading ? " hidden" : ""}`}>
 
+        {/* ── Preferences (personal, all users) ── */}
+        <SettingsGroupHeader label="Preferences" />
+
         {/* My Availability — shown to all linked employees */}
         {employeeId !== null && (
           <AvailabilitySection
@@ -975,6 +989,9 @@ export default function SettingsPageClient({
             </div>
           </section>
         )}
+
+        {/* ── Workplace (org-level config, manager only) ── */}
+        {isManager && <SettingsGroupHeader label="Workplace" />}
 
         {/* Store Hours — manager only */}
         {isManager && (
@@ -1306,6 +1323,9 @@ export default function SettingsPageClient({
           </div>
         </section>}
 
+        {/* ── Team (people & access, manager only) ── */}
+        {isManager && <SettingsGroupHeader label="Team" />}
+
         {/* Employees — manager only */}
         {isManager && <section>
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
@@ -1521,6 +1541,9 @@ export default function SettingsPageClient({
           </div>
         </section>
         )}
+
+        {/* ── Account (all users) ── */}
+        <SettingsGroupHeader label="Account" />
 
         {/* Sign out */}
         <section className="pb-2">

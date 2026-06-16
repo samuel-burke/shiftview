@@ -577,16 +577,25 @@ export default function SchedulePageClient() {
 
       {/* Range label + prev/next */}
       <div className="flex items-center justify-between mt-5 mb-4">
-        <button
+        <motion.button
           onClick={() => setPickerOpen(true)}
           aria-label={`${rangeLabel}. Open date picker`}
           aria-expanded={pickerOpen}
           aria-haspopup="dialog"
-          className="font-bold text-slate-100 text-base flex items-center gap-1.5 bg-transparent border-none py-3 -my-3 px-0 cursor-pointer hover:opacity-80 transition-opacity"
+          whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 py-2.5 cursor-pointer"
         >
-          {rangeLabel}
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
+          <span className="text-base font-bold text-slate-100 tracking-tight">{rangeLabel}</span>
+          <motion.span
+            animate={{ rotate: pickerOpen ? 180 : 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 22 }}
+            className="inline-block"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </motion.span>
+        </motion.button>
         <div className="flex items-center gap-2">
           {!isAtToday && (
             <motion.button
