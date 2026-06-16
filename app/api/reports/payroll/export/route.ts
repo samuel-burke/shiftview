@@ -149,7 +149,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from("punch_records")
-    .select("id, employee_id, punch_type, punched_at, employees(name)")
+    .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
     .eq("org_id", orgId!)
     .gte("punched_at", `${from}T00:00:00+00:00`)
     .lte("punched_at", `${to}T23:59:59.999+00:00`)
