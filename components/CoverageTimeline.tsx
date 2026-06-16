@@ -23,6 +23,7 @@ type Props = {
   openMinutes: number;
   closeMinutes: number;
   punchRecords?: PunchRecord[];
+  punchesLoaded?: boolean;
   timezone?: string;
   targetBlocks?: CoverageBlock[];
 };
@@ -57,6 +58,7 @@ export default function CoverageTimeline({
   openMinutes,
   closeMinutes,
   punchRecords,
+  punchesLoaded = false,
   timezone = "America/New_York",
   targetBlocks,
 }: Props) {
@@ -87,10 +89,12 @@ export default function CoverageTimeline({
   }, [openMinutes, closeMinutes]);
   // For each 15-min slot, count employees with status "clocked_in" at that minute.
   // Returns null for future slots so the line terminates at nowMinutes.
+  // Renders as soon as today's punches are loaded — even with nobody clocked in
+  // yet — so the "here now" line shows a flat zero rather than disappearing.
   const actualByPoint = useMemo(() => {
-    if (!isToday || !punchRecords?.length) return null;
+    if (!isToday || !punchesLoaded) return null;
 
-    const withMinutes = punchRecords.map((p) => {
+    const withMinutes = (punchRecords ?? []).map((p) => {
       const d = new Date(p.punchedAt);
       const s = d.toLocaleTimeString("en-US", {
         timeZone: timezone,
@@ -121,7 +125,7 @@ export default function CoverageTimeline({
       }
       return count;
     });
-  }, [isToday, punchRecords, points, nowMinutes, timezone]);
+  }, [isToday, punchesLoaded, punchRecords, points, nowMinutes, timezone]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [showTooltip, setShowTooltip] = useState(true);

@@ -690,6 +690,7 @@ export default function Page() {
       openMinutes={storeHours.open}
       closeMinutes={storeHours.close}
       punchRecords={punchRecords}
+      punchesLoaded={isToday && punchesLoaded}
       timezone={timezone}
       targetBlocks={dayCurve}
     />
