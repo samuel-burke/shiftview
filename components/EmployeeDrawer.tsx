@@ -42,6 +42,7 @@ type Props = {
   onCreate: (employeeId: number, startMinutes: number, endMinutes: number, override?: boolean) => Promise<void>;
   onMarkOff: (scheduleId: number) => Promise<void>;
   onResendInvite?: (email: string) => Promise<void>;
+  onViewTimeCard?: () => void;
   isManager: boolean;
 };
 
@@ -71,6 +72,7 @@ export default function EmployeeDrawer({
   onCreate,
   onMarkOff,
   onResendInvite,
+  onViewTimeCard,
   isManager,
 }: Props) {
   const isDesktop = useIsDesktop();
@@ -477,6 +479,22 @@ export default function EmployeeDrawer({
                         </motion.button>
                       )}
                     </div>
+
+                    {isManager && onViewTimeCard && (
+                      <motion.button
+                        onClick={onViewTimeCard}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                        className="w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-slate-700 text-slate-300 font-semibold text-sm cursor-pointer hover:bg-slate-800 hover:text-slate-100 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        View Time Card
+                      </motion.button>
+                    )}
 
                     {isManager && onResendInvite && !employee.user_id && employee.email && (
                       <motion.button

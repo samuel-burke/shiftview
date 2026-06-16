@@ -4,6 +4,7 @@ import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrgAll } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
+import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export async function GET(request?: Request) {
     geofenceLng:          map.geofence_lng ? parseFloat(map.geofence_lng) : null,
     geofenceRadius:       parseInt(map.geofence_radius ?? "100"),
     geofenceAddress:      map.geofence_address || null,
+    punchPolicy:          parsePunchPolicy(map),
   });
 }
 
@@ -127,6 +129,16 @@ export async function PUT(request: Request) {
     if (body.geofenceAddress !== null && typeof body.geofenceAddress !== "string")
       return NextResponse.json({ error: "geofenceAddress must be a string or null" }, { status: 400 });
     rows.push({ key: "geofence_address", value: body.geofenceAddress ?? "" });
+  }
+
+  // Punch-violation policy — a nested object of booleans/integers. Validated and
+  // converted to individual app_settings rows by punchPolicyRows.
+  if (body.punchPolicy !== undefined) {
+    if (typeof body.punchPolicy !== "object" || body.punchPolicy === null)
+      return NextResponse.json({ error: "punchPolicy must be an object" }, { status: 400 });
+    const { rows: policyRows, error: policyError } = punchPolicyRows(body.punchPolicy);
+    if (policyError) return NextResponse.json({ error: policyError }, { status: 400 });
+    rows.push(...policyRows);
   }
 
   if (rows.length === 0)
