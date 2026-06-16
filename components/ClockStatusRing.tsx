@@ -20,10 +20,12 @@ import { isStatusRingEnabled, STATUS_RING_EVENT } from "@/lib/status-ring-prefer
  * It can be turned off per-device in Settings.
  */
 
-const RING: Record<string, { color: string; className: string } | null> = {
-  clocked_in: { color: "#22c55e", className: "status-ring status-ring-green" },
-  on_break:   { color: "#f59e0b", className: "status-ring status-ring-amber" },
-  clocked_out: null,
+// Per-status class; the actual glow color (and its light-mode variant) lives in
+// globals.css so it can adapt to the theme. Off-shift statuses render nothing.
+const RING_CLASS: Record<string, string | null> = {
+  clocked_in:     "status-ring status-ring-green",
+  on_break:       "status-ring status-ring-amber",
+  clocked_out:    null,
   not_clocked_in: null,
 };
 
@@ -42,14 +44,8 @@ export default function ClockStatusRing() {
     return () => window.removeEventListener(STATUS_RING_EVENT, onChange);
   }, []);
 
-  const ring = RING[liveStatus];
-  if (!enabled || !ring) return null;
+  const ringClass = RING_CLASS[liveStatus];
+  if (!enabled || !ringClass) return null;
 
-  return (
-    <div
-      aria-hidden="true"
-      className={ring.className}
-      style={{ ["--ring-color" as string]: ring.color }}
-    />
-  );
+  return <div aria-hidden="true" className={ringClass} />;
 }

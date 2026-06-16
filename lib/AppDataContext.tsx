@@ -304,7 +304,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .channel("app-data-shared")
       .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refreshStoreHours)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refreshSettings)
-      .on("postgres_changes", { event: "*", schema: "public", table: "punches" }, refreshLiveStatus)
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_records" }, refreshLiveStatus)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [refreshStoreHours, refreshSettings, refreshLiveStatus]);
