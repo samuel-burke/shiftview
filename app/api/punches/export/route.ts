@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("punch_records")
-    .select("*, employees(name)")
+    .select("*, employees!punch_records_employee_org_fkey(name)")
     .eq("org_id", orgId)
     .gte("punched_at", rangeStart)
     .lte("punched_at", rangeEnd)
