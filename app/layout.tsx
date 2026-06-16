@@ -42,9 +42,16 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-512.png" />
         <meta name="theme-color" content="#0a1628" />
         <meta name="screen-orientation" content="portrait" />
+        {/*
+          viewport-fit=cover lets the web view extend into the safe areas
+          (under the iOS status bar and home indicator) in standalone PWA mode.
+          This is what activates the env(safe-area-inset-*) padding already used
+          by the body, TopBar and BottomNav — and it lets the ambient status
+          ring reach edge-to-edge, glowing behind the status bar too.
+        */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
       </head>
       <body>
