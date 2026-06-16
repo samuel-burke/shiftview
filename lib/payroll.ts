@@ -34,7 +34,11 @@ export type EmployeePayroll = {
   totalWorkedHours: number;
 };
 
-const TZ = "America/New_York";
+// The timezone payroll buckets punches into local days by. Exported so the API
+// routes can scope their query window to the same local-day boundaries —
+// otherwise punches near the day edges get dropped before they reach here.
+export const PAYROLL_TZ = "America/New_York";
+const TZ = PAYROLL_TZ;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function round2(n: number): number {

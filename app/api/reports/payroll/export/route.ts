@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { computePayroll, EmployeePayroll, PunchRow } from "@/lib/payroll";
+import { computePayroll, EmployeePayroll, PunchRow, PAYROLL_TZ } from "@/lib/payroll";
+import { localDayBoundsUtc } from "@/lib/punch-date-utils";
 import { writeAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -151,8 +152,8 @@ export async function GET(request: Request) {
     .from("punch_records")
     .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
     .eq("org_id", orgId!)
-    .gte("punched_at", `${from}T00:00:00+00:00`)
-    .lte("punched_at", `${to}T23:59:59.999+00:00`)
+    .gte("punched_at", localDayBoundsUtc(from, PAYROLL_TZ).start.toISOString())
+    .lte("punched_at", localDayBoundsUtc(to, PAYROLL_TZ).end.toISOString())
     .order("employee_id")
     .order("punched_at")
     .limit(50_000);

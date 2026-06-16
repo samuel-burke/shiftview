@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { writeAuditLog } from "@/lib/audit";
+import { localDayBoundsUtc } from "@/lib/punch-date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +45,19 @@ export async function GET(request: Request) {
 
   const { orgId, user, isManager, employeeId } = ctx!;
 
-  const rangeStart = `${from}T00:00:00+00:00`;
-  const rangeEnd   = `${to}T23:59:59.999+00:00`;
+  // Scope the query to the org's configured timezone so the [from, to] window
+  // covers full *local* calendar days. Filtering on naive UTC boundaries drops
+  // punches near the day edges (and, for a timezone behind UTC, the whole tail
+  // of the last day), which surfaced as exports with missing or no rows.
+  const { data: settingsData } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .eq("org_id", orgId)
+    .eq("key", "timezone");
+  const tz = settingsData?.[0]?.value ?? "America/New_York";
+
+  const rangeStart = localDayBoundsUtc(from, tz).start.toISOString();
+  const rangeEnd   = localDayBoundsUtc(to, tz).end.toISOString();
 
   let query = supabase
     .from("punch_records")
@@ -93,8 +105,8 @@ export async function GET(request: Request) {
 
   for (const r of rows) {
     const punchedAt = new Date(r.punched_at);
-    const date = punchedAt.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-    const time = punchedAt.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const date = punchedAt.toLocaleDateString("en-CA", { timeZone: tz });
+    const time = punchedAt.toLocaleTimeString("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const empName = (r.employees as { name: string } | null)?.name ?? String(r.employee_id);
     lines.push([
       empName,
