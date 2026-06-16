@@ -7,6 +7,7 @@ import PresenceHeartbeat from "../components/PresenceHeartbeat";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "../components/ThemeProvider";
 import { AppDataProvider } from "../lib/AppDataContext";
+import ClockStatusRing from "../components/ClockStatusRing";
 
 export const metadata = {
   title: "ShiftView",
@@ -51,6 +52,7 @@ export default function RootLayout({
           <Suspense>
             <AppDataProvider>
               {children}
+              <ClockStatusRing />
             </AppDataProvider>
           </Suspense>
         </ThemeProvider>

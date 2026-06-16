@@ -98,7 +98,7 @@ export default function ClockPageClient() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache } = useAppData();
+  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
   const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
   const isDemo = cachedMe.isDemo;
 
@@ -200,6 +200,12 @@ export default function ClockPageClient() {
     const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Keep the app-wide ambient status ring in sync with this screen's punches —
+  // including optimistic ones — so it reflects a tap the instant it happens.
+  useEffect(() => {
+    setLiveStatus(status);
+  }, [status, setLiveStatus]);
 
   // employeeId from context, but we need it in loadData which is a callback
   const employeeIdRef = useRef(employeeId);
