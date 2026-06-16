@@ -1,7 +1,7 @@
 "use client";
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase-browser";
-import type { Employee, Schedule, PunchRecord, StoreHours } from "@/data/types";
+import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedule, type PunchRecord, type StoreHours } from "@/data/types";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -58,6 +58,12 @@ type AppDataContextValue = {
   refreshMe: () => void;
   refreshStoreHours: () => void;
   refreshSettings: () => void;
+  // Current user's live attendance status, derived from today's punches. Shared
+  // app-wide so the ambient status ring can be shown on every screen. The clock
+  // screen also pushes immediate updates here via setLiveStatus after a punch.
+  liveStatus: AttendanceStatus;
+  setLiveStatus: (status: AttendanceStatus) => void;
+  refreshLiveStatus: () => void;
   // Team page cache — survives navigation so remounting Team is instant
   // employees is written by pageClient after each direct fetch; context is cache-only
   employees: Employee[];
@@ -79,6 +85,9 @@ const AppDataContext = createContext<AppDataContextValue>({
   refreshMe: () => {},
   refreshStoreHours: () => {},
   refreshSettings: () => {},
+  liveStatus: "not_clocked_in",
+  setLiveStatus: () => {},
+  refreshLiveStatus: () => {},
   employees: [],
   cacheEmployees: () => {},
   scheduleCache: {},
@@ -134,6 +143,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [scheduleCache, setScheduleCacheState] = useState<Record<string, Schedule[]>>({});
   const [punchCache, setPunchCacheState] = useState<Record<string, PunchRecord[]>>({});
   const [myScheduleCache, setMyScheduleCacheState] = useState<Record<string, Schedule[]>>({});
+  const [liveStatus, setLiveStatus] = useState<AttendanceStatus>("not_clocked_in");
 
   const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null; isDemo?: boolean }) => {
     const newMe: MeData = {
@@ -207,6 +217,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
+  // Fetch today's punches for the current user and derive the live attendance
+  // status. Only meaningful for users linked to an employee record; managers
+  // without one keep "not_clocked_in" (no ring). Reads me/timezone via refs so
+  // the callback identity stays stable across renders.
+  const meRef = useRef(me);
+  meRef.current = me;
+  const timezoneRef = useRef(settings.timezone);
+  timezoneRef.current = settings.timezone;
+
+  const refreshLiveStatus = useCallback(() => {
+    const empId = meRef.current.employeeId;
+    if (empId === null) {
+      setLiveStatus("not_clocked_in");
+      return;
+    }
+    const tz = timezoneRef.current || "America/New_York";
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+    fetch(`/api/punches?date=${todayKey}`)
+      .then(r => r.json())
+      .then((data: PunchRecord[]) => {
+        const mine = Array.isArray(data) ? data.filter(p => p.employeeId === empId) : [];
+        setLiveStatus(getAttendanceStatus(mine));
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!readMeCache()) setSharedLoading(true);
     Promise.allSettled([
@@ -220,6 +256,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }).finally(() => setSharedLoading(false));
   }, []);
 
+  // Refresh the live attendance status once we know which employee this is
+  // (and whenever that identity changes — e.g. after login or demo heal).
+  useEffect(() => {
+    refreshLiveStatus();
+  }, [me.employeeId, refreshLiveStatus]);
+
   // React to auth changes. A just-completed login navigates client-side
   // (router.push) without remounting this provider, so the mount-effect above
   // never re-runs — without this the user would stay "unauthenticated" (no
@@ -230,8 +272,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         refreshMe();
         refreshStoreHours();
         refreshSettings();
+        refreshLiveStatus();
       } else if (event === "SIGNED_OUT") {
         applyMe({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
+        setLiveStatus("not_clocked_in");
       }
     });
     return () => subscription.unsubscribe();
@@ -248,25 +292,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         refreshMe();
         refreshStoreHours();
         refreshSettings();
+        refreshLiveStatus();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [refreshMe, refreshStoreHours, refreshSettings]);
+  }, [refreshMe, refreshStoreHours, refreshSettings, refreshLiveStatus]);
 
   useEffect(() => {
     const channel = supabase
       .channel("app-data-shared")
       .on("postgres_changes", { event: "*", schema: "public", table: "store_hours" }, refreshStoreHours)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, refreshSettings)
+      .on("postgres_changes", { event: "*", schema: "public", table: "punches" }, refreshLiveStatus)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [refreshStoreHours, refreshSettings]);
+  }, [refreshStoreHours, refreshSettings, refreshLiveStatus]);
 
   return (
     <AppDataContext.Provider value={{
       me, storeHours, settings, sharedLoading,
       refreshMe, refreshStoreHours, refreshSettings,
+      liveStatus, setLiveStatus, refreshLiveStatus,
       employees, cacheEmployees,
       scheduleCache, setScheduleCache,
       punchCache, setPunchCache,

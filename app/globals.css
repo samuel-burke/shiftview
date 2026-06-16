@@ -180,6 +180,37 @@ header {
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
+/* ── Ambient clock-status ring ────────────────────────────── */
+/*
+ * A soft inset glow hugging the screen edge that signals live clock status.
+ * Fixed and non-interactive so it overlays every screen without affecting
+ * layout or taps. Color is supplied per-status via the --ring-color variable.
+ * It breathes gently so it reads as "live" without demanding attention.
+ */
+.status-ring {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  border: 1.5px solid color-mix(in srgb, var(--ring-color) 55%, transparent);
+  box-shadow:
+    inset 0 0 12px 0 color-mix(in srgb, var(--ring-color) 35%, transparent),
+    inset 0 0 28px 4px color-mix(in srgb, var(--ring-color) 18%, transparent);
+  animation: status-ring-breathe 3.4s ease-in-out infinite;
+}
+
+@keyframes status-ring-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-ring {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
 /* ── Focus-visible ring ───────────────────────────────────── */
 :focus-visible {
   outline: 2px solid #6366f1;
