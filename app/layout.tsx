@@ -5,6 +5,7 @@ import AddToHomeScreenBanner from "../components/AddToHomeScreenBanner";
 import InAppNotificationBanner from "../components/InAppNotificationBanner";
 import PresenceHeartbeat from "../components/PresenceHeartbeat";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "../components/ThemeProvider";
 import { AppDataProvider } from "../lib/AppDataContext";
 
@@ -59,6 +60,7 @@ export default function RootLayout({
         <InAppNotificationBanner />
         <PresenceHeartbeat />
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
