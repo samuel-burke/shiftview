@@ -97,6 +97,31 @@ export type Callout = {
 // Red, consistent with the denied/absent tone used elsewhere in the UI.
 export const CALLOUT_COLOR = "var(--color-timeoff-denied)";
 
+// An open shift — an unassigned slot a manager posts for employees to pick up
+// (see lib/open-shifts.ts). Times are minutes since midnight.
+export type OpenShiftStatus = "open" | "filled" | "cancelled";
+export type ClaimStatus = "pending" | "approved" | "denied";
+
+export type OpenShift = {
+  id: number;
+  date: string;        // YYYY-MM-DD
+  startMinutes: number;
+  endMinutes: number;
+  note?: string | null;
+  status: OpenShiftStatus;
+  filledBy?: number | null;     // employee id once filled
+  filledByName?: string | null;
+  claims?: OpenShiftClaim[];
+};
+
+export type OpenShiftClaim = {
+  id: number;
+  openShiftId: number;
+  employeeId: number;
+  employeeName?: string;
+  status: ClaimStatus;
+};
+
 export type PunchType = "clock_in" | "clock_out" | "break_start" | "break_end";
 export type AttendanceStatus = "clocked_in" | "on_break" | "clocked_out" | "not_clocked_in";
 
