@@ -171,6 +171,34 @@ describe("PATCH /api/employees", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  // ── Pay rate ────────────────────────────────────────────────────────────────
+
+  it("returns 200 when setting a pay rate", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, payRate: 18.5 }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 200 when clearing a pay rate with null", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, payRate: null }));
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 400 for a negative pay rate", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, payRate: -5 }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("payRate") });
+  });
+
+  it("returns 400 for a non-numeric pay rate", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, payRate: "20" }));
+    expect(res.status).toBe(400);
+  });
+
   // ── DB error ────────────────────────────────────────────────────────────────
 
   it("returns 500 on database error", async () => {

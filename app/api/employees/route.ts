@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   const { data, error: dbError } = await supabase
     .from("employees")
-    .select("id, name, email, user_id")
+    .select("id, name, email, user_id, pay_rate")
     .eq("org_id", ctx!.orgId);
   if (dbError) {
     console.error("[api/employees]", dbError);
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const { id, userId, name } = await request.json();
+  const { id, userId, name, payRate } = await request.json();
 
   if (id == null)
     return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -56,6 +56,15 @@ export async function PATCH(request: Request) {
     );
   if (name !== undefined && (typeof name !== "string" || !name.trim()))
     return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
+  if (
+    payRate !== undefined &&
+    payRate !== null &&
+    (typeof payRate !== "number" || !Number.isFinite(payRate) || payRate < 0)
+  )
+    return NextResponse.json(
+      { error: "payRate must be a non-negative number or null to clear" },
+      { status: 400 }
+    );
 
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
@@ -87,6 +96,7 @@ export async function PATCH(request: Request) {
   const updates: Record<string, unknown> = {};
   if (userId !== undefined) updates.user_id = userId;
   if (name !== undefined) updates.name = name.trim();
+  if (payRate !== undefined) updates.pay_rate = payRate;
 
   if (Object.keys(updates).length === 0)
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
