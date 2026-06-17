@@ -53,6 +53,30 @@ function offsetDate(d: Date, days: number) {
   return n;
 }
 
+// Monday of the week containing `d` (weeks run Mon–Sun).
+function weekMonday(d: Date): Date {
+  const n = new Date(d);
+  const day = n.getDay(); // 0=Sun … 6=Sat
+  n.setDate(n.getDate() + (day === 0 ? -6 : 1 - day));
+  return n;
+}
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Inclusive YYYY-MM-DD keys from `from` to `to` (noon-UTC anchored to dodge DST).
+function eachDateKey(from: string, to: string): string[] {
+  const out: string[] = [];
+  const end = new Date(to + "T12:00:00Z");
+  for (let d = new Date(from + "T12:00:00Z"); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+// Cap the team export so it stays a manageable grid and a bounded number of
+// per-day schedule fetches.
+const MAX_EXPORT_DAYS = 62;
+
 function AnimatedStatCard({
   index,
   value,
@@ -131,6 +155,8 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
+  const [exportFrom, setExportFrom] = useState(() => toDateKey(weekMonday(today)));
+  const [exportTo, setExportTo] = useState(() => toDateKey(offsetDate(weekMonday(today), 6)));
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
   const [callouts, setCallouts] = useState<Callout[]>([]);
@@ -158,18 +184,16 @@ export default function Page() {
   const timezoneRef = useRef(timezone);
   timezoneRef.current = timezone;
 
-  // Compute Mon–Sun week dates for the week containing `date`
-  const weekDatesForExport = useMemo((): string[] => {
-    // Find Monday of the current week
-    const d = new Date(date);
-    const day = d.getDay(); // 0=Sun, 1=Mon...6=Sat
-    const diff = day === 0 ? -6 : 1 - day; // shift Sunday to end
-    d.setDate(d.getDate() + diff);
-    return Array.from({ length: 7 }, (_, i) => toDateKey(offsetDate(d, i)));
-  }, [date]);
-
   async function handleExportCSV() {
-    const capturedDates = weekDatesForExport;
+    if (exportFrom > exportTo) {
+      setError("Export start date must not be after the end date.");
+      return;
+    }
+    const capturedDates = eachDateKey(exportFrom, exportTo);
+    if (capturedDates.length > MAX_EXPORT_DAYS) {
+      setError(`Export range is too large — pick ${MAX_EXPORT_DAYS} days or fewer.`);
+      return;
+    }
     setExportLoading(true);
 
     const results = await Promise.allSettled(
@@ -187,8 +211,7 @@ export default function Page() {
     const allSchedules = results.flatMap(r => r.status === "fulfilled" ? r.value as Schedule[] : []);
 
     // Build header row: Employee, Mon DATE, Tue DATE, ...
-    const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const headerCols = capturedDates.map((d, i) => `${DAY_LABELS[i]} ${d}`);
+    const headerCols = capturedDates.map((d) => `${WEEKDAY_LABELS[new Date(d + "T12:00:00Z").getUTCDay()]} ${d}`);
     const header = ["Employee", ...headerCols].join(",");
 
     // Build one row per employee
@@ -203,9 +226,8 @@ export default function Page() {
     });
 
     const csvContent = [header, ...rows].join("\n");
-    const weekStartDate = capturedDates[0];
     const blob = new Blob([csvContent], { type: "text/csv" });
-    downloadCSV(blob, `schedule-${weekStartDate}.csv`);
+    downloadCSV(blob, `schedule_${exportFrom}_to_${exportTo}.csv`);
 
     setExportLoading(false);
   }
@@ -871,16 +893,42 @@ export default function Page() {
   ) : null;
 
   const exportButton = isManager ? (
-    <motion.button
-      onClick={handleExportCSV}
-      disabled={exportLoading}
-      aria-busy={exportLoading}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="w-full mt-4 py-3 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {exportLoading ? "Loading…" : "Export CSV"}
-    </motion.button>
+    <div className="mt-4 flex flex-col gap-2">
+      <div className="flex items-end gap-2">
+        <div className="flex-1 min-w-0">
+          <label htmlFor="exp-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+          <input
+            id="exp-from"
+            type="date"
+            value={exportFrom}
+            max={exportTo}
+            onChange={(e) => setExportFrom(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label htmlFor="exp-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+          <input
+            id="exp-to"
+            type="date"
+            value={exportTo}
+            min={exportFrom}
+            onChange={(e) => setExportTo(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+          />
+        </div>
+      </div>
+      <motion.button
+        onClick={handleExportCSV}
+        disabled={exportLoading || exportFrom > exportTo}
+        aria-busy={exportLoading}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        className="w-full py-3 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {exportLoading ? "Loading…" : "Export CSV"}
+      </motion.button>
+    </div>
   ) : null;
 
   return (

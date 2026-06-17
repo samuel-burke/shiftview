@@ -135,6 +135,7 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.break_end":      return `Break ended — ${empName}`;
     case "punch.correction":     return `Punch correction for ${empName}`;
     case "punch.export":         return `Exported punch records`;
+    case "timecard.export":      return `Exported time card`;
     case "payroll.export":       return `Exported payroll report`;
     case "availability.upsert":  return `Updated availability for ${empName}`;
     case "availability.delete":  return `Removed availability for ${empName}`;
@@ -210,8 +211,10 @@ function auditDetail(entry: AuditEntry): string | null {
     }
     case "punch.export":
       return `${m.from} to ${m.to} · ${m.rowCount} rows`;
+    case "timecard.export":
+      return `${m.from} to ${m.to} · ${m.totalViolations} flags`;
     case "payroll.export": {
-      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", "qb-iif": "QuickBooks IIF" };
+      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", detailed: "Breakdown CSV", "qb-iif": "QuickBooks IIF" };
       return `${m.from} to ${m.to} · ${fmtLabel[m.format as string] ?? m.format} · ${m.employeeCount} employees`;
     }
     case "availability.upsert":
@@ -790,6 +793,7 @@ export default function ReportsPageClient() {
               >
                 <option value="summary">Summary CSV — Universal</option>
                 <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
+                <option value="detailed">Calculation Breakdown CSV — Regular/OT/Break audit</option>
                 <option value="qb-iif">QuickBooks Desktop (.iif)</option>
               </select>
             </div>
@@ -883,6 +887,8 @@ export default function ReportsPageClient() {
                   ? "Download QuickBooks Desktop (.iif)"
                   : payrollFormat === "daily"
                   ? "Download Daily Detail CSV"
+                  : payrollFormat === "detailed"
+                  ? "Download Calculation Breakdown CSV"
                   : "Download Summary CSV"}
               </button>
             </>

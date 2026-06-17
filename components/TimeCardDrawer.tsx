@@ -119,7 +119,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
   function exportCSV() {
     if (!employee) return;
     const a = document.createElement("a");
-    a.href = `/api/punches/export?employeeId=${employee.id}&from=${from}&to=${to}`;
+    a.href = `/api/timecard?employeeId=${employee.id}&from=${from}&to=${to}&format=csv`;
     a.download = `timecard_${employee.name.replace(/\s+/g, "_")}_${from}_to_${to}.csv`;
     a.click();
   }
