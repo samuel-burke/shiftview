@@ -80,6 +80,56 @@ function dailyCSV(rows: EmployeePayroll[]): string {
   return lines.join("\n");
 }
 
+// Calculation breakdown — shows how each worked day accumulates toward the
+// weekly 40h regular cap (hours beyond it become overtime), alongside that
+// day's break hours. The per-week subtotal rows are exactly the figures the
+// Summary sheet reports, so a manager can audit how Regular/OT/Break were
+// derived. Overtime is split at the day level the same way the QuickBooks
+// export does, so the two stay consistent.
+function detailedCSV(rows: EmployeePayroll[]): string {
+  const lines = [csvRow([
+    "Employee", "Week Of", "Date", "Day",
+    "Worked Hrs", "Cumulative Wk Hrs", "Regular Hrs", "OT Hrs", "Break Hrs", "Incomplete",
+  ])];
+  for (const emp of rows) {
+    for (const week of emp.weeks) {
+      let weekAccum = 0;
+      for (const day of week.days) {
+        if (day.workedHours === 0 && !day.hasIncomplete) continue;
+        const regularCap = Math.max(0, 40 - weekAccum);
+        const regularHrs = Math.min(day.workedHours, regularCap);
+        const otHrs      = Math.max(0, day.workedHours - regularCap);
+        weekAccum += day.workedHours;
+        lines.push(csvRow([
+          emp.employeeName,
+          week.weekStart,
+          day.date,
+          day.dayName,
+          day.workedHours.toFixed(2),
+          weekAccum.toFixed(2),
+          regularHrs.toFixed(2),
+          otHrs.toFixed(2),
+          day.breakHours.toFixed(2),
+          day.hasIncomplete ? "Yes" : "",
+        ]));
+      }
+      lines.push(csvRow([
+        `${emp.employeeName} — week total`,
+        week.weekStart,
+        "", "",
+        week.totalWorkedHours.toFixed(2),
+        "",
+        week.regularHours.toFixed(2),
+        week.overtimeHours.toFixed(2),
+        week.breakHours.toFixed(2),
+        week.hasIncomplete ? "Yes" : "",
+      ]));
+    }
+    lines.push(""); // blank separator between employees
+  }
+  return lines.join("\n");
+}
+
 // QuickBooks Desktop IIF — one TIMEACT row per employee per worked day
 function quickbooksIIF(rows: EmployeePayroll[]): string {
   const lines = [
@@ -187,6 +237,11 @@ export async function GET(request: Request) {
       content     = dailyCSV(payroll);
       contentType = "text/csv";
       filename    = `payroll_daily_${from}_to_${to}.csv`;
+      break;
+    case "detailed":
+      content     = detailedCSV(payroll);
+      contentType = "text/csv";
+      filename    = `payroll_breakdown_${from}_to_${to}.csv`;
       break;
     default:
       content     = summaryCSV(payroll);
