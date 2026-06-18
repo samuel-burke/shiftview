@@ -99,6 +99,30 @@ input, textarea, select {
   font-size: max(16px, 1em);
 }
 
+/*
+ * iOS date/time inputs.
+ * Mobile Safari gives <input type="date|time|datetime-local"> an intrinsic
+ * content width and renders the value through ::-webkit-date-and-time-value,
+ * which is right-aligned and carries default margins. Inside width-constrained
+ * flex/grid layouts (e.g. the From/To pickers in Reports and the Clock export)
+ * this makes the value overflow its field and adjacent inputs visually overlap.
+ * Reset the native appearance, allow the field to shrink (min-width:0), and
+ * left-align the value with no stray margin so these behave like text inputs.
+ */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+
 /* Prevent iOS text-selection callout on buttons and interactive UI elements */
 button,
 a,
