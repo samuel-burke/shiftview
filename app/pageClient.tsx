@@ -157,6 +157,7 @@ export default function Page() {
   const [exportLoading, setExportLoading] = useState(false);
   const [exportFrom, setExportFrom] = useState(() => toDateKey(weekMonday(today)));
   const [exportTo, setExportTo] = useState(() => toDateKey(offsetDate(weekMonday(today), 6)));
+  const [showExport, setShowExport] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
   const [callouts, setCallouts] = useState<Callout[]>([]);
@@ -894,40 +895,55 @@ export default function Page() {
 
   const exportButton = isManager ? (
     <div className="mt-4 flex flex-col gap-2">
-      <div className="flex items-end gap-2">
-        <div className="flex-1 min-w-0">
-          <label htmlFor="exp-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
-          <input
-            id="exp-from"
-            type="date"
-            value={exportFrom}
-            max={exportTo}
-            onChange={(e) => setExportFrom(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <label htmlFor="exp-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
-          <input
-            id="exp-to"
-            type="date"
-            value={exportTo}
-            min={exportFrom}
-            onChange={(e) => setExportTo(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
-          />
-        </div>
-      </div>
       <motion.button
-        onClick={handleExportCSV}
-        disabled={exportLoading || exportFrom > exportTo}
-        aria-busy={exportLoading}
+        onClick={() => setShowExport((v) => !v)}
+        aria-expanded={showExport}
+        aria-controls="home-export-range"
         whileTap={{ scale: 0.98 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className="w-full py-3 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors"
       >
-        {exportLoading ? "Loading…" : "Export CSV"}
+        Export CSV
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </motion.button>
+      {showExport && (
+        <div id="home-export-range" className="flex flex-col gap-2 bg-card border border-slate-800/60 rounded-xl p-3">
+          <div className="flex items-end gap-2">
+            <div className="flex-1 min-w-0">
+              <label htmlFor="exp-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+              <input
+                id="exp-from"
+                type="date"
+                value={exportFrom}
+                max={exportTo}
+                onChange={(e) => setExportFrom(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <label htmlFor="exp-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+              <input
+                id="exp-to"
+                type="date"
+                value={exportTo}
+                min={exportFrom}
+                onChange={(e) => setExportTo(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+              />
+            </div>
+          </div>
+          <motion.button
+            onClick={handleExportCSV}
+            disabled={exportLoading || exportFrom > exportTo}
+            aria-busy={exportLoading}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="w-full py-2.5 text-sm font-semibold text-indigo-400 bg-indigo-500/15 border border-indigo-500/30 rounded-xl cursor-pointer hover:bg-indigo-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exportLoading ? "Loading…" : "Download CSV"}
+          </motion.button>
+        </div>
+      )}
     </div>
   ) : null;
 
