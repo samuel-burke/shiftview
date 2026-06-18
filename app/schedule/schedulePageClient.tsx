@@ -119,7 +119,6 @@ export default function SchedulePageClient() {
   const [calloutStatus, setCalloutStatus] = useState<"idle" | "loading">("idle");
   const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
-  const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
 
   // Mutable refs so realtime callbacks always see the latest navigation state
@@ -308,34 +307,31 @@ export default function SchedulePageClient() {
     }
   }
 
+  // The next-shift card is always relative to *today* — not the week/month the
+  // user is currently browsing. Deriving it from `schedules` (the viewed range)
+  // meant it showed the wrong shift, or nothing, as soon as you navigated off
+  // the current week. Fetch the upcoming window from today directly instead, so
+  // navigation never affects it.
   useEffect(() => {
     let cancelled = false;
-    const todayKey = toDateKey(today);
-    const nowMinutes = today.getHours() * 60 + today.getMinutes();
-    const upcoming = schedules
-      .filter(s => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
-      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
-    if (upcoming.length > 0) {
-      setNextShift(upcoming[0]);
-    } else if (!loading) {
-      if (supplementalFetchedRef.current) return;
-      supplementalFetchedRef.current = true;
-      // Do a supplemental fetch for next 30 days
-      const to = new Date(today); to.setDate(today.getDate() + 30);
-      const toKey = toDateKey(to);
-      fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
-        .then(r => r.json())
-        .then(data => {
-          if (cancelled) return;
-          const upcoming = (data.schedules ?? [])
-            .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
-            .sort((a: Schedule, b: Schedule) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
-          setNextShift(upcoming[0] ?? null);
-        })
-        .catch(() => { if (!cancelled) setNextShift(null); });
-    }
-    return () => { cancelled = true; supplementalFetchedRef.current = false; };
-  }, [schedules, loading]);
+    const now = new Date();
+    const todayKey = toDateKey(now, timezone);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const to = new Date(now);
+    to.setDate(now.getDate() + 30);
+    const toKey = toDateKey(to, timezone);
+    fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => {
+        if (cancelled) return;
+        const upcoming = (data.schedules ?? [])
+          .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+          .sort((a: Schedule, b: Schedule) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes));
+        setNextShift(upcoming[0] ?? null);
+      })
+      .catch(() => { if (!cancelled) setNextShift(null); });
+    return () => { cancelled = true; };
+  }, [employeeId, timezone]);
 
   // Supabase Realtime — live updates for schedule, time-off, store hours, settings
   useEffect(() => {
