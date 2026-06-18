@@ -817,8 +817,7 @@ export default function SettingsPageClient({
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className="relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
-                  style={{ color: themeMode === m ? "#f1f5f9" : "#94a3b8" }}
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {themeMode === m && (
                     <motion.div
@@ -1352,8 +1351,7 @@ export default function SettingsPageClient({
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className="relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
-                  style={{ color: firstDayOfWeek === value ? "#f1f5f9" : "#94a3b8" }}
+                  className={`relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {firstDayOfWeek === value && (
                     <motion.div

@@ -557,8 +557,7 @@ export default function SchedulePageClient() {
                 key={v}
                 onClick={() => switchView(v)}
                 aria-pressed={view === v}
-                className="relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
-                style={{ color: view === v ? "#f1f5f9" : "#64748b" }}
+                className={`relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${view === v ? "text-slate-50" : "text-slate-500"}`}
               >
                 {view === v && (
                   <motion.div
