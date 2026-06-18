@@ -249,7 +249,7 @@ export default function DraftShiftSheet({ open, employee, draft, date, onClose, 
                         value={val}
                         autoFocus={autoFocus}
                         onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
-                        className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                        className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500/70 transition-colors"
                       />
                     </div>
                   ))}

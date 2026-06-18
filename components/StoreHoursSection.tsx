@@ -226,7 +226,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                           }));
                         }}
                         onBlur={() => scheduleSave(activeDow)}
-                        className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base [color-scheme:dark] outline-none"
+                        className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base outline-none"
                       />
                     </div>
                   </div>

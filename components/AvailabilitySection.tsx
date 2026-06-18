@@ -392,7 +392,7 @@ export default function AvailabilitySection({
                             value={val}
                             onChange={(e) => onChange(e.target.value)}
                             onBlur={() => handleTimeBlur(activeDow)}
-                            className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base [color-scheme:dark] outline-none"
+                            className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base outline-none"
                             aria-label={ariaLabel}
                             aria-describedby={isEnd && sheetInvalid ? "avail-time-error" : undefined}
                             aria-invalid={isEnd && sheetInvalid ? true : undefined}

@@ -493,7 +493,7 @@ export default function DraftPageClient() {
                   handleAssignProfile(selectedDate, v === "" ? null : Number(v))
                     .catch((err) => setError(err instanceof Error ? err.message : "Failed to update coverage"));
                 }}
-                className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer"
+                className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer"
               >
                 <option value="">
                   Default{(() => {
