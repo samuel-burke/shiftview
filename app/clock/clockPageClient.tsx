@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadCSV } from "../../lib/csv-download";
+import { downloadFromUrl } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import {
@@ -144,10 +144,14 @@ export default function ClockPageClient() {
   const [exportTo, setExportTo] = useState(toDateKey(today));
   const [showExport, setShowExport] = useState(false);
 
-  async function handleExportDownload() {
-    const res = await fetch(`/api/punches/export?from=${exportFrom}&to=${exportTo}`);
-    const blob = await res.blob();
-    await downloadCSV(blob, `timesheet_${exportFrom}_to_${exportTo}.csv`);
+  function handleExportDownload() {
+    // Download straight from the server endpoint (it sets Content-Disposition).
+    // Fetching it into a blob first broke on iOS — the post-await download lost
+    // its user gesture and left Safari on a white screen.
+    downloadFromUrl(
+      `/api/punches/export?from=${exportFrom}&to=${exportTo}`,
+      `timesheet_${exportFrom}_to_${exportTo}.csv`
+    );
   }
 
   const [actionPending, setActionPending] = useState(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadCSV } from "../../lib/csv-download";
+import { downloadCSV, downloadFromUrl } from "../../lib/csv-download";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
@@ -544,10 +544,10 @@ export default function ReportsPageClient() {
 
   function downloadPayroll() {
     const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
-    const a = document.createElement("a");
-    a.href = `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`;
-    a.download = `payroll_${payrollFrom}_to_${payrollTo}.${ext}`;
-    a.click();
+    downloadFromUrl(
+      `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`,
+      `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
+    );
   }
 
   // ── Coverage heatmap data ──
