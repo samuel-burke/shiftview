@@ -10,6 +10,7 @@ import type { PunchType } from "@/data/types";
 import { fmtMinutes } from "@/data/types";
 import { getLocalMinutes, localDayBoundsUtc } from "@/lib/punch-date-utils";
 import type { PunchPolicy } from "@/lib/punch-policy";
+import { lockForDate, type ApprovalPeriod } from "@/lib/timecard-lock";
 
 export type ViolationType =
   | "late_in"
@@ -72,6 +73,9 @@ export type TimecardDay = {
   breakCount: number;
   hasIncomplete: boolean;
   violations: Violation[];
+  // True when this day falls inside an approved (locked) pay period. Punches on
+  // a locked day cannot be added or edited until the period is reopened.
+  locked: boolean;
 };
 
 export type Timecard = {
@@ -170,9 +174,12 @@ export function computeTimecard(input: {
   schedules: TimecardScheduleInput[];
   punches: TimecardPunchInput[];
   callouts: TimecardCalloutInput[];
+  // Approved (locked) pay periods for this employee that intersect [from, to].
+  approvals?: ApprovalPeriod[];
   nowMs?: number;
 }): Timecard {
   const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
+  const approvals = input.approvals ?? [];
   const nowMs = input.nowMs ?? Date.now();
 
   const scheduleByDate = new Map<string, TimecardScheduleInput>();
@@ -329,6 +336,7 @@ export function computeTimecard(input: {
       breakCount,
       hasIncomplete,
       violations,
+      locked: lockForDate(date, approvals) !== null,
     });
   }
 

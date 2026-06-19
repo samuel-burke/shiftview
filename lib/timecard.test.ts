@@ -25,6 +25,7 @@ function run(overrides: {
   punches?: TimecardPunchInput[];
   callouts?: { date: string; reason?: string | null }[];
   schedules?: { date: string; startMinutes: number; endMinutes: number }[];
+  approvals?: { periodStart: string; periodEnd: string }[];
   nowMs?: number;
 }) {
   return computeTimecard({
@@ -37,9 +38,28 @@ function run(overrides: {
     schedules: overrides.schedules ?? [schedule],
     punches: overrides.punches ?? [],
     callouts: overrides.callouts ?? [],
+    approvals: overrides.approvals,
     nowMs: overrides.nowMs ?? new Date(est(23, 0)).getTime(),
   });
 }
+
+describe("computeTimecard — approval lock annotation", () => {
+  const punches = [punch("clock_in", 8, 0), punch("clock_out", 16, 0)];
+
+  it("marks a day locked when an approval covers it", () => {
+    const tc = run({ punches, approvals: [{ periodStart: "2026-01-01", periodEnd: "2026-01-31" }] });
+    expect(tc.days[0].locked).toBe(true);
+  });
+
+  it("leaves a day unlocked when no approval covers it", () => {
+    const tc = run({ punches, approvals: [{ periodStart: "2026-02-01", periodEnd: "2026-02-28" }] });
+    expect(tc.days[0].locked).toBe(false);
+  });
+
+  it("defaults locked to false when no approvals are passed", () => {
+    expect(run({ punches }).days[0].locked).toBe(false);
+  });
+});
 
 describe("computeTimecard — late/early in", () => {
   it("flags a late clock-in over the threshold", () => {

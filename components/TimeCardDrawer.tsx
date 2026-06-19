@@ -11,6 +11,21 @@ type Props = {
   onClose: () => void;
 };
 
+type ApprovalSummary = {
+  id: number;
+  periodStart: string;
+  periodEnd: string;
+  note: string | null;
+  approvedBy: string | null;
+  approvedAt: string;
+};
+
+// The /api/timecard response augments the pure Timecard with lock metadata.
+type TimecardResponse = Timecard & {
+  approvals?: ApprovalSummary[];
+  rangeApproval?: ApprovalSummary | null;
+};
+
 const PUNCH_LABELS: Record<PunchType, string> = {
   clock_in: "Clock In",
   clock_out: "Clock Out",
@@ -60,12 +75,19 @@ function formatPunchTime(iso: string, tz: string): string {
   });
 }
 
+function formatApprovedAt(iso: string, tz: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: tz, month: "short", day: "numeric", year: "numeric",
+  });
+}
+
 export default function TimeCardDrawer({ open, employee, timezone, onClose }: Props) {
   const [from, setFrom] = useState(() => addDays(todayKey(timezone), -13));
   const [to, setTo] = useState(() => todayKey(timezone));
-  const [data, setData] = useState<Timecard | null>(null);
+  const [data, setData] = useState<TimecardResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = useCallback(
     async (empId: number, fromDate: string, toDate: string) => {
@@ -81,7 +103,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
           setData(null);
           return;
         }
-        setData(json as Timecard);
+        setData(json as TimecardResponse);
       } catch {
         setError("Network error — please try again");
         setData(null);
@@ -124,7 +146,52 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
     a.click();
   }
 
+  // Approve (lock) the currently-viewed [from, to] range, then reload so the
+  // banner and per-day lock markers reflect the new state.
+  async function approvePeriod() {
+    if (!employee) return;
+    const incomplete = data?.days.some((d) => d.hasIncomplete);
+    if (incomplete && !window.confirm(
+      "Some days in this period have a missing clock-out or break-end. Approve and lock anyway?"
+    )) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/timecard/approvals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: employee.id, periodStart: from, periodEnd: to }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? "Failed to approve period"); return; }
+      await load(employee.id, from, to);
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function reopenPeriod() {
+    if (!employee || !data?.rangeApproval) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/timecard/approvals?id=${data.rangeApproval.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? "Failed to reopen period"); return; }
+      await load(employee.id, from, to);
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   const counts = data?.violationCounts;
+  const rangeApproval = data?.rangeApproval ?? null;
 
   return (
     <>
@@ -216,6 +283,23 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
 
           {!loading && data && (
             <>
+              {/* Approved & locked banner — shown when an approval exactly
+                  covers the viewed range. */}
+              {rangeApproval && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-2.5">
+                  <span aria-hidden="true" className="text-emerald-400 text-sm leading-5">🔒</span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-emerald-300">Approved &amp; locked</div>
+                    <div className="text-[11px] text-emerald-400/80 mt-0.5">
+                      Signed off {formatApprovedAt(rangeApproval.approvedAt, data.timezone)} · punches in this period can&apos;t be edited until it&apos;s reopened
+                    </div>
+                    {rangeApproval.note && (
+                      <div className="text-[11px] text-slate-400 mt-1 italic">“{rangeApproval.note}”</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Summary */}
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
@@ -265,7 +349,12 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
                   {data.days.map((day) => (
                     <div key={day.date} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="text-sm font-bold text-slate-100">{formatDayHeader(day.date)}</div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="text-sm font-bold text-slate-100">{formatDayHeader(day.date)}</div>
+                          {day.locked && (
+                            <span aria-label="Locked — period approved" title="Locked — period approved" className="text-[11px] text-emerald-400/80 shrink-0">🔒</span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-slate-400">
                           {day.schedule
                             ? `${fmtMinutes(day.schedule.startMinutes)} – ${fmtMinutes(day.schedule.endMinutes)}`
@@ -329,12 +418,29 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
           )}
         </div>
 
-        {/* Footer — export */}
+        {/* Footer — approve / reopen + export */}
         {data && data.days.length > 0 && (
           <div
-            className="px-5 border-t border-slate-800 shrink-0"
+            className="px-5 border-t border-slate-800 shrink-0 flex flex-col gap-2"
             style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
           >
+            {rangeApproval ? (
+              <button
+                onClick={reopenPeriod}
+                disabled={actionLoading}
+                className="w-full py-2.5 rounded-xl bg-amber-600/90 text-white font-semibold text-sm cursor-pointer hover:bg-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? "Reopening…" : "Reopen period"}
+              </button>
+            ) : (
+              <button
+                onClick={approvePeriod}
+                disabled={actionLoading}
+                className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm cursor-pointer hover:bg-emerald-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? "Approving…" : "Approve & lock period"}
+              </button>
+            )}
             <button
               onClick={exportCSV}
               className="w-full py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm cursor-pointer hover:bg-slate-700 transition-colors"
