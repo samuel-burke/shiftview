@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -34,6 +34,7 @@ import {
 } from "../../components/ShiftIcons";
 import PendingTimeOffSection from "../../components/PendingTimeOffSection";
 import CalendarExportButton from "../../components/CalendarExportButton";
+import OpenShiftsDrawer, { type OpenShiftView } from "../../components/OpenShiftsDrawer";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -123,6 +124,17 @@ export default function SchedulePageClient() {
   const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
 
+  // ── Open shifts ──
+  const [openShifts, setOpenShifts] = useState<OpenShiftView[]>([]);
+  const [openShiftsOpen, setOpenShiftsOpen] = useState(false);
+  const [postFormOpen, setPostFormOpen] = useState(false);
+  const [postDate, setPostDate] = useState("");
+  const [postStart, setPostStart] = useState("09:00");
+  const [postEnd, setPostEnd] = useState("17:00");
+  const [postNote, setPostNote] = useState("");
+  const [postBusy, setPostBusy] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+
   // Mutable refs so realtime callbacks always see the latest navigation state
   const navDateRef = useRef(navDate);
   navDateRef.current = navDate;
@@ -164,6 +176,74 @@ export default function SchedulePageClient() {
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
+  }
+
+  // ── Open shifts: load + mutations ──
+  const loadOpenShifts = useCallback(() => {
+    fetch("/api/open-shifts")
+      .then((r) => r.json())
+      .then((data) => setOpenShifts(data.openShifts ?? []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (sharedLoading) return;
+    loadOpenShifts();
+  }, [sharedLoading, loadOpenShifts]);
+
+  async function handleClaimOpenShift(openShiftId: number) {
+    const res = await fetch(`/api/open-shifts/${openShiftId}/claim`, { method: "POST" });
+    if (res.ok) loadOpenShifts();
+  }
+
+  async function handleApproveClaim(openShiftId: number, claimId: number) {
+    const res = await fetch(`/api/open-shifts/${openShiftId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve", claimId }),
+    });
+    if (res.ok) loadOpenShifts();
+  }
+
+  async function handleCancelOpenShift(openShiftId: number) {
+    const res = await fetch(`/api/open-shifts/${openShiftId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
+    });
+    if (res.ok) loadOpenShifts();
+  }
+
+  // "HH:MM" → minutes since midnight.
+  function timeToMinutes(value: string): number {
+    const [h, m] = value.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  async function handlePostOpenShift() {
+    setPostError(null);
+    if (!postDate) { setPostError("Pick a date."); return; }
+    const startMinutes = timeToMinutes(postStart);
+    const endMinutes = timeToMinutes(postEnd);
+    if (endMinutes <= startMinutes) { setPostError("End time must be after start time."); return; }
+    setPostBusy(true);
+    try {
+      const res = await fetch("/api/open-shifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: postDate, startMinutes, endMinutes, note: postNote.trim() || null }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setPostError(json.error ?? "Failed to post open shift."); return; }
+      setPostFormOpen(false);
+      setPostDate("");
+      setPostNote("");
+      loadOpenShifts();
+    } catch {
+      setPostError("Network error — please try again.");
+    } finally {
+      setPostBusy(false);
+    }
   }
 
   // Load pending time-off once manager status is known
@@ -834,6 +914,60 @@ export default function SchedulePageClient() {
         </div>
       )}
 
+      {!sharedLoading && (isManager || openShifts.length > 0) && (
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            onClick={() => setOpenShiftsOpen(true)}
+            className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-card border border-slate-800 text-sm font-semibold text-slate-200 cursor-pointer hover:bg-slate-800 transition-colors"
+          >
+            <span>Open Shifts</span>
+            <span className="text-xs font-bold text-indigo-300 bg-indigo-500/15 rounded-full px-2 py-0.5 tabular-nums">
+              {isManager ? openShifts.filter((s) => s.status === "open").length : openShifts.length}
+            </span>
+          </button>
+
+          {isManager && (postFormOpen ? (
+            <div className="bg-card border border-slate-800/60 rounded-2xl p-3 flex flex-col gap-2">
+              <div className="flex gap-2">
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="os-date" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Date</label>
+                  <input id="os-date" type="date" value={postDate} onChange={(e) => setPostDate(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="os-start" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Start</label>
+                  <input id="os-start" type="time" value={postStart} onChange={(e) => setPostStart(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="os-end" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">End</label>
+                  <input id="os-end" type="time" value={postEnd} onChange={(e) => setPostEnd(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]" />
+                </div>
+              </div>
+              <input type="text" value={postNote} onChange={(e) => setPostNote(e.target.value)} placeholder="Note (optional)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/70" />
+              {postError && <div role="alert" className="text-xs text-red-400">{postError}</div>}
+              <div className="flex gap-2">
+                <button onClick={() => { setPostFormOpen(false); setPostError(null); }}
+                  className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs cursor-pointer hover:bg-slate-700 transition-colors">
+                  Cancel
+                </button>
+                <button onClick={handlePostOpenShift} disabled={postBusy} aria-busy={postBusy}
+                  className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed">
+                  {postBusy ? "Posting…" : "Post"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setPostFormOpen(true)}
+              className="w-full py-2.5 rounded-xl bg-transparent border border-slate-700 text-slate-300 font-semibold text-xs cursor-pointer hover:bg-slate-800 transition-colors">
+              + Post open shift
+            </button>
+          ))}
+        </div>
+      )}
+
       {isManager && (
         <motion.button
           onClick={() => router.push("/draft")}
@@ -853,6 +987,25 @@ export default function SchedulePageClient() {
             onDeny={handleDenyManagerTimeOff}
           />
         </div>
+      )}
+
+      {isManager ? (
+        <OpenShiftsDrawer
+          open={openShiftsOpen}
+          onClose={() => setOpenShiftsOpen(false)}
+          role="manager"
+          openShifts={openShifts}
+          onApproveClaim={handleApproveClaim}
+          onCancel={handleCancelOpenShift}
+        />
+      ) : (
+        <OpenShiftsDrawer
+          open={openShiftsOpen}
+          onClose={() => setOpenShiftsOpen(false)}
+          role="employee"
+          openShifts={openShifts}
+          onClaim={handleClaimOpenShift}
+        />
       )}
     </>
   );
