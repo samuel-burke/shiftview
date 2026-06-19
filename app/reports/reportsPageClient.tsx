@@ -559,6 +559,24 @@ export default function ReportsPageClient() {
     return m;
   }, [coverageDays]);
 
+  // Precompute heatmap cells (count, color class, and date labels) so the
+  // render loop doesn't construct two Date objects per cell on every render.
+  const heatmapCells = useMemo(
+    () =>
+      heatmapDays.map((day) => {
+        const count = coverageMap[day] ?? 0;
+        const d = new Date(day + "T12:00:00Z");
+        return {
+          day,
+          count,
+          cls: cellClass(count, peakTargets[day] ?? 0),
+          dateLabel: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+          dayNum: d.getUTCDate(),
+        };
+      }),
+    [heatmapDays, coverageMap, peakTargets],
+  );
+
   const weekDates = useMemo(() => getWeekDates(selectedWeekStart), [selectedWeekStart]);
 
   const employeeHours = useMemo(() => {
@@ -651,19 +669,14 @@ export default function ReportsPageClient() {
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
-                  {heatmapDays.map((day) => {
-                    const count = coverageMap[day] ?? 0;
-                    const cls = cellClass(count, peakTargets[day] ?? 0);
-                    const dateLabel = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-                    return (
-                      <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
-                        <span className="text-[11px] font-bold tabular-nums">{count}</span>
-                        <span className="text-[9px] mt-0.5 opacity-70">
-                          {new Date(day + "T12:00:00Z").getUTCDate()}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {heatmapCells.map(({ day, count, cls, dateLabel, dayNum }) => (
+                    <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
+                      <span className="text-[11px] font-bold tabular-nums">{count}</span>
+                      <span className="text-[9px] mt-0.5 opacity-70">
+                        {dayNum}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <div className="flex gap-3 mt-2 justify-center">
                   {[

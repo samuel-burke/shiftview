@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { Employee, Schedule, fmtMinutes, formatDisplayName, getMonogram } from "../../data/types";
 import { useAppData } from "../../lib/AppDataContext";
@@ -23,10 +24,21 @@ import {
 } from "../../lib/coverage";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
-import DraftCoverageChart from "../../components/DraftCoverageChart";
-import DraftBudgetChart from "../../components/DraftBudgetChart";
 import DraftShiftSheet from "../../components/DraftShiftSheet";
 import { createApiFetch } from "@/lib/api-fetch";
+
+// recharts is heavy; code-split both planner charts out of the route's
+// initial bundle. They render below the stats and don't need to be in the
+// critical path, so a lightweight placeholder while the chunk loads is fine.
+const chartPlaceholder = () => <div className="h-[200px]" aria-hidden="true" />;
+const DraftCoverageChart = dynamic(() => import("../../components/DraftCoverageChart"), {
+  ssr: false,
+  loading: chartPlaceholder,
+});
+const DraftBudgetChart = dynamic(() => import("../../components/DraftBudgetChart"), {
+  ssr: false,
+  loading: chartPlaceholder,
+});
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
