@@ -33,6 +33,7 @@ import {
   MegaphoneIcon,
 } from "../../components/ShiftIcons";
 import PendingTimeOffSection from "../../components/PendingTimeOffSection";
+import CalendarExportButton from "../../components/CalendarExportButton";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -826,6 +827,12 @@ export default function SchedulePageClient() {
           <div className="text-xs text-slate-400 mt-1">Days off</div>
         </div>
       </div>
+
+      {!loading && (
+        <div className="mt-4">
+          <CalendarExportButton className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-card border border-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 cursor-pointer hover:bg-slate-800 hover:text-slate-100 transition-colors no-underline" />
+        </div>
+      )}
 
       {isManager && (
         <motion.button
