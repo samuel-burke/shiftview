@@ -7,7 +7,7 @@ import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnsti
 // Starts a demo session (anonymous sign-in + demo-org membership via
 // POST /api/demo/start) and lands on the dashboard with a real session.
 // When Turnstile is configured, the token is collected here and verified
-// by Supabase Auth's CAPTCHA protection during the anonymous sign-in.
+// server-side by /api/demo/start before the anonymous user is minted.
 export default function TryDemoButton({
   className,
   children,
