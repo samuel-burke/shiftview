@@ -5,6 +5,9 @@ import { isDemoOrgId } from "./demo-org";
 export type NotificationType =
   | "shift_change"
   | "shift_reminder"
+  | "swap_requested"
+  | "swap_accepted"
+  | "swap_declined"
   | "swap_approved"
   | "swap_denied"
   | "pto_approved"
@@ -38,6 +41,9 @@ const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
   open_shift_available: "new_shift_alerts",
   open_shift_filled:    "new_shift_alerts",
   shift_change:       "shift_change_alerts",
+  swap_requested:     "swap_alerts",
+  swap_accepted:      "swap_alerts",
+  swap_declined:      "swap_alerts",
   swap_approved:      "swap_alerts",
   swap_denied:        "swap_alerts",
   shift_reminder:     "shift_reminder_alerts",

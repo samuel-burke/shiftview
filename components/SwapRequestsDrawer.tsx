@@ -93,7 +93,7 @@ export default function SwapRequestsDrawer({
                 <div>
                   <div id="swap-drawer-title" className="text-lg font-bold text-slate-100">Swap Requests</div>
                   <div className="text-xs text-slate-400 mt-0.5">
-                    {swaps.length} pending
+                    {swaps.length} awaiting approval
                   </div>
                 </div>
                 <button

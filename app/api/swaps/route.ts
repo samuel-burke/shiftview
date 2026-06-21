@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
+import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+
+// Swaps still in flight — shown in the UI. Terminal states (declined/approved/
+// denied) drop out of the lists once resolved.
+const ACTIVE_SWAP_STATUSES = ["pending", "accepted"];
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +42,7 @@ export async function GET(request?: Request) {
         schedule_b:schedules!shift_swaps_schedule_b_id_fkey(id, date, start_minutes, end_minutes, employee_id)
       `)
       .eq("org_id", orgId)
-      .eq("status", "pending")
+      .in("status", ACTIVE_SWAP_STATUSES)
       .or(`requester_id.eq.${employeeId},target_id.eq.${employeeId}`)
       .order("created_at", { ascending: false });
 
@@ -65,7 +70,7 @@ export async function GET(request?: Request) {
       schedule_b:schedules!shift_swaps_schedule_b_id_fkey(id, date, start_minutes, end_minutes, employee_id)
     `)
     .eq("org_id", orgId)
-    .eq("status", "pending")
+    .in("status", ACTIVE_SWAP_STATUSES)
     .order("created_at", { ascending: false });
 
   if (fetchError) {
@@ -140,7 +145,7 @@ export async function POST(request: Request) {
 
   const { data: targetEmployee } = await supabase
     .from("employees")
-    .select("name")
+    .select("name, user_id")
     .eq("org_id", orgId)
     .eq("id", targetId)
     .maybeSingle();
@@ -159,6 +164,19 @@ export async function POST(request: Request) {
   if (insertError) {
     console.error("[api/swaps]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
+  // Let the target employee know they've been asked to swap — the request sits
+  // in 'pending' until they accept or decline, and only then can a manager act.
+  if (targetEmployee?.user_id) {
+    notify(supabase, {
+      orgId,
+      userId: targetEmployee.user_id,
+      type:   "swap_requested",
+      title:  "Shift Swap Request",
+      body:   `${requesterEmployee.name} asked to swap shifts with you.`,
+      data:   { swapId: inserted?.id ?? null },
+    }).catch(() => {});
   }
 
   writeAuditLog({
