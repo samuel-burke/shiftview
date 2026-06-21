@@ -124,7 +124,7 @@ export default function CoverageCurveEditor({ blocks, onChange }: EditorProps) {
               value={minutesToTime(b.startMinutes)}
               aria-label={`Block ${i + 1} start time`}
               onChange={(e) => e.target.value && updateBlock(i, { startMinutes: snap(timeToMinutes(e.target.value)) })}
-              className="flex-1 min-w-0 bg-card border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+              className="flex-1 min-w-0 bg-card border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
             />
             <span className="text-slate-500 text-xs shrink-0" aria-hidden="true">–</span>
             <input
@@ -137,7 +137,7 @@ export default function CoverageCurveEditor({ blocks, onChange }: EditorProps) {
                 const m = snap(timeToMinutes(e.target.value));
                 updateBlock(i, { endMinutes: m === 0 ? 1440 : m });
               }}
-              className="flex-1 min-w-0 bg-card border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+              className="flex-1 min-w-0 bg-card border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
             />
             <div className="flex items-center gap-1 shrink-0">
               <button

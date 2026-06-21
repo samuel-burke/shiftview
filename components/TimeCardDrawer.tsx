@@ -175,7 +175,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
               value={from}
               max={to}
               onChange={(e) => setFrom(e.target.value)}
-              className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+              className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
             />
           </div>
           <div className="flex-1 min-w-[120px]">
@@ -186,7 +186,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
               value={to}
               min={from}
               onChange={(e) => setTo(e.target.value)}
-              className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+              className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
             />
           </div>
           <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadCSV } from "../../lib/csv-download";
+import { downloadCSV, downloadFromUrl } from "../../lib/csv-download";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
@@ -544,10 +544,10 @@ export default function ReportsPageClient() {
 
   function downloadPayroll() {
     const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
-    const a = document.createElement("a");
-    a.href = `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`;
-    a.download = `payroll_${payrollFrom}_to_${payrollTo}.${ext}`;
-    a.click();
+    downloadFromUrl(
+      `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`,
+      `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
+    );
   }
 
   // ── Coverage heatmap data ──
@@ -769,7 +769,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={payrollFrom}
                   onChange={(e) => setPayrollFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
               <div className="flex-1">
@@ -779,7 +779,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={payrollTo}
                   onChange={(e) => setPayrollTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
             </div>
@@ -789,7 +789,7 @@ export default function ReportsPageClient() {
                 id="payroll-format"
                 value={payrollFormat}
                 onChange={(e) => setPayrollFormat(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
               >
                 <option value="summary">Summary CSV — Universal</option>
                 <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
@@ -909,7 +909,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={pendingFrom}
                   onChange={(e) => setPendingFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
               <div className="flex-1">
@@ -919,7 +919,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={pendingTo}
                   onChange={(e) => setPendingTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
             </div>
@@ -930,7 +930,7 @@ export default function ReportsPageClient() {
                   id="pending-category"
                   value={pendingCategory}
                   onChange={(e) => setPendingCategory(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -943,7 +943,7 @@ export default function ReportsPageClient() {
                   id="pending-actor"
                   value={pendingActorId}
                   onChange={(e) => setPendingActorId(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 >
                   <option value="">All users</option>
                   {employees

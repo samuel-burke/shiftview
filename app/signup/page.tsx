@@ -200,7 +200,7 @@ export default function SignupPage() {
                 maxLength={80}
                 onChange={(e) => { setOrgName(e.target.value); setError(null); }}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
               />
               <label htmlFor="signup-owner-name" className="sr-only">Your name</label>
               <input
@@ -211,7 +211,7 @@ export default function SignupPage() {
                 value={ownerName}
                 maxLength={80}
                 onChange={(e) => { setOwnerName(e.target.value); setError(null); }}
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
               />
               {sessionEmail ? (
                 <>
@@ -244,7 +244,7 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setError(null); }}
                     onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
-                    className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                    className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                   {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
                   <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
@@ -284,7 +284,7 @@ export default function SignupPage() {
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark] caret-transparent disabled:opacity-50"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors caret-transparent disabled:opacity-50"
               />
               {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
               <button

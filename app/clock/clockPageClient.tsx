@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadCSV } from "../../lib/csv-download";
+import { downloadFromUrl } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import {
@@ -144,10 +144,14 @@ export default function ClockPageClient() {
   const [exportTo, setExportTo] = useState(toDateKey(today));
   const [showExport, setShowExport] = useState(false);
 
-  async function handleExportDownload() {
-    const res = await fetch(`/api/punches/export?from=${exportFrom}&to=${exportTo}`);
-    const blob = await res.blob();
-    await downloadCSV(blob, `timesheet_${exportFrom}_to_${exportTo}.csv`);
+  function handleExportDownload() {
+    // Download straight from the server endpoint (it sets Content-Disposition).
+    // Fetching it into a blob first broke on iOS — the post-await download lost
+    // its user gesture and left Safari on a white screen.
+    downloadFromUrl(
+      `/api/punches/export?from=${exportFrom}&to=${exportTo}`,
+      `timesheet_${exportFrom}_to_${exportTo}.csv`
+    );
   }
 
   const [actionPending, setActionPending] = useState(false);
@@ -923,7 +927,7 @@ export default function ClockPageClient() {
                     id="correction-type"
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   >
                     <option value="clock_in">Clock In</option>
                     <option value="clock_out">Clock Out</option>
@@ -938,7 +942,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                 </div>
               </div>
@@ -949,7 +953,7 @@ export default function ClockPageClient() {
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                 />
               </div>
               <div>
@@ -1001,7 +1005,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                 </div>
                 <div>
@@ -1011,7 +1015,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                 </div>
               </div>
