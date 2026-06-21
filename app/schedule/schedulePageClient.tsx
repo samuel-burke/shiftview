@@ -7,6 +7,7 @@ import {
   Schedule,
   TimeOffRequest,
   Callout,
+  Employee,
   getShiftType,
   fmtMinutes,
   SHIFT_COLORS,
@@ -34,6 +35,7 @@ import {
 } from "../../components/ShiftIcons";
 import PendingTimeOffSection from "../../components/PendingTimeOffSection";
 import SwapRequestsDrawer from "../../components/SwapRequestsDrawer";
+import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -62,6 +64,8 @@ function firstOf<T>(v: T | T[] | null | undefined): T | null {
 
 type RawSwap = {
   id: number;
+  schedule_a_id?: number;
+  schedule_b_id?: number;
   requester?: { name: string } | { name: string }[] | null;
   target?: { name: string } | { name: string }[] | null;
   schedule_a?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
@@ -148,7 +152,7 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading } = useAppData();
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading, cacheEmployees } = useAppData();
   const { isManager, employeeId, employeeName, isDemo } = me;
   const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -163,6 +167,17 @@ export default function SchedulePageClient() {
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
   const [pendingSwaps, setPendingSwaps] = useState<PendingSwap[]>([]);
   const [swapDrawerOpen, setSwapDrawerOpen] = useState(false);
+  // Schedule ids the current user already has a pending swap on (as requester or
+  // target) — used to show a status badge instead of the request button.
+  const [mySwapShiftIds, setMySwapShiftIds] = useState<number[]>([]);
+  // Employee-facing swap creation sheet.
+  const [swapSheetOpen, setSwapSheetOpen] = useState(false);
+  const [swapCoworkers, setSwapCoworkers] = useState<CoworkerShift[]>([]);
+  const [swapLoading, setSwapLoading] = useState(false);
+  const [swapLoadError, setSwapLoadError] = useState<string | null>(null);
+  const [swapSubmitting, setSwapSubmitting] = useState(false);
+  const [swapSubmitError, setSwapSubmitError] = useState<string | null>(null);
+  const [swapRequestStatus, setSwapRequestStatus] = useState<"idle" | "success">("idle");
 
   // Mutable refs so realtime callbacks always see the latest navigation state
   const navDateRef = useRef(navDate);
@@ -205,7 +220,14 @@ export default function SchedulePageClient() {
   const loadPendingSwaps = useCallback(() => {
     fetch("/api/swaps")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setPendingSwaps(data.map(mapSwap)); })
+      .then((data: RawSwap[]) => {
+        if (!Array.isArray(data)) return;
+        setPendingSwaps(data.map(mapSwap));
+        setMySwapShiftIds(
+          data.flatMap((s) => [s.schedule_a_id, s.schedule_b_id])
+            .filter((id): id is number => typeof id === "number"),
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -239,6 +261,68 @@ export default function SchedulePageClient() {
     }
   }
 
+  // Open the swap creation sheet for the selected shift: load the coworkers also
+  // scheduled that day (the candidate "schedule B" partners) plus their names.
+  async function openSwapSheet() {
+    if (!selectedSchedule || employeeId === null) return;
+    setSwapSheetOpen(true);
+    setSwapLoading(true);
+    setSwapLoadError(null);
+    setSwapSubmitError(null);
+    setSwapRequestStatus("idle");
+    setSwapCoworkers([]);
+    try {
+      const [schedRes, empRes] = await Promise.all([
+        fetch(`/api/schedules?date=${selectedDateKey}`),
+        fetch("/api/employees"),
+      ]);
+      if (!schedRes.ok) throw new Error();
+      const sched = await schedRes.json();
+      const emps = empRes.ok ? await empRes.json() : [];
+      const nameById = new Map<number, string>();
+      if (Array.isArray(emps)) {
+        cacheEmployees(emps);
+        emps.forEach((e: Employee) => nameById.set(e.id, e.name));
+      }
+      const list: CoworkerShift[] = (Array.isArray(sched) ? sched : [])
+        .filter((s: Schedule) => s.employeeId !== employeeId)
+        .map((s: Schedule) => ({
+          scheduleId: s.id,
+          employeeName: nameById.get(s.employeeId) ?? "Coworker",
+          startMinutes: s.startMinutes,
+          endMinutes: s.endMinutes,
+        }))
+        .sort((a: CoworkerShift, b: CoworkerShift) => a.startMinutes - b.startMinutes);
+      setSwapCoworkers(list);
+    } catch {
+      setSwapLoadError("Couldn't load coworker shifts. Please try again.");
+    } finally {
+      setSwapLoading(false);
+    }
+  }
+
+  async function submitSwap(scheduleBId: number) {
+    if (!selectedSchedule) return;
+    setSwapSubmitting(true);
+    setSwapSubmitError(null);
+    try {
+      const res = await fetch("/api/swaps", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduleAId: selectedSchedule.id, scheduleBId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Failed to request swap");
+      setSwapSheetOpen(false);
+      setSwapRequestStatus("success");
+      loadPendingSwaps();
+    } catch (e) {
+      setSwapSubmitError(e instanceof Error ? e.message : "Failed to request swap");
+    } finally {
+      setSwapSubmitting(false);
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -254,10 +338,12 @@ export default function SchedulePageClient() {
     }
   }, [isManager]);
 
-  // Load pending swap requests once manager status is known
+  // Load swap requests on mount. GET /api/swaps is session-scoped: managers get
+  // every pending swap in the org (for the approval drawer), while employees get
+  // only their own (for the per-shift "pending" badge and to prevent duplicates).
   useEffect(() => {
-    if (isManager) loadPendingSwaps();
-  }, [isManager, loadPendingSwaps]);
+    loadPendingSwaps();
+  }, [loadPendingSwaps]);
 
   // Load user's own time-off requests on mount
   useEffect(() => {
@@ -363,6 +449,7 @@ export default function SchedulePageClient() {
     setTimeOffStatus("idle");
     setTimeOffError(null);
     setCalloutError(null);
+    setSwapRequestStatus("idle");
   }, [selectedDate]);
 
   async function handleRequestDayOff() {
@@ -469,7 +556,7 @@ export default function SchedulePageClient() {
     }
 
     function refetchSwaps() {
-      if (isManagerRef.current) loadPendingSwaps();
+      loadPendingSwaps();
     }
 
     let hiddenAt = 0;
@@ -603,6 +690,20 @@ export default function SchedulePageClient() {
     employeeId !== null &&
     selectedTimeOff?.status !== "pending" &&
     selectedTimeOff?.status !== "approved";
+
+  // This shift is already tied to a pending swap (either side) — show a badge
+  // rather than letting the user stack a second request on it.
+  const selectedShiftHasPendingSwap =
+    selectedSchedule !== null && mySwapShiftIds.includes(selectedSchedule.id);
+
+  // Offer "Request Shift Swap" when the user owns a shift on a today-or-future
+  // day and it isn't already mid-swap. (Approval is the manager's job via the
+  // SwapRequestsDrawer; this just creates the pending request.)
+  const canRequestSwap =
+    selectedSchedule !== null &&
+    selectedDateKey >= todayKey &&
+    employeeId !== null &&
+    !selectedShiftHasPendingSwap;
 
   // Stats
   const totalShifts = schedules.length;
@@ -890,6 +991,28 @@ export default function SchedulePageClient() {
             {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
         ) : null}
+
+        {/* Shift swap status / action */}
+        {selectedShiftHasPendingSwap ? (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+            <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
+            <span className="text-sm text-yellow-300 font-semibold">Swap request pending</span>
+          </div>
+        ) : canRequestSwap ? (
+          <div className="mt-3">
+            {swapRequestStatus === "success" ? (
+              <div role="status" aria-live="polite" className="text-sm text-emerald-400 font-semibold">Swap requested ✓</div>
+            ) : (
+              <button
+                onClick={openSwapSheet}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-indigo-500/30 text-indigo-300 font-semibold text-sm cursor-pointer hover:bg-indigo-500/10 transition-colors"
+              >
+                <span aria-hidden="true">⇄</span>
+                Request Shift Swap
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Stats row */}
@@ -1015,6 +1138,19 @@ export default function SchedulePageClient() {
             onDeny={handleDenySwap}
           />
         )}
+
+        <SwapRequestSheet
+          open={swapSheetOpen}
+          onClose={() => setSwapSheetOpen(false)}
+          dateLabel={selectedDayLabel}
+          myShiftTime={selectedSchedule ? `${fmtMinutes(selectedSchedule.startMinutes)} – ${fmtMinutes(selectedSchedule.endMinutes)}` : ""}
+          coworkers={swapCoworkers}
+          loading={swapLoading}
+          error={swapLoadError}
+          submitting={swapSubmitting}
+          submitError={swapSubmitError}
+          onSelect={submitSwap}
+        />
 
         <BottomNav active="schedule" />
       </main>
