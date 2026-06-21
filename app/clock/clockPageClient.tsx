@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadCSV } from "../../lib/csv-download";
+import { downloadFromUrl } from "../../lib/csv-download";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import {
@@ -144,10 +144,14 @@ export default function ClockPageClient() {
   const [exportTo, setExportTo] = useState(toDateKey(today));
   const [showExport, setShowExport] = useState(false);
 
-  async function handleExportDownload() {
-    const res = await fetch(`/api/punches/export?from=${exportFrom}&to=${exportTo}`);
-    const blob = await res.blob();
-    await downloadCSV(blob, `timesheet_${exportFrom}_to_${exportTo}.csv`);
+  function handleExportDownload() {
+    // Download straight from the server endpoint (it sets Content-Disposition).
+    // Fetching it into a blob first broke on iOS — the post-await download lost
+    // its user gesture and left Safari on a white screen.
+    downloadFromUrl(
+      `/api/punches/export?from=${exportFrom}&to=${exportTo}`,
+      `timesheet_${exportFrom}_to_${exportTo}.csv`
+    );
   }
 
   const [actionPending, setActionPending] = useState(false);
@@ -489,21 +493,28 @@ export default function ClockPageClient() {
     }
   }
 
+  // Sort punches chronologically once per change — reused by the late/early
+  // flair below and the punch-history list, instead of re-sorting on every render.
+  const sortedPunches = useMemo(
+    () =>
+      [...punches].sort(
+        (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime(),
+      ),
+    [punches],
+  );
+
   // Derive late / early status
-  let punchFlair: { text: string; color: string } | null = null;
-  if (schedule && punches.length > 0) {
-    const clockIn = [...punches]
-      .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime())
-      .find((p) => p.punchType === "clock_in");
-    if (clockIn) {
-      const clockInMinutes =
-        new Date(clockIn.punchedAt).getHours() * 60 +
-        new Date(clockIn.punchedAt).getMinutes();
-      const diff = clockInMinutes - schedule.startMinutes;
-      if (diff > 5) punchFlair = { text: `${diff}m late`, color: "#ef4444" };
-      else if (diff < -5) punchFlair = { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
-    }
-  }
+  const punchFlair = useMemo((): { text: string; color: string } | null => {
+    if (!schedule || sortedPunches.length === 0) return null;
+    const clockIn = sortedPunches.find((p) => p.punchType === "clock_in");
+    if (!clockIn) return null;
+    const punchedAt = new Date(clockIn.punchedAt);
+    const clockInMinutes = punchedAt.getHours() * 60 + punchedAt.getMinutes();
+    const diff = clockInMinutes - schedule.startMinutes;
+    if (diff > 5) return { text: `${diff}m late`, color: "#ef4444" };
+    if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
+    return null;
+  }, [schedule, sortedPunches]);
 
   const shiftType = schedule
     ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close)
@@ -861,9 +872,7 @@ export default function ClockPageClient() {
           <div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-[0.08em] mb-2">Today&apos;s Punches</div>
             <motion.div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800" variants={listContainer} initial="hidden" animate="show">
-              {[...punches]
-                .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime())
-                .map((p) => (
+              {sortedPunches.map((p) => (
                   <motion.div key={p.id} variants={listItem} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span
@@ -923,7 +932,7 @@ export default function ClockPageClient() {
                     id="correction-type"
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   >
                     <option value="clock_in">Clock In</option>
                     <option value="clock_out">Clock Out</option>
@@ -938,7 +947,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                 </div>
               </div>
@@ -949,7 +958,7 @@ export default function ClockPageClient() {
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                 />
               </div>
               <div>
@@ -1001,7 +1010,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                 </div>
                 <div>
@@ -1011,7 +1020,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                 </div>
               </div>

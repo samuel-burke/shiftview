@@ -27,6 +27,10 @@ export type Violation = {
   detail: string;
   // Minutes over/under the configured threshold, when applicable.
   minutes?: number;
+  // The punch this violation attaches to (clock-in for late/early-in, clock-out
+  // for late/early-out, the break-end for long/short break). Absent for
+  // day-level violations (callout, ncns) that have no originating punch.
+  punchId?: number;
 };
 
 export type TimecardPunchInput = {
@@ -104,11 +108,12 @@ function eachDate(from: string, to: string): string[] {
   return out;
 }
 
-// Worked/break time plus the duration (minutes) of every completed break.
-function computeSegments(punches: { punchType: PunchType; punchedAt: string }[]): {
+// Worked/break time plus every completed break's duration and the break-end
+// punch that closed it (so break violations can attach to a specific punch).
+function computeSegments(punches: { id: number; punchType: PunchType; punchedAt: string }[]): {
   workedMs: number;
   breakMs: number;
-  breakMinutes: number[];
+  breaks: { minutes: number; endPunchId: number }[];
   breakCount: number;
   hasIncomplete: boolean;
 } {
@@ -117,7 +122,7 @@ function computeSegments(punches: { punchType: PunchType; punchedAt: string }[])
   let segStart: number | null = null;
   let breakStart: number | null = null;
   let breakCount = 0;
-  const breakMinutes: number[] = [];
+  const breaks: { minutes: number; endPunchId: number }[] = [];
 
   for (const p of punches) {
     const t = new Date(p.punchedAt).getTime();
@@ -129,7 +134,7 @@ function computeSegments(punches: { punchType: PunchType; punchedAt: string }[])
         if (breakStart !== null) {
           const ms = t - breakStart;
           breakMs += ms;
-          breakMinutes.push(Math.round(ms / 60_000));
+          breaks.push({ minutes: Math.round(ms / 60_000), endPunchId: p.id });
           breakStart = null;
         }
         segStart = t;
@@ -149,7 +154,7 @@ function computeSegments(punches: { punchType: PunchType; punchedAt: string }[])
   return {
     workedMs,
     breakMs,
-    breakMinutes,
+    breaks,
     breakCount,
     hasIncomplete: segStart !== null || breakStart !== null,
   };
@@ -212,7 +217,7 @@ export function computeTimecard(input: {
     // Skip days with nothing to show (no schedule, no punches, no call-out).
     if (!schedule && dayPunches.length === 0 && !callout) continue;
 
-    const { workedMs, breakMs, breakMinutes, breakCount, hasIncomplete } = computeSegments(dayPunches);
+    const { workedMs, breakMs, breaks, breakCount, hasIncomplete } = computeSegments(dayPunches);
     const workedHours = round2(workedMs / 3_600_000);
     const breakHours = round2(breakMs / 3_600_000);
     totalWorkedHours += workedHours;
@@ -242,6 +247,7 @@ export function computeTimecard(input: {
           label: "Late In",
           detail: `Clocked in ${diff} min late (scheduled ${fmtMinutes(schedule.startMinutes)})`,
           minutes: diff,
+          punchId: firstClockIn.id,
         });
       } else if (policy.earlyInEnabled && -diff > policy.earlyInMinutes) {
         add({
@@ -249,6 +255,7 @@ export function computeTimecard(input: {
           label: "Early In",
           detail: `Clocked in ${-diff} min early (scheduled ${fmtMinutes(schedule.startMinutes)})`,
           minutes: -diff,
+          punchId: firstClockIn.id,
         });
       }
     }
@@ -262,6 +269,7 @@ export function computeTimecard(input: {
           label: "Late Out",
           detail: `Clocked out ${diff} min late (scheduled ${fmtMinutes(schedule.endMinutes)})`,
           minutes: diff,
+          punchId: lastClockOut.id,
         });
       } else if (policy.earlyOutEnabled && -diff > policy.earlyOutMinutes) {
         add({
@@ -269,18 +277,21 @@ export function computeTimecard(input: {
           label: "Early Out",
           detail: `Clocked out ${-diff} min early (scheduled ${fmtMinutes(schedule.endMinutes)})`,
           minutes: -diff,
+          punchId: lastClockOut.id,
         });
       }
     }
 
-    // Break length — one violation per offending break.
-    for (const mins of breakMinutes) {
+    // Break length — one violation per offending break, attached to the
+    // break-end punch that closed it.
+    for (const { minutes: mins, endPunchId } of breaks) {
       if (policy.longBreakEnabled && mins > policy.longBreakMinutes) {
         add({
           type: "long_break",
           label: "Long Break",
           detail: `${mins} min break (limit ${policy.longBreakMinutes} min)`,
           minutes: mins,
+          punchId: endPunchId,
         });
       } else if (policy.shortBreakEnabled && mins < policy.shortBreakMinutes) {
         add({
@@ -288,6 +299,7 @@ export function computeTimecard(input: {
           label: "Short Break",
           detail: `${mins} min break (minimum ${policy.shortBreakMinutes} min)`,
           minutes: mins,
+          punchId: endPunchId,
         });
       }
     }

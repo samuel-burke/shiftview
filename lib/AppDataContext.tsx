@@ -138,10 +138,16 @@ function clearMeCache() {
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
-  const [me, setMe] = useState<MeData>(() => readMeCache() || { isManager: false, employeeId: null, employeeName: null, isDemo: false });
+  // NOTE: do not seed these from readMeCache() in the initializer. localStorage
+  // is unavailable during SSR, so the server always renders the default (no
+  // manager nav, loading) while a returning manager's client would read the
+  // cache and render the manager nav — a hydration mismatch on every load. The
+  // cache is applied in the mount effect below, after hydration, so the server
+  // and first client render agree.
+  const [me, setMe] = useState<MeData>({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
   const [storeHours, setStoreHours] = useState<Record<number, StoreHours>>(DEFAULT_STORE_HOURS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [sharedLoading, setSharedLoading] = useState(() => !readMeCache());
+  const [sharedLoading, setSharedLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [scheduleCache, setScheduleCacheState] = useState<Record<string, Schedule[]>>({});
   const [punchCache, setPunchCacheState] = useState<Record<string, PunchRecord[]>>({});
@@ -247,7 +253,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!readMeCache()) setSharedLoading(true);
+    // Apply the cached identity now (post-hydration) for an instant render on
+    // return visits; fall through to the network fetch either way.
+    const cached = readMeCache();
+    if (cached) {
+      setMe(cached);
+      setSharedLoading(false);
+    }
     Promise.allSettled([
       fetch("/api/me").then(r => r.json()),
       fetch("/api/store-hours").then(r => r.json()),

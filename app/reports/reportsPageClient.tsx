@@ -1,6 +1,6 @@
 "use client";
 
-import { downloadCSV } from "../../lib/csv-download";
+import { downloadCSV, downloadFromUrl } from "../../lib/csv-download";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
@@ -8,7 +8,9 @@ import { useAppData } from "@/lib/AppDataContext";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
+import PunctualityReport, { type PunctualityRow } from "../../components/PunctualityReport";
 import { CoverageProfile, curveForDate } from "../../lib/coverage";
+import type { PunctualitySummary } from "../../lib/punctuality";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -135,6 +137,7 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.break_end":      return `Break ended — ${empName}`;
     case "punch.correction":     return `Punch correction for ${empName}`;
     case "punch.export":         return `Exported punch records`;
+    case "timecard.export":      return `Exported time card`;
     case "payroll.export":       return `Exported payroll report`;
     case "availability.upsert":  return `Updated availability for ${empName}`;
     case "availability.delete":  return `Removed availability for ${empName}`;
@@ -210,8 +213,10 @@ function auditDetail(entry: AuditEntry): string | null {
     }
     case "punch.export":
       return `${m.from} to ${m.to} · ${m.rowCount} rows`;
+    case "timecard.export":
+      return `${m.from} to ${m.to} · ${m.totalViolations} flags`;
     case "payroll.export": {
-      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", "qb-iif": "QuickBooks IIF" };
+      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", detailed: "Breakdown CSV", "qb-iif": "QuickBooks IIF" };
       return `${m.from} to ${m.to} · ${fmtLabel[m.format as string] ?? m.format} · ${m.employeeCount} employees`;
     }
     case "availability.upsert":
@@ -290,7 +295,7 @@ export default function ReportsPageClient() {
   const today = new Date();
   const todayKey = toDateKey(today);
 
-  const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll">("coverage");
+  const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll" | "punctuality">("coverage");
 
   // ── Coverage state ──
   const [loading, setLoading] = useState(true);
@@ -337,6 +342,13 @@ export default function ReportsPageClient() {
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+
+  // ── Punctuality state ──
+  const [punctualityDate, setPunctualityDate] = useState(todayKey);
+  const [punctualityRows, setPunctualityRows] = useState<PunctualityRow[] | null>(null);
+  const [punctualitySummary, setPunctualitySummary] = useState<PunctualitySummary | null>(null);
+  const [punctualityLoading, setPunctualityLoading] = useState(false);
+  const [punctualityError, setPunctualityError] = useState<string | null>(null);
 
   const selectedWeekStart = useMemo(() => {
     const base = new Date(todayKey + "T12:00:00Z");
@@ -500,6 +512,32 @@ export default function ReportsPageClient() {
     fetchAuditPage(1, true);
   }, [activeTab, auditFrom, auditTo, auditCategory, auditActorId]);
 
+  // Load punctuality report whenever the tab opens or the date changes
+  useEffect(() => {
+    if (activeTab !== "punctuality") return;
+    let cancelled = false;
+    setPunctualityLoading(true);
+    setPunctualityError(null);
+    fetch(`/api/reports/punctuality?date=${punctualityDate}`)
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Failed to load report");
+        return json;
+      })
+      .then((json) => {
+        if (cancelled) return;
+        setPunctualityRows(json.rows ?? []);
+        setPunctualitySummary(json.summary ?? null);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setPunctualityError(e.message ?? "Network error — please try again");
+        setPunctualityRows(null);
+      })
+      .finally(() => { if (!cancelled) setPunctualityLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeTab, punctualityDate]);
+
   function fetchAuditPage(page: number, replace: boolean) {
     setAuditLoading(true);
     const params = new URLSearchParams({ from: auditFrom, to: auditTo, page: String(page) });
@@ -541,10 +579,10 @@ export default function ReportsPageClient() {
 
   function downloadPayroll() {
     const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
-    const a = document.createElement("a");
-    a.href = `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`;
-    a.download = `payroll_${payrollFrom}_to_${payrollTo}.${ext}`;
-    a.click();
+    downloadFromUrl(
+      `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`,
+      `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
+    );
   }
 
   // ── Coverage heatmap data ──
@@ -558,6 +596,24 @@ export default function ReportsPageClient() {
     for (const d of coverageDays) m[d.date] = d.count;
     return m;
   }, [coverageDays]);
+
+  // Precompute heatmap cells (count, color class, and date labels) so the
+  // render loop doesn't construct two Date objects per cell on every render.
+  const heatmapCells = useMemo(
+    () =>
+      heatmapDays.map((day) => {
+        const count = coverageMap[day] ?? 0;
+        const d = new Date(day + "T12:00:00Z");
+        return {
+          day,
+          count,
+          cls: cellClass(count, peakTargets[day] ?? 0),
+          dateLabel: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+          dayNum: d.getUTCDate(),
+        };
+      }),
+    [heatmapDays, coverageMap, peakTargets],
+  );
 
   const weekDates = useMemo(() => getWeekDates(selectedWeekStart), [selectedWeekStart]);
 
@@ -617,7 +673,7 @@ export default function ReportsPageClient() {
 
       {/* Tab bar */}
       <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex gap-2">
-        {(["coverage", "payroll", "activity"] as const).map((tab) => (
+        {(["coverage", "payroll", "punctuality", "activity"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -628,7 +684,7 @@ export default function ReportsPageClient() {
                 : "bg-card border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
-            {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : "Activity"}
+            {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : tab === "punctuality" ? "Punctuality" : "Activity"}
           </button>
         ))}
       </div>
@@ -651,19 +707,14 @@ export default function ReportsPageClient() {
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
-                  {heatmapDays.map((day) => {
-                    const count = coverageMap[day] ?? 0;
-                    const cls = cellClass(count, peakTargets[day] ?? 0);
-                    const dateLabel = new Date(day + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-                    return (
-                      <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
-                        <span className="text-[11px] font-bold tabular-nums">{count}</span>
-                        <span className="text-[9px] mt-0.5 opacity-70">
-                          {new Date(day + "T12:00:00Z").getUTCDate()}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {heatmapCells.map(({ day, count, cls, dateLabel, dayNum }) => (
+                    <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
+                      <span className="text-[11px] font-bold tabular-nums">{count}</span>
+                      <span className="text-[9px] mt-0.5 opacity-70">
+                        {dayNum}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <div className="flex gap-3 mt-2 justify-center">
                   {[
@@ -766,7 +817,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={payrollFrom}
                   onChange={(e) => setPayrollFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
               <div className="flex-1">
@@ -776,7 +827,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={payrollTo}
                   onChange={(e) => setPayrollTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
             </div>
@@ -786,10 +837,11 @@ export default function ReportsPageClient() {
                 id="payroll-format"
                 value={payrollFormat}
                 onChange={(e) => setPayrollFormat(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
               >
                 <option value="summary">Summary CSV — Universal</option>
                 <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
+                <option value="detailed">Calculation Breakdown CSV — Regular/OT/Break audit</option>
                 <option value="qb-iif">QuickBooks Desktop (.iif)</option>
               </select>
             </div>
@@ -883,10 +935,46 @@ export default function ReportsPageClient() {
                   ? "Download QuickBooks Desktop (.iif)"
                   : payrollFormat === "daily"
                   ? "Download Daily Detail CSV"
+                  : payrollFormat === "detailed"
+                  ? "Download Calculation Breakdown CSV"
                   : "Download Summary CSV"}
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Punctuality tab ── */}
+      {activeTab === "punctuality" && (
+        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
+          {/* Date picker */}
+          <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
+            <label htmlFor="punctuality-date" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Date</label>
+            <input
+              id="punctuality-date"
+              type="date"
+              value={punctualityDate}
+              max={todayKey}
+              onChange={(e) => setPunctualityDate(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+            />
+          </div>
+
+          {punctualityError && (
+            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
+              {punctualityError}
+            </div>
+          )}
+
+          {punctualityLoading ? (
+            <div role="status" aria-label="Loading punctuality report" className="flex flex-col gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} aria-hidden="true" className="h-14 bg-slate-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : punctualityRows !== null && punctualitySummary !== null ? (
+            <PunctualityReport rows={punctualityRows} summary={punctualitySummary} />
+          ) : null}
         </div>
       )}
 
@@ -903,7 +991,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={pendingFrom}
                   onChange={(e) => setPendingFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
               <div className="flex-1">
@@ -913,7 +1001,7 @@ export default function ReportsPageClient() {
                   type="date"
                   value={pendingTo}
                   onChange={(e) => setPendingTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 />
               </div>
             </div>
@@ -924,7 +1012,7 @@ export default function ReportsPageClient() {
                   id="pending-category"
                   value={pendingCategory}
                   onChange={(e) => setPendingCategory(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -937,7 +1025,7 @@ export default function ReportsPageClient() {
                   id="pending-actor"
                   value={pendingActorId}
                   onChange={(e) => setPendingActorId(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
                 >
                   <option value="">All users</option>
                   {employees

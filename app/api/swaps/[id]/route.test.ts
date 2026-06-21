@@ -1,12 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
-vi.mock("@/lib/require-manager", () => ({
-  requireManager: vi.fn(),
-}));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: any, init?: { status?: number }) =>
@@ -17,10 +14,7 @@ vi.mock("next/server", () => ({
   },
 }));
 
-import { requireManager } from "@/lib/require-manager";
-
 const mockCreateClient = vi.mocked(createClient);
-const mockRequireManager = vi.mocked(requireManager);
 
 function putReq(id: string, body: unknown) {
   return [
@@ -33,211 +27,227 @@ function putReq(id: string, body: unknown) {
   ] as const;
 }
 
-function makeQueryBuilder(result: { data: any; error: any }) {
-  const b: any = {};
-  for (const m of ["select", "update", "eq", "order"]) {
-    b[m] = vi.fn().mockReturnValue(b);
-  }
-  b.maybeSingle = vi.fn().mockResolvedValue(result);
-  b.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
-  return b;
-}
-
-/** Build a Supabase client whose `from("shift_swaps")` resolves with swapData. */
+/**
+ * Build a Supabase mock that satisfies both getOrgContext() (managers +
+ * employees lookups by user_id) and the swaps route's own queries.
+ *
+ * - `isManager`       → whether a managers row exists for the caller.
+ * - `callerEmployeeId`→ the caller's employee id in this org (null = none).
+ * - `swapData`        → the shift_swaps row the route fetches.
+ * Tracks how many .update() calls each table receives via `client.__updates`.
+ */
 function makeClient({
+  user = MOCK_USER as any,
+  isManager = false,
+  callerEmployeeId = null as number | null,
   swapData = null as any,
   swapError = null as any,
   scheduleAData = { id: 1, employee_id: 10 } as any,
   scheduleBData = { id: 2, employee_id: 20 } as any,
-  scheduleError = null as any,
-  updateError = null as any,
+  approveResult = "approved" as string,
 } = {}) {
-  // Build a chainable update builder that supports multiple .eq() calls and
-  // resolves at the end (thenable).
-  function makeUpdateChain(err: any) {
+  const updates: Record<string, number> = { schedules: 0, shift_swaps: 0 };
+  const rpcCalls: Array<{ fn: string; args: any }> = [];
+  let scheduleFetch = 0;
+
+  const managerRow = isManager && user
+    ? { user_id: user.id, org_id: MOCK_ORG_ID, is_owner: false }
+    : null;
+  const employeeRow = callerEmployeeId != null
+    ? { id: callerEmployeeId, org_id: MOCK_ORG_ID, user_id: user?.id, name: "Caller" }
+    : null;
+
+  function updateChain() {
     const u: any = {};
     u.eq = vi.fn().mockReturnValue(u);
-    u.then = (resolve: any, reject: any) =>
-      Promise.resolve({ data: null, error: err }).then(resolve, reject);
+    u.then = (res: any, rej: any) => Promise.resolve({ data: null, error: null }).then(res, rej);
     return u;
   }
 
-  let scheduleCallCount = 0;
+  function makeBuilder(getResult: () => { data: any; error: any }, table: string) {
+    const b: any = {};
+    for (const m of ["select", "eq", "order", "limit", "in"]) b[m] = vi.fn().mockReturnValue(b);
+    b.update = vi.fn().mockImplementation(() => {
+      updates[table] = (updates[table] ?? 0) + 1;
+      return updateChain();
+    });
+    b.maybeSingle = vi.fn().mockImplementation(() => Promise.resolve(getResult()));
+    b.then = (res: any, rej: any) => Promise.resolve(getResult()).then(res, rej);
+    return b;
+  }
+
   return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
-    },
+    __updates: updates,
+    __rpcCalls: rpcCalls,
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }) },
+    rpc: vi.fn().mockImplementation((fn: string, args: any) => {
+      rpcCalls.push({ fn, args });
+      if (fn === "approve_shift_swap") return Promise.resolve({ data: approveResult, error: null });
+      return Promise.resolve({ data: null, error: null });
+    }),
     from: vi.fn().mockImplementation((table: string) => {
-      if (table === "shift_swaps") {
-        const b = makeQueryBuilder({ data: swapData, error: swapError });
-        // .update().eq().eq() chain (org_id + id) for status update
-        b.update = vi.fn().mockReturnValue(makeUpdateChain(updateError));
-        return b;
-      }
+      if (table === "managers") return makeBuilder(() => ({ data: managerRow, error: null }), "managers");
+      if (table === "employees") return makeBuilder(() => ({ data: employeeRow, error: null }), "employees");
+      if (table === "shift_swaps") return makeBuilder(() => ({ data: swapData, error: swapError }), "shift_swaps");
       if (table === "schedules") {
-        const call = scheduleCallCount++;
-        if (call === 0)
-          return makeQueryBuilder({ data: scheduleAData, error: scheduleError });
-        // For second schedule fetch AND revert attempts
-        return makeQueryBuilder({ data: scheduleBData, error: scheduleError });
+        return makeBuilder(() => {
+          const n = scheduleFetch++;
+          return { data: n === 0 ? scheduleAData : scheduleBData, error: null };
+        }, "schedules");
       }
-      return makeQueryBuilder({ data: null, error: null });
+      return makeBuilder(() => ({ data: null, error: null }), "other");
     }),
   };
 }
 
-describe("PUT /api/swaps/:id", () => {
-  beforeEach(() => {
-    mockRequireManager.mockResolvedValue({ user: MOCK_USER as any, orgId: MOCK_ORG_ID, error: null });
-  });
+const ACCEPTED_SWAP = { id: 1, status: "accepted", schedule_a_id: 1, schedule_b_id: 2, requester_id: 10, target_id: 20 };
+const PENDING_SWAP  = { id: 1, status: "pending",  schedule_a_id: 1, schedule_b_id: 2, requester_id: 10, target_id: 20 };
 
-  // ── Validation ───────────────────────────────────────────────────────────────
-
+describe("PUT /api/swaps/:id — validation & auth", () => {
   it("returns 400 for a non-integer swap id", async () => {
-    mockCreateClient.mockResolvedValue(makeClient() as any);
+    mockCreateClient.mockResolvedValue(makeClient({ isManager: true }) as any);
     const [req, ctx] = putReq("abc", { status: "approved" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("Invalid") });
   });
 
-  it("returns 400 when status is not approved or denied", async () => {
-    mockCreateClient.mockResolvedValue(makeClient() as any);
+  it("returns 400 for an unrecognized status", async () => {
+    mockCreateClient.mockResolvedValue(makeClient({ isManager: true }) as any);
     const [req, ctx] = putReq("1", { status: "pending" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(400);
   });
 
-  // ── Auth ─────────────────────────────────────────────────────────────────────
-
   it("returns 401 for unauthenticated requests", async () => {
-    mockRequireManager.mockResolvedValue({ user: null, orgId: null, error: "Not authenticated" });
-    mockCreateClient.mockResolvedValue(makeClient() as any);
+    mockCreateClient.mockResolvedValue(makeClient({ user: null }) as any);
     const [req, ctx] = putReq("1", { status: "approved" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 for authenticated non-managers", async () => {
-    mockRequireManager.mockResolvedValue({ user: MOCK_USER as any, orgId: null, error: "Manager access required" });
-    mockCreateClient.mockResolvedValue(makeClient() as any);
-    const [req, ctx] = putReq("1", { status: "approved" });
-    const res = await PUT(req, ctx);
-    expect(res.status).toBe(403);
-  });
-
-  // ── Denied path ───────────────────────────────────────────────────────────────
-
-  it("returns 200 when manager denies a swap", async () => {
-    mockCreateClient.mockResolvedValue(
-      makeClient({ swapData: { id: 1, status: "pending", schedule_a_id: 1, schedule_b_id: 2 } }) as any
-    );
-    const [req, ctx] = putReq("1", { status: "denied" });
-    const res = await PUT(req, ctx);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
-  });
-
-  // ── Approved path ─────────────────────────────────────────────────────────────
-
-  it("returns 404 when swap is not found", async () => {
-    mockCreateClient.mockResolvedValue(
-      makeClient({ swapData: null }) as any
-    );
+  it("returns 404 when the swap does not exist", async () => {
+    mockCreateClient.mockResolvedValue(makeClient({ isManager: true, swapData: null }) as any);
     const [req, ctx] = putReq("999", { status: "approved" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(404);
-    expect(await res.json()).toMatchObject({ error: expect.stringContaining("not found") });
+  });
+});
+
+// ── Target acceptance / decline ───────────────────────────────────────────────
+describe("PUT /api/swaps/:id — target consent", () => {
+  it("lets the target accept a pending swap", async () => {
+    const client = makeClient({ callerEmployeeId: 20, swapData: PENDING_SWAP });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "accepted" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    // Only the swap status row is updated; no schedules move yet.
+    expect(client.__updates.shift_swaps).toBe(1);
+    expect(client.__updates.schedules).toBe(0);
   });
 
-  it("returns 409 when the swap is already resolved (double-approval blocked)", async () => {
-    // Bug 2: swap.status is "approved" — should be rejected immediately
-    mockCreateClient.mockResolvedValue(
-      makeClient({
-        swapData: { schedule_a_id: 1, schedule_b_id: 2, status: "approved" },
-      }) as any
-    );
+  it("lets the target decline a pending swap", async () => {
+    const client = makeClient({ callerEmployeeId: 20, swapData: PENDING_SWAP });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "declined" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(200);
+    expect(client.__updates.schedules).toBe(0);
+  });
+
+  it("rejects a non-target employee trying to respond", async () => {
+    const client = makeClient({ callerEmployeeId: 99, swapData: PENDING_SWAP });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "accepted" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(403);
+    expect(client.__updates.shift_swaps).toBe(0);
+  });
+
+  it("rejects a target response once the swap is no longer pending", async () => {
+    const client = makeClient({ callerEmployeeId: 20, swapData: ACCEPTED_SWAP });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "accepted" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
+  });
+});
+
+// ── Manager approval / denial ──────────────────────────────────────────────────
+describe("PUT /api/swaps/:id — manager decision", () => {
+  it("blocks approval while the swap is still pending the target's acceptance", async () => {
+    const client = makeClient({ isManager: true, swapData: PENDING_SWAP });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "approved" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("acceptance") });
+    // The schedules must NOT have been swapped.
+    expect(client.__updates.schedules).toBe(0);
+    expect(client.__updates.shift_swaps).toBe(0);
+  });
+
+  it("approves an accepted swap via the atomic RPC", async () => {
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP, approveResult: "approved" });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "approved" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    // The exchange is delegated to the DB function, not done as separate JS
+    // updates, so no schedule/swap updates happen client-side.
+    expect(client.__updates.schedules).toBe(0);
+    expect(client.__rpcCalls.some((c) => c.fn === "approve_shift_swap" && c.args.p_swap_id === 1)).toBe(true);
+  });
+
+  it("surfaces a race where the RPC reports the swap is no longer approvable", async () => {
+    // Pre-check passed (status accepted) but the locked apply found it resolved.
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP, approveResult: "approved" });
+    // Override just the RPC to report a lost race.
+    client.rpc = vi.fn().mockResolvedValue({ data: "denied", error: null });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "approved" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
+  });
+
+  it("denies an accepted swap without touching schedules", async () => {
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "denied" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(200);
+    expect(client.__updates.schedules).toBe(0);
+    expect(client.__updates.shift_swaps).toBe(1);
+  });
+
+  it("returns 409 when an accepted swap was already resolved", async () => {
+    const client = makeClient({ isManager: true, swapData: { ...ACCEPTED_SWAP, status: "approved" } });
+    mockCreateClient.mockResolvedValue(client as any);
     const [req, ctx] = putReq("1", { status: "approved" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("already resolved") });
   });
 
-  it("returns 409 when the swap was previously denied", async () => {
-    mockCreateClient.mockResolvedValue(
-      makeClient({
-        swapData: { schedule_a_id: 1, schedule_b_id: 2, status: "denied" },
-      }) as any
-    );
-    const [req, ctx] = putReq("1", { status: "approved" });
-    const res = await PUT(req, ctx);
-    expect(res.status).toBe(409);
-  });
-
-  it("returns 200 and swaps schedules when manager approves a pending swap", async () => {
-    // Provide a full client that chains correctly for the approved path
-    let scheduleCallCount = 0;
-
-    // Build a chainable update that supports multiple .eq() and is thenable
-    function makeUpdateChain(err: any = null) {
-      const u: any = {};
-      u.eq = vi.fn().mockReturnValue(u);
-      u.then = (resolve: any, reject: any) =>
-        Promise.resolve({ data: null, error: err }).then(resolve, reject);
-      return u;
-    }
-
-    const client = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
-      },
-      from: vi.fn().mockImplementation((table: string) => {
-        if (table === "shift_swaps") {
-          const b: any = {};
-          b.select = vi.fn().mockReturnValue(b);
-          b.eq = vi.fn().mockReturnValue(b);
-          b.maybeSingle = vi.fn().mockResolvedValue({
-            data: { schedule_a_id: 1, schedule_b_id: 2, status: "pending" },
-            error: null,
-          });
-          b.update = vi.fn().mockReturnValue(makeUpdateChain());
-          b.then = (resolve: any, reject: any) =>
-            Promise.resolve({ data: null, error: null }).then(resolve, reject);
-          return b;
-        }
-        if (table === "schedules") {
-          const call = scheduleCallCount++;
-          const data = call === 0
-            ? { id: 1, employee_id: 10 }
-            : { id: 2, employee_id: 20 };
-          const b: any = {};
-          for (const m of ["select", "eq"]) b[m] = vi.fn().mockReturnValue(b);
-          b.maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
-          b.update = vi.fn().mockReturnValue(makeUpdateChain());
-          b.then = (resolve: any, reject: any) =>
-            Promise.resolve({ data: null, error: null }).then(resolve, reject);
-          return b;
-        }
-        return makeQueryBuilder({ data: null, error: null });
-      }),
-    };
-
+  it("rejects a non-manager attempting a manager decision", async () => {
+    // A member (employee) who is not the target tries to approve.
+    const client = makeClient({ callerEmployeeId: 99, swapData: ACCEPTED_SWAP });
     mockCreateClient.mockResolvedValue(client as any);
     const [req, ctx] = putReq("1", { status: "approved" });
     const res = await PUT(req, ctx);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(res.status).toBe(403);
+    expect(client.__updates.schedules).toBe(0);
   });
 });
 
-// ── Org scoping ───────────────────────────────────────────────────────────────
-
+// ── Org scoping ────────────────────────────────────────────────────────────────
 describe("org scoping — swaps/[id] route", () => {
-  it("fetches shift_swaps with org_id filter", async () => {
+  it("fetches shift_swaps with an org_id filter", async () => {
     const swapsEqArgs: [string, unknown][] = [];
-    const client = makeClient({
-      swapData: { id: 1, status: "pending", schedule_a_id: 1, schedule_b_id: 2 },
-    });
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP });
     const origFrom = (client as any).from.bind(client);
     (client as any).from = vi.fn().mockImplementation((table: string) => {
       const b = origFrom(table);

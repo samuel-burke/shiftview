@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { computeTimecard, type TimecardPunchInput } from "@/lib/timecard";
+import { timecardToCsv } from "@/lib/timecard-csv";
+import { writeAuditLog } from "@/lib/audit";
 import type { PunchType } from "@/data/types";
 
 export const dynamic = "force-dynamic";
@@ -34,9 +36,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
   const supabase = await createClient();
-  const { orgId, error: authError } = await requireManager(supabase, request);
+  const { orgId, user, error: authError } = await requireManager(supabase, request);
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
+
+  const format = searchParams.get("format");
 
   // Confirm the employee belongs to this org (tenant scoping).
   const { data: emp } = await supabase
@@ -124,6 +128,30 @@ export async function GET(request: Request) {
     })),
     callouts: (calloutRows ?? []).map((c) => ({ date: c.date, reason: c.reason })),
   });
+
+  if (format === "csv") {
+    writeAuditLog({
+      action:       "timecard.export",
+      orgId:        orgId!,
+      actorId:      user?.id,
+      resourceType: "punch_record",
+      metadata: {
+        from,
+        to,
+        employeeId,
+        rowCount:        timecard.days.length,
+        totalViolations: timecard.totalViolations,
+      },
+    }).catch(() => {});
+
+    const safeName = emp.name.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    return new Response(timecardToCsv(timecard), {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": `attachment; filename="timecard_${safeName || employeeId}_${from}_to_${to}.csv"`,
+      },
+    });
+  }
 
   return NextResponse.json(timecard);
 }

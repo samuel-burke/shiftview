@@ -250,21 +250,43 @@ export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult
     if (error) throw new Error(`[demo-seed] punch_records insert failed: ${error.message}`);
   }
 
-  // 9. One pending shift swap between two upcoming shifts.
+  // 9. Two shift swaps that show both stages of the consent flow:
+  //    - 'accepted'  → the target already agreed; awaiting a manager's approval
+  //    - 'pending'   → freshly requested; awaiting the target's response
   const upcomingFor = (fixtureId: number) =>
     schedules
       .filter((s) => s.employee_id === empId.get(fixtureId) && s.date > todayKey)
       .sort((a, b) => a.date.localeCompare(b.date))[0];
-  const swapA = upcomingFor(3);
-  const swapB = upcomingFor(5);
-  if (swapA && swapB) {
-    const { error } = await admin.from("shift_swaps").insert({
+
+  const swapRows: Array<Record<string, unknown>> = [];
+  const acceptedA = upcomingFor(3);
+  const acceptedB = upcomingFor(5);
+  if (acceptedA && acceptedB) {
+    swapRows.push({
       org_id: DEMO_ORG_ID,
       requester_id: empId.get(3)!,
       target_id: empId.get(5)!,
-      schedule_a_id: swapA.id,
-      schedule_b_id: swapB.id,
+      schedule_a_id: acceptedA.id,
+      schedule_b_id: acceptedB.id,
+      status: "accepted",
     });
+  }
+  // Target the visitor (linked to fixture 1 by /api/demo/start) so the demo
+  // shows the incoming accept/decline step from the recipient's side too.
+  const pendingA = upcomingFor(4);
+  const pendingB = upcomingFor(1);
+  if (pendingA && pendingB) {
+    swapRows.push({
+      org_id: DEMO_ORG_ID,
+      requester_id: empId.get(4)!,
+      target_id: empId.get(1)!,
+      schedule_a_id: pendingA.id,
+      schedule_b_id: pendingB.id,
+      status: "pending",
+    });
+  }
+  if (swapRows.length > 0) {
+    const { error } = await admin.from("shift_swaps").insert(swapRows);
     if (error) throw new Error(`[demo-seed] shift_swaps insert failed: ${error.message}`);
   }
 

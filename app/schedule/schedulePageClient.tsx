@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
   Schedule,
   TimeOffRequest,
   Callout,
+  Employee,
   getShiftType,
   fmtMinutes,
   SHIFT_COLORS,
@@ -32,7 +33,9 @@ import {
   TimeOffDeniedIcon,
   MegaphoneIcon,
 } from "../../components/ShiftIcons";
-import PendingTimeOffSection from "../../components/PendingTimeOffSection";
+import RequestsDrawer from "../../components/RequestsDrawer";
+import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
+import IncomingSwapRequests from "../../components/IncomingSwapRequests";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -41,6 +44,62 @@ type ManagerTimeOffRequest = {
   note?: string;
   status: string;
 };
+
+// Shape the SwapRequestsDrawer consumes (flat, display-ready). `schedule_a` is
+// the requester's shift, `schedule_b` is the target's.
+type Swap = {
+  id: number;
+  status: "pending" | "accepted" | "declined" | "approved" | "denied";
+  requesterId: number | null;
+  targetId: number | null;
+  requesterName: string;
+  targetName: string;
+  date: string;
+  scheduleAId: number | null;
+  scheduleBId: number | null;
+  scheduleATime: string;
+  scheduleBTime: string;
+};
+
+// GET /api/swaps returns nested employee/schedule joins; Supabase types them as
+// object-or-array depending on the relationship, so normalize defensively.
+function firstOf<T>(v: T | T[] | null | undefined): T | null {
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v ?? null;
+}
+
+type RawSwap = {
+  id: number;
+  status?: Swap["status"];
+  requester_id?: number;
+  target_id?: number;
+  schedule_a_id?: number;
+  schedule_b_id?: number;
+  requester?: { name: string } | { name: string }[] | null;
+  target?: { name: string } | { name: string }[] | null;
+  schedule_a?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
+  schedule_b?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
+};
+
+function mapSwap(raw: RawSwap): Swap {
+  const requester = firstOf(raw.requester);
+  const target = firstOf(raw.target);
+  const a = firstOf(raw.schedule_a);
+  const b = firstOf(raw.schedule_b);
+  return {
+    id: raw.id,
+    status: raw.status ?? "pending",
+    requesterId: raw.requester_id ?? null,
+    targetId: raw.target_id ?? null,
+    requesterName: requester?.name ?? "Unknown",
+    targetName: target?.name ?? "Unknown",
+    date: a?.date ?? "",
+    scheduleAId: raw.schedule_a_id ?? null,
+    scheduleBId: raw.schedule_b_id ?? null,
+    scheduleATime: a ? `${fmtMinutes(a.start_minutes)} – ${fmtMinutes(a.end_minutes)}` : "",
+    scheduleBTime: b ? `${fmtMinutes(b.start_minutes)} – ${fmtMinutes(b.end_minutes)}` : "",
+  };
+}
 
 type View = "week" | "month";
 
@@ -107,7 +166,7 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading } = useAppData();
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading, cacheEmployees } = useAppData();
   const { isManager, employeeId, employeeName, isDemo } = me;
   const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -119,8 +178,21 @@ export default function SchedulePageClient() {
   const [calloutStatus, setCalloutStatus] = useState<"idle" | "loading">("idle");
   const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
-  const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  // Every in-flight swap the caller can see (their own as employee; all of the
+  // org's as a manager). Categorized below into manager-approval vs. incoming.
+  const [allSwaps, setAllSwaps] = useState<Swap[]>([]);
+  const [swapDrawerOpen, setSwapDrawerOpen] = useState(false);
+  // Employee-facing swap creation sheet.
+  const [swapSheetOpen, setSwapSheetOpen] = useState(false);
+  const [swapCoworkers, setSwapCoworkers] = useState<CoworkerShift[]>([]);
+  const [swapLoading, setSwapLoading] = useState(false);
+  const [swapLoadError, setSwapLoadError] = useState<string | null>(null);
+  const [swapSubmitting, setSwapSubmitting] = useState(false);
+  const [swapSubmitError, setSwapSubmitError] = useState<string | null>(null);
+  const [swapRequestStatus, setSwapRequestStatus] = useState<"idle" | "success">("idle");
+  // Which incoming swap (if any) is mid accept/decline, to disable its buttons.
+  const [respondingSwapId, setRespondingSwapId] = useState<number | null>(null);
 
   // Mutable refs so realtime callbacks always see the latest navigation state
   const navDateRef = useRef(navDate);
@@ -160,6 +232,132 @@ export default function SchedulePageClient() {
     setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
   }
 
+  const loadSwaps = useCallback(() => {
+    fetch("/api/swaps")
+      .then((r) => r.json())
+      .then((data: RawSwap[]) => {
+        if (Array.isArray(data)) setAllSwaps(data.map(mapSwap));
+      })
+      .catch(() => {});
+  }, []);
+
+  // SwapRequestsDrawer's cards call these directly without catching, so swallow
+  // errors here and resync from the server rather than throwing.
+  async function handleApproveSwap(id: number) {
+    try {
+      const res = await fetch(`/api/swaps/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      });
+      if (!res.ok) throw new Error();
+      setAllSwaps((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      loadSwaps();
+    }
+  }
+
+  async function handleDenySwap(id: number) {
+    try {
+      const res = await fetch(`/api/swaps/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "denied" }),
+      });
+      if (!res.ok) throw new Error();
+      setAllSwaps((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      loadSwaps();
+    }
+  }
+
+  // Target employee responding to an incoming request. Accepting moves it to
+  // 'accepted' (now awaiting a manager); declining ends it. Either way it leaves
+  // the caller's actionable list, so drop it locally and resync.
+  async function respondToSwap(id: number, status: "accepted" | "declined") {
+    setRespondingSwapId(id);
+    try {
+      const res = await fetch(`/api/swaps/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      // Reflect the new state (declined drops out; accepted stays as 'accepted').
+      setAllSwaps((prev) =>
+        status === "declined"
+          ? prev.filter((s) => s.id !== id)
+          : prev.map((s) => (s.id === id ? { ...s, status: "accepted" } : s)),
+      );
+    } catch {
+      loadSwaps();
+    } finally {
+      setRespondingSwapId(null);
+    }
+  }
+
+  // Open the swap creation sheet for the selected shift: load the coworkers also
+  // scheduled that day (the candidate "schedule B" partners) plus their names.
+  async function openSwapSheet() {
+    if (!selectedSchedule || employeeId === null) return;
+    setSwapSheetOpen(true);
+    setSwapLoading(true);
+    setSwapLoadError(null);
+    setSwapSubmitError(null);
+    setSwapRequestStatus("idle");
+    setSwapCoworkers([]);
+    try {
+      const [schedRes, empRes] = await Promise.all([
+        fetch(`/api/schedules?date=${selectedDateKey}`),
+        fetch("/api/employees"),
+      ]);
+      if (!schedRes.ok) throw new Error();
+      const sched = await schedRes.json();
+      const emps = empRes.ok ? await empRes.json() : [];
+      const nameById = new Map<number, string>();
+      if (Array.isArray(emps)) {
+        cacheEmployees(emps);
+        emps.forEach((e: Employee) => nameById.set(e.id, e.name));
+      }
+      const list: CoworkerShift[] = (Array.isArray(sched) ? sched : [])
+        .filter((s: Schedule) => s.employeeId !== employeeId)
+        .map((s: Schedule) => ({
+          scheduleId: s.id,
+          employeeName: nameById.get(s.employeeId) ?? "Coworker",
+          startMinutes: s.startMinutes,
+          endMinutes: s.endMinutes,
+        }))
+        .sort((a: CoworkerShift, b: CoworkerShift) => a.startMinutes - b.startMinutes);
+      setSwapCoworkers(list);
+    } catch {
+      setSwapLoadError("Couldn't load coworker shifts. Please try again.");
+    } finally {
+      setSwapLoading(false);
+    }
+  }
+
+  async function submitSwap(scheduleBId: number) {
+    if (!selectedSchedule) return;
+    setSwapSubmitting(true);
+    setSwapSubmitError(null);
+    try {
+      const res = await fetch("/api/swaps", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduleAId: selectedSchedule.id, scheduleBId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Failed to request swap");
+      setSwapSheetOpen(false);
+      setSwapRequestStatus("success");
+      loadSwaps();
+    } catch (e) {
+      setSwapSubmitError(e instanceof Error ? e.message : "Failed to request swap");
+    } finally {
+      setSwapSubmitting(false);
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -174,6 +372,14 @@ export default function SchedulePageClient() {
         .catch(() => {});
     }
   }, [isManager]);
+
+  // Load swap requests on mount. GET /api/swaps is session-scoped: managers get
+  // every active swap in the org (categorized into accepted-awaiting-approval
+  // and incoming), while employees get only their own (their incoming requests,
+  // per-shift status badge, and dedupe).
+  useEffect(() => {
+    loadSwaps();
+  }, [loadSwaps]);
 
   // Load user's own time-off requests on mount
   useEffect(() => {
@@ -279,6 +485,7 @@ export default function SchedulePageClient() {
     setTimeOffStatus("idle");
     setTimeOffError(null);
     setCalloutError(null);
+    setSwapRequestStatus("idle");
   }, [selectedDate]);
 
   async function handleRequestDayOff() {
@@ -308,34 +515,31 @@ export default function SchedulePageClient() {
     }
   }
 
+  // The next-shift card is always relative to *today* — not the week/month the
+  // user is currently browsing. Deriving it from `schedules` (the viewed range)
+  // meant it showed the wrong shift, or nothing, as soon as you navigated off
+  // the current week. Fetch the upcoming window from today directly instead, so
+  // navigation never affects it.
   useEffect(() => {
     let cancelled = false;
-    const todayKey = toDateKey(today);
-    const nowMinutes = today.getHours() * 60 + today.getMinutes();
-    const upcoming = schedules
-      .filter(s => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
-      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
-    if (upcoming.length > 0) {
-      setNextShift(upcoming[0]);
-    } else if (!loading) {
-      if (supplementalFetchedRef.current) return;
-      supplementalFetchedRef.current = true;
-      // Do a supplemental fetch for next 30 days
-      const to = new Date(today); to.setDate(today.getDate() + 30);
-      const toKey = toDateKey(to);
-      fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
-        .then(r => r.json())
-        .then(data => {
-          if (cancelled) return;
-          const upcoming = (data.schedules ?? [])
-            .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
-            .sort((a: Schedule, b: Schedule) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes);
-          setNextShift(upcoming[0] ?? null);
-        })
-        .catch(() => { if (!cancelled) setNextShift(null); });
-    }
-    return () => { cancelled = true; supplementalFetchedRef.current = false; };
-  }, [schedules, loading]);
+    const now = new Date();
+    const todayKey = toDateKey(now, timezone);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const to = new Date(now);
+    to.setDate(now.getDate() + 30);
+    const toKey = toDateKey(to, timezone);
+    fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => {
+        if (cancelled) return;
+        const upcoming = (data.schedules ?? [])
+          .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+          .sort((a: Schedule, b: Schedule) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes));
+        setNextShift(upcoming[0] ?? null);
+      })
+      .catch(() => { if (!cancelled) setNextShift(null); });
+    return () => { cancelled = true; };
+  }, [employeeId, timezone]);
 
   // Supabase Realtime — live updates for schedule, time-off, store hours, settings
   useEffect(() => {
@@ -387,6 +591,10 @@ export default function SchedulePageClient() {
       }
     }
 
+    function refetchSwaps() {
+      loadSwaps();
+    }
+
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -394,6 +602,7 @@ export default function SchedulePageClient() {
       } else if (Date.now() - hiddenAt > 5_000) {
         refetchSchedule();
         refetchTimeOff();
+        refetchSwaps();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -410,13 +619,14 @@ export default function SchedulePageClient() {
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .on("postgres_changes", { event: "*", schema: "public", table: "callouts" }, refetchCallouts)
+      .on("postgres_changes", { event: "*", schema: "public", table: "shift_swaps" }, refetchSwaps)
       .subscribe();
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadSwaps]);
 
   function goToPrev() {
     if (view === "week") {
@@ -517,6 +727,53 @@ export default function SchedulePageClient() {
     selectedTimeOff?.status !== "pending" &&
     selectedTimeOff?.status !== "approved";
 
+  // Swaps awaiting a manager's decision — the only ones a manager may act on,
+  // since the target has already accepted. Drives the drawer + its count.
+  const managerSwaps = useMemo(
+    () => allSwaps.filter((s) => s.status === "accepted"),
+    [allSwaps],
+  );
+
+  // Total pending items a manager must act on (swaps + time off), badged on the
+  // Requests button.
+  const pendingRequestsCount = managerSwaps.length + pendingManagerTimeOff.length;
+
+  // Swaps the current user is personally part of, as requester or target.
+  const mySwaps = useMemo(
+    () => allSwaps.filter((s) => s.requesterId === employeeId || s.targetId === employeeId),
+    [allSwaps, employeeId],
+  );
+
+  // Incoming requests this user must accept or decline: they're the target and
+  // it's still awaiting their response.
+  const incomingSwaps = useMemo(
+    () => allSwaps.filter((s) => s.targetId === employeeId && s.status === "pending"),
+    [allSwaps, employeeId],
+  );
+
+  // An active swap tied to the selected shift, from this user's perspective —
+  // either pending the target's answer or accepted and awaiting a manager.
+  const selectedShiftSwap = selectedSchedule
+    ? mySwaps.find((s) => s.scheduleAId === selectedSchedule.id || s.scheduleBId === selectedSchedule.id) ?? null
+    : null;
+
+  const selectedSwapBadge = (() => {
+    if (!selectedShiftSwap) return null;
+    if (selectedShiftSwap.status === "accepted") return "Swap awaiting manager approval";
+    return selectedShiftSwap.requesterId === employeeId
+      ? "Swap awaiting coworker's response"
+      : "Swap needs your response";
+  })();
+
+  // Offer "Request Shift Swap" when the user owns a shift on a today-or-future
+  // day and it isn't already mid-swap. (The target must accept and then a
+  // manager must approve — this only creates the pending request.)
+  const canRequestSwap =
+    selectedSchedule !== null &&
+    selectedDateKey >= todayKey &&
+    employeeId !== null &&
+    !selectedShiftSwap;
+
   // Stats
   const totalShifts = schedules.length;
   const totalHours = schedules.reduce(
@@ -557,8 +814,7 @@ export default function SchedulePageClient() {
                 key={v}
                 onClick={() => switchView(v)}
                 aria-pressed={view === v}
-                className="relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
-                style={{ color: view === v ? "#f1f5f9" : "#64748b" }}
+                className={`relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${view === v ? "text-slate-50" : "text-slate-500"}`}
               >
                 {view === v && (
                   <motion.div
@@ -804,7 +1060,37 @@ export default function SchedulePageClient() {
             {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
         ) : null}
+
+        {/* Shift swap status / action */}
+        {selectedSwapBadge ? (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+            <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
+            <span className="text-sm text-yellow-300 font-semibold">{selectedSwapBadge}</span>
+          </div>
+        ) : canRequestSwap ? (
+          <div className="mt-3">
+            {swapRequestStatus === "success" ? (
+              <div role="status" aria-live="polite" className="text-sm text-emerald-400 font-semibold">Swap requested ✓</div>
+            ) : (
+              <button
+                onClick={openSwapSheet}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-indigo-500/30 text-indigo-300 font-semibold text-sm cursor-pointer hover:bg-indigo-500/10 transition-colors"
+              >
+                <span aria-hidden="true">⇄</span>
+                Request Shift Swap
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
+
+      {/* Incoming swap requests this user must accept or decline */}
+      <IncomingSwapRequests
+        swaps={incomingSwaps}
+        respondingId={respondingSwapId}
+        onAccept={(id) => respondToSwap(id, "accepted")}
+        onDecline={(id) => respondToSwap(id, "declined")}
+      />
 
       {/* Stats row */}
       {loading ? <SkeletonStatsRow /> : null}
@@ -839,13 +1125,17 @@ export default function SchedulePageClient() {
       )}
 
       {isManager && (
-        <div className="mt-4">
-          <PendingTimeOffSection
-            requests={pendingManagerTimeOff}
-            onApprove={handleApproveManagerTimeOff}
-            onDeny={handleDenyManagerTimeOff}
-          />
-        </div>
+        <button
+          onClick={() => setSwapDrawerOpen(true)}
+          className="w-full mt-3 py-3 text-sm font-bold text-slate-200 bg-card border border-slate-800/60 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors flex items-center justify-center gap-2"
+        >
+          Requests
+          {pendingRequestsCount > 0 && (
+            <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
+              {pendingRequestsCount}
+            </span>
+          )}
+        </button>
       )}
     </>
   );
@@ -904,6 +1194,32 @@ export default function SchedulePageClient() {
           firstDayOfWeek={firstDayOfWeek}
           onSelect={handlePickerSelect}
           onClose={() => setPickerOpen(false)}
+        />
+
+        {isManager && (
+          <RequestsDrawer
+            open={swapDrawerOpen}
+            onClose={() => setSwapDrawerOpen(false)}
+            swaps={managerSwaps}
+            timeOff={pendingManagerTimeOff}
+            onApproveSwap={handleApproveSwap}
+            onDenySwap={handleDenySwap}
+            onApproveTimeOff={handleApproveManagerTimeOff}
+            onDenyTimeOff={handleDenyManagerTimeOff}
+          />
+        )}
+
+        <SwapRequestSheet
+          open={swapSheetOpen}
+          onClose={() => setSwapSheetOpen(false)}
+          dateLabel={selectedDayLabel}
+          myShiftTime={selectedSchedule ? `${fmtMinutes(selectedSchedule.startMinutes)} – ${fmtMinutes(selectedSchedule.endMinutes)}` : ""}
+          coworkers={swapCoworkers}
+          loading={swapLoading}
+          error={swapLoadError}
+          submitting={swapSubmitting}
+          submitError={swapSubmitError}
+          onSelect={submitSwap}
         />
 
         <BottomNav active="schedule" />

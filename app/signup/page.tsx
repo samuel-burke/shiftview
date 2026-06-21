@@ -41,9 +41,11 @@ export default function SignupPage() {
       .catch(() => {});
   }, []);
 
-  // Supabase Auth CAPTCHA protection (when enabled) requires a Turnstile
-  // token on signInWithOtp. Tokens are single-use, so the widget is reset
-  // after every send attempt.
+  // Signup mints fresh auth users and emails them, so it's bot-gated. The
+  // Turnstile token is verified server-side at /api/auth/signup-otp (which
+  // also sends the OTP), mirroring the demo route's route-level check rather
+  // than Supabase Auth's CAPTCHA — that lets login stay ungated. Tokens are
+  // single-use, so the widget is reset after every send attempt.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -89,22 +91,16 @@ export default function SignupPage() {
     if (TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the verification first."); return; }
     setLoading(true);
     setError(null);
-    const supabase = getSupabase();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: true,
-        // New-user verification emails may contain a link instead of a code
-        // (depending on the Supabase email template); make sure it lands
-        // back in this app, where the signed-in flow finishes the sign-up.
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        ...(captchaToken ? { captchaToken } : {}),
-      },
+    const res = await fetch("/api/auth/signup-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), turnstileToken: captchaToken }),
     });
     // The token was consumed by this attempt either way.
     resetCaptcha();
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "Could not send the code. Please try again.");
     } else {
       setStep("code");
     }
@@ -200,7 +196,7 @@ export default function SignupPage() {
                 maxLength={80}
                 onChange={(e) => { setOrgName(e.target.value); setError(null); }}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
               />
               <label htmlFor="signup-owner-name" className="sr-only">Your name</label>
               <input
@@ -211,7 +207,7 @@ export default function SignupPage() {
                 value={ownerName}
                 maxLength={80}
                 onChange={(e) => { setOwnerName(e.target.value); setError(null); }}
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
               />
               {sessionEmail ? (
                 <>
@@ -244,7 +240,7 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setError(null); }}
                     onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
-                    className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+                    className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
                   {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
                   <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
@@ -284,7 +280,7 @@ export default function SignupPage() {
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark] caret-transparent disabled:opacity-50"
+                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors caret-transparent disabled:opacity-50"
               />
               {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
               <button

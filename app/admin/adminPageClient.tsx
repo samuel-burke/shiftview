@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { getMonogram } from "../../data/types";
@@ -29,6 +29,17 @@ export default function AdminPageClient({
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [errorId, setErrorId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Auto-dismiss the inline error after 5s, clearing any pending timer first so
+  // the timeout can't fire (and setState) after the component unmounts.
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashError(id: number, msg: string) {
+    setErrorId(id);
+    setErrorMsg(msg);
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = setTimeout(() => { setErrorId(null); setErrorMsg(null); }, 5000);
+  }
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current); }, []);
 
   useEffect(() => {
     Promise.all([
@@ -101,9 +112,7 @@ export default function AdminPageClient({
         else next.delete(emp.user_id!);
         return next;
       });
-      setErrorId(emp.id);
-      setErrorMsg("Network error — could not reach the server.");
-      setTimeout(() => { setErrorId(null); setErrorMsg(null); }, 5000);
+      flashError(emp.id, "Network error — could not reach the server.");
       return;
     }
 
@@ -118,9 +127,7 @@ export default function AdminPageClient({
       });
       const json = await res.json().catch(() => ({}));
       const msg = json.error ?? "Something went wrong. Please try again.";
-      setErrorId(emp.id);
-      setErrorMsg(msg);
-      setTimeout(() => { setErrorId(null); setErrorMsg(null); }, 5000);
+      flashError(emp.id, msg);
     }
   }
 

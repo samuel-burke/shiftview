@@ -6,7 +6,6 @@ import SignupPage from "./page";
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, refresh: vi.fn() }) }));
 
-const mockSignInWithOtp = vi.fn().mockResolvedValue({ error: null });
 const mockVerifyOtp = vi.fn().mockResolvedValue({ error: null });
 const mockGetUser = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
 const mockSignOut = vi.fn().mockResolvedValue({ error: null });
@@ -14,7 +13,6 @@ const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 vi.mock("@/lib/supabase-browser", () => ({
   createClient: () => ({
     auth: {
-      signInWithOtp: mockSignInWithOtp,
       verifyOtp: mockVerifyOtp,
       getUser: mockGetUser,
       signOut: mockSignOut,
@@ -22,11 +20,18 @@ vi.mock("@/lib/supabase-browser", () => ({
   }),
 }));
 
-function mockFetch(response: { ok: boolean; body?: object }) {
-  return vi.spyOn(global, "fetch").mockResolvedValue({
-    ok: response.ok,
-    json: async () => response.body ?? {},
-  } as Response);
+// Signup sends the OTP through the gated server route (/api/auth/signup-otp)
+// so the Turnstile check runs before any email goes out; org creation hits
+// /api/organizations. Route by URL so each test controls the org-create
+// response independently of the always-ok send-code call.
+function mockFetch(org: { ok: boolean; body?: object }) {
+  return vi.spyOn(global, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("/api/auth/signup-otp")) {
+      return { ok: true, json: async () => ({ ok: true }) } as Response;
+    }
+    return { ok: org.ok, json: async () => org.body ?? {} } as Response;
+  });
 }
 
 async function fillDetails() {
@@ -45,28 +50,29 @@ async function advanceToCodeStep() {
 describe("SignupPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSignInWithOtp.mockResolvedValue({ error: null });
     mockVerifyOtp.mockResolvedValue({ error: null });
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignOut.mockResolvedValue({ error: null });
+    // Default: every route succeeds; tests that need a failure re-mock.
+    mockFetch({ ok: true, body: { ok: true } });
   });
 
   it("requires all fields before sending a code", async () => {
     render(<SignupPage />);
     await userEvent.click(screen.getByRole("button", { name: /send code/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/organization name/i);
-    expect(mockSignInWithOtp).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("sends an OTP that may create a new auth user", async () => {
+  it("sends the OTP through the gated server route", async () => {
     await advanceToCodeStep();
-    expect(mockSignInWithOtp).toHaveBeenCalledWith({
-      email: "alice@example.com",
-      options: expect.objectContaining({
-        shouldCreateUser: true,
-        emailRedirectTo: expect.stringContaining("/auth/callback"),
-      }),
-    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/auth/signup-otp",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ email: "alice@example.com", turnstileToken: null }),
+      })
+    );
   });
 
   it("verifies the code and creates the organization", async () => {
@@ -122,8 +128,8 @@ describe("SignupPage", () => {
     await userEvent.click(createButton);
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/"));
-    expect(mockSignInWithOtp).not.toHaveBeenCalled();
     expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalledWith("/api/auth/signup-otp", expect.anything());
     expect(fetchSpy).toHaveBeenCalledWith("/api/organizations", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ name: "Acme Coffee", ownerName: "Alice Smith" }),

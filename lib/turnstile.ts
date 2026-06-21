@@ -1,7 +1,8 @@
-// Server-side Cloudflare Turnstile verification for the demo entry point.
-// POST /api/demo/start creates real (anonymous) auth users, so it's gated
-// against bots. Enforcement is opt-in: with no TURNSTILE_SECRET_KEY set
-// (local dev, e2e, preview without keys) verification passes.
+// Server-side Cloudflare Turnstile verification for the bot-gated auth entry
+// points: POST /api/demo/start (mints anonymous users) and POST
+// /api/auth/signup-otp (mints users + emails them). Enforcement is opt-in:
+// with no TURNSTILE_SECRET_KEY set (local dev, e2e, preview without keys)
+// verification passes.
 
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 

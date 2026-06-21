@@ -322,6 +322,11 @@ export default function SettingsPageClient({
     }, 200);
   }
 
+  // Cancel any pending debounced autocomplete fetch on unmount.
+  useEffect(() => () => {
+    if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
+  }, []);
+
   function selectSuggestion(result: NominatimResult) {
     const label = shortAddress(result);
     setGeofenceLat(parseFloat(result.lat));
@@ -817,8 +822,7 @@ export default function SettingsPageClient({
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className="relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
-                  style={{ color: themeMode === m ? "#f1f5f9" : "#94a3b8" }}
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {themeMode === m && (
                     <motion.div
@@ -1292,7 +1296,7 @@ export default function SettingsPageClient({
                               const v = clamp(Math.round(Number(e.target.value) || 0), 1, 1440);
                               if (v !== (DEFAULT_PUNCH_POLICY[minutesKey] as number) || v !== minutes) savePunchPolicy({ [minutesKey]: v } as Partial<PunchPolicy>);
                             }}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70"
                           />
                           <span className="text-xs text-slate-500">min</span>
                         </div>
@@ -1331,7 +1335,7 @@ export default function SettingsPageClient({
                   const v = clamp(Math.round(Number(e.target.value) || 0), 0, 20);
                   savePunchPolicy({ maxBreaksPerShift: v });
                 }}
-                className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 [color-scheme:dark] shrink-0"
+                className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 shrink-0"
               />
             </div>
 
@@ -1352,8 +1356,7 @@ export default function SettingsPageClient({
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className="relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10"
-                  style={{ color: firstDayOfWeek === value ? "#f1f5f9" : "#94a3b8" }}
+                  className={`relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {firstDayOfWeek === value && (
                     <motion.div
@@ -1382,7 +1385,7 @@ export default function SettingsPageClient({
               aria-label="Timezone"
               value={timezone}
               onChange={(e) => saveTimezone(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors [color-scheme:dark]"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors"
             >
               {TIMEZONE_OPTIONS.map(({ label, value }) => (
                 <option key={value} value={value}>{label} — {value}</option>
@@ -1554,7 +1557,7 @@ export default function SettingsPageClient({
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 [color-scheme:dark] focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
                         <button
                           disabled={applyingId === tpl.id}

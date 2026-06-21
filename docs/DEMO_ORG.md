@@ -237,19 +237,22 @@ The plan in §6 is implemented. Map of the moving parts:
    "Demo is unavailable right now".
 1a. **(Recommended) Bot gate**: create a Cloudflare Turnstile widget
    (Cloudflare dashboard → Turnstile → Add widget, hostname = the app's
-   domain — the apex covers subdomains — "Managed" mode). Tokens are
-   single-use, so verification happens in exactly ONE place; pick one:
-   - **Supabase CAPTCHA protection (recommended)**: enable it under
-     Authentication → Attack Protection with the Turnstile secret, and set
-     only `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in Vercel. The token is passed
-     through to `signInAnonymously` (and the login page's `signInWithOtp`,
-     which the protection also covers) and verified by Supabase. This also
-     guards direct calls to the public auth endpoint that bypass our routes.
-   - **Route-level**: leave Supabase CAPTCHA off and set both
-     `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`;
-     `/api/demo/start` verifies against siteverify itself.
-   Do not enable both — the second verifier always sees an already-consumed
-   token. With no keys set the gate is off; local dev and e2e need no
+   domain — the apex covers subdomains — "Managed" mode). The gate protects
+   the two abusable auth paths that mint new `auth.users` rows: the demo
+   entry point (`signInAnonymously`, throwaway anonymous users with no email
+   step) and signup (`signInWithOtp` with `shouldCreateUser: true`, which
+   also fires a verification email to an arbitrary address). The login flow
+   is left ungated — it only emails existing users (`shouldCreateUser:
+   false`), so Supabase's built-in email rate limits are friction enough.
+
+   Verification is **route-level**: set both
+   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel.
+   `/api/demo/start` and `/api/auth/signup-otp` each verify the token against
+   siteverify themselves (the signup OTP is sent from the server so the gate
+   runs before any email goes out). Leave Supabase's Auth CAPTCHA protection
+   **off** — enabling it would force a token on *every* auth endpoint (login
+   included), which is the all-or-nothing behavior this setup intentionally
+   avoids. With no keys set the gate is off; local dev and e2e need no
    configuration. The self-heal path for existing anonymous sessions is
    always exempt (no new auth user is minted).
 2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
