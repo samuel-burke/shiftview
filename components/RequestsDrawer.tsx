@@ -4,11 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { getMonogram } from "../data/types";
-import {
-  TimeOffPendingIcon,
-  TimeOffApprovedIcon,
-  TimeOffDeniedIcon,
-} from "./ShiftIcons";
+import { TimeOffPendingIcon } from "./ShiftIcons";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
 const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -259,26 +255,22 @@ function TimeOffCard({
 
       <div className="flex gap-2">
         <button
-          onClick={() => run("deny", onDeny)}
-          disabled={loading !== null}
-          aria-label={`Deny ${request.employeeName}'s time off request`}
-          aria-busy={loading === "deny"}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold cursor-pointer hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading === "deny"
-            ? <div aria-hidden="true" className="size-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
-            : <><TimeOffDeniedIcon size={12} color="currentColor" />Deny</>}
-        </button>
-        <button
           onClick={() => run("approve", onApprove)}
           disabled={loading !== null}
-          aria-label={`Approve ${request.employeeName}'s time off request`}
           aria-busy={loading === "approve"}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label={`Approve ${request.employeeName}'s time off request`}
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading === "approve"
-            ? <div aria-hidden="true" className="size-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
-            : <><TimeOffApprovedIcon size={12} color="currentColor" />Approve</>}
+          {loading === "approve" ? "…" : "Approve"}
+        </button>
+        <button
+          onClick={() => run("deny", onDeny)}
+          disabled={loading !== null}
+          aria-busy={loading === "deny"}
+          aria-label={`Deny ${request.employeeName}'s time off request`}
+          className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading === "deny" ? "…" : "Deny"}
         </button>
       </div>
     </div>
