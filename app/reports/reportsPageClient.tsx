@@ -8,7 +8,9 @@ import { useAppData } from "@/lib/AppDataContext";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
+import PunctualityReport, { type PunctualityRow } from "../../components/PunctualityReport";
 import { CoverageProfile, curveForDate } from "../../lib/coverage";
+import type { PunctualitySummary } from "../../lib/punctuality";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -290,7 +292,7 @@ export default function ReportsPageClient() {
   const today = new Date();
   const todayKey = toDateKey(today);
 
-  const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll">("coverage");
+  const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll" | "punctuality">("coverage");
 
   // ── Coverage state ──
   const [loading, setLoading] = useState(true);
@@ -337,6 +339,13 @@ export default function ReportsPageClient() {
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+
+  // ── Punctuality state ──
+  const [punctualityDate, setPunctualityDate] = useState(todayKey);
+  const [punctualityRows, setPunctualityRows] = useState<PunctualityRow[] | null>(null);
+  const [punctualitySummary, setPunctualitySummary] = useState<PunctualitySummary | null>(null);
+  const [punctualityLoading, setPunctualityLoading] = useState(false);
+  const [punctualityError, setPunctualityError] = useState<string | null>(null);
 
   const selectedWeekStart = useMemo(() => {
     const base = new Date(todayKey + "T12:00:00Z");
@@ -500,6 +509,32 @@ export default function ReportsPageClient() {
     fetchAuditPage(1, true);
   }, [activeTab, auditFrom, auditTo, auditCategory, auditActorId]);
 
+  // Load punctuality report whenever the tab opens or the date changes
+  useEffect(() => {
+    if (activeTab !== "punctuality") return;
+    let cancelled = false;
+    setPunctualityLoading(true);
+    setPunctualityError(null);
+    fetch(`/api/reports/punctuality?date=${punctualityDate}`)
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Failed to load report");
+        return json;
+      })
+      .then((json) => {
+        if (cancelled) return;
+        setPunctualityRows(json.rows ?? []);
+        setPunctualitySummary(json.summary ?? null);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setPunctualityError(e.message ?? "Network error — please try again");
+        setPunctualityRows(null);
+      })
+      .finally(() => { if (!cancelled) setPunctualityLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeTab, punctualityDate]);
+
   function fetchAuditPage(page: number, replace: boolean) {
     setAuditLoading(true);
     const params = new URLSearchParams({ from: auditFrom, to: auditTo, page: String(page) });
@@ -617,7 +652,7 @@ export default function ReportsPageClient() {
 
       {/* Tab bar */}
       <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex gap-2">
-        {(["coverage", "payroll", "activity"] as const).map((tab) => (
+        {(["coverage", "payroll", "punctuality", "activity"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -628,7 +663,7 @@ export default function ReportsPageClient() {
                 : "bg-card border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
-            {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : "Activity"}
+            {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : tab === "punctuality" ? "Punctuality" : "Activity"}
           </button>
         ))}
       </div>
@@ -887,6 +922,40 @@ export default function ReportsPageClient() {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Punctuality tab ── */}
+      {activeTab === "punctuality" && (
+        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
+          {/* Date picker */}
+          <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
+            <label htmlFor="punctuality-date" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Date</label>
+            <input
+              id="punctuality-date"
+              type="date"
+              value={punctualityDate}
+              max={todayKey}
+              onChange={(e) => setPunctualityDate(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 [color-scheme:dark]"
+            />
+          </div>
+
+          {punctualityError && (
+            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
+              {punctualityError}
+            </div>
+          )}
+
+          {punctualityLoading ? (
+            <div role="status" aria-label="Loading punctuality report" className="flex flex-col gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} aria-hidden="true" className="h-14 bg-slate-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : punctualityRows !== null && punctualitySummary !== null ? (
+            <PunctualityReport rows={punctualityRows} summary={punctualitySummary} />
+          ) : null}
         </div>
       )}
 
