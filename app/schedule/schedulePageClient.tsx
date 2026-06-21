@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -33,6 +33,7 @@ import {
   MegaphoneIcon,
 } from "../../components/ShiftIcons";
 import PendingTimeOffSection from "../../components/PendingTimeOffSection";
+import SwapRequestsDrawer from "../../components/SwapRequestsDrawer";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -41,6 +42,46 @@ type ManagerTimeOffRequest = {
   note?: string;
   status: string;
 };
+
+// Shape the SwapRequestsDrawer consumes (flat, display-ready).
+type PendingSwap = {
+  id: number;
+  requesterName: string;
+  targetName: string;
+  date: string;
+  scheduleATime: string;
+  scheduleBTime: string;
+};
+
+// GET /api/swaps returns nested employee/schedule joins; Supabase types them as
+// object-or-array depending on the relationship, so normalize defensively.
+function firstOf<T>(v: T | T[] | null | undefined): T | null {
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v ?? null;
+}
+
+type RawSwap = {
+  id: number;
+  requester?: { name: string } | { name: string }[] | null;
+  target?: { name: string } | { name: string }[] | null;
+  schedule_a?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
+  schedule_b?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
+};
+
+function mapSwap(raw: RawSwap): PendingSwap {
+  const requester = firstOf(raw.requester);
+  const target = firstOf(raw.target);
+  const a = firstOf(raw.schedule_a);
+  const b = firstOf(raw.schedule_b);
+  return {
+    id: raw.id,
+    requesterName: requester?.name ?? "Unknown",
+    targetName: target?.name ?? "Unknown",
+    date: a?.date ?? "",
+    scheduleATime: a ? `${fmtMinutes(a.start_minutes)} – ${fmtMinutes(a.end_minutes)}` : "",
+    scheduleBTime: b ? `${fmtMinutes(b.start_minutes)} – ${fmtMinutes(b.end_minutes)}` : "",
+  };
+}
 
 type View = "week" | "month";
 
@@ -121,6 +162,8 @@ export default function SchedulePageClient() {
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const supplementalFetchedRef = useRef(false);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  const [pendingSwaps, setPendingSwaps] = useState<PendingSwap[]>([]);
+  const [swapDrawerOpen, setSwapDrawerOpen] = useState(false);
 
   // Mutable refs so realtime callbacks always see the latest navigation state
   const navDateRef = useRef(navDate);
@@ -160,6 +203,43 @@ export default function SchedulePageClient() {
     setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
   }
 
+  const loadPendingSwaps = useCallback(() => {
+    fetch("/api/swaps")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setPendingSwaps(data.map(mapSwap)); })
+      .catch(() => {});
+  }, []);
+
+  // SwapRequestsDrawer's cards call these directly without catching, so swallow
+  // errors here and resync from the server rather than throwing.
+  async function handleApproveSwap(id: number) {
+    try {
+      const res = await fetch(`/api/swaps/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      });
+      if (!res.ok) throw new Error();
+      setPendingSwaps((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      loadPendingSwaps();
+    }
+  }
+
+  async function handleDenySwap(id: number) {
+    try {
+      const res = await fetch(`/api/swaps/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "denied" }),
+      });
+      if (!res.ok) throw new Error();
+      setPendingSwaps((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      loadPendingSwaps();
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -174,6 +254,11 @@ export default function SchedulePageClient() {
         .catch(() => {});
     }
   }, [isManager]);
+
+  // Load pending swap requests once manager status is known
+  useEffect(() => {
+    if (isManager) loadPendingSwaps();
+  }, [isManager, loadPendingSwaps]);
 
   // Load user's own time-off requests on mount
   useEffect(() => {
@@ -387,6 +472,10 @@ export default function SchedulePageClient() {
       }
     }
 
+    function refetchSwaps() {
+      if (isManagerRef.current) loadPendingSwaps();
+    }
+
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -394,6 +483,7 @@ export default function SchedulePageClient() {
       } else if (Date.now() - hiddenAt > 5_000) {
         refetchSchedule();
         refetchTimeOff();
+        refetchSwaps();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -410,13 +500,14 @@ export default function SchedulePageClient() {
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, refetchSchedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .on("postgres_changes", { event: "*", schema: "public", table: "callouts" }, refetchCallouts)
+      .on("postgres_changes", { event: "*", schema: "public", table: "shift_swaps" }, refetchSwaps)
       .subscribe();
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadPendingSwaps]);
 
   function goToPrev() {
     if (view === "week") {
@@ -839,6 +930,20 @@ export default function SchedulePageClient() {
       )}
 
       {isManager && (
+        <button
+          onClick={() => setSwapDrawerOpen(true)}
+          className="w-full mt-3 py-3 text-sm font-bold text-slate-200 bg-card border border-slate-800/60 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors flex items-center justify-center gap-2"
+        >
+          Swap Requests
+          {pendingSwaps.length > 0 && (
+            <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
+              {pendingSwaps.length}
+            </span>
+          )}
+        </button>
+      )}
+
+      {isManager && (
         <div className="mt-4">
           <PendingTimeOffSection
             requests={pendingManagerTimeOff}
@@ -905,6 +1010,16 @@ export default function SchedulePageClient() {
           onSelect={handlePickerSelect}
           onClose={() => setPickerOpen(false)}
         />
+
+        {isManager && (
+          <SwapRequestsDrawer
+            open={swapDrawerOpen}
+            onClose={() => setSwapDrawerOpen(false)}
+            swaps={pendingSwaps}
+            onApprove={handleApproveSwap}
+            onDeny={handleDenySwap}
+          />
+        )}
 
         <BottomNav active="schedule" />
       </main>
