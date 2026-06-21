@@ -1,10 +1,10 @@
 // Client-side Cloudflare Turnstile loader, shared by the demo entry button
-// and the login page. Active only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set;
+// and the signup page. Active only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set;
 // without it callers skip the challenge entirely (local dev, e2e).
 //
-// Tokens are single-use: verify them in exactly one place. With Supabase
-// Auth's CAPTCHA protection enabled, that place is Supabase — pass the token
-// via options.captchaToken and do not call siteverify yourself.
+// Tokens are single-use and verified server-side (route-level) by the
+// endpoint each widget feeds — /api/demo/start and /api/auth/signup-otp —
+// against siteverify with TURNSTILE_SECRET_KEY.
 
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 

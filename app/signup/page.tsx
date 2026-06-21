@@ -41,9 +41,11 @@ export default function SignupPage() {
       .catch(() => {});
   }, []);
 
-  // Supabase Auth CAPTCHA protection (when enabled) requires a Turnstile
-  // token on signInWithOtp. Tokens are single-use, so the widget is reset
-  // after every send attempt.
+  // Signup mints fresh auth users and emails them, so it's bot-gated. The
+  // Turnstile token is verified server-side at /api/auth/signup-otp (which
+  // also sends the OTP), mirroring the demo route's route-level check rather
+  // than Supabase Auth's CAPTCHA — that lets login stay ungated. Tokens are
+  // single-use, so the widget is reset after every send attempt.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const widgetContainerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -89,22 +91,16 @@ export default function SignupPage() {
     if (TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the verification first."); return; }
     setLoading(true);
     setError(null);
-    const supabase = getSupabase();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: true,
-        // New-user verification emails may contain a link instead of a code
-        // (depending on the Supabase email template); make sure it lands
-        // back in this app, where the signed-in flow finishes the sign-up.
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        ...(captchaToken ? { captchaToken } : {}),
-      },
+    const res = await fetch("/api/auth/signup-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), turnstileToken: captchaToken }),
     });
     // The token was consumed by this attempt either way.
     resetCaptcha();
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "Could not send the code. Please try again.");
     } else {
       setStep("code");
     }

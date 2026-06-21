@@ -53,17 +53,16 @@ export async function POST(request: Request) {
   let userId = existing?.id ?? null;
   if (!userId) {
     // Bot gate applies only when minting a NEW anonymous auth user — that's
-    // the abusable resource. Re-provisioning an existing session (the
-    // self-heal path) skips it: that visitor already passed the challenge
-    // once, and no new user is created.
+    // the abusable resource (no email step, unlike login/signup). Anonymous
+    // sign-in is the only auth path this app gates with Turnstile; the
+    // email-OTP login and signup flows rely on Supabase's built-in email
+    // rate limits instead. Re-provisioning an existing session (the
+    // self-heal path) skips the gate: that visitor already passed the
+    // challenge once, and no new user is created.
     //
-    // Turnstile tokens are single-use, so verify in exactly ONE place:
-    // - Supabase Auth CAPTCHA protection enabled (recommended — it also
-    //   covers direct calls to the public auth endpoint): leave
-    //   TURNSTILE_SECRET_KEY unset here and pass the token through.
-    // - Supabase CAPTCHA off: set TURNSTILE_SECRET_KEY and this route
-    //   verifies against siteverify itself.
-    let captchaToken: string | undefined = turnstileToken ?? undefined;
+    // Verification is route-level: set TURNSTILE_SECRET_KEY and this route
+    // checks the token against siteverify itself. With no secret key set
+    // the gate is off (local dev, e2e, preview without keys).
     if (process.env.TURNSTILE_SECRET_KEY) {
       if (!(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
         return NextResponse.json(
@@ -71,12 +70,9 @@ export async function POST(request: Request) {
           { status: 403 }
         );
       }
-      captchaToken = undefined; // consumed by siteverify; don't reuse
     }
 
-    const { data, error } = await supabase.auth.signInAnonymously(
-      captchaToken ? { options: { captchaToken } } : undefined
-    );
+    const { data, error } = await supabase.auth.signInAnonymously();
     if (error || !data.user) {
       console.error("[api/demo/start] anonymous sign-in failed:", error);
       const captchaRejected = error?.code === "captcha_failed";
