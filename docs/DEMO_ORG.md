@@ -238,21 +238,23 @@ The plan in §6 is implemented. Map of the moving parts:
 1a. **(Recommended) Bot gate**: create a Cloudflare Turnstile widget
    (Cloudflare dashboard → Turnstile → Add widget, hostname = the app's
    domain — the apex covers subdomains — "Managed" mode). The gate protects
-   only the demo entry point (`signInAnonymously`), which is the one
-   abusable auth path — it mints throwaway `auth.users` rows with no email
-   step. The email-OTP login and signup flows are left ungated; their
-   emailed code plus Supabase's built-in email rate limits are the friction
-   there, so they need no Turnstile widget.
+   the two abusable auth paths that mint new `auth.users` rows: the demo
+   entry point (`signInAnonymously`, throwaway anonymous users with no email
+   step) and signup (`signInWithOtp` with `shouldCreateUser: true`, which
+   also fires a verification email to an arbitrary address). The login flow
+   is left ungated — it only emails existing users (`shouldCreateUser:
+   false`), so Supabase's built-in email rate limits are friction enough.
 
    Verification is **route-level**: set both
-   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel and
-   `/api/demo/start` verifies the token against siteverify itself. Leave
-   Supabase's Auth CAPTCHA protection **off** — enabling it would force a
-   token on every auth endpoint (login and signup included), which is the
-   all-or-nothing behavior this setup intentionally avoids. With no keys set
-   the gate is off; local dev and e2e need no configuration. The self-heal
-   path for existing anonymous sessions is always exempt (no new auth user
-   is minted).
+   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel.
+   `/api/demo/start` and `/api/auth/signup-otp` each verify the token against
+   siteverify themselves (the signup OTP is sent from the server so the gate
+   runs before any email goes out). Leave Supabase's Auth CAPTCHA protection
+   **off** — enabling it would force a token on *every* auth endpoint (login
+   included), which is the all-or-nothing behavior this setup intentionally
+   avoids. With no keys set the gate is off; local dev and e2e need no
+   configuration. The self-heal path for existing anonymous sessions is
+   always exempt (no new auth user is minted).
 2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
    (after 0001–0005) in the SQL editor or via the Supabase CLI.
 3. **Seeding is automatic**: the first `POST /api/demo/start` against an
