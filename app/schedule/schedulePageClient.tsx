@@ -33,8 +33,7 @@ import {
   TimeOffDeniedIcon,
   MegaphoneIcon,
 } from "../../components/ShiftIcons";
-import PendingTimeOffSection from "../../components/PendingTimeOffSection";
-import SwapRequestsDrawer from "../../components/SwapRequestsDrawer";
+import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
 
@@ -735,6 +734,10 @@ export default function SchedulePageClient() {
     [allSwaps],
   );
 
+  // Total pending items a manager must act on (swaps + time off), badged on the
+  // Requests button.
+  const pendingRequestsCount = managerSwaps.length + pendingManagerTimeOff.length;
+
   // Swaps the current user is personally part of, as requester or target.
   const mySwaps = useMemo(
     () => allSwaps.filter((s) => s.requesterId === employeeId || s.targetId === employeeId),
@@ -1126,23 +1129,13 @@ export default function SchedulePageClient() {
           onClick={() => setSwapDrawerOpen(true)}
           className="w-full mt-3 py-3 text-sm font-bold text-slate-200 bg-card border border-slate-800/60 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors flex items-center justify-center gap-2"
         >
-          Swap Requests
-          {managerSwaps.length > 0 && (
+          Requests
+          {pendingRequestsCount > 0 && (
             <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
-              {managerSwaps.length}
+              {pendingRequestsCount}
             </span>
           )}
         </button>
-      )}
-
-      {isManager && (
-        <div className="mt-4">
-          <PendingTimeOffSection
-            requests={pendingManagerTimeOff}
-            onApprove={handleApproveManagerTimeOff}
-            onDeny={handleDenyManagerTimeOff}
-          />
-        </div>
       )}
     </>
   );
@@ -1204,12 +1197,15 @@ export default function SchedulePageClient() {
         />
 
         {isManager && (
-          <SwapRequestsDrawer
+          <RequestsDrawer
             open={swapDrawerOpen}
             onClose={() => setSwapDrawerOpen(false)}
             swaps={managerSwaps}
-            onApprove={handleApproveSwap}
-            onDeny={handleDenySwap}
+            timeOff={pendingManagerTimeOff}
+            onApproveSwap={handleApproveSwap}
+            onDenySwap={handleDenySwap}
+            onApproveTimeOff={handleApproveManagerTimeOff}
+            onDenyTimeOff={handleDenyManagerTimeOff}
           />
         )}
 
