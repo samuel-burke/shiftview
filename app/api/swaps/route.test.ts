@@ -31,6 +31,10 @@ const PENDING_SWAP = {
   target_id: 2,
 };
 
+// A swap the target has already accepted — the only state from which a manager
+// may approve or deny.
+const ACCEPTED_SWAP = { ...PENDING_SWAP, status: "accepted" };
+
 /**
  * Build a mock Supabase client that handles the multi-table query pattern used
  * by the swaps routes.  Each `from(table)` call can return different data via
@@ -60,6 +64,7 @@ function makeSwapsClient({
       "lte",
       "order",
       "or",
+      "in",
       "limit",
     ]) {
       b[m] = vi.fn().mockReturnValue(b);
@@ -307,7 +312,7 @@ describe("PUT /api/swaps/[id]", () => {
       },
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
-        if (table === "shift_swaps") return makeBuilder({ data: PENDING_SWAP, error: null });
+        if (table === "shift_swaps") return makeBuilder({ data: ACCEPTED_SWAP, error: null });
         if (table === "schedules") {
           scheduleCallCount++;
           const row = scheduleCallCount <= 2
@@ -359,7 +364,7 @@ describe("PUT /api/swaps/[id]", () => {
       },
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
-        if (table === "shift_swaps") return makeBuilder({ data: PENDING_SWAP, error: null });
+        if (table === "shift_swaps") return makeBuilder({ data: ACCEPTED_SWAP, error: null });
         return makeBuilder({ data: null, error: null });
       }),
     };
