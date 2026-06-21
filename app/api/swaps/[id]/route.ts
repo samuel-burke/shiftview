@@ -109,8 +109,6 @@ export async function PUT(
     orgId: orgId!,
     swapId,
     status: status as ManagerAction,
-    scheduleAId: swap.schedule_a_id,
-    scheduleBId: swap.schedule_b_id,
     requesterId: swap.requester_id,
     targetId: swap.target_id,
     actorId: user?.id,
@@ -196,69 +194,50 @@ async function resolveAsManager(
     orgId: string;
     swapId: number;
     status: ManagerAction;
-    scheduleAId: number;
-    scheduleBId: number;
     requesterId: number;
     targetId: number;
     actorId?: string;
   }
 ) {
-  const { orgId, swapId, status, scheduleAId, scheduleBId, requesterId, targetId, actorId } = args;
+  const { orgId, swapId, status, requesterId, targetId, actorId } = args;
 
   if (status === "approved") {
-    // Fetch both schedules to get their employee_ids — scoped to org
-    const [{ data: scheduleA, error: errA }, { data: scheduleB, error: errB }] = await Promise.all([
-      supabase.from("schedules").select("id, employee_id").eq("org_id", orgId).eq("id", scheduleAId).maybeSingle(),
-      supabase.from("schedules").select("id, employee_id").eq("org_id", orgId).eq("id", scheduleBId).maybeSingle(),
-    ]);
+    // Exchange the two shifts and resolve the swap atomically (single
+    // transaction, row-locked) so a crash or concurrent approval can't move one
+    // shift without the other. The function re-checks manager + org + that the
+    // swap is still 'accepted', returning a status string we map to a response.
+    const { data: result, error: rpcError } = await supabase.rpc("approve_shift_swap", {
+      p_org: orgId,
+      p_swap_id: swapId,
+    });
 
-    if (errA || !scheduleA) {
-      return NextResponse.json({ error: "Schedule A not found" }, { status: 400 });
-    }
-    if (errB || !scheduleB) {
-      return NextResponse.json({ error: "Schedule B not found" }, { status: 400 });
-    }
-
-    // Atomically swap employee_ids: update A to B's employee, then B to A's employee
-    const { error: updateAError } = await supabase
-      .from("schedules")
-      .update({ employee_id: scheduleB.employee_id })
-      .eq("org_id", orgId)
-      .eq("id", scheduleA.id);
-
-    if (updateAError) {
-      console.error("[api/swaps/[id]]", updateAError);
+    if (rpcError) {
+      console.error("[api/swaps/[id]]", rpcError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
-
-    const { error: updateBError } = await supabase
-      .from("schedules")
-      .update({ employee_id: scheduleA.employee_id })
+    if (result !== "approved") {
+      // Lost a race between the pre-check above and the locked apply.
+      if (result === "not_found")
+        return NextResponse.json({ error: "Swap request not found" }, { status: 404 });
+      if (result === "schedule_missing")
+        return NextResponse.json({ error: "Shift not found" }, { status: 400 });
+      if (result === "forbidden")
+        return NextResponse.json({ error: "Manager access required" }, { status: 403 });
+      // pending / approved / denied / declined — no longer approvable.
+      return NextResponse.json({ error: "Swap is already resolved" }, { status: 409 });
+    }
+  } else {
+    // Denial never touches schedules — a single status update is already atomic.
+    const { error: statusError } = await supabase
+      .from("shift_swaps")
+      .update({ status })
       .eq("org_id", orgId)
-      .eq("id", scheduleB.id);
+      .eq("id", swapId);
 
-    if (updateBError) {
-      // Attempt to revert the first update
-      await supabase
-        .from("schedules")
-        .update({ employee_id: scheduleA.employee_id })
-        .eq("org_id", orgId)
-        .eq("id", scheduleA.id);
-      console.error("[api/swaps/[id]]", updateBError);
+    if (statusError) {
+      console.error("[api/swaps/[id]]", statusError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
-  }
-
-  // Update swap status
-  const { error: statusError } = await supabase
-    .from("shift_swaps")
-    .update({ status })
-    .eq("org_id", orgId)
-    .eq("id", swapId);
-
-  if (statusError) {
-    console.error("[api/swaps/[id]]", statusError);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   // Notify the requester of the outcome and gather names for audit log

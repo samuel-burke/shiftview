@@ -44,8 +44,10 @@ function makeClient({
   swapError = null as any,
   scheduleAData = { id: 1, employee_id: 10 } as any,
   scheduleBData = { id: 2, employee_id: 20 } as any,
+  approveResult = "approved" as string,
 } = {}) {
   const updates: Record<string, number> = { schedules: 0, shift_swaps: 0 };
+  const rpcCalls: Array<{ fn: string; args: any }> = [];
   let scheduleFetch = 0;
 
   const managerRow = isManager && user
@@ -76,8 +78,13 @@ function makeClient({
 
   return {
     __updates: updates,
+    __rpcCalls: rpcCalls,
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }) },
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    rpc: vi.fn().mockImplementation((fn: string, args: any) => {
+      rpcCalls.push({ fn, args });
+      if (fn === "approve_shift_swap") return Promise.resolve({ data: approveResult, error: null });
+      return Promise.resolve({ data: null, error: null });
+    }),
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers") return makeBuilder(() => ({ data: managerRow, error: null }), "managers");
       if (table === "employees") return makeBuilder(() => ({ data: employeeRow, error: null }), "employees");
@@ -182,15 +189,28 @@ describe("PUT /api/swaps/:id — manager decision", () => {
     expect(client.__updates.shift_swaps).toBe(0);
   });
 
-  it("approves an accepted swap and exchanges the two schedules", async () => {
-    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP });
+  it("approves an accepted swap via the atomic RPC", async () => {
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP, approveResult: "approved" });
     mockCreateClient.mockResolvedValue(client as any);
     const [req, ctx] = putReq("1", { status: "approved" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(client.__updates.schedules).toBe(2);
-    expect(client.__updates.shift_swaps).toBe(1);
+    // The exchange is delegated to the DB function, not done as separate JS
+    // updates, so no schedule/swap updates happen client-side.
+    expect(client.__updates.schedules).toBe(0);
+    expect(client.__rpcCalls.some((c) => c.fn === "approve_shift_swap" && c.args.p_swap_id === 1)).toBe(true);
+  });
+
+  it("surfaces a race where the RPC reports the swap is no longer approvable", async () => {
+    // Pre-check passed (status accepted) but the locked apply found it resolved.
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP, approveResult: "approved" });
+    // Override just the RPC to report a lost race.
+    client.rpc = vi.fn().mockResolvedValue({ data: "denied", error: null });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "approved" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
   });
 
   it("denies an accepted swap without touching schedules", async () => {

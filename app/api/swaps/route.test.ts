@@ -285,41 +285,26 @@ describe("PUT /api/swaps/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("approves swap and swaps employee_id values", async () => {
-    let scheduleCallCount = 0;
-    let updateCallCount = 0;
-
+  it("approves an accepted swap via the atomic RPC", async () => {
     function makeBuilder(result: { data: any; error: any }) {
       const b: any = {};
-      for (const m of ["select", "insert", "upsert", "gte", "lte", "order", "or", "limit"]) {
+      for (const m of ["select", "insert", "update", "upsert", "delete", "eq", "gte", "lte", "order", "or", "in", "limit"]) {
         b[m] = vi.fn().mockReturnValue(b);
       }
-      // update().eq() chain
-      b.update = vi.fn().mockImplementation(() => {
-        updateCallCount++;
-        return b;
-      });
-      b.eq = vi.fn().mockReturnValue(b);
-      b.delete = vi.fn().mockReturnValue(b);
       b.maybeSingle = vi.fn().mockResolvedValue(result);
       b.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
       return b;
     }
 
+    const rpc = vi.fn().mockResolvedValue({ data: "approved", error: null });
     const client = {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
       },
+      rpc,
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") return makeBuilder({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
         if (table === "shift_swaps") return makeBuilder({ data: ACCEPTED_SWAP, error: null });
-        if (table === "schedules") {
-          scheduleCallCount++;
-          const row = scheduleCallCount <= 2
-            ? (scheduleCallCount === 1 ? SCHEDULE_A : SCHEDULE_B)
-            : null;
-          return makeBuilder({ data: row, error: null });
-        }
         return makeBuilder({ data: null, error: null });
       }),
     };
@@ -335,8 +320,8 @@ describe("PUT /api/swaps/[id]", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    // Two schedule updates should have been called (one per schedule)
-    expect(updateCallCount).toBeGreaterThanOrEqual(2);
+    // The shift exchange is delegated to the atomic DB function.
+    expect(rpc).toHaveBeenCalledWith("approve_shift_swap", expect.objectContaining({ p_swap_id: 1 }));
   });
 
   it("denies swap without touching schedules", async () => {
