@@ -322,6 +322,11 @@ export default function SettingsPageClient({
     }, 200);
   }
 
+  // Cancel any pending debounced autocomplete fetch on unmount.
+  useEffect(() => () => {
+    if (autocompleteTimerRef.current) clearTimeout(autocompleteTimerRef.current);
+  }, []);
+
   function selectSuggestion(result: NominatimResult) {
     const label = shortAddress(result);
     setGeofenceLat(parseFloat(result.lat));

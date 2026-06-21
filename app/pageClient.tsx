@@ -1,6 +1,7 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import {
@@ -19,7 +20,6 @@ import {
 } from "../data/types";
 import { useAppData } from "../lib/AppDataContext";
 import CoverageHeader from "../components/CoverageHeader";
-import CoverageTimeline from "../components/CoverageTimeline";
 import TeamSection from "../components/TeamSection";
 import EmployeeDrawer from "../components/EmployeeDrawer";
 import TimeCardDrawer from "../components/TimeCardDrawer";
@@ -30,6 +30,14 @@ import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
+
+// Code-split the recharts-backed timeline off the dashboard's initial bundle.
+// It only renders once data has loaded (gated behind SkeletonTimeline below),
+// so deferring the chart library keeps the home route's JS payload small.
+const CoverageTimeline = dynamic(() => import("../components/CoverageTimeline"), {
+  ssr: false,
+  loading: () => <SkeletonTimeline />,
+});
 
 function toDateKey(d: Date, tz = "America/New_York") {
   return d.toLocaleDateString("en-CA", { timeZone: tz });
@@ -561,16 +569,23 @@ export default function Page() {
   // before the fetch completes.
   const attendanceMap = useMemo((): Record<number, AttendanceStatus> => {
     if (!punchesLoaded) return {};
+    // Group punches by employee in a single pass so we don't re-scan the full
+    // punch list once per employee (previously O(scheduled × punches + punches²)).
+    const punchesByEmployee = new Map<number, PunchRecord[]>();
+    for (const p of punchRecords) {
+      const list = punchesByEmployee.get(p.employeeId);
+      if (list) list.push(p);
+      else punchesByEmployee.set(p.employeeId, [p]);
+    }
     const map: Record<number, AttendanceStatus> = {};
     for (const sch of scheduled) {
-      const empPunches = punchRecords.filter((p) => p.employeeId === sch.employeeId);
-      map[sch.employeeId] = getAttendanceStatus(empPunches);
+      if (sch.employeeId in map) continue;
+      map[sch.employeeId] = getAttendanceStatus(punchesByEmployee.get(sch.employeeId) ?? []);
     }
     // Also cover unscheduled employees who have punched in today
-    for (const p of punchRecords) {
-      if (!(p.employeeId in map)) {
-        const empPunches = punchRecords.filter((q) => q.employeeId === p.employeeId);
-        map[p.employeeId] = getAttendanceStatus(empPunches);
+    for (const [employeeId, empPunches] of punchesByEmployee) {
+      if (!(employeeId in map)) {
+        map[employeeId] = getAttendanceStatus(empPunches);
       }
     }
     return map;
