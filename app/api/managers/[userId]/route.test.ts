@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../../__tests__/helpers";
+import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -92,7 +92,10 @@ describe("PUT /api/managers/:userId", () => {
     const res = await PUT(req, ctx);
 
     expect(res.status).toBe(200);
-    expect(client.rpc).toHaveBeenCalledWith("manager_demote", { target_user_id: TARGET_USER });
+    expect(client.rpc).toHaveBeenCalledWith("manager_demote", {
+      p_org_id: MOCK_ORG_ID,
+      p_user_id: TARGET_USER,
+    });
   });
 
   it("returns 403 when a non-owner manager tries to demote in an owned org", async () => {
@@ -141,7 +144,10 @@ describe("PUT /api/managers/:userId", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(client.rpc).toHaveBeenCalledWith("manager_promote", { target_user_id: TARGET_USER });
+    expect(client.rpc).toHaveBeenCalledWith("manager_promote", {
+      p_org_id: MOCK_ORG_ID,
+      p_user_id: TARGET_USER,
+    });
   });
 
   it("returns 500 on RPC error during promote", async () => {
@@ -170,7 +176,10 @@ describe("PUT /api/managers/:userId", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(client.rpc).toHaveBeenCalledWith("manager_demote", { target_user_id: TARGET_USER });
+    expect(client.rpc).toHaveBeenCalledWith("manager_demote", {
+      p_org_id: MOCK_ORG_ID,
+      p_user_id: TARGET_USER,
+    });
   });
 
   it("returns 500 on RPC error during demote", async () => {
