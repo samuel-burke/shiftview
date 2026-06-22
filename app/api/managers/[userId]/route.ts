@@ -64,7 +64,7 @@ export async function PUT(
     );
 
   const fn = action === "promote" ? "manager_promote" : "manager_demote";
-  const { error } = await supabase.rpc(fn, { target_user_id: userId });
+  const { error } = await supabase.rpc(fn, { p_org_id: orgId!, p_user_id: userId });
 
   if (error) {
     console.error("[api/managers]", error);
