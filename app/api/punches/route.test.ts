@@ -903,3 +903,60 @@ describe("POST /api/punches — max breaks per shift", () => {
     expect(res.status).toBe(201);
   });
 });
+
+// ── Approved-period lock — both write paths reject locked dates ───────────────
+
+// `lockRows` is what the timecard_approvals coverage query resolves to: a
+// non-empty array means the target date sits inside an approved (locked) period.
+function makeLockClient({ isManager = true, lockRows = [] as any[] } = {}) {
+  return {
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "app_settings")
+        return makeBuilder({ data: [{ key: "timezone", value: "America/New_York" }], error: null });
+      if (table === "managers")
+        return makeBuilder({ data: isManager ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID } : null, error: null });
+      if (table === "employees")
+        return makeBuilder({ data: { id: 1, org_id: MOCK_ORG_ID, name: "Alice" }, error: null });
+      if (table === "timecard_approvals")
+        return makeBuilder({ data: lockRows, error: null });
+      if (table === "punch_records")
+        return makeBuilder({ data: null, error: null });
+      return makeBuilder({ data: null, error: null });
+    }),
+  };
+}
+
+describe("PUT /api/punches — approved-period lock", () => {
+  const body = {
+    punchType: "clock_in",
+    punchedAt: new Date(Date.now() - 60_000).toISOString(),
+    note: "correction",
+    employeeId: 1,
+  };
+
+  it("returns 423 when the target date is inside a locked period", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeLockClient({ lockRows: [{ id: 1, period_start: "2000-01-01", period_end: "2099-12-31" }] }) as any
+    );
+    const res = await PUT(makePutRequest(body));
+    expect(res.status).toBe(423);
+    expect((await res.json()).error).toMatch(/lock/i);
+  });
+
+  it("allows the correction when no period covers the date", async () => {
+    mockCreateClient.mockResolvedValue(makeLockClient({ lockRows: [] }) as any);
+    const res = await PUT(makePutRequest(body));
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("POST /api/punches — approved-period lock", () => {
+  it("returns 423 when today's date is inside a locked period", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeLockClient({ lockRows: [{ id: 1, period_start: "2000-01-01", period_end: "2099-12-31" }] }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(423);
+  });
+});

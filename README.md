@@ -24,6 +24,7 @@ A mobile-first shift management app for scheduling, time clock, coverage analyti
 **Time clock**
 - Clock in/out with optional geofence enforcement (server-validated, not just client-side)
 - Missed-punch detection and payroll-ready CSV exports
+- Timecard approval & lock — a manager signs off a pay period and it freezes: punches whose local date falls inside an approved period can no longer be added or edited by any path (live clock or manual correction), so the hours that flow to payroll can't change underneath the export. Reopening unlocks the period; both transitions are audit-logged
 
 **Team**
 - Direct messaging, encrypted at rest with AES-256-GCM
@@ -168,6 +169,7 @@ docs/             # functional requirements spec
 | `employees` | `id`, `name`, `email`, `user_id` |
 | `schedules` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
 | `callouts` | `id`, `org_id`, `employee_id`, `date`, `reason`, `created_by`, `created_at` |
+| `timecard_approvals` | `id`, `org_id`, `employee_id`, `period_start`, `period_end`, `note`, `approved_by`, `approved_at` |
 | `store_hours` | `day_of_week` (0–6), `open_minutes`, `close_minutes` |
 | `managers` | `user_id` |
 
@@ -188,6 +190,8 @@ RLS is enabled on all live tables. The following policies are in effect:
 | `schedules` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
 | `callouts` | SELECT | Members of the row's organization |
 | `callouts` | INSERT / UPDATE / DELETE | Members of the row's organization (the API additionally restricts writes to your own call-out, or a manager) |
+| `timecard_approvals` | SELECT | Members of the row's organization (employees can see their own lock status) |
+| `timecard_approvals` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
 | `managers` | SELECT | Authenticated users |
 | `managers` | INSERT / UPDATE / DELETE | Denied for all (managed via service role) |
 | `store_hours` | SELECT | All users (including unauthenticated) |

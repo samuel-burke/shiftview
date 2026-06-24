@@ -107,6 +107,30 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  // Approved (locked) pay periods that intersect [from, to]: existing.start <=
+  // to AND existing.end >= from. Used to mark locked days and to drive the
+  // approve/reopen control in the drawer.
+  const { data: approvalRows, error: approvalErr } = await supabase
+    .from("timecard_approvals")
+    .select("id, period_start, period_end, note, approved_by, approved_at")
+    .eq("org_id", orgId!)
+    .eq("employee_id", employeeId)
+    .lte("period_start", to)
+    .gte("period_end", from)
+    .order("period_start");
+  if (approvalErr) {
+    console.error("[api/timecard] approvals", approvalErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const approvals = (approvalRows ?? []).map((a) => ({
+    id:          a.id,
+    periodStart: a.period_start as string,
+    periodEnd:   a.period_end as string,
+    note:        (a.note as string | null) ?? null,
+    approvedBy:  (a.approved_by as string | null) ?? null,
+    approvedAt:  a.approved_at as string,
+  }));
+
   const timecard = computeTimecard({
     employeeId,
     employeeName: emp.name,
@@ -127,7 +151,12 @@ export async function GET(request: Request) {
       note: p.note,
     })),
     callouts: (calloutRows ?? []).map((c) => ({ date: c.date, reason: c.reason })),
+    approvals: approvals.map((a) => ({ periodStart: a.periodStart, periodEnd: a.periodEnd })),
   });
+
+  // The single approval whose bounds exactly match the requested range, if any.
+  // Drives the drawer's Approve ⇄ Reopen toggle (a partial overlap is neither).
+  const rangeApproval = approvals.find((a) => a.periodStart === from && a.periodEnd === to) ?? null;
 
   if (format === "csv") {
     writeAuditLog({
@@ -153,5 +182,5 @@ export async function GET(request: Request) {
     });
   }
 
-  return NextResponse.json(timecard);
+  return NextResponse.json({ ...timecard, approvals, rangeApproval });
 }

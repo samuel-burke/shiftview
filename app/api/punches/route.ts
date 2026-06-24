@@ -8,6 +8,30 @@ import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
 import { getLocalMinutes, localDayBoundsUtc, todayKeyInTz } from "@/lib/punch-date-utils";
 import { parsePunchPolicy } from "@/lib/punch-policy";
+import { localDateInTz } from "@/lib/timecard-lock";
+
+// Shared by both write paths: is `localDate` (YYYY-MM-DD) inside an approved,
+// locked pay period for this employee? A locked day's hours have been signed
+// off for payroll and must not change until the period is reopened.
+async function isDateLocked(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  employeeId: number,
+  localDate: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("timecard_approvals")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("employee_id", employeeId)
+    .lte("period_start", localDate)
+    .gte("period_end", localDate)
+    .limit(1);
+  return !!data && data.length > 0;
+}
+
+const LOCKED_MESSAGE =
+  "This pay period has been approved and locked — reopen it to make changes";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +156,13 @@ export async function POST(request: Request) {
   // This prevents a missed clock-out from a previous day from blocking today's clock-in.
   const todayKey = todayKeyInTz(tz);
   const { start: todayStart, end: todayEnd } = localDayBoundsUtc(todayKey, tz);
+
+  // A live punch lands on today's local date; if that date sits inside an
+  // approved (locked) period, reject it. Normally a no-op — you don't approve
+  // the current period — but it closes the lock to every write path.
+  if (await isDateLocked(supabase, orgId, emp.id, todayKey)) {
+    return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 423 });
+  }
 
   const { data: todayLastPunch, error: todayPunchError } = await supabase
     .from("punch_records")
@@ -373,6 +404,14 @@ export async function PUT(request: Request) {
       .eq("id", ctxEmployeeId)
       .maybeSingle();
     targetEmployeeName = empData?.name ?? null;
+  }
+
+  // Reject corrections that land on a locked (approved) pay period. The lock is
+  // checked against the target punch's LOCAL date in the store timezone.
+  const tz = settingsMap.timezone ?? "America/New_York";
+  const localDate = localDateInTz(punchedAt, tz);
+  if (await isDateLocked(supabase, orgId, targetEmployeeId, localDate)) {
+    return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 423 });
   }
 
   if (id != null) {
