@@ -26,6 +26,8 @@ import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import DraftShiftSheet from "../../components/DraftShiftSheet";
 import { createApiFetch } from "@/lib/api-fetch";
+import { addDaysToKey, formatDateKey, weekStartForKey } from "@/lib/dates";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 
 // recharts is heavy; code-split both planner charts out of the route's
 // initial bundle. They render below the stats and don't need to be in the
@@ -42,15 +44,12 @@ const DraftBudgetChart = dynamic(() => import("../../components/DraftBudgetChart
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function computeWeekStart(base: Date, firstDayOfWeek: number, offsetWeeks: number): string {
-  const d = new Date(base);
-  const diff = (d.getDay() - firstDayOfWeek + 7) % 7;
-  d.setDate(d.getDate() - diff + offsetWeeks * 7);
-  return d.toLocaleDateString("en-CA");
+function computeWeekStart(todayKey: string, firstDayOfWeek: number, offsetWeeks: number): string {
+  return addDaysToKey(weekStartForKey(todayKey, firstDayOfWeek), offsetWeeks * 7);
 }
 
 function fmtShortDate(date: string): string {
-  return new Date(date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatDateKey(date, { month: "short", day: "numeric" });
 }
 
 /** Throws an Error carrying conflict metadata when the API returns a 409 conflict. */
@@ -113,7 +112,8 @@ export default function DraftPageClient() {
 
   const { me, storeHours, settings, sharedLoading, employees: cachedEmployees, cacheEmployees } = useAppData();
   const { isManager } = me;
-  const { firstDayOfWeek } = settings;
+  const { firstDayOfWeek, timezone } = settings;
+  const todayKey = useStoreTodayKey(timezone);
 
   const [weekOffset, setWeekOffset] = useState(1); // default: next week
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
@@ -132,8 +132,8 @@ export default function DraftPageClient() {
   const [publishResult, setPublishResult] = useState<{ published: number; skipped: number } | null>(null);
 
   const weekStart = useMemo(
-    () => computeWeekStart(new Date(), firstDayOfWeek, weekOffset),
-    [firstDayOfWeek, weekOffset]
+    () => computeWeekStart(todayKey, firstDayOfWeek, weekOffset),
+    [todayKey, firstDayOfWeek, weekOffset]
   );
   const dates = useMemo(() => weekDates(weekStart), [weekStart]);
 
@@ -208,8 +208,8 @@ export default function DraftPageClient() {
     [dates, curves]
   );
   const weeklyScheduled = useMemo(
-    () => dates.reduce((sum, d) => sum + scheduledHoursForDate(drafts, d), 0),
-    [dates, drafts]
+    () => dates.reduce((sum, d) => sum + scheduledHoursForDate(drafts, d, timezone), 0),
+    [dates, drafts, timezone]
   );
   const variance = Math.round((weeklyScheduled - weeklyBudget) * 10) / 10;
   const covScore = useMemo(
@@ -298,7 +298,7 @@ export default function DraftPageClient() {
   }
 
   const isLoading = loading || sharedLoading;
-  const weekLabel = `${fmtShortDate(dates[0])} – ${fmtShortDate(dates[6])}, ${new Date(dates[6] + "T12:00:00").getFullYear()}`;
+  const weekLabel = `${fmtShortDate(dates[0])} – ${fmtShortDate(dates[6])}, ${dates[6].slice(0, 4)}`;
 
   // ---- Non-manager gate ----
   if (!sharedLoading && !isManager) {
@@ -426,7 +426,7 @@ export default function DraftPageClient() {
               <StatCard index={3} value={covScore === null ? "—" : String(covScore)} suffix={covScore === null ? undefined : "%"} label="Coverage Score" color="#22c55e" loading={isLoading} />
             </div>
 
-            <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} curves={curves} />
+            <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} curves={curves} timezone={timezone} />
 
             {!isLoading && alertList.length > 0 && (
               <motion.div
@@ -455,6 +455,7 @@ export default function DraftPageClient() {
               dates={dates}
               curves={curves}
               isManager={isManager}
+              timezone={timezone}
             />
           </div>
 
@@ -467,7 +468,7 @@ export default function DraftPageClient() {
             {/* Day chips */}
             <div className="grid grid-cols-7 gap-1 mb-3">
               {dates.map((date, i) => {
-                const dayScheduled = scheduledHoursForDate(drafts, date);
+                const dayScheduled = scheduledHoursForDate(drafts, date, timezone);
                 const dayBudget = curveHours(curves[date] ?? []);
                 const active = i === selectedDayIdx;
                 return (
@@ -528,7 +529,7 @@ export default function DraftPageClient() {
             {/* Selected day summary */}
             <div className="flex gap-2 mb-3">
               {(() => {
-                const sch = Math.round(scheduledHoursForDate(drafts, selectedDate) * 10) / 10;
+                const sch = Math.round(scheduledHoursForDate(drafts, selectedDate, timezone) * 10) / 10;
                 const bud = Math.round(curveHours(curves[selectedDate] ?? []) * 10) / 10;
                 const dayVar = Math.round((sch - bud) * 10) / 10;
                 return [

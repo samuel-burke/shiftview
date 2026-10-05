@@ -1,4 +1,5 @@
 import type { Schedule, PunchType } from "@/data/types";
+import { minutesFromScheduled } from "@/lib/dates";
 
 export type PunchWarning = {
   heading: string;
@@ -11,18 +12,26 @@ const THRESHOLD = 6;
 
 /**
  * Returns a warning to show before recording a punch, or null if no warning
- * is needed. Compares nowMinutes against the scheduled start (clock_in) or
- * end (clock_out) in the store's local timezone.
+ * is needed. Compares now against the scheduled start (clock_in) or end
+ * (clock_out) in the store's local timezone. With `at` (the current instant and
+ * store timezone) the difference is real elapsed time, which stays correct when
+ * the shift spans a DST change; otherwise it falls back to wall-clock minutes.
  */
 export function getPunchWarning(
   punchType: PunchType,
   nowMinutes: number,
-  schedule: Schedule | null
+  schedule: Schedule | null,
+  at?: { nowMs: number; tz: string }
 ): PunchWarning | null {
   if (!schedule) return null;
 
+  const diffFrom = (scheduledMinutes: number) =>
+    at && schedule.date
+      ? minutesFromScheduled(at.nowMs, schedule.date.slice(0, 10), scheduledMinutes, at.tz)
+      : nowMinutes - scheduledMinutes;
+
   if (punchType === "clock_in") {
-    const diff = nowMinutes - schedule.startMinutes;
+    const diff = diffFrom(schedule.startMinutes);
     if (diff > THRESHOLD) {
       return {
         heading: "Late Clock-In",
@@ -41,7 +50,7 @@ export function getPunchWarning(
   }
 
   if (punchType === "clock_out") {
-    const diff = nowMinutes - schedule.endMinutes;
+    const diff = diffFrom(schedule.endMinutes);
     if (diff > THRESHOLD) {
       return {
         heading: "Late Clock-Out",

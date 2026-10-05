@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
+import { todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import {
   DEMO_EMPLOYEES,
   EMPLOYEE_PATTERNS,
@@ -41,20 +42,12 @@ function dateKey(d: Date): string {
 
 // `date` + minutes-since-midnight as wall-clock time in `timeZone` → UTC ISO.
 function zonedToUtcIso(date: string, minutes: number, timeZone: string): string {
-  const guess = new Date(`${date}T00:00:00Z`).getTime() + minutes * 60_000;
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone, hour12: false,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-  const p = Object.fromEntries(dtf.formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
-  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
-  return new Date(guess - (asUtc - guess)).toISOString();
+  return zonedTimeToUtc(date, minutes, timeZone).toISOString();
 }
 
 export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult> {
   const timezone = DEMO_SETTINGS.timezone;
-  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+  const todayKey = todayKeyInTz(timezone);
   const today = new Date(`${todayKey}T12:00:00Z`);
 
   // 1. Employees. Ids are identity-generated, so build a fixture-id → db-id

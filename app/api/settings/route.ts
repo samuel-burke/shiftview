@@ -5,6 +5,7 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrgAll } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
+import { isValidTimezone, resolveTimezone } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(request?: Request) {
   return NextResponse.json({
     firstDayOfWeek:       parseInt(map.first_day_of_week  ?? "6"),
     coverageAlertsEnabled: map.coverage_alerts_enabled !== "false",
-    timezone:             map.timezone ?? "America/New_York",
+    timezone:             resolveTimezone(map.timezone),
     emailNotifications:   map.email_notifications === "true",
     manualPunchesEnabled: map.manual_punches_enabled !== "false",
     gpsRequired:          map.gps_required === "true",
@@ -68,11 +69,8 @@ export async function PUT(request: Request) {
   if (body.timezone !== undefined) {
     if (typeof body.timezone !== "string" || !body.timezone.trim())
       return NextResponse.json({ error: "timezone must be a non-empty string" }, { status: 400 });
-    try {
-      new Intl.DateTimeFormat(undefined, { timeZone: body.timezone.trim() });
-    } catch {
+    if (!isValidTimezone(body.timezone.trim()))
       return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
-    }
     rows.push({ key: "timezone", value: body.timezone.trim() });
   }
 

@@ -6,6 +6,8 @@ import { withOrg } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
 import { validateOpenShift, isEmployeeEligible } from "@/lib/open-shifts";
+import { todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +59,7 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, isManager, employeeId } = ctx!;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   // ── Manager view ──────────────────────────────────────────────────────────
   if (isManager) {

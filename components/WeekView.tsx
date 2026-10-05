@@ -2,6 +2,7 @@
 
 import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS, CALLOUT_COLOR } from "../data/types";
 import { ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon, MegaphoneIcon } from "./ShiftIcons";
+import { localDateKey } from "@/lib/dates";
 
 const TIME_OFF_LABELS: Record<TimeOffRequest["status"], string> = {
   pending: "REQ",
@@ -31,9 +32,6 @@ const SHIFT_LABELS: Record<string, string> = {
 };
 
 
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
 
 function shortTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -44,8 +42,8 @@ function shortTime(minutes: number): string {
 }
 
 export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, selectedDate, weekStart, onSelectDate, today, timeOffRequests = [], calloutDates = [] }: Props) {
-  const todayKey = toDateKey(today);
-  const selectedKey = toDateKey(selectedDate);
+  const todayKey = localDateKey(today);
+  const selectedKey = localDateKey(selectedDate);
   const DAY_LABELS = Array.from({ length: 7 }, (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7]);
 
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -57,7 +55,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
   return (
     <div className="flex gap-1.5 mb-3">
       {days.map((d, i) => {
-        const dateKey = toDateKey(d);
+        const dateKey = localDateKey(d);
         const isToday = dateKey === todayKey;
         const isSelected = dateKey === selectedKey;
         const schedule = schedules.find((s) => s.date.slice(0, 10) === dateKey) ?? null;

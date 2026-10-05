@@ -3,18 +3,14 @@ import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { fmtMinutes } from "@/data/types";
 import { buildShiftCalendar, type ShiftEvent } from "@/lib/ics";
+import { addDaysToKey, todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
 // How wide a window of shifts to include in the calendar download.
 const PAST_DAYS = 30;
 const FUTURE_DAYS = 120;
-
-function addDays(base: Date, days: number): string {
-  const d = new Date(base);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 function icsResponse(body: string): Response {
   return new Response(body, {
@@ -58,8 +54,10 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const from = addDays(now, -PAST_DAYS);
-  const to = addDays(now, FUTURE_DAYS);
+  const tz = await getOrgTimezone(supabase, orgId);
+  const today = todayKeyInTz(tz, now);
+  const from = addDaysToKey(today, -PAST_DAYS);
+  const to = addDaysToKey(today, FUTURE_DAYS);
 
   const { data, error: dbError } = await supabase
     .from("schedules")
@@ -87,6 +85,6 @@ export async function GET(request: Request) {
   }));
 
   return icsResponse(
-    buildShiftCalendar(events, { calendarName: `${emp.name} — Shifts`, dtstamp: now })
+    buildShiftCalendar(events, { calendarName: `${emp.name} — Shifts`, dtstamp: now, timezone: tz })
   );
 }

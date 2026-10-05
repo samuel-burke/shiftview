@@ -25,15 +25,28 @@ type TimeOffItem = {
   note?: string;
 };
 
+export type PunchCorrectionItem = {
+  id: number;
+  employeeName: string;
+  // e.g. "Clock out" — the punch the employee says they missed.
+  punchLabel: string;
+  // Store-local date and time of the requested punch, already formatted.
+  when: string;
+  note: string;
+};
+
 type Props = {
   open: boolean;
   onClose: () => void;
   swaps: SwapItem[];
   timeOff: TimeOffItem[];
+  punchCorrections?: PunchCorrectionItem[];
   onApproveSwap: (id: number) => Promise<void>;
   onDenySwap: (id: number) => Promise<void>;
   onApproveTimeOff: (id: number) => Promise<void>;
   onDenyTimeOff: (id: number) => Promise<void>;
+  onApprovePunchCorrection?: (id: number) => Promise<void>;
+  onDenyPunchCorrection?: (id: number) => Promise<void>;
 };
 
 function formatLongDate(dateStr: string): string {
@@ -70,10 +83,13 @@ export default function RequestsDrawer({
   onClose,
   swaps,
   timeOff,
+  punchCorrections = [],
   onApproveSwap,
   onDenySwap,
   onApproveTimeOff,
   onDenyTimeOff,
+  onApprovePunchCorrection,
+  onDenyPunchCorrection,
 }: Props) {
   const isDesktop = useIsDesktop();
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +114,7 @@ export default function RequestsDrawer({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const total = swaps.length + timeOff.length;
+  const total = swaps.length + timeOff.length + punchCorrections.length;
 
   return (
     <AnimatePresence>
@@ -171,6 +187,25 @@ export default function RequestsDrawer({
                 </div>
               ) : (
                 <div className="flex flex-col gap-6">
+                  {/* Punch corrections — they change paid time, so they come first */}
+                  {punchCorrections.length > 0 && onApprovePunchCorrection && onDenyPunchCorrection && (
+                    <section aria-label="Punch correction requests">
+                      <SectionHeading label="Punch Corrections" count={punchCorrections.length} />
+                      <motion.div className="flex flex-col gap-2" variants={listContainer} initial="hidden" animate="show">
+                        {punchCorrections.map((req) => (
+                          <motion.div key={req.id} variants={listItem}>
+                            <PunchCorrectionCard
+                              request={req}
+                              onApprove={onApprovePunchCorrection}
+                              onDeny={onDenyPunchCorrection}
+                              onError={setError}
+                            />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    </section>
+                  )}
+
                   {/* Time Off section */}
                   {timeOff.length > 0 && (
                     <section aria-label="Time off requests">
@@ -330,6 +365,72 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "deny"}
           aria-label={`Deny swap between ${swap.requesterName} and ${swap.targetName}`}
+          className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading === "deny" ? "…" : "Deny"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PunchCorrectionCard({
+  request,
+  onApprove,
+  onDeny,
+  onError,
+}: {
+  request: PunchCorrectionItem;
+  onApprove: (id: number) => Promise<void>;
+  onDeny: (id: number) => Promise<void>;
+  onError: (msg: string | null) => void;
+}) {
+  const [loading, setLoading] = useState<"approve" | "deny" | null>(null);
+
+  async function run(action: "approve" | "deny", fn: (id: number) => Promise<void>) {
+    setLoading(action);
+    onError(null);
+    try {
+      await fn(request.id);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : `Failed to ${action} correction`);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3" data-testid="punch-correction-card">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+          {getMonogram(request.employeeName)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm text-slate-100 truncate">{request.employeeName}</div>
+          <div className="mt-0.5 text-xs text-slate-400">
+            Missed <span className="font-semibold text-amber-300">{request.punchLabel.toLowerCase()}</span> · {request.when}
+          </div>
+        </div>
+      </div>
+      <div className="mb-3 px-3 py-2 rounded-xl bg-slate-800/60 text-xs text-slate-300">
+        &ldquo;{request.note}&rdquo;
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => run("approve", onApprove)}
+          disabled={loading !== null}
+          aria-busy={loading === "approve"}
+          aria-label={`Approve ${request.employeeName}'s punch correction`}
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading === "approve" ? "…" : "Approve"}
+        </button>
+        <button
+          onClick={() => run("deny", onDeny)}
+          disabled={loading !== null}
+          aria-busy={loading === "deny"}
+          aria-label={`Deny ${request.employeeName}'s punch correction`}
           className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "deny" ? "…" : "Deny"}

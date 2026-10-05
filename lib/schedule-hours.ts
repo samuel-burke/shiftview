@@ -1,3 +1,5 @@
+import { shiftElapsedMinutes } from "@/lib/dates";
+
 // Pure helpers for proactively surfacing **scheduled** overtime — i.e. catching
 // that a manager is about to schedule someone past 40 hours in a week, before
 // any punches exist. This complements lib/payroll.ts, which computes overtime
@@ -14,7 +16,14 @@ export type EmployeeShift = {
   endMinutes: number;
 };
 
-export function shiftMinutes(s: { startMinutes: number; endMinutes: number }): number {
+// Scheduled minutes of a shift. With the store timezone (and the shift's date)
+// this is real elapsed time, which differs from end − start when the shift
+// spans a DST change.
+export function shiftMinutes(
+  s: { startMinutes: number; endMinutes: number; date?: string },
+  tz?: string
+): number {
+  if (tz && s.date) return shiftElapsedMinutes(s.date.slice(0, 10), s.startMinutes, s.endMinutes, tz);
   return s.endMinutes - s.startMinutes;
 }
 
@@ -23,13 +32,14 @@ export function shiftMinutes(s: { startMinutes: number; endMinutes: number }): n
 // timestamptz column value works the same as a plain date string.
 export function scheduledMinutesByEmployee(
   shifts: EmployeeShift[],
-  dates: string[]
+  dates: string[],
+  tz?: string
 ): Map<number, number> {
   const inWeek = new Set(dates.map((d) => d.slice(0, 10)));
   const totals = new Map<number, number>();
   for (const s of shifts) {
     if (!inWeek.has(s.date.slice(0, 10))) continue;
-    totals.set(s.employeeId, (totals.get(s.employeeId) ?? 0) + shiftMinutes(s));
+    totals.set(s.employeeId, (totals.get(s.employeeId) ?? 0) + shiftMinutes(s, tz));
   }
   return totals;
 }
@@ -46,9 +56,10 @@ export type EmployeeHours = {
 export function summarizeWeeklyHours(
   shifts: EmployeeShift[],
   dates: string[],
-  threshold: number = WEEKLY_OVERTIME_THRESHOLD_MINUTES
+  threshold: number = WEEKLY_OVERTIME_THRESHOLD_MINUTES,
+  tz?: string
 ): EmployeeHours[] {
-  const totals = scheduledMinutesByEmployee(shifts, dates);
+  const totals = scheduledMinutesByEmployee(shifts, dates, tz);
   const rows: EmployeeHours[] = [];
   for (const [employeeId, totalMinutes] of totals) {
     const overtimeMinutes = Math.max(0, totalMinutes - threshold);

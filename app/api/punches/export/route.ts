@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { writeAuditLog } from "@/lib/audit";
-import { localDayBoundsUtc } from "@/lib/punch-date-utils";
+import { dateKeyInTz, daysBetweenKeys, localDayBoundsUtc, resolveTimezone } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   if (from > to)
     return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
 
-  const daysDiff = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000;
+  const daysDiff = daysBetweenKeys(from, to);
   if (daysDiff > 366)
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     .select("key, value")
     .eq("org_id", orgId)
     .eq("key", "timezone");
-  const tz = settingsData?.[0]?.value ?? "America/New_York";
+  const tz = resolveTimezone(settingsData?.[0]?.value);
 
   const rangeStart = localDayBoundsUtc(from, tz).start.toISOString();
   const rangeEnd   = localDayBoundsUtc(to, tz).end.toISOString();
@@ -105,7 +105,7 @@ export async function GET(request: Request) {
 
   for (const r of rows) {
     const punchedAt = new Date(r.punched_at);
-    const date = punchedAt.toLocaleDateString("en-CA", { timeZone: tz });
+    const date = dateKeyInTz(punchedAt, tz);
     const time = punchedAt.toLocaleTimeString("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const empName = (r.employees as { name: string } | null)?.name ?? String(r.employee_id);
     lines.push([

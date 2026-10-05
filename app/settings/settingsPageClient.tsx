@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
@@ -16,6 +16,14 @@ import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
+import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
+
+// Templates apply to a Monday-start week: default to the next Monday on or
+// after today in the store's timezone.
+function upcomingMondayKey(tz: string): string {
+  const today = todayKeyInTz(tz);
+  return addDaysToKey(today, (8 - dayOfWeekForKey(today)) % 7);
+}
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -36,6 +44,8 @@ function shortAddress(r: NominatimResult): string {
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Common zones pinned to the top of the picker; every other IANA zone the
+// browser knows is listed below them.
 const TIMEZONE_OPTIONS = [
   { label: "Eastern (ET)",  value: "America/New_York" },
   { label: "Central (CT)",  value: "America/Chicago" },
@@ -207,7 +217,7 @@ export default function SettingsPageClient({
   const router = useRouter();
   const supabase = createClient();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
-  const { me } = useAppData();
+  const { me, refreshSettings } = useAppData();
   const isDemo = me.isDemo;
 
   // ── Sounds ────────────────────────────────────────────────────────────────
@@ -257,8 +267,9 @@ export default function SettingsPageClient({
   }
 
   // ── Timezone ────────────────────────────────────────────────────────────────
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [timezoneStatus, setTimezoneStatus] = useState<SaveStatus>("idle");
+  const allTimezoneOptions = useMemo(() => allTimezones(), []);
 
   async function saveTimezone(value: string) {
     setTimezone(value);
@@ -269,6 +280,9 @@ export default function SettingsPageClient({
       body: JSON.stringify({ timezone: value }),
     });
     if (res.ok) {
+      // Every screen derives "today" and local times from the shared settings —
+      // refresh them so the new zone applies without a reload.
+      refreshSettings();
       setTimezoneStatus("saved");
       setTimeout(() => setTimezoneStatus("idle"), 2000);
     } else {
@@ -1387,10 +1401,20 @@ export default function SettingsPageClient({
               onChange={(e) => saveTimezone(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors"
             >
-              {TIMEZONE_OPTIONS.map(({ label, value }) => (
-                <option key={value} value={value}>{label} — {value}</option>
-              ))}
-              {!TIMEZONE_OPTIONS.some((o) => o.value === timezone) && (
+              <optgroup label="Common">
+                {TIMEZONE_OPTIONS.map(({ label, value }) => (
+                  <option key={value} value={value}>{label} — {value}</option>
+                ))}
+              </optgroup>
+              <optgroup label="All timezones">
+                {allTimezoneOptions
+                  .filter((o) => !TIMEZONE_OPTIONS.some((c) => c.value === o.value))
+                  .map(({ label, value }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+              </optgroup>
+              {!TIMEZONE_OPTIONS.some((o) => o.value === timezone) &&
+                !allTimezoneOptions.some((o) => o.value === timezone) && (
                 <option value={timezone}>{timezone}</option>
               )}
             </select>
@@ -1527,7 +1551,7 @@ export default function SettingsPageClient({
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : new Date().toISOString().slice(0, 10) }))}
+                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingMondayKey(timezone) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"

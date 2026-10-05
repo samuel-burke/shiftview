@@ -4,6 +4,8 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 // Swaps still in flight — shown in the UI. Terminal states (declined/approved/
 // denied) drop out of the lists once resolved.
@@ -138,6 +140,13 @@ export async function POST(request: Request) {
   // The requester must own schedule A
   if (scheduleA.employee_id !== requesterEmployee.id) {
     return NextResponse.json({ error: "You can only request swaps for your own shifts" }, { status: 403 });
+  }
+
+  // Only shifts that haven't passed can be swapped — "today" in the store's
+  // timezone, matching what the schedule screen offers.
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  if (String(scheduleA.date).slice(0, 10) < today || String(scheduleB.date).slice(0, 10) < today) {
+    return NextResponse.json({ error: "Past shifts can't be swapped" }, { status: 400 });
   }
 
   // Derive target from schedule B

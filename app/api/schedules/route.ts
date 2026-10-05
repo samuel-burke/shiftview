@@ -11,6 +11,7 @@ import { withOrg } from "@/lib/org-scope";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { getCurveForDate } from "@/lib/coverage-server";
 import { findUnderstaffedFromCurves } from "@/lib/coverage";
+import { dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export async function PUT(request: Request) {
   if (!override && existing) {
     const dateStr = existing.date;
     const empId = existing.employee_id;
-    const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
+    const dayOfWeek = dayOfWeekForKey(dateStr);
 
     // Check time-off conflict
     const { data: timeOff } = await supabase
@@ -115,7 +116,7 @@ export async function PUT(request: Request) {
         return NextResponse.json({
           conflict: "availability",
           window: null,
-          message: `Employee is unavailable on ${new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+          message: `Employee is unavailable on ${formatDateKey(dateStr, { weekday: "long" })}s`,
         }, { status: 409 });
       }
       if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {
@@ -208,7 +209,7 @@ export async function POST(request: Request) {
 
   // Conflict checks (skip if override)
   if (!override) {
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const dayOfWeek = dayOfWeekForKey(date);
 
     // Check time-off conflict
     const { data: timeOff } = await supabase
@@ -241,7 +242,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           conflict: "availability",
           window: null,
-          message: `Employee is unavailable on ${new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+          message: `Employee is unavailable on ${formatDateKey(date, { weekday: "long" })}s`,
         }, { status: 409 });
       }
       if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {

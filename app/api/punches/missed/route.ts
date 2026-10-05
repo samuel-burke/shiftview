@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
-import { localDayBoundsUtc, todayKeyInTz } from "@/lib/punch-date-utils";
+import { dateKeyInTz, localDayBoundsUtc, resolveTimezone, todayKeyInTz } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export async function GET(request?: Request) {
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
-  const tz = settingsMap.timezone ?? "America/New_York";
+  const tz = resolveTimezone(settingsMap.timezone);
   const todayKey = todayKeyInTz(tz);
   const { start: todayStart } = localDayBoundsUtc(todayKey, tz);
 
@@ -45,8 +45,7 @@ export async function GET(request?: Request) {
     return NextResponse.json({ missedPunch: null });
   }
 
-  const missedDate = new Date(prevPunch.punched_at as string)
-    .toLocaleDateString("en-CA", { timeZone: tz });
+  const missedDate = dateKeyInTz(prevPunch.punched_at as string, tz);
 
   return NextResponse.json({
     missedPunch: {

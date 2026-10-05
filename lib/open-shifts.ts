@@ -12,6 +12,8 @@
 export const MIN_SHIFT_MINUTES = 60;
 export const MAX_SHIFT_MINUTES = 960;
 
+import { isDateKey } from "@/lib/dates";
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type OpenShiftInput = {
@@ -28,7 +30,7 @@ export type ValidationResult = { valid: true } | { valid: false; error: string }
 export function validateOpenShift(input: OpenShiftInput): ValidationResult {
   const { date, startMinutes, endMinutes } = input;
 
-  if (typeof date !== "string" || !DATE_RE.test(date)) {
+  if (typeof date !== "string" || !DATE_RE.test(date) || !isDateKey(date)) {
     return { valid: false, error: "Invalid date format (expected YYYY-MM-DD)" };
   }
   if (!Number.isInteger(startMinutes) || !Number.isInteger(endMinutes)) {

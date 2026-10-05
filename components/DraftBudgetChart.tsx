@@ -22,24 +22,26 @@ type Props = {
   dates: string[]; // 7 YYYY-MM-DD dates
   curves: Record<string, CoverageBlock[]>; // date -> target coverage curve
   isManager: boolean;
+  // Store timezone — makes scheduled hours real elapsed time across DST.
+  timezone?: string;
 };
 
 /**
  * Daily budget vs scheduled hours. The budget is derived from the day's
  * target coverage curve (area under the curve, in staff-hours).
  */
-export default function DraftBudgetChart({ drafts, dates, curves, isManager }: Props) {
+export default function DraftBudgetChart({ drafts, dates, curves, isManager, timezone }: Props) {
   const { mode } = useTheme();
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const data = useMemo(
     () => dates.map((date) => {
-      const scheduled = Math.round(scheduledHoursForDate(drafts, date) * 10) / 10;
+      const scheduled = Math.round(scheduledHoursForDate(drafts, date, timezone) * 10) / 10;
       const budget = Math.round(curveHours(curves[date] ?? []) * 10) / 10;
       return { label: DAY_LABELS[dayOfWeek(date)], date, budget, scheduled, variance: Math.round((scheduled - budget) * 10) / 10 };
     }),
-    [dates, drafts, curves]
+    [dates, drafts, curves, timezone]
   );
 
   return (

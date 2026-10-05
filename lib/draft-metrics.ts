@@ -1,3 +1,5 @@
+import { shiftMinutes } from "@/lib/schedule-hours";
+
 /** A shift-like record — works for both drafts and published schedules. */
 export type ShiftSpan = {
   date: string; // YYYY-MM-DD
@@ -19,14 +21,15 @@ export function dayOfWeek(date: string): number {
   return new Date(date + "T12:00:00Z").getUTCDay();
 }
 
-export function shiftHours(s: { startMinutes: number; endMinutes: number }): number {
-  return (s.endMinutes - s.startMinutes) / 60;
+// Hours of a shift; with the store timezone, real elapsed hours (DST-aware).
+export function shiftHours(s: { startMinutes: number; endMinutes: number; date?: string }, tz?: string): number {
+  return shiftMinutes(s, tz) / 60;
 }
 
-export function scheduledHoursForDate(shifts: ShiftSpan[], date: string): number {
+export function scheduledHoursForDate(shifts: ShiftSpan[], date: string, tz?: string): number {
   return shifts
     .filter((s) => s.date.slice(0, 10) === date)
-    .reduce((sum, s) => sum + shiftHours(s), 0);
+    .reduce((sum, s) => sum + shiftHours(s, tz), 0);
 }
 
 export function headcountAt(shifts: ShiftSpan[], date: string, minute: number): number {

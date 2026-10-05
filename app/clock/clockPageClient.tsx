@@ -29,27 +29,13 @@ import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 import { playPunchSound } from "@/lib/sounds";
+import { dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
+import type { PunchCorrection } from "@/app/api/punch-corrections/route";
+import { calloutBlockReason } from "@/lib/callout-rules";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
-
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
-
-function getNowMinutes() {
-  const now = new Date();
-  const parts = now.toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const [h, m] = parts.split(":").map(Number);
-  return h * 60 + m;
-}
-
-
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
   clocked_in:    "Clocked In",
@@ -72,17 +58,11 @@ const PUNCH_TYPE_LABELS: Record<PunchType, string> = {
   break_end:   "Break End",
 };
 
-function formatPunchTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+function formatPunchTime(iso: string, tz: string): string {
+  return formatTimeInTz(iso, tz, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 export default function ClockPageClient() {
-  const today = new Date();
   const supabase = createClient();
 
   async function handleSignOut() {
@@ -94,12 +74,19 @@ export default function ClockPageClient() {
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
+  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
+  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress, timezone } = settings;
+  // "Today" and every displayed time are in the store's timezone, whatever
+  // timezone this device is set to.
+  const todayKey = useStoreTodayKey(timezone);
+  const today = useMemo(() => dateFromKey(todayKey), [todayKey]);
+  // The store's current wall-clock minute, derived each render; a ticker below
+  // re-renders once a minute so it stays live.
+  const [, setMinuteTick] = useState(0);
+  const nowMinutes = nowMinutesInTz(timezone);
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
-  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
   const isDemo = cachedMe.isDemo;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
@@ -133,15 +120,19 @@ export default function ClockPageClient() {
   // Correction form state
   const [showCorrection, setShowCorrection] = useState(false);
   const [correctionType, setCorrectionType] = useState<PunchType>("clock_in");
-  const [correctionDate, setCorrectionDate] = useState(toDateKey(today));
+  const [correctionDate, setCorrectionDate] = useState(todayKey);
   const [correctionTime, setCorrectionTime] = useState("09:00");
   const [correctionNote, setCorrectionNote] = useState("");
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
+  // Set after an employee files a correction: it waits for manager approval.
+  const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
+  // The employee's own correction requests (last 30 days), newest first.
+  const [myCorrections, setMyCorrections] = useState<PunchCorrection[]>([]);
 
   // Export state
-  const [exportFrom, setExportFrom] = useState(toDateKey(today));
-  const [exportTo, setExportTo] = useState(toDateKey(today));
+  const [exportFrom, setExportFrom] = useState(todayKey);
+  const [exportTo, setExportTo] = useState(todayKey);
   const [showExport, setShowExport] = useState(false);
 
   function handleExportDownload() {
@@ -169,8 +160,7 @@ export default function ClockPageClient() {
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
   const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
 
-  const todayKey = toDateKey(today);
-  const storeHours = weeklyHours[today.getDay()];
+  const storeHours = weeklyHours[dayOfWeekForKey(todayKey)];
 
   const status = getAttendanceStatus(punches);
 
@@ -201,7 +191,7 @@ export default function ClockPageClient() {
 
   // Live nowMinutes for shift status
   useEffect(() => {
-    const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
+    const t = setInterval(() => setMinuteTick((n) => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
 
@@ -274,6 +264,18 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
+  const loadMyCorrections = useCallback(() => {
+    fetch("/api/punch-corrections?mine=true")
+      .then((r) => r.json())
+      .then(({ corrections }) => { if (Array.isArray(corrections)) setMyCorrections(corrections); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (meLoading || !employeeId || isManager) return;
+    loadMyCorrections();
+  }, [meLoading, employeeId, isManager, loadMyCorrections]);
+
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context).
   // The punches listener keeps this screen in sync across the user's devices: a
   // punch made elsewhere updates the status, timer and history here too (a
@@ -283,9 +285,10 @@ export default function ClockPageClient() {
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "punch_records" }, () => loadData(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, () => loadMyCorrections())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [loadData]);
+  }, [loadData, loadMyCorrections]);
 
   // Load today's call-out (if any) so we can show "Called out" instead of the
   // call-out button.
@@ -359,7 +362,7 @@ export default function ClockPageClient() {
   }
 
   function handlePunchClick(punchType: PunchType) {
-    const warning = getPunchWarning(punchType, nowMinutes, schedule);
+    const warning = getPunchWarning(punchType, nowMinutes, schedule, { nowMs: Date.now(), tz: timezone });
     if (warning) {
       setPendingPunchType(punchType);
       setPendingWarning(warning);
@@ -459,6 +462,7 @@ export default function ClockPageClient() {
   }
 
   async function submitCorrection() {
+    setCorrectionNotice(null);
     if (!correctionNote.trim()) {
       setCorrectionError("A note is required for manual corrections");
       return;
@@ -466,13 +470,15 @@ export default function ClockPageClient() {
     setCorrectionSaving(true);
     setCorrectionError(null);
     try {
-      const punchedAt = new Date(`${correctionDate}T${correctionTime}:00`).toISOString();
+      // Send the store-local wall time; the server converts it with the
+      // store's timezone and validates it against its own clock.
       const res = await fetch("/api/punches", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           punchType: correctionType,
-          punchedAt,
+          localDate: correctionDate,
+          localTime: correctionTime,
           note: correctionNote.trim(),
           scheduleId: schedule?.id ?? null,
           employeeId: isManager ? employeeId : undefined,
@@ -484,6 +490,14 @@ export default function ClockPageClient() {
       }
       setShowCorrection(false);
       setCorrectionNote("");
+      if (res.status === 202) {
+        // Filed for approval — nothing changes on the time card until a
+        // manager approves it, so keep the missed-punch banner in place.
+        setCorrectionNotice("Sent to your manager for approval. It will be added to your time card once approved.");
+        loadMyCorrections();
+        return;
+      }
+      setCorrectionNotice(null);
       setMissedPunchInfo(null);
       await loadData(false);
     } catch (e) {
@@ -508,13 +522,16 @@ export default function ClockPageClient() {
     if (!schedule || sortedPunches.length === 0) return null;
     const clockIn = sortedPunches.find((p) => p.punchType === "clock_in");
     if (!clockIn) return null;
-    const punchedAt = new Date(clockIn.punchedAt);
-    const clockInMinutes = punchedAt.getHours() * 60 + punchedAt.getMinutes();
-    const diff = clockInMinutes - schedule.startMinutes;
+    const diff = minutesFromScheduled(clockIn.punchedAt, schedule.date.slice(0, 10), schedule.startMinutes, timezone);
     if (diff > 5) return { text: `${diff}m late`, color: "#ef4444" };
     if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
     return null;
-  }, [schedule, sortedPunches]);
+  }, [schedule, sortedPunches, timezone]);
+
+  // A pending correction already covers the missed-punch day.
+  const missedPunchPending = !!missedPunchInfo && myCorrections.some(
+    (c) => c.status === "pending" && dateKeyInTz(c.punchedAt, timezone) >= missedPunchInfo.date
+  );
 
   const shiftType = schedule
     ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close)
@@ -705,13 +722,17 @@ export default function ClockPageClient() {
                 <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
                 <div className="text-xs text-amber-400/80 mt-0.5">
                   {missedPunchInfo.lastPunchType === "break_start"
-                    ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {new Date(missedPunchInfo.lastPunchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Add your missing break end and clock-out before clocking in today.</>
-                    : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {new Date(missedPunchInfo.lastPunchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Add your missing clock-out before clocking in today.</>
+                    ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing break end and clock-out before clocking in today.</>
+                    : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing clock-out before clocking in today.</>
                   }
                 </div>
               </div>
             </div>
-            {!showCorrection && (
+            {missedPunchPending ? (
+              <div role="status" className="w-full py-3 rounded-xl text-xs font-semibold text-center bg-slate-800/60 text-amber-200 border border-amber-500/20">
+                Correction sent — waiting for manager approval
+              </div>
+            ) : !showCorrection && (
               <button
                 onClick={() => {
                   setCorrectionDate(missedPunchInfo.date);
@@ -796,8 +817,15 @@ export default function ClockPageClient() {
           )}
         </div>
 
-        {/* Call out — "can't make it in today" */}
-        {employeeId && (
+        {/* Call out — "can't make it in today". Only for today's scheduled shift,
+            and not once clocked in for it (lib/callout-rules.ts); an existing
+            call-out stays visible so it can be undone. */}
+        {employeeId && (myCallout || calloutBlockReason({
+          date: todayKey,
+          todayKey,
+          hasShift: !!schedule,
+          clockedInToday: punches.some((p) => p.punchType === "clock_in"),
+        }) === null) && (
           <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden" style={myCallout ? { borderColor: "rgba(248,113,113,0.3)" } : {}}>
             {myCallout ? (
               <div className="px-4 py-3.5 space-y-2.5">
@@ -896,7 +924,7 @@ export default function ClockPageClient() {
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt)}</div>
+                      <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
                       {p.note && <div className="text-[11px] text-slate-500 mt-0.5 max-w-[140px] truncate">{p.note}</div>}
                     </div>
                   </motion.div>
@@ -914,7 +942,7 @@ export default function ClockPageClient() {
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
           >
             <span className="text-sm font-semibold text-slate-300">
-              {missedPunchInfo
+              {missedPunchInfo && !missedPunchPending
               ? missedPunchInfo.suggestedPunchType === "break_end"
                 ? "Add Missing Break End"
                 : "Add Missing Clock-Out"
@@ -973,6 +1001,11 @@ export default function ClockPageClient() {
                   className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-indigo-500/70 transition-colors"
                 />
               </div>
+              {!isManager && (
+                <div className="text-xs text-slate-500">
+                  Your manager reviews corrections before they&apos;re added to your time card.
+                </div>
+              )}
               {correctionError && (
                 <div role="alert" className="text-xs text-red-400">{correctionError}</div>
               )}
@@ -982,11 +1015,52 @@ export default function ClockPageClient() {
                 aria-busy={correctionSaving}
                 className="w-full py-3 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
               >
-                {correctionSaving ? "Saving…" : "Submit Correction"}
+                {correctionSaving ? "Saving…" : isManager ? "Submit Correction" : "Send for Approval"}
               </button>
             </div>
           )}
         </div>}
+
+        {correctionNotice && (
+          <div role="status" className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl text-sm text-emerald-300">
+            {correctionNotice}
+          </div>
+        )}
+
+        {/* The employee's recent correction requests and their status */}
+        {!isManager && myCorrections.length > 0 && (
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3.5" data-testid="my-punch-corrections">
+            <div className="text-sm font-semibold text-slate-300 mb-2">Correction Requests</div>
+            <ul className="space-y-2">
+              {myCorrections.map((c) => (
+                <li key={c.id} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm text-slate-200">
+                      {PUNCH_TYPE_LABELS[c.punchType]}{" "}
+                      <span className="text-slate-400">
+                        · {formatDateKey(dateKeyInTz(c.punchedAt, timezone), { weekday: "short", month: "short", day: "numeric" })} at {formatTimeInTz(c.punchedAt, timezone)}
+                      </span>
+                    </div>
+                    {c.status === "denied" && c.reviewNote && (
+                      <div className="text-[11px] text-slate-500 mt-0.5">Manager: {c.reviewNote}</div>
+                    )}
+                  </div>
+                  <span
+                    className={`shrink-0 text-[10px] font-semibold px-2 py-px rounded-full ${
+                      c.status === "pending"
+                        ? "text-amber-300 bg-amber-500/10"
+                        : c.status === "approved"
+                          ? "text-emerald-300 bg-emerald-500/10"
+                          : "text-red-300 bg-red-500/10"
+                    }`}
+                  >
+                    {c.status === "pending" ? "Pending" : c.status === "approved" ? "Approved" : "Denied"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Timesheet export */}
         <div className="bg-card rounded-2xl border border-slate-800/60">
