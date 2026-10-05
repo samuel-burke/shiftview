@@ -135,6 +135,9 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.break_start":    return `Break started — ${empName}`;
     case "punch.break_end":      return `Break ended — ${empName}`;
     case "punch.correction":     return `Punch correction for ${empName}`;
+    case "punch.correction_requested": return `Punch correction requested — ${empName}`;
+    case "punch.correction_approve":   return `Approved punch correction for ${empName}`;
+    case "punch.correction_deny":      return `Denied punch correction for ${empName}`;
     case "punch.export":         return `Exported punch records`;
     case "timecard.export":      return `Exported time card`;
     case "payroll.export":       return `Exported payroll report`;
@@ -201,7 +204,10 @@ function auditDetail(entry: AuditEntry, tz: string): string | null {
       if (req && tgt) return `${req} and ${tgt}`;
       return null;
     }
-    case "punch.correction": {
+    case "punch.correction":
+    case "punch.correction_requested":
+    case "punch.correction_approve":
+    case "punch.correction_deny": {
       const pt = m.punchType as string | null;
       const pa = m.punchedAt as string | null;
       if (pt && pa) {

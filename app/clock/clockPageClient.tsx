@@ -29,7 +29,8 @@ import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 import { playPunchSound } from "@/lib/sounds";
-import { dateFromKey, dayOfWeekForKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
+import { dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
+import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -123,6 +124,10 @@ export default function ClockPageClient() {
   const [correctionNote, setCorrectionNote] = useState("");
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
+  // Set after an employee files a correction: it waits for manager approval.
+  const [correctionNotice, setCorrectionNotice] = useState<string | null>(null);
+  // The employee's own correction requests (last 30 days), newest first.
+  const [myCorrections, setMyCorrections] = useState<PunchCorrection[]>([]);
 
   // Export state
   const [exportFrom, setExportFrom] = useState(todayKey);
@@ -258,6 +263,18 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
+  const loadMyCorrections = useCallback(() => {
+    fetch("/api/punch-corrections?mine=true")
+      .then((r) => r.json())
+      .then(({ corrections }) => { if (Array.isArray(corrections)) setMyCorrections(corrections); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (meLoading || !employeeId || isManager) return;
+    loadMyCorrections();
+  }, [meLoading, employeeId, isManager, loadMyCorrections]);
+
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context).
   // The punches listener keeps this screen in sync across the user's devices: a
   // punch made elsewhere updates the status, timer and history here too (a
@@ -267,9 +284,10 @@ export default function ClockPageClient() {
       .channel("clock-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
       .on("postgres_changes", { event: "*", schema: "public", table: "punch_records" }, () => loadData(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, () => loadMyCorrections())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [loadData]);
+  }, [loadData, loadMyCorrections]);
 
   // Load today's call-out (if any) so we can show "Called out" instead of the
   // call-out button.
@@ -443,6 +461,7 @@ export default function ClockPageClient() {
   }
 
   async function submitCorrection() {
+    setCorrectionNotice(null);
     if (!correctionNote.trim()) {
       setCorrectionError("A note is required for manual corrections");
       return;
@@ -470,6 +489,14 @@ export default function ClockPageClient() {
       }
       setShowCorrection(false);
       setCorrectionNote("");
+      if (res.status === 202) {
+        // Filed for approval — nothing changes on the time card until a
+        // manager approves it, so keep the missed-punch banner in place.
+        setCorrectionNotice("Sent to your manager for approval. It will be added to your time card once approved.");
+        loadMyCorrections();
+        return;
+      }
+      setCorrectionNotice(null);
       setMissedPunchInfo(null);
       await loadData(false);
     } catch (e) {
@@ -499,6 +526,11 @@ export default function ClockPageClient() {
     if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
     return null;
   }, [schedule, sortedPunches, timezone]);
+
+  // A pending correction already covers the missed-punch day.
+  const missedPunchPending = !!missedPunchInfo && myCorrections.some(
+    (c) => c.status === "pending" && dateKeyInTz(c.punchedAt, timezone) >= missedPunchInfo.date
+  );
 
   const shiftType = schedule
     ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close)
@@ -695,7 +727,11 @@ export default function ClockPageClient() {
                 </div>
               </div>
             </div>
-            {!showCorrection && (
+            {missedPunchPending ? (
+              <div role="status" className="w-full py-3 rounded-xl text-xs font-semibold text-center bg-slate-800/60 text-amber-200 border border-amber-500/20">
+                Correction sent — waiting for manager approval
+              </div>
+            ) : !showCorrection && (
               <button
                 onClick={() => {
                   setCorrectionDate(missedPunchInfo.date);
@@ -898,7 +934,7 @@ export default function ClockPageClient() {
             className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
           >
             <span className="text-sm font-semibold text-slate-300">
-              {missedPunchInfo
+              {missedPunchInfo && !missedPunchPending
               ? missedPunchInfo.suggestedPunchType === "break_end"
                 ? "Add Missing Break End"
                 : "Add Missing Clock-Out"
@@ -957,6 +993,11 @@ export default function ClockPageClient() {
                   className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-indigo-500/70 transition-colors"
                 />
               </div>
+              {!isManager && (
+                <div className="text-xs text-slate-500">
+                  Your manager reviews corrections before they&apos;re added to your time card.
+                </div>
+              )}
               {correctionError && (
                 <div role="alert" className="text-xs text-red-400">{correctionError}</div>
               )}
@@ -966,11 +1007,52 @@ export default function ClockPageClient() {
                 aria-busy={correctionSaving}
                 className="w-full py-3 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
               >
-                {correctionSaving ? "Saving…" : "Submit Correction"}
+                {correctionSaving ? "Saving…" : isManager ? "Submit Correction" : "Send for Approval"}
               </button>
             </div>
           )}
         </div>}
+
+        {correctionNotice && (
+          <div role="status" className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl text-sm text-emerald-300">
+            {correctionNotice}
+          </div>
+        )}
+
+        {/* The employee's recent correction requests and their status */}
+        {!isManager && myCorrections.length > 0 && (
+          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3.5" data-testid="my-punch-corrections">
+            <div className="text-sm font-semibold text-slate-300 mb-2">Correction Requests</div>
+            <ul className="space-y-2">
+              {myCorrections.map((c) => (
+                <li key={c.id} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm text-slate-200">
+                      {PUNCH_TYPE_LABELS[c.punchType]}{" "}
+                      <span className="text-slate-400">
+                        · {formatDateKey(dateKeyInTz(c.punchedAt, timezone), { weekday: "short", month: "short", day: "numeric" })} at {formatTimeInTz(c.punchedAt, timezone)}
+                      </span>
+                    </div>
+                    {c.status === "denied" && c.reviewNote && (
+                      <div className="text-[11px] text-slate-500 mt-0.5">Manager: {c.reviewNote}</div>
+                    )}
+                  </div>
+                  <span
+                    className={`shrink-0 text-[10px] font-semibold px-2 py-px rounded-full ${
+                      c.status === "pending"
+                        ? "text-amber-300 bg-amber-500/10"
+                        : c.status === "approved"
+                          ? "text-emerald-300 bg-emerald-500/10"
+                          : "text-red-300 bg-red-500/10"
+                    }`}
+                  >
+                    {c.status === "pending" ? "Pending" : c.status === "approved" ? "Approved" : "Denied"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Timesheet export */}
         <div className="bg-card rounded-2xl border border-slate-800/60">

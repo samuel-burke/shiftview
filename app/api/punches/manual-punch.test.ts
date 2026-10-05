@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { writeAuditLog } from "@/lib/audit";
+import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/notify", () => ({ notifyManagers: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: unknown, init?: { status?: number }) =>
@@ -31,6 +33,7 @@ function makeClient({
 }: { isManager?: boolean; timezone?: string; history?: Punch[] } = {}) {
   const inserted: Record<string, unknown>[] = [];
   const updated: Record<string, unknown>[] = [];
+  const requested: Record<string, unknown>[] = [];
 
   const simple = (result: { data: unknown; error: null }) => {
     const b: any = {};
@@ -43,6 +46,7 @@ function makeClient({
   const client = {
     inserted,
     updated,
+    requested,
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "app_settings") {
@@ -53,6 +57,13 @@ function makeClient({
       }
       if (table === "employees") {
         return simple({ data: { id: 5, org_id: MOCK_ORG_ID, name: "Alex", user_id: MOCK_USER.id }, error: null });
+      }
+      if (table === "punch_corrections") {
+        const b: any = {};
+        b.insert = vi.fn().mockImplementation((row: Record<string, unknown>) => { requested.push(row); return b; });
+        b.select = vi.fn().mockReturnValue(b);
+        b.single = vi.fn().mockResolvedValue({ data: { id: 99 }, error: null });
+        return b;
       }
       if (table === "punch_records") {
         const filters: { lt?: string; gte?: string; ascending?: boolean } = {};
@@ -103,24 +114,24 @@ describe("PUT /api/punches — server-side time conversion", () => {
     const client = makeClient({ history: [{ punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" }] });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "23:30", note: "Forgot" });
-    expect(res.status).toBe(200);
-    expect(client.inserted[0]).toMatchObject({ punched_at: "2026-11-01T03:30:00.000Z", is_manual: true }); // 23:30 EDT
+    expect(res.status).toBe(202);
+    expect(client.requested[0]).toMatchObject({ punched_at: "2026-11-01T03:30:00.000Z", punch_type: "clock_out" }); // 23:30 EDT
   });
 
   it("resolves the repeated fall-back hour to its first occurrence", async () => {
     const client = makeClient({ history: [{ punch_type: "clock_in", punched_at: "2026-10-31T22:00:00Z" }] });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await put({ punchType: "clock_out", localDate: "2026-11-01", localTime: "01:30", note: "Forgot" });
-    expect(res.status).toBe(200);
-    expect(client.inserted[0].punched_at).toBe("2026-11-01T05:30:00.000Z"); // 01:30 EDT
+    expect(res.status).toBe(202);
+    expect(client.requested[0].punched_at).toBe("2026-11-01T05:30:00.000Z"); // 01:30 EDT
   });
 
   it("uses quarter-hour offsets correctly", async () => {
     const client = makeClient({ timezone: "Asia/Kathmandu" });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await put({ punchType: "clock_in", localDate: "2026-11-01", localTime: "07:00", note: "Forgot" });
-    expect(res.status).toBe(200);
-    expect(client.inserted[0].punched_at).toBe("2026-11-01T01:15:00.000Z");
+    expect(res.status).toBe(202);
+    expect(client.requested[0].punched_at).toBe("2026-11-01T01:15:00.000Z");
   });
 
   it("rejects a time in the future by the server's clock", async () => {
@@ -180,8 +191,23 @@ describe("PUT /api/punches — employee manual punch rules", () => {
     });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "17:00", note: "Forgot" });
-    expect(res.status).toBe(200);
-    expect(client.inserted[0].punched_at).toBe("2026-10-31T21:00:00.000Z");
+    expect(res.status).toBe(202);
+    expect(client.requested[0].punched_at).toBe("2026-10-31T21:00:00.000Z");
+  });
+
+  it("files the correction for manager approval instead of creating a punch", async () => {
+    vi.mocked(notifyManagers).mockClear();
+    const client = makeClient({ history: [{ punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" }] });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "17:00", note: " Forgot " });
+    expect(res.status).toBe(202);
+    expect(await res.json()).toMatchObject({ pending: true, correctionId: 99 });
+    expect(client.inserted).toHaveLength(0); // no punch until a manager approves
+    expect(client.requested[0]).toMatchObject({ employee_id: 5, note: "Forgot", requested_by: MOCK_USER.id });
+    expect(notifyManagers).toHaveBeenCalledWith(
+      expect.anything(), MOCK_ORG_ID, "punch_correction_requested", expect.any(String),
+      expect.stringContaining("clock out at 5:00 PM on Sat, Oct 31"), expect.objectContaining({ correctionId: 99 })
+    );
   });
 });
 

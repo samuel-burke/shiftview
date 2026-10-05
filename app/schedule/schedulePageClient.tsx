@@ -36,7 +36,15 @@ import {
 import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
-import { addDaysToKey, dateFromKey, daysBetweenKeys, formatDateKey, localDateKey, nowMinutesInTz } from "@/lib/dates";
+import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
+import type { PunchCorrection } from "@/app/api/punch-corrections/route";
+
+const PUNCH_TYPE_LABELS: Record<PunchCorrection["punchType"], string> = {
+  clock_in:    "Clock In",
+  clock_out:   "Clock Out",
+  break_start: "Break Start",
+  break_end:   "Break End",
+};
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { shiftMinutes } from "@/lib/schedule-hours";
 
@@ -175,6 +183,7 @@ export default function SchedulePageClient() {
   const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  const [pendingPunchCorrections, setPendingPunchCorrections] = useState<PunchCorrection[]>([]);
   // Every in-flight swap the caller can see (their own as employee; all of the
   // org's as a manager). Categorized below into manager-approval vs. incoming.
   const [allSwaps, setAllSwaps] = useState<Swap[]>([]);
@@ -236,6 +245,26 @@ export default function SchedulePageClient() {
       throw new Error(error ?? "Failed to deny request");
     }
     setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  const loadPunchCorrections = useCallback(() => {
+    fetch("/api/punch-corrections")
+      .then((r) => r.json())
+      .then(({ corrections }) => { if (Array.isArray(corrections)) setPendingPunchCorrections(corrections); })
+      .catch(() => {});
+  }, []);
+
+  async function reviewPunchCorrection(id: number, status: "approved" | "denied") {
+    const res = await fetch(`/api/punch-corrections/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({}));
+      throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} correction`);
+    }
+    setPendingPunchCorrections((prev) => prev.filter((r) => r.id !== id));
   }
 
   const loadSwaps = useCallback(() => {
@@ -368,6 +397,11 @@ export default function SchedulePageClient() {
     await supabase.auth.signOut();
     window.location.href = "/login";
   }
+
+  // Load pending punch corrections once manager status is known
+  useEffect(() => {
+    if (isManager) loadPunchCorrections();
+  }, [isManager, loadPunchCorrections]);
 
   // Load pending time-off once manager status is known
   useEffect(() => {
@@ -596,6 +630,10 @@ export default function SchedulePageClient() {
       loadSwaps();
     }
 
+    function refetchPunchCorrections() {
+      if (isManagerRef.current) loadPunchCorrections();
+    }
+
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -604,6 +642,7 @@ export default function SchedulePageClient() {
         refetchSchedule();
         refetchTimeOff();
         refetchSwaps();
+        refetchPunchCorrections();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -621,6 +660,7 @@ export default function SchedulePageClient() {
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .on("postgres_changes", { event: "*", schema: "public", table: "callouts" }, refetchCallouts)
       .on("postgres_changes", { event: "*", schema: "public", table: "shift_swaps" }, refetchSwaps)
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, refetchPunchCorrections)
       .subscribe();
 
     return () => {
@@ -732,9 +772,21 @@ export default function SchedulePageClient() {
     [allSwaps],
   );
 
-  // Total pending items a manager must act on (swaps + time off), badged on the
-  // Requests button.
-  const pendingRequestsCount = managerSwaps.length + pendingManagerTimeOff.length;
+  // Total pending items a manager must act on (swaps, time off, punch
+  // corrections), badged on the Requests button.
+  const pendingRequestsCount = managerSwaps.length + pendingManagerTimeOff.length + pendingPunchCorrections.length;
+
+  // Display-ready punch corrections, in the store's timezone.
+  const punchCorrectionItems = useMemo(
+    () => pendingPunchCorrections.map((c) => ({
+      id: c.id,
+      employeeName: c.employeeName,
+      punchLabel: PUNCH_TYPE_LABELS[c.punchType],
+      when: `${formatDateKey(dateKeyInTz(c.punchedAt, timezone), { weekday: "short", month: "short", day: "numeric" })} at ${formatTimeInTz(c.punchedAt, timezone)}`,
+      note: c.note,
+    })),
+    [pendingPunchCorrections, timezone],
+  );
 
   // Swaps the current user is personally part of, as requester or target.
   const mySwaps = useMemo(
@@ -1197,10 +1249,13 @@ export default function SchedulePageClient() {
             onClose={() => setSwapDrawerOpen(false)}
             swaps={managerSwaps}
             timeOff={pendingManagerTimeOff}
+            punchCorrections={punchCorrectionItems}
             onApproveSwap={handleApproveSwap}
             onDenySwap={handleDenySwap}
             onApproveTimeOff={handleApproveManagerTimeOff}
             onDenyTimeOff={handleDenyManagerTimeOff}
+            onApprovePunchCorrection={(id) => reviewPunchCorrection(id, "approved")}
+            onDenyPunchCorrection={(id) => reviewPunchCorrection(id, "denied")}
           />
         )}
 

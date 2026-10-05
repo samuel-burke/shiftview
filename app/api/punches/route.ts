@@ -6,9 +6,9 @@ import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
-import { isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
+import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
-import { checkEmployeeManualPunch } from "@/lib/manual-punch-rules";
+import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -305,7 +305,8 @@ export async function POST(request: Request) {
 }
 
 // PUT /api/punches — correct / add a missed punch
-// Managers can correct any; employees can only add a manual punch for themselves.
+// Managers can correct any punch directly. An employee's request to add a
+// missed punch is filed for manager approval (202) — see /api/punch-corrections.
 // Body: { id?, employeeId?, punchType, note, scheduleId?, localDate + localTime | punchedAt }
 //
 // The time may be given as the store-local wall clock (localDate YYYY-MM-DD +
@@ -400,36 +401,51 @@ export async function PUT(request: Request) {
     targetEmployeeName = empData?.name ?? null;
   }
 
-  // An employee's manual punch must be a valid next step from their previous
-  // punch, and may only be slotted in before an existing punch to close a
-  // previous shift left open (see lib/manual-punch-rules.ts).
+  // Employees don't write punches directly: their correction is filed for a
+  // manager to approve (see /api/punch-corrections), and only approval creates
+  // the punch. It must still be a valid next step from their previous punch
+  // and may only be slotted in before an existing punch to close a previous
+  // shift left open (lib/manual-punch-rules.ts).
   if (!isManager) {
-    const [{ data: prev }, { data: next }] = await Promise.all([
-      supabase
-        .from("punch_records")
-        .select("punch_type, punched_at")
-        .eq("org_id", orgId)
-        .eq("employee_id", targetEmployeeId)
-        .lt("punched_at", punchedAtIso)
-        .order("punched_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("punch_records")
-        .select("punch_type, punched_at")
-        .eq("org_id", orgId)
-        .eq("employee_id", targetEmployeeId)
-        .gte("punched_at", punchedAtIso)
-        .order("punched_at", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-    const ruleError = checkEmployeeManualPunch(
-      punchType,
-      prev ? { punchType: prev.punch_type } : null,
-      next ? { punchType: next.punch_type } : null,
-    );
+    const ruleError = await checkManualPunchAgainstHistory(supabase, orgId, targetEmployeeId, punchType, punchedAtIso);
     if (ruleError) return NextResponse.json({ error: ruleError }, { status: 409 });
+
+    const { data: request, error: requestError } = await supabase
+      .from("punch_corrections")
+      .insert(withOrg(orgId, {
+        employee_id:  targetEmployeeId,
+        punch_type:   punchType,
+        punched_at:   punchedAtIso,
+        note:         note.trim(),
+        requested_by: user.id,
+      }))
+      .select("id")
+      .single();
+    if (requestError || !request) {
+      console.error("[api/punches]", requestError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+
+    notifyManagers(
+      supabase,
+      orgId,
+      "punch_correction_requested",
+      "Punch Correction Request",
+      `${targetEmployeeName ?? "An employee"} asked to add a ${punchType.replace("_", " ")} at ${formatTimeInTz(punchedAtIso, tz)} on ${formatDateKey(dateKeyInTz(punchedAtIso, tz), { weekday: "short", month: "short", day: "numeric" })}`,
+      { correctionId: request.id, employeeId: targetEmployeeId }
+    ).catch(() => {});
+
+    writeAuditLog({
+      action:       "punch.correction_requested",
+      orgId,
+      actorId:      user.id,
+      resourceType: "punch_correction",
+      resourceId:   String(request.id),
+      after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: note.trim() },
+      metadata: { employeeId: targetEmployeeId, employeeName: targetEmployeeName, punchType, punchedAt: punchedAtIso },
+    }).catch(() => {});
+
+    return NextResponse.json({ ok: true, pending: true, correctionId: request.id }, { status: 202 });
   }
 
   // For an edit, capture the original so the audit trail keeps the time being
