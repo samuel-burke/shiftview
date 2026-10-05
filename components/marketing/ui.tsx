@@ -83,7 +83,7 @@ export function Chip({ swatch, label }: { swatch: React.ReactNode; label: string
 
 export const SCALE = 0.72;
 
-export function Phone({ children, label, time = "1:30" }: { children: React.ReactNode; label: string; time?: string }) {
+export function Phone({ children, label, time = "1:30", overlay }: { children: React.ReactNode; label: string; time?: string; overlay?: React.ReactNode }) {
   return (
     <figure
       aria-label={label}
@@ -101,6 +101,8 @@ export function Phone({ children, label, time = "1:30" }: { children: React.Reac
           <StatusBar time={time} />
           <AppHeader />
           <div className="relative flex-1 overflow-hidden">{children}</div>
+          {/* Notifications sit over the app header, below the status bar, like iOS banners. */}
+          {overlay && <div className="absolute inset-x-3 top-[58px] z-20">{overlay}</div>}
         </div>
       </div>
     </figure>
@@ -233,7 +235,7 @@ export function ShiftCard({ row, now = NOW }: { row: Row; now?: number }) {
 export function ArchitectureDiagram() {
   const box = "rounded-lg border border-slate-700/70 bg-bg/70 px-3 py-2";
   const label = "text-[12px] font-semibold text-slate-200";
-  const sub = "mt-0.5 text-[11px] text-slate-500";
+  const sub = "mt-0.5 text-[11px] text-slate-400";
   return (
     <figure aria-label="Request flow architecture" className="rounded-2xl border border-slate-800 bg-card p-5">
       <figcaption className="mb-4 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">Request path</figcaption>

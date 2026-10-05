@@ -30,9 +30,9 @@ const DECISIONS = [
 export default function EngineeringPage() {
   return (
     <MarketingShell active="engineering">
-      <EngineeringSection />
+      <EngineeringSection asPageTitle />
       <section className="border-b border-slate-800/60">
-        <Container className="py-20 lg:py-28">
+        <Container className="py-16 sm:py-20 lg:py-28">
           <p className="mb-4 text-sm font-medium text-blue-400">Design decisions</p>
           <h2 className="max-w-xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
             Small choices that remove whole classes of bugs.
@@ -40,7 +40,7 @@ export default function EngineeringPage() {
           <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-800/80 md:grid-cols-2">
             {DECISIONS.map((d, i) => (
               <li key={d.title} className="bg-bg p-6 lg:p-8">
-                <span className="font-mono text-xs text-slate-500">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-xs text-slate-400">{String(i + 1).padStart(2, "0")}</span>
                 <h3 className="mt-2 text-base font-semibold text-slate-100">{d.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-400">{d.body}</p>
               </li>

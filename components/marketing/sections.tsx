@@ -74,7 +74,7 @@ export function ClockSection() {
 export function PlannerSection() {
   return (
     <section id="planning" className="scroll-mt-16 border-b border-slate-800/60">
-      <Container className="py-20 lg:py-28">
+      <Container className="py-16 sm:py-20 lg:py-28">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] lg:items-center lg:gap-16">
           <SectionCopy
             eyebrow="Planning"
@@ -161,7 +161,7 @@ export function CapabilityMap() {
   ];
   return (
     <section className="border-b border-slate-800/60">
-      <Container className="py-20 lg:py-28">
+      <Container className="py-16 sm:py-20 lg:py-28">
         <div className="max-w-2xl">
           <p className="mb-4 text-sm font-medium text-blue-400">Everything in one app</p>
           <h2 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
@@ -190,7 +190,8 @@ export function CapabilityMap() {
   );
 }
 
-export function EngineeringSection() {
+export function EngineeringSection({ asPageTitle = false }: { asPageTitle?: boolean }) {
+  const Heading = asPageTitle ? "h1" : "h2";
   const principles = [
     {
       title: "One write path, two locks",
@@ -228,13 +229,13 @@ export function EngineeringSection() {
 
   return (
     <section id="engineering" className="scroll-mt-16 border-b border-slate-800/60">
-      <Container className="py-20 lg:py-28">
+      <Container className="py-16 sm:py-20 lg:py-28">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:gap-16">
           <div>
             <p className="mb-4 text-sm font-medium text-blue-400">Engineering</p>
-            <h2 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
+            <Heading className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
               Built for payroll-grade reliability.
-            </h2>
+            </Heading>
             <p className="mt-5 max-w-md text-base leading-relaxed text-slate-400">
               Schedules and time punches turn into paychecks, so ShiftView is built to be boring in the best way: enforced rules, tested paths, and a record of every change.
             </p>
@@ -248,7 +249,7 @@ export function EngineeringSection() {
             <div className="rounded-2xl border border-slate-800 bg-card p-5">
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">CI on every pull request</span>
-                <span className="font-mono text-[11px] text-slate-500">GitHub Actions</span>
+                <span className="font-mono text-[11px] text-slate-400">GitHub Actions</span>
               </div>
               <ol className="divide-y divide-slate-800/80 rounded-lg border border-slate-800 bg-bg/60">
                 {pipeline.map((p, i) => (
@@ -257,7 +258,7 @@ export function EngineeringSection() {
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </span>
                     <span className="font-semibold text-slate-200"><span className="sr-only">Step {i + 1}: </span>{p.step}</span>
-                    <span className="ml-auto font-mono text-[12px] text-slate-500">{p.detail}</span>
+                    <span className="ml-auto font-mono text-[12px] text-slate-400">{p.detail}</span>
                   </li>
                 ))}
               </ol>

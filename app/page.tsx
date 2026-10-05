@@ -3,6 +3,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import PageClient from "./pageClient";
 import LandingPage from "./landing";
+import type { Metadata } from "next";
+
+// The signed-out landing page shares this route with the dashboard, so the
+// marketing description lives here rather than in the root layout.
+export const metadata: Metadata = {
+  title: "ShiftView · Scheduling and time clock for shift teams",
+  description: "Build the week, see live coverage as people clock in, and approve requests from your phone. Scheduling, time clock and coverage for retail and fulfillment teams.",
+  openGraph: {
+    title: "ShiftView",
+    description: "Scheduling, time clock and live coverage for retail and fulfillment teams.",
+    type: "website",
+  },
+};
 
 // E2E runs intercept all /api/* calls client-side and have no Supabase, so
 // the Playwright webServer sets E2E_BYPASS_AUTH=1 to skip the server-side

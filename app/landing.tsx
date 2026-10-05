@@ -44,7 +44,7 @@ function Hero() {
               Open the live demo
             </TryDemoButton>
           </div>
-          <p className="mt-5 text-xs text-slate-500">
+          <p className="mt-5 text-xs text-slate-400">
             No credit card. The demo is a real workspace with sample data that resets nightly.
           </p>
         </div>
@@ -88,7 +88,7 @@ function Pillars() {
   ];
   return (
     <section className="border-b border-slate-800/60">
-      <Container className="py-20 lg:py-28">
+      <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
           <h2 className="max-w-xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
             Everything a shift team runs on, in one place.

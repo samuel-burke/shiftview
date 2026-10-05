@@ -89,8 +89,7 @@ const INITIAL_ROSTER: LiveRow[] = ROSTER.map((r) => ({
 // What happens on the floor after the page loads, in seconds from first view.
 const EVENTS: { at: number; id: number; to: Row["attendance"]; title: string }[] = [
   { at: 3, id: 8, to: "clocked_in", title: "clocked in" },
-  { at: 10, id: 4, to: "clocked_in", title: "ended break" },
-  { at: 17, id: 11, to: "clocked_in", title: "clocked in early" },
+  { at: 11, id: 11, to: "clocked_in", title: "clocked in early" },
 ];
 
 function useLiveRoster(tick: number) {
@@ -187,7 +186,7 @@ export function LiveCoverageTimeline({ roster = INITIAL_ROSTER, now = NOW }: { r
 
 function Toast({ toast }: { toast: { key: number; name: string; title: string; time: string } | null }) {
   return (
-    <div className="pointer-events-none absolute inset-x-3 top-2 z-20">
+    <div className="pointer-events-none">
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -219,8 +218,7 @@ export function LiveTeamPhone() {
 
   return (
     <div ref={ref}>
-      <Phone label="Manager coverage dashboard, updating live" time={clockLabel(START_SECONDS + tick)}>
-        <Toast toast={toast} />
+      <Phone label="Manager coverage dashboard, updating live" time={clockLabel(START_SECONDS + tick)} overlay={<Toast toast={toast} />}>
         <div className="px-4 pt-4">
           <StatTiles here={<Count value={here.length} />} scheduled={roster.length} off={OFF_TODAY.length} />
           <div className="mt-3"><LiveCoverageTimeline roster={roster} now={now} /></div>
@@ -821,14 +819,21 @@ export function NextShiftCard() {
   const when = offset === 1 ? "Tomorrow" : date.toLocaleDateString("en-US", { weekday: "long" });
   return (
     <div className={`mt-3 rounded-2xl border border-white/[0.08] bg-card px-4 py-3.5 ${today ? "transition-opacity duration-300" : "opacity-0"}`} style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">Next Shift</div>
-      <div className="mt-1 flex items-center justify-between">
-        <span className="text-[15px] font-bold text-slate-100">{when}, {fmtMinutes(shift[0])} – {fmtMinutes(shift[1])}</span>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">Next Shift</span>
         <span className="flex items-center gap-1 text-[12px] font-semibold capitalize" style={{ color }}>
           <ShiftIcon shiftType={type} size={12} color={color} />
           {type}
         </span>
       </div>
+      <div className="mt-1.5 text-[13px] text-slate-400">{when}</div>
+      <div className="text-[17px] font-bold text-slate-100">{fmtMinutes(shift[0])} – {fmtMinutes(shift[1])}</div>
     </div>
   );
+}
+
+/** The current year from the visitor's clock (static pages would freeze the build year). */
+export function CurrentYear() {
+  const today = useToday();
+  return <span className="tabular-nums">{today ? `© ${today.getFullYear()}` : null}</span>;
 }
