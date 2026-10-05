@@ -8,6 +8,7 @@ import {
   TimeOffRequest,
   Callout,
   Employee,
+  PunchRecord,
   getShiftType,
   fmtMinutes,
   SHIFT_COLORS,
@@ -47,6 +48,7 @@ const PUNCH_TYPE_LABELS: Record<PunchCorrection["punchType"], string> = {
 };
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { shiftMinutes } from "@/lib/schedule-hours";
+import { calloutBlockReason } from "@/lib/callout-rules";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -179,6 +181,9 @@ export default function SchedulePageClient() {
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
   const [myCallouts, setMyCallouts] = useState<Callout[]>([]);
+  // Whether the user has clocked in at any point today (store day) — today's
+  // shift can't be called out after that.
+  const [clockedInToday, setClockedInToday] = useState(false);
   const [calloutStatus, setCalloutStatus] = useState<"idle" | "loading">("idle");
   const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
@@ -397,6 +402,26 @@ export default function SchedulePageClient() {
     await supabase.auth.signOut();
     window.location.href = "/login";
   }
+
+  const loadClockedInToday = useCallback(() => {
+    if (employeeId === null) return;
+    fetch(`/api/punches?date=${todayKey}`)
+      .then((r) => r.json())
+      .then((punches: PunchRecord[]) => {
+        if (!Array.isArray(punches)) return;
+        setClockedInToday(punches.some((p) => p.employeeId === employeeId && p.punchType === "clock_in"));
+      })
+      .catch(() => {});
+  }, [employeeId, todayKey]);
+
+  // Refresh on load, at the store's midnight (todayKey changes), and when the
+  // tab comes back — e.g. after clocking in on the Clock screen or another device.
+  useEffect(() => {
+    loadClockedInToday();
+    const onVisible = () => { if (document.visibilityState === "visible") loadClockedInToday(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadClockedInToday]);
 
   // Load pending punch corrections once manager status is known
   useEffect(() => {
@@ -749,13 +774,18 @@ export default function SchedulePageClient() {
   const calloutDates = useMemo(() => myCallouts.map((c) => c.date), [myCallouts]);
   const selectedCallout = myCallouts.find((c) => c.date === selectedDateKey) ?? null;
 
-  // Show "Call Out" when: the selected day is today or later, the user has an
-  // employee record, and they haven't already called out for it. (You can call
-  // out whether or not a shift is posted yet.)
+  // Show "Call Out" only for the user's own shift today or tomorrow, not once
+  // they've clocked in for today's shift, and not if already called out — the
+  // same rule the server enforces (lib/callout-rules.ts).
   const canCallOut =
     !selectedCallout &&
-    selectedDateKey >= todayKey &&
-    employeeId !== null;
+    employeeId !== null &&
+    calloutBlockReason({
+      date: selectedDateKey,
+      todayKey,
+      hasShift: !!selectedSchedule,
+      clockedInToday,
+    }) === null;
 
   // Show "Request Day Off" when: no shift, future date, has employeeId, no existing pending/approved request
   const canRequestDayOff =
@@ -1102,7 +1132,7 @@ export default function SchedulePageClient() {
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-red-500/30 text-red-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-500/10 transition-colors"
             >
               <MegaphoneIcon size={15} color="rgb(248 113 113)" />
-              {calloutStatus === "loading" ? "Submitting…" : selectedSchedule ? "Can't make this shift? Call out" : "Call out"}
+              {calloutStatus === "loading" ? "Submitting…" : "Can't make this shift? Call out"}
             </button>
             {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>

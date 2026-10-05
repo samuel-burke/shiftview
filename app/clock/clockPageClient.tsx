@@ -31,6 +31,7 @@ import { haptic } from "@/lib/haptic";
 import { playPunchSound } from "@/lib/sounds";
 import { dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
+import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -816,8 +817,15 @@ export default function ClockPageClient() {
           )}
         </div>
 
-        {/* Call out — "can't make it in today" */}
-        {employeeId && (
+        {/* Call out — "can't make it in today". Only for today's scheduled shift,
+            and not once clocked in for it (lib/callout-rules.ts); an existing
+            call-out stays visible so it can be undone. */}
+        {employeeId && (myCallout || calloutBlockReason({
+          date: todayKey,
+          todayKey,
+          hasShift: !!schedule,
+          clockedInToday: punches.some((p) => p.punchType === "clock_in"),
+        }) === null) && (
           <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden" style={myCallout ? { borderColor: "rgba(248,113,113,0.3)" } : {}}>
             {myCallout ? (
               <div className="px-4 py-3.5 space-y-2.5">

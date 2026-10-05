@@ -4,7 +4,8 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { notifyManagers } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
-import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
+import { addDaysToKey, isDateKey, localDayBoundsUtc, todayKeyInTz } from "@/lib/dates";
+import { calloutBlockReason } from "@/lib/callout-rules";
 import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
@@ -129,11 +130,6 @@ export async function POST(request: Request) {
 
   const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
 
-  // "Today" is the store's calendar day, not UTC's.
-  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
-
   // You can only call out for your own employee record.
   if (!ctxEmployeeId || ctxEmployeeId !== employeeId)
     return NextResponse.json(
@@ -152,6 +148,38 @@ export async function POST(request: Request) {
       { error: "Employee not found or not linked to your account" },
       { status: 403 }
     );
+
+  // Only for a shift scheduled today or tomorrow (the store's calendar days),
+  // and not for today's shift once clocked in for it (lib/callout-rules.ts).
+  const tz = await getOrgTimezone(supabase, orgId);
+  const today = todayKeyInTz(tz);
+  const [{ data: shifts }, { data: clockIns }] = await Promise.all([
+    supabase
+      .from("schedules")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("employee_id", employeeId)
+      .eq("date", date)
+      .limit(1),
+    date === today
+      ? supabase
+          .from("punch_records")
+          .select("id")
+          .eq("org_id", orgId)
+          .eq("employee_id", employeeId)
+          .eq("punch_type", "clock_in")
+          .gte("punched_at", localDayBoundsUtc(today, tz).start.toISOString())
+          .lte("punched_at", localDayBoundsUtc(today, tz).end.toISOString())
+          .limit(1)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const blockReason = calloutBlockReason({
+    date,
+    todayKey: today,
+    hasShift: Array.isArray(shifts) && shifts.length > 0,
+    clockedInToday: Array.isArray(clockIns) && clockIns.length > 0,
+  });
+  if (blockReason) return NextResponse.json({ error: blockReason }, { status: 400 });
 
   const trimmedReason =
     reason && typeof reason === "string" && reason.trim() ? reason.trim() : null;

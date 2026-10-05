@@ -26,15 +26,22 @@ vi.mock("framer-motion", async (orig) => {
 type Correction = { id: number; punchType: string; punchedAt: string; note: string; status: string; reviewNote: string | null };
 
 // Employee Alex (id 5) whose shift from Oct 31 was never clocked out.
-function mockApi({ corrections = [] as Correction[], putStatus = 202 } = {}) {
+function mockApi({
+  corrections = [] as Correction[],
+  putStatus = 202,
+  schedules = [] as Record<string, unknown>[],
+  todayPunches = [] as Record<string, unknown>[],
+  missedPunch = true,
+} = {}) {
   const puts: unknown[] = [];
   let currentCorrections = corrections;
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const json = (data: unknown, status = 200) =>
       new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
     if (url.startsWith("/api/me")) return json({ isManager: false, employeeId: 5, employeeName: "Alex Kim" });
-    if (url.startsWith("/api/schedules")) return json([]);
+    if (url.startsWith("/api/schedules")) return json(schedules);
     if (url.startsWith("/api/punches/missed")) {
+      if (!missedPunch) return json({ missedPunch: null });
       return json({
         missedPunch: {
           date: "2026-10-31",
@@ -51,7 +58,7 @@ function mockApi({ corrections = [] as Correction[], putStatus = 202 } = {}) {
       ];
       return json({ ok: true, pending: true, correctionId: 9 }, putStatus);
     }
-    if (url.startsWith("/api/punches")) return json([]);
+    if (url.startsWith("/api/punches")) return json(todayPunches);
     if (url.startsWith("/api/punch-corrections")) return json({ corrections: currentCorrections });
     if (url.startsWith("/api/callouts")) return json({ callouts: [] });
     return json({});
@@ -105,5 +112,34 @@ describe("Clock — punch corrections need manager approval", () => {
     expect(list).toHaveTextContent("Manager: You left at 5");
     // A denied request doesn't cover the open shift — the employee can try again.
     expect(screen.getAllByRole("button", { name: "Add Missing Clock-Out" }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("Clock — call-out button", () => {
+  const todaysShift = { id: 1, employeeId: 5, date: "2026-11-01", startMinutes: 540, endMinutes: 1020 };
+  const callOutButton = () => screen.queryByRole("button", { name: /Can.t make it in today\? Call out/ });
+
+  it("offers a call-out for today's scheduled shift before clocking in", async () => {
+    mockApi({ missedPunch: false, schedules: [todaysShift] });
+    render(<ClockPageClient />);
+    await waitFor(() => expect(callOutButton()).toBeInTheDocument());
+  });
+
+  it("hides it when there's no shift today", async () => {
+    mockApi({ missedPunch: false, schedules: [] });
+    render(<ClockPageClient />);
+    await screen.findByText(/No shift scheduled today/i);
+    expect(callOutButton()).not.toBeInTheDocument();
+  });
+
+  it("hides it once clocked in for today's shift", async () => {
+    mockApi({
+      missedPunch: false,
+      schedules: [todaysShift],
+      todayPunches: [{ id: 1, employeeId: 5, punchType: "clock_in", punchedAt: "2026-11-01T14:00:00Z", isManual: false }],
+    });
+    render(<ClockPageClient />);
+    await screen.findByText(/Clocked In/i);
+    expect(callOutButton()).not.toBeInTheDocument();
   });
 });
