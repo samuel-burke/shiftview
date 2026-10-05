@@ -3,6 +3,7 @@
 import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
 import ClockStatusBadge from "./ClockStatusBadge";
+import BetaBadge from "@/components/BetaBadge";
 
 type Props = {
   userName: string | null;
@@ -44,6 +45,7 @@ export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }
           <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
             View
           </span>
+          <BetaBadge />
         </span>
         <div className="flex items-center gap-2">
           <ClockStatusBadge />

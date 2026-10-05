@@ -7,6 +7,7 @@ import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import { WarningIcon, CalendarIcon, LockIcon } from "./ShiftIcons";
+import BetaBadge from "@/components/BetaBadge";
 
 type Props = {
   date: Date;
@@ -204,6 +205,7 @@ export default function CoverageHeader({
               <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
                 View
               </span>
+          <BetaBadge />
             </span>
             <div className="[@media(min-width:900px)]:hidden text-[11px] text-slate-400 mt-0.5">
               {dayName} · {dateLabel}

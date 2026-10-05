@@ -47,6 +47,12 @@ function Hero() {
           <p className="mt-5 text-xs text-slate-400">
             No credit card. The demo is a real workspace with sample data that resets nightly.
           </p>
+          <p className="mt-2 text-xs text-slate-400">
+            ShiftView is in beta. Found a bug or missing something?{" "}
+            <Link href="/contact?topic=feedback" className="font-medium text-slate-200 underline underline-offset-2 transition-colors hover:text-slate-50">
+              Tell us
+            </Link>
+          </p>
         </div>
 
         <div className="relative mx-auto flex justify-center lg:mx-0 lg:pr-4">

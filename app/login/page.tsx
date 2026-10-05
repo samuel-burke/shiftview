@@ -7,6 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import TryDemoButton from "@/components/TryDemoButton";
+import BetaBadge from "@/components/BetaBadge";
 
 type Step = "email" | "code";
 
@@ -69,6 +70,7 @@ export default function LoginPage() {
             <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
               View
             </span>
+          <BetaBadge />
           </div>
           <div className="text-xs text-slate-500 mt-1.5" aria-live="polite">
             {step === "email" ? "Sign in to your account" : `Code sent to ${email}`}

@@ -1,6 +1,7 @@
 import { ShiftIcon } from "@/components/ShiftIcons";
 import { getMonogram, fmtMinutes, SHIFT_COLORS } from "@/data/types";
 import { NOW, type Attendance, type Row } from "./data";
+import BetaBadge from "@/components/BetaBadge";
 
 export const REPO_URL = "https://github.com/samuel-burke/shiftview";
 
@@ -10,9 +11,10 @@ export function Container({ children, className = "" }: { children: React.ReactN
 
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`font-extrabold tracking-tight text-slate-100 ${className}`}>
+    <span className={`inline-flex items-center whitespace-nowrap font-extrabold tracking-tight text-slate-100 ${className}`}>
       Shift
       <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">View</span>
+          <BetaBadge />
     </span>
   );
 }
