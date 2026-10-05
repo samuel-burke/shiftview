@@ -1,12 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CoverageBlock } from "./coverage";
+import { dayOfWeekForKey } from "@/lib/dates";
 
 /**
  * Resolves the target coverage curve for a date server-side:
  * date override first, then day-of-week default, else no curve.
  */
 export async function getCurveForDate(supabase: SupabaseClient, orgId: string, date: string): Promise<CoverageBlock[]> {
-  const dow = new Date(date + "T12:00:00").getDay();
+  const dow = dayOfWeekForKey(date);
 
   const { data: override } = await supabase
     .from("coverage_date_overrides")

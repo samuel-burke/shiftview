@@ -12,7 +12,24 @@ const MOCK_EMPLOYEES = [
   { id: 3, name: "Carol White" },
 ];
 
-const TODAY_KEY = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+// The store's timezone (see the /api/settings mock). The app shows the store's
+// calendar day, which can differ from the test runner's or the browser's.
+const STORE_TZ = "America/New_York";
+
+function dateKeyIn(tz: string, d = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)!.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+const TODAY_KEY = dateKeyIn(STORE_TZ);
+
+// "October 5, 2026"-style label for the store's today plus `offsetDays`.
+function storeDateLabel(offsetDays = 0): string {
+  const d = new Date(`${TODAY_KEY}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 
 const MOCK_SCHEDULES = [
   { id: 1, employeeId: 1, date: TODAY_KEY, startMinutes: 360, endMinutes: 840 },
@@ -46,7 +63,7 @@ async function interceptAPIs(page: Page) {
     route.fulfill({ json: MOCK_STORE_HOURS })
   );
   await page.route("**/api/settings**", (route) =>
-    route.fulfill({ json: { firstDayOfWeek: 6, coverageAlertsEnabled: true, timezone: "America/New_York", emailNotifications: false, manualPunchesEnabled: true, gpsRequired: false, geofenceEnabled: false, geofenceLat: null, geofenceLng: null, geofenceRadius: 100, geofenceAddress: null } })
+    route.fulfill({ json: { firstDayOfWeek: 6, coverageAlertsEnabled: true, timezone: STORE_TZ, emailNotifications: false, manualPunchesEnabled: true, gpsRequired: false, geofenceEnabled: false, geofenceLat: null, geofenceLng: null, geofenceRadius: 100, geofenceAddress: null } })
   );
   await page.route("**/api/coverage-assignments**", (route) =>
     route.fulfill({ json: { defaults: {}, overrides: {} } })
@@ -84,7 +101,7 @@ test.describe("Dashboard — schedule view", () => {
   });
 
   test("shows today's date in the header", async ({ page }) => {
-    const todayLabel = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const todayLabel = storeDateLabel();
     await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(todayLabel, "i"))).toBeVisible();
   });
 });
@@ -96,23 +113,19 @@ test.describe("Dashboard — date navigation", () => {
   });
 
   test("navigates to the previous day with the back button", async ({ page }) => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const prevLabel = yesterday.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const prevLabel = storeDateLabel(-1);
     await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
     await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(prevLabel, "i"))).toBeVisible();
   });
 
   test("navigates to the next day with the forward button", async ({ page }) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const nextLabel = tomorrow.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const nextLabel = storeDateLabel(1);
     await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Next day" }).click();
     await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(nextLabel, "i"))).toBeVisible();
   });
 
   test("returns to today when Today button is clicked", async ({ page }) => {
-    const todayLabel = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const todayLabel = storeDateLabel();
     // Navigate away then back
     await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
     await page.getByRole("button", { name: /back to today/i }).click();

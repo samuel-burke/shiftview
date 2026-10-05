@@ -1,3 +1,6 @@
+import { dayOfWeekForKey, DEFAULT_TIMEZONE, weekStartForKey } from "@/lib/dates";
+import { assignPunchDays } from "@/lib/punch-sessions";
+
 export type PunchRow = {
   id: number;
   employee_id: number;
@@ -34,31 +37,19 @@ export type EmployeePayroll = {
   totalWorkedHours: number;
 };
 
-// The timezone payroll buckets punches into local days by. Exported so the API
-// routes can scope their query window to the same local-day boundaries —
-// otherwise punches near the day edges get dropped before they reach here.
-export const PAYROLL_TZ = "America/New_York";
-const TZ = PAYROLL_TZ;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function punchDate(punchedAt: string): string {
-  return new Date(punchedAt).toLocaleDateString("en-CA", { timeZone: TZ });
-}
-
-// Returns Monday of the week containing dateStr (YYYY-MM-DD, UTC-noon anchor)
+// Returns Monday of the week containing dateStr (YYYY-MM-DD)
 function getWeekStart(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00Z");
-  const day = d.getUTCDay();
-  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));
-  return d.toISOString().slice(0, 10);
+  return weekStartForKey(dateStr, 1);
 }
 
 function getDayName(dateStr: string): string {
-  return DAY_NAMES[new Date(dateStr + "T12:00:00Z").getUTCDay()];
+  return DAY_NAMES[dayOfWeekForKey(dateStr)];
 }
 
 function computeSegments(punches: PunchRow[]): {
@@ -95,7 +86,15 @@ function computeSegments(punches: PunchRow[]): {
   return { workedMs, breakMs, hasIncomplete: segStart !== null || breakStart !== null };
 }
 
-export function computePayroll(rows: PunchRow[]): EmployeePayroll[] {
+// Punches are bucketed into work days in `tz` — the org's timezone — with a
+// shift that runs past midnight kept whole on the day it started. Callers query
+// a window padded past `range` (so a post-midnight clock-out is included) and
+// pass `range` to drop days outside it.
+export function computePayroll(
+  rows: PunchRow[],
+  tz: string = DEFAULT_TIMEZONE,
+  range?: { from: string; to: string },
+): EmployeePayroll[] {
   const byEmployee: Record<number, { name: string; punches: PunchRow[] }> = {};
   for (const r of rows) {
     const name = (r.employees as { name: string } | null)?.name ?? `Employee ${r.employee_id}`;
@@ -110,11 +109,16 @@ export function computePayroll(rows: PunchRow[]): EmployeePayroll[] {
       );
 
       const byDate: Record<string, PunchRow[]> = {};
-      for (const p of sorted) {
-        const date = punchDate(p.punched_at);
+      const assigned = assignPunchDays(
+        sorted.map((p) => ({ punchType: p.punch_type, punchedAt: p.punched_at })),
+        tz,
+      );
+      sorted.forEach((p, i) => {
+        const date = assigned[i].day;
+        if (range && (date < range.from || date > range.to)) return;
         if (!byDate[date]) byDate[date] = [];
         byDate[date].push(p);
-      }
+      });
 
       const byWeek: Record<string, string[]> = {};
       for (const date of Object.keys(byDate)) {
@@ -161,5 +165,6 @@ export function computePayroll(rows: PunchRow[]): EmployeePayroll[] {
         totalWorkedHours: round2(weeks.reduce((s, w) => s + w.totalWorkedHours, 0)),
       };
     })
+    .filter((e) => e.weeks.length > 0)
     .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }

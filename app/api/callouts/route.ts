@@ -4,6 +4,8 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { notifyManagers } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -30,15 +32,13 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, employeeId } = ctx!;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   // Employee's own call-outs (next 90 days), mirroring the time-off "mine" path.
   if (mine) {
     if (!employeeId) return NextResponse.json({ callouts: [] });
 
-    const ninetyDaysOut = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const ninetyDaysOut = addDaysToKey(today, 90);
 
     const { data: emp } = await supabase
       .from("employees")
@@ -116,12 +116,8 @@ export async function POST(request: Request) {
 
   if (!employeeId || !Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
-  if (!date || !DATE_RE.test(date))
+  if (!date || !DATE_RE.test(date) || !isDateKey(date))
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
-
-  const today = new Date().toISOString().slice(0, 10);
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   const supabase = await createClient();
 
@@ -132,6 +128,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
+
+  // "Today" is the store's calendar day, not UTC's.
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  if (date < today)
+    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   // You can only call out for your own employee record.
   if (!ctxEmployeeId || ctxEmployeeId !== employeeId)

@@ -11,6 +11,9 @@ import AppShell from "../../components/AppShell";
 import PunctualityReport, { type PunctualityRow } from "../../components/PunctualityReport";
 import { CoverageProfile, curveForDate } from "../../lib/coverage";
 import type { PunctualitySummary } from "../../lib/punctuality";
+import { formatTimeInTz, previousPayWeek, weekStartForKey } from "@/lib/dates";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { shiftMinutes } from "@/lib/schedule-hours";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -68,10 +71,6 @@ function addDays(dateStr: string, days: number): string {
 
 function subtractDays(dateStr: string, days: number): string {
   return addDays(dateStr, -days);
-}
-
-function toDateKey(d: Date): string {
-  return d.toLocaleDateString("en-CA", { timeZone: "UTC" });
 }
 
 function getWeekDates(weekStart: string): string[] {
@@ -152,7 +151,7 @@ function auditTitle(entry: AuditEntry): string {
   }
 }
 
-function auditDetail(entry: AuditEntry): string | null {
+function auditDetail(entry: AuditEntry, tz: string): string | null {
   const m = entry.metadata ?? {};
   const b = entry.before ?? {};
   const a = entry.after ?? {};
@@ -206,7 +205,7 @@ function auditDetail(entry: AuditEntry): string | null {
       const pt = m.punchType as string | null;
       const pa = m.punchedAt as string | null;
       if (pt && pa) {
-        const time = new Date(pa).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        const time = formatTimeInTz(pa, tz, { hour: "2-digit", minute: "2-digit" });
         return `${pt.replace(/_/g, " ")} at ${time}`;
       }
       return null;
@@ -264,10 +263,12 @@ function auditBadgeLabel(action: string): string {
   return map[cat] ?? cat;
 }
 
-function formatAuditTime(iso: string): string {
+// Audit times are shown in the store's timezone (labelled), so every manager
+// reads the same clock regardless of where their device is.
+function formatAuditTime(iso: string, tz: string): string {
   return new Date(iso).toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit",
+    hour: "numeric", minute: "2-digit", timeZone: tz, timeZoneName: "short",
   });
 }
 
@@ -289,11 +290,12 @@ const CATEGORIES = [
 export default function ReportsPageClient() {
   const router = useRouter();
   const supabase = createClient();
-  const { me } = useAppData();
+  const { me, settings } = useAppData();
   const isDemo = me.isDemo;
+  const { timezone } = settings;
 
-  const today = new Date();
-  const todayKey = toDateKey(today);
+  // "Today" is the store's calendar day, not UTC's or the device's.
+  const todayKey = useStoreTodayKey(timezone);
 
   const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll" | "punctuality">("coverage");
 
@@ -324,20 +326,9 @@ export default function ReportsPageClient() {
   const [pendingActorId, setPendingActorId] = useState("");
 
   // ── Payroll state ──
-  const [payrollFrom, setPayrollFrom] = useState(() => {
-    const d = new Date(todayKey + "T12:00:00Z");
-    const day = d.getUTCDay();
-    // Monday of previous week
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -13 : -6 - (day - 1)));
-    return d.toISOString().slice(0, 10);
-  });
-  const [payrollTo, setPayrollTo] = useState(() => {
-    const d = new Date(todayKey + "T12:00:00Z");
-    const day = d.getUTCDay();
-    // Sunday of previous week
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -7 : -day));
-    return d.toISOString().slice(0, 10);
-  });
+  // Default payroll range: the previous full Monday–Sunday week.
+  const [payrollFrom, setPayrollFrom] = useState(() => previousPayWeek(todayKey).from);
+  const [payrollTo, setPayrollTo] = useState(() => previousPayWeek(todayKey).to);
   const [payrollFormat, setPayrollFormat] = useState("summary");
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
@@ -350,13 +341,29 @@ export default function ReportsPageClient() {
   const [punctualityLoading, setPunctualityLoading] = useState(false);
   const [punctualityError, setPunctualityError] = useState<string | null>(null);
 
-  const selectedWeekStart = useMemo(() => {
-    const base = new Date(todayKey + "T12:00:00Z");
-    const dayOfWeek = base.getUTCDay();
-    const diff = (dayOfWeek - firstDayOfWeek + 7) % 7;
-    const weekBase = addDays(todayKey, -diff);
-    return addDays(weekBase, weekOffset * 7);
-  }, [todayKey, firstDayOfWeek, weekOffset]);
+  const selectedWeekStart = useMemo(
+    () => addDays(weekStartForKey(todayKey, firstDayOfWeek), weekOffset * 7),
+    [todayKey, firstDayOfWeek, weekOffset],
+  );
+
+  // Date inputs default relative to today. If "today" changes before the user
+  // edits them (store timezone loaded, or the store's midnight passed), move
+  // the untouched defaults along with it.
+  const prevTodayKeyRef = useRef(todayKey);
+  useEffect(() => {
+    const prev = prevTodayKeyRef.current;
+    prevTodayKeyRef.current = todayKey;
+    if (prev === todayKey) return;
+    const follow = (set: (fn: (v: string) => string) => void, derive: (k: string) => string) =>
+      set((v) => (v === derive(prev) ? derive(todayKey) : v));
+    follow(setAuditFrom, (k) => subtractDays(k, 13));
+    follow(setAuditTo, (k) => k);
+    follow(setPendingFrom, (k) => subtractDays(k, 13));
+    follow(setPendingTo, (k) => k);
+    follow(setPayrollFrom, (k) => previousPayWeek(k).from);
+    follow(setPayrollTo, (k) => previousPayWeek(k).to);
+    follow(setPunctualityDate, (k) => k);
+  }, [todayKey]);
 
   // Mutable refs so realtime callbacks always see the latest navigation/filter state
   const selectedWeekStartRef = useRef(selectedWeekStart);
@@ -622,10 +629,10 @@ export default function ReportsPageClient() {
     for (const s of weekSchedules) {
       if (!map[s.employeeId]) map[s.employeeId] = {};
       map[s.employeeId][s.date.slice(0, 10)] =
-        (map[s.employeeId][s.date.slice(0, 10)] ?? 0) + (s.endMinutes - s.startMinutes) / 60;
+        (map[s.employeeId][s.date.slice(0, 10)] ?? 0) + shiftMinutes(s, timezone) / 60;
     }
     return map;
-  }, [weekSchedules]);
+  }, [weekSchedules, timezone]);
 
   async function exportCSV() {
     const rows: string[][] = [];
@@ -1063,7 +1070,7 @@ export default function ReportsPageClient() {
               </div>
               <motion.div className="flex flex-col gap-2" variants={listContainer} initial="hidden" animate="show">
                 {auditEntries.map((entry) => {
-                  const detail = auditDetail(entry);
+                  const detail = auditDetail(entry, timezone);
                   return (
                     <motion.div key={entry.id} variants={listItem} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
@@ -1071,7 +1078,7 @@ export default function ReportsPageClient() {
                           {auditBadgeLabel(entry.action)}
                         </span>
                         <span className="text-[10px] text-slate-500 shrink-0">
-                          {formatAuditTime(entry.createdAt)}
+                          {formatAuditTime(entry.createdAt, timezone)}
                         </span>
                       </div>
                       <div className="text-sm font-semibold text-slate-100 leading-snug">

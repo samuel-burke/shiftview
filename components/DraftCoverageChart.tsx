@@ -23,6 +23,8 @@ type Props = {
   dates: string[]; // 7 YYYY-MM-DD dates
   storeHours: Record<number, StoreHours>;
   curves: Record<string, CoverageBlock[]>; // date -> target coverage curve
+  // Store timezone — makes scheduled hours real elapsed time across DST.
+  timezone?: string;
 };
 
 function LegendChip({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
@@ -37,7 +39,7 @@ function LegendChip({ color, label, dashed = false }: { color: string; label: st
   );
 }
 
-export default function DraftCoverageChart({ drafts, dates, storeHours, curves }: Props) {
+export default function DraftCoverageChart({ drafts, dates, storeHours, curves, timezone }: Props) {
   const { mode } = useTheme();
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -56,9 +58,9 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves }
     () => dates.map((date) => ({
       label: DAY_LABELS[dayOfWeek(date)],
       recommended: Math.round(curveHours(curves[date] ?? []) * 10) / 10,
-      scheduled: Math.round(scheduledHoursForDate(drafts, date) * 10) / 10,
+      scheduled: Math.round(scheduledHoursForDate(drafts, date, timezone) * 10) / 10,
     })),
-    [dates, drafts, curves]
+    [dates, drafts, curves, timezone]
   );
 
   const hourDate = dates[hourDayIdx];

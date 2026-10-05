@@ -5,6 +5,7 @@ import { requireManager } from "@/lib/require-manager";
 import { withOrg } from "@/lib/org-scope";
 import { fmtMinutes } from "@/data/types";
 import { weekDates } from "@/lib/draft-metrics";
+import { dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ async function findConflict(
   startMinutes: number,
   endMinutes: number
 ): Promise<NextResponse | null> {
-  const dayOfWeek = new Date(date + "T12:00:00").getDay();
+  const dayOfWeek = dayOfWeekForKey(date);
 
   const { data: timeOff } = await supabase
     .from("time_off_requests")
@@ -51,7 +52,7 @@ async function findConflict(
       return NextResponse.json({
         conflict: "availability",
         window: null,
-        message: `Employee is unavailable on ${new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}s`,
+        message: `Employee is unavailable on ${formatDateKey(date, { weekday: "long" })}s`,
       }, { status: 409 });
     }
     if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {

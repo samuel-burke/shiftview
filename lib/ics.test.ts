@@ -108,3 +108,27 @@ describe("buildShiftCalendar", () => {
     expect(out.match(/BEGIN:VEVENT/g)).toHaveLength(2);
   });
 });
+
+describe("buildShiftCalendar — store timezone", () => {
+  const base: ShiftEvent = { uid: "a@x", date: "2026-07-06", startMinutes: 480, endMinutes: 1020, summary: "Shift" };
+
+  it("emits absolute UTC times when the store timezone is known", () => {
+    const ics = buildShiftCalendar([base], { calendarName: "C", timezone: "Asia/Kathmandu", dtstamp: new Date(0) });
+    expect(ics).toContain("DTSTART:20260706T021500Z"); // 08:00 +05:45
+    expect(ics).toContain("DTEND:20260706T111500Z");   // 17:00 +05:45
+  });
+
+  it("handles shifts spanning DST changes", () => {
+    const ics = buildShiftCalendar(
+      [{ ...base, date: "2026-03-08", startMinutes: 0, endMinutes: 480 }],
+      { calendarName: "C", timezone: "America/New_York", dtstamp: new Date(0) }
+    );
+    expect(ics).toContain("DTSTART:20260308T050000Z"); // 00:00 EST
+    expect(ics).toContain("DTEND:20260308T120000Z");   // 08:00 EDT — 7 real hours
+  });
+
+  it("still supports floating times without a timezone", () => {
+    const ics = buildShiftCalendar([base], { calendarName: "C", dtstamp: new Date(0) });
+    expect(ics).toContain("DTSTART:20260706T080000\r\n");
+  });
+});

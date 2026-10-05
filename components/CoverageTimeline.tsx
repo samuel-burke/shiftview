@@ -15,6 +15,7 @@ import {
 import { Schedule, PunchRecord } from "../data/types";
 import { CoverageBlock, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
+import { DEFAULT_TIMEZONE, getLocalMinutes } from "@/lib/dates";
 
 type Props = {
   schedules: Schedule[];
@@ -59,7 +60,7 @@ export default function CoverageTimeline({
   closeMinutes,
   punchRecords,
   punchesLoaded = false,
-  timezone = "America/New_York",
+  timezone = DEFAULT_TIMEZONE,
   targetBlocks,
 }: Props) {
   const { mode } = useTheme();
@@ -94,17 +95,12 @@ export default function CoverageTimeline({
   const actualByPoint = useMemo(() => {
     if (!isToday || !punchesLoaded) return null;
 
-    const withMinutes = (punchRecords ?? []).map((p) => {
-      const d = new Date(p.punchedAt);
-      const s = d.toLocaleTimeString("en-US", {
-        timeZone: timezone,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-      const [h, min] = s.split(":").map(Number);
-      return { ...p, minuteOfDay: h * 60 + min };
-    });
+    // getLocalMinutes uses a 0–23 hour cycle; `hour12: false` formatting can
+    // report midnight as hour "24" and push early punches off the chart.
+    const withMinutes = (punchRecords ?? []).map((p) => ({
+      ...p,
+      minuteOfDay: getLocalMinutes(p.punchedAt, timezone),
+    }));
 
     const byEmployee = new Map<number, typeof withMinutes>();
     for (const p of withMinutes) {

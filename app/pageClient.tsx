@@ -30,6 +30,18 @@ import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
+import {
+  addDaysToKey,
+  dateFromKey,
+  dateKeyInTz,
+  dayOfWeekForKey,
+  eachDateKey,
+  localDateKey,
+  nowMinutesInTz,
+  todayKeyInTz,
+  weekStartForKey,
+} from "@/lib/dates";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 
 // Code-split the recharts-backed timeline off the dashboard's initial bundle.
 // It only renders once data has loaded (gated behind SkeletonTimeline below),
@@ -39,47 +51,7 @@ const CoverageTimeline = dynamic(() => import("../components/CoverageTimeline"),
   loading: () => <SkeletonTimeline />,
 });
 
-function toDateKey(d: Date, tz = "America/New_York") {
-  return d.toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function getNowMinutes(tz = "America/New_York") {
-  const now = new Date();
-  const parts = now.toLocaleTimeString("en-US", {
-    timeZone: tz,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const [h, m] = parts.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function offsetDate(d: Date, days: number) {
-  const n = new Date(d);
-  n.setDate(n.getDate() + days);
-  return n;
-}
-
-// Monday of the week containing `d` (weeks run Mon–Sun).
-function weekMonday(d: Date): Date {
-  const n = new Date(d);
-  const day = n.getDay(); // 0=Sun … 6=Sat
-  n.setDate(n.getDate() + (day === 0 ? -6 : 1 - day));
-  return n;
-}
-
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-// Inclusive YYYY-MM-DD keys from `from` to `to` (noon-UTC anchored to dodge DST).
-function eachDateKey(from: string, to: string): string[] {
-  const out: string[] = [];
-  const end = new Date(to + "T12:00:00Z");
-  for (let d = new Date(from + "T12:00:00Z"); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
 
 // Cap the team export so it stays a manageable grid and a bounded number of
 // per-day schedule fetches.
@@ -150,21 +122,38 @@ function AnimatedStatCard({
 }
 
 export default function Page() {
-  const today = new Date();
   const router = useRouter();
-  const [date, setDate] = useState(today);
+  const {
+    me, storeHours: weeklyHoursCtx, settings, sharedLoading,
+    employees: cachedEmployees, cacheEmployees,
+    scheduleCache, setScheduleCache,
+    punchCache, setPunchCache,
+  } = useAppData();
+  const { coverageAlertsEnabled, timezone } = settings;
+
+  // The viewed day is a store-local calendar date. null means "today", which
+  // tracks the store's timezone (and rolls over at the store's midnight) no
+  // matter what timezone this browser is in.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const todayKey = useStoreTodayKey(timezone);
+  const dateKey = selectedKey ?? todayKey;
+  const today = useMemo(() => dateFromKey(todayKey), [todayKey]);
+  const date = useMemo(() => dateFromKey(dateKey), [dateKey]);
   const [selected, setSelected] = useState<{
     emp: Employee;
     sch: Schedule | null;
   } | null>(null);
   const [availabilityRecords, setAvailabilityRecords] = useState<AvailabilityRecord[]>([]);
-  const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
+  // The store's current wall-clock minute, derived each render; a ticker below
+  // re-renders once a minute so it stays live.
+  const [, setMinuteTick] = useState(0);
+  const nowMinutes = nowMinutesInTz(timezone);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
-  const [exportFrom, setExportFrom] = useState(() => toDateKey(weekMonday(today)));
-  const [exportTo, setExportTo] = useState(() => toDateKey(offsetDate(weekMonday(today), 6)));
+  const [exportFrom, setExportFrom] = useState(() => weekStartForKey(todayKey, 1));
+  const [exportTo, setExportTo] = useState(() => addDaysToKey(weekStartForKey(todayKey, 1), 6));
   const [showExport, setShowExport] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
@@ -173,25 +162,15 @@ export default function Page() {
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
 
-  const {
-    me, storeHours: weeklyHoursCtx, settings, sharedLoading,
-    employees: cachedEmployees, cacheEmployees,
-    scheduleCache, setScheduleCache,
-    punchCache, setPunchCache,
-  } = useAppData();
-
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
   const { isManager, employeeName: userName, isDemo } = me;
-  const { coverageAlertsEnabled, timezone } = settings;
   const weeklyHours = weeklyHoursCtx;
   const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
 
-  // Mutable refs so subscription callbacks always see the latest date/timezone/role
-  const dateRef = useRef(date);
-  dateRef.current = date;
-  const timezoneRef = useRef(timezone);
-  timezoneRef.current = timezone;
+  // Mutable ref so subscription callbacks always see the latest viewed date
+  const dateKeyRef = useRef(dateKey);
+  dateKeyRef.current = dateKey;
 
   async function handleExportCSV() {
     if (exportFrom > exportTo) {
@@ -263,7 +242,6 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to save shift");
     }
-    const dateKey = toDateKey(date, timezone);
     const data = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
     if (Array.isArray(data)) {
       setSchedules(data);
@@ -272,7 +250,6 @@ export default function Page() {
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
-    const dateKey = toDateKey(date, timezone);
     const res = await apiFetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -330,16 +307,15 @@ export default function Page() {
 
   // Live clock
   useEffect(() => {
-    const t = setInterval(() => setNowMinutes(getNowMinutes(timezone)), 60000);
+    const t = setInterval(() => setMinuteTick((n) => n + 1), 60000);
     return () => clearInterval(t);
-  }, [timezone]);
+  }, []);
 
   // Supabase Realtime — live punch updates while viewing today (manager only)
   useEffect(() => {
-    const viewingToday = toDateKey(date, timezone) === toDateKey(new Date(), timezone);
+    const todayKey = todayKeyInTz(timezone);
+    const viewingToday = dateKey === todayKey;
     if (!viewingToday || !isManager) return;
-
-    const todayKey = toDateKey(new Date(), timezone);
 
     function rowToPunch(p: Record<string, unknown>): PunchRecord {
       return {
@@ -362,7 +338,7 @@ export default function Page() {
         { event: "INSERT", schema: "public", table: "punch_records" },
         (payload) => {
           const p = payload.new as Record<string, unknown>;
-          const punchDate = new Date(p.punched_at as string).toLocaleDateString("en-CA", { timeZone: timezone });
+          const punchDate = dateKeyInTz(p.punched_at as string, timezone);
           if (punchDate !== todayKey) return;
           setPunchRecords((prev) => [...prev, rowToPunch(p)]);
           setPunchesLoaded(true);
@@ -381,7 +357,6 @@ export default function Page() {
 
     // 5-minute background poll as a fallback in case the Realtime connection drops
     const t = setInterval(() => {
-      const dateKey = toDateKey(date, timezone);
       apiFetch(`/api/punches?date=${dateKey}`)
         .then((r) => r.json())
         .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
@@ -392,12 +367,12 @@ export default function Page() {
       supabase.removeChannel(channel);
       clearInterval(t);
     };
-  }, [isManager, date, timezone]);
+  }, [isManager, dateKey, timezone]);
 
   // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
   useEffect(() => {
     function refetchSchedules() {
-      const dk = toDateKey(dateRef.current, timezoneRef.current);
+      const dk = dateKeyRef.current;
       apiFetch(`/api/schedules?date=${dk}`)
         .then((r) => r.json())
         .then((data) => {
@@ -414,7 +389,7 @@ export default function Page() {
     }
 
     function refetchCallouts() {
-      const dk = toDateKey(dateRef.current, timezoneRef.current);
+      const dk = dateKeyRef.current;
       apiFetch(`/api/callouts?date=${dk}`)
         .then((r) => r.json())
         .then((d) => { if (Array.isArray(d?.callouts)) setCallouts(d.callouts); })
@@ -464,8 +439,7 @@ export default function Page() {
   // If the cache already has data for this date, apply it immediately so the
   // page renders without a loading skeleton, then refresh in the background.
   useEffect(() => {
-    const dateKey = toDateKey(date, timezone);
-    const isViewingToday = dateKey === toDateKey(today, timezone);
+    const isViewingToday = dateKey === todayKeyInTz(timezone);
     setError(null);
 
     const cachedSchedules = scheduleCache[dateKey];
@@ -520,11 +494,11 @@ export default function Page() {
       .catch(() => {
         if (!cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
       });
-  }, [date, timezone]);
+  }, [dateKey, timezone]);
 
   // Target coverage curve for the viewed date (override → day-of-week default)
   useEffect(() => {
-    const dk = toDateKey(date, timezone);
+    const dk = dateKey;
     let cancelled = false;
     Promise.all([
       apiFetch("/api/coverage-profiles").then((r) => r.json()),
@@ -541,21 +515,20 @@ export default function Page() {
       })
       .catch(() => { if (!cancelled) setDayCurve([]); });
     return () => { cancelled = true; };
-  }, [date, timezone]);
+  }, [dateKey, timezone]);
 
   // Call-outs for the viewed date — drives the "Called Out" team section.
   useEffect(() => {
-    const dk = toDateKey(date, timezone);
+    const dk = dateKey;
     let cancelled = false;
     apiFetch(`/api/callouts?date=${dk}`)
       .then((r) => r.json())
       .then((d) => { if (!cancelled) setCallouts(Array.isArray(d?.callouts) ? d.callouts : []); })
       .catch(() => { if (!cancelled) setCallouts([]); });
     return () => { cancelled = true; };
-  }, [date, timezone]);
+  }, [dateKey, timezone]);
 
-  const isToday = toDateKey(date, timezone) === toDateKey(today, timezone);
-  const dateKey = toDateKey(date, timezone);
+  const isToday = dateKey === todayKey;
 
   const daySchedules = useMemo(
     () => schedules.filter((s) => s.date.slice(0, 10) === dateKey),
@@ -693,7 +666,7 @@ export default function Page() {
   }, [daySchedules, punchRecords, isToday, punchesLoaded]);
 
 
-  const storeHours = weeklyHours[date.getDay()];
+  const storeHours = weeklyHours[dayOfWeekForKey(dateKey)];
 
   const isStoreOpen = useMemo(() => {
     if (!isToday) return true; // non-today dates always show live alert
@@ -715,10 +688,13 @@ export default function Page() {
     date, today, isToday, hereCount: hereNowCount,
     nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
-    onPrev: () => setDate((d) => offsetDate(d, -1)),
-    onNext: () => setDate((d) => offsetDate(d, 1)),
-    onNow: () => setDate(new Date()),
-    onDateSelect: (d: Date) => setDate(d),
+    onPrev: () => setSelectedKey(addDaysToKey(dateKey, -1)),
+    onNext: () => setSelectedKey(addDaysToKey(dateKey, 1)),
+    onNow: () => setSelectedKey(null),
+    onDateSelect: (d: Date) => {
+      const key = localDateKey(d);
+      setSelectedKey(key === todayKeyInTz(timezone) ? null : key);
+    },
     onSignOut: handleSignOut,
   };
 
@@ -877,7 +853,7 @@ export default function Page() {
       onResendInvite={handleResendInvite}
       onViewTimeCard={isManager && selected?.emp ? () => setTimeCardEmp(selected.emp) : undefined}
       isManager={isManager}
-      date={toDateKey(date)}
+      date={dateKey}
       availabilityRecords={availabilityRecords}
     />
   );

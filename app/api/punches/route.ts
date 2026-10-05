@@ -6,8 +6,9 @@ import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
-import { getLocalMinutes, localDayBoundsUtc, todayKeyInTz } from "@/lib/punch-date-utils";
+import { isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
+import { checkEmployeeManualPunch } from "@/lib/manual-punch-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
-  const tz = settingsMap.timezone ?? "America/New_York";
+  const tz = resolveTimezone(settingsMap.timezone);
   const { start: dayStart, end: dayEnd } = localDayBoundsUtc(date, tz);
 
   // A day's view never includes punches that haven't happened yet. Attendance
@@ -126,7 +127,7 @@ export async function POST(request: Request) {
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
-  const tz = settingsMap.timezone ?? "America/New_York";
+  const tz = resolveTimezone(settingsMap.timezone);
 
   // Day-scoped state machine: only consider today's punches (local timezone).
   // This prevents a missed clock-out from a previous day from blocking today's clock-in.
@@ -269,9 +270,7 @@ export async function POST(request: Request) {
       .eq("id", scheduleId)
       .maybeSingle();
     if (sched) {
-      const punchedAt = new Date(data.punched_at);
-      const clockInMinutes = getLocalMinutes(punchedAt, tz);
-      const lateMinutes = clockInMinutes - sched.start_minutes;
+      const lateMinutes = minutesFromScheduled(data.punched_at, sched.date, sched.start_minutes, tz);
       if (lateMinutes > 5) {
         notifyManagers(
           supabase,
@@ -307,25 +306,34 @@ export async function POST(request: Request) {
 
 // PUT /api/punches — correct / add a missed punch
 // Managers can correct any; employees can only add a manual punch for themselves.
-// Body: { id?, employeeId?, punchType, punchedAt, note, scheduleId? }
+// Body: { id?, employeeId?, punchType, note, scheduleId?, localDate + localTime | punchedAt }
+//
+// The time may be given as the store-local wall clock (localDate YYYY-MM-DD +
+// localTime HH:MM), which the server converts with the org's timezone — the
+// browser's zone is never trusted — or as an absolute ISO punchedAt. Either
+// way the server validates it against its own clock and stores a normalized
+// timestamp. Live punches (POST) never accept a client time at all.
 export async function PUT(request: Request) {
   const body = await request.json();
-  const { id, employeeId, punchType, punchedAt, note, scheduleId } = body;
+  const { id, employeeId, punchType, punchedAt, localDate, localTime, note, scheduleId } = body;
 
   const VALID_TYPES = ["clock_in", "clock_out", "break_start", "break_end"];
 
   if (!punchType || !VALID_TYPES.includes(punchType))
     return NextResponse.json({ error: "punchType required" }, { status: 400 });
-  if (!punchedAt)
-    return NextResponse.json({ error: "punchedAt required" }, { status: 400 });
 
-  const ts = new Date(punchedAt);
-  if (isNaN(ts.getTime()))
-    return NextResponse.json({ error: "punchedAt must be a valid ISO timestamp" }, { status: 400 });
-  const now = Date.now();
-  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-  if (ts.getTime() > now || ts.getTime() < now - thirtyDaysMs)
-    return NextResponse.json({ error: "punchedAt must be within the last 30 days and not in the future" }, { status: 400 });
+  const usesLocalTime = localDate !== undefined || localTime !== undefined;
+  if (usesLocalTime) {
+    if (!isDateKey(localDate))
+      return NextResponse.json({ error: "localDate must be a valid YYYY-MM-DD date" }, { status: 400 });
+    if (parseHHMM(localTime) === null)
+      return NextResponse.json({ error: "localTime must be HH:MM (24-hour)" }, { status: 400 });
+  } else {
+    if (!punchedAt)
+      return NextResponse.json({ error: "punchedAt required" }, { status: 400 });
+    if (typeof punchedAt !== "string" || isNaN(new Date(punchedAt).getTime()))
+      return NextResponse.json({ error: "punchedAt must be a valid ISO timestamp" }, { status: 400 });
+  }
 
   const supabase = await createClient();
 
@@ -348,6 +356,23 @@ export async function PUT(request: Request) {
   if (settingsMap.manual_punches_enabled === "false") {
     return NextResponse.json({ error: "Manual punch corrections are disabled" }, { status: 403 });
   }
+  const tz = resolveTimezone(settingsMap.timezone);
+
+  const ts = usesLocalTime
+    ? zonedTimeToUtc(localDate, parseHHMM(localTime)!, tz)
+    : new Date(punchedAt);
+  const now = Date.now();
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  if (ts.getTime() > now || ts.getTime() < now - thirtyDaysMs)
+    return NextResponse.json({ error: "The punch time must be within the last 30 days and not in the future" }, { status: 400 });
+  const punchedAtIso = ts.toISOString();
+
+  // Employees may only *add* a missing punch — never rewrite an existing one,
+  // which would let them move a real, server-stamped punch.
+  if (!isManager && id != null)
+    return NextResponse.json({ error: "Only managers can edit existing punches" }, { status: 403 });
+  if (!isManager && (typeof note !== "string" || !note.trim()))
+    return NextResponse.json({ error: "A note is required for manual corrections" }, { status: 400 });
 
   // Determine target employee
   let targetEmployeeId: number;
@@ -375,11 +400,65 @@ export async function PUT(request: Request) {
     targetEmployeeName = empData?.name ?? null;
   }
 
+  // An employee's manual punch must be a valid next step from their previous
+  // punch, and may only be slotted in before an existing punch to close a
+  // previous shift left open (see lib/manual-punch-rules.ts).
+  if (!isManager) {
+    const [{ data: prev }, { data: next }] = await Promise.all([
+      supabase
+        .from("punch_records")
+        .select("punch_type, punched_at")
+        .eq("org_id", orgId)
+        .eq("employee_id", targetEmployeeId)
+        .lt("punched_at", punchedAtIso)
+        .order("punched_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("punch_records")
+        .select("punch_type, punched_at")
+        .eq("org_id", orgId)
+        .eq("employee_id", targetEmployeeId)
+        .gte("punched_at", punchedAtIso)
+        .order("punched_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    const ruleError = checkEmployeeManualPunch(
+      punchType,
+      prev ? { punchType: prev.punch_type } : null,
+      next ? { punchType: next.punch_type } : null,
+    );
+    if (ruleError) return NextResponse.json({ error: ruleError }, { status: 409 });
+  }
+
+  // For an edit, capture the original so the audit trail keeps the time being
+  // replaced (the row itself is overwritten).
+  let before: Record<string, unknown> | null = null;
+  if (id != null) {
+    const { data: existing } = await supabase
+      .from("punch_records")
+      .select("punch_type, punched_at, note, is_manual")
+      .eq("org_id", orgId)
+      .eq("id", id)
+      .eq("employee_id", targetEmployeeId)
+      .maybeSingle();
+    if (!existing)
+      return NextResponse.json({ error: "Punch not found" }, { status: 404 });
+    before = {
+      employeeId: targetEmployeeId,
+      punchType:  existing.punch_type,
+      punchedAt:  existing.punched_at,
+      note:       existing.note ?? null,
+      isManual:   existing.is_manual,
+    };
+  }
+
   if (id != null) {
     // Update existing punch
     const { error: updateError } = await supabase
       .from("punch_records")
-      .update({ punch_type: punchType, punched_at: punchedAt, note: note ?? null, is_manual: true })
+      .update({ punch_type: punchType, punched_at: punchedAtIso, note: note ?? null, is_manual: true })
       .eq("org_id", orgId)
       .eq("id", id)
       .eq("employee_id", targetEmployeeId);
@@ -395,7 +474,7 @@ export async function PUT(request: Request) {
         employee_id: targetEmployeeId,
         schedule_id: scheduleId ?? null,
         punch_type:  punchType,
-        punched_at:  punchedAt,
+        punched_at:  punchedAtIso,
         is_manual:   true,
         note:        note ?? null,
       }));
@@ -411,12 +490,13 @@ export async function PUT(request: Request) {
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   id != null ? String(id) : null,
-    after: { employeeId: targetEmployeeId, punchType, punchedAt, note: note ?? null },
+    before,
+    after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: note ?? null },
     metadata: {
       employeeId:   targetEmployeeId,
       employeeName: targetEmployeeName,
       punchType,
-      punchedAt,
+      punchedAt:    punchedAtIso,
       isUpdate:     id != null,
       byManager:    isManager,
     },

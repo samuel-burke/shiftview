@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
 import { withOrgAll } from "@/lib/org-scope";
+import { addDaysToKey, dayOfWeekForKey, isDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,7 @@ type ScheduleInsert = {
 };
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+  return addDaysToKey(dateStr, days);
 }
 
 export async function POST(
@@ -43,10 +42,8 @@ export async function POST(
   const { weekStartDate } = body;
   if (!weekStartDate || !/^\d{4}-\d{2}-\d{2}$/.test(weekStartDate))
     return NextResponse.json({ error: "weekStartDate must be YYYY-MM-DD" }, { status: 400 });
-
-  const d = new Date(weekStartDate + "T00:00:00Z");
-  if (isNaN(d.getTime())) return NextResponse.json({ error: "Invalid weekStartDate" }, { status: 400 });
-  if (d.getUTCDay() !== 1) return NextResponse.json({ error: "weekStartDate must be a Monday" }, { status: 422 });
+  if (!isDateKey(weekStartDate)) return NextResponse.json({ error: "Invalid weekStartDate" }, { status: 400 });
+  if (dayOfWeekForKey(weekStartDate) !== 1) return NextResponse.json({ error: "weekStartDate must be a Monday" }, { status: 422 });
 
   const { data: template } = await supabase
     .from("schedule_templates")

@@ -15,6 +15,14 @@ export default defineConfig({
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
     },
+    {
+      // The same dashboard specs with the browser on the far side of the date
+      // line from the store (America/New_York): the UI must still show the
+      // store's day and times, not the device's.
+      name: "mobile-chrome-far-timezone",
+      testMatch: /demo\.spec\.ts/,
+      use: { ...devices["Pixel 7"], timezoneId: "Pacific/Kiritimati" },
+    },
   ],
   webServer: {
     command: process.env.CI ? "npm start" : "npm run dev",

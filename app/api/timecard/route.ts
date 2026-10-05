@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { parsePunchPolicy } from "@/lib/punch-policy";
+import { addDaysToKey, daysBetweenKeys, localDayBoundsUtc, resolveTimezone } from "@/lib/dates";
 import { computeTimecard, type TimecardPunchInput } from "@/lib/timecard";
 import { timecardToCsv } from "@/lib/timecard-csv";
 import { writeAuditLog } from "@/lib/audit";
@@ -30,8 +31,7 @@ export async function GET(request: Request) {
   if (from > to)
     return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
 
-  const daysDiff =
-    (new Date(to + "T12:00:00Z").getTime() - new Date(from + "T12:00:00Z").getTime()) / 86_400_000;
+  const daysDiff = daysBetweenKeys(from, to);
   if (daysDiff > 366)
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
   const settingsMap = Object.fromEntries(
     (settingsData ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
   );
-  const tz = settingsMap.timezone ?? "America/New_York";
+  const tz = resolveTimezone(settingsMap.timezone);
   const policy = parsePunchPolicy(settingsMap);
 
   // Schedules for the employee in range.
@@ -76,16 +76,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  // Punches — pad the window by a day on each side so timezone-edge punches land
-  // in the right local-day bucket; computeTimecard restricts to [from, to].
-  const padStart = `${from}T00:00:00+00:00`;
-  const padEnd = new Date(new Date(to + "T23:59:59.999Z").getTime() + 86_400_000).toISOString();
+  // Punches — pad the window by a local day on each side so a shift that runs
+  // past midnight is seen whole; computeTimecard restricts to [from, to].
+  const padStart = localDayBoundsUtc(addDaysToKey(from, -1), tz).start.toISOString();
+  const padEnd = localDayBoundsUtc(addDaysToKey(to, 1), tz).end.toISOString();
   const { data: punchRows, error: punchErr } = await supabase
     .from("punch_records")
     .select("id, punch_type, punched_at, is_manual, note")
     .eq("org_id", orgId!)
     .eq("employee_id", employeeId)
-    .gte("punched_at", new Date(new Date(padStart).getTime() - 86_400_000).toISOString())
+    .gte("punched_at", padStart)
     .lte("punched_at", padEnd)
     .order("punched_at")
     .limit(10_000);

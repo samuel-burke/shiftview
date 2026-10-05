@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { createClient } from "@/lib/supabase-browser";
 import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedule, type PunchRecord, type StoreHours } from "@/data/types";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
+import { DEFAULT_TIMEZONE, resolveTimezone, todayKeyInTz } from "@/lib/dates";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -41,7 +42,7 @@ export const DEFAULT_STORE_HOURS: Record<number, StoreHours> = {
 export const DEFAULT_SETTINGS: AppSettings = {
   firstDayOfWeek: 6,
   coverageAlertsEnabled: true,
-  timezone: "America/New_York",
+  timezone: DEFAULT_TIMEZONE,
   emailNotifications: false,
   manualPunchesEnabled: true,
   gpsRequired: false,
@@ -241,8 +242,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setLiveStatus("not_clocked_in");
       return;
     }
-    const tz = timezoneRef.current || "America/New_York";
-    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+    const todayKey = todayKeyInTz(resolveTimezone(timezoneRef.current));
     fetch(`/api/punches?date=${todayKey}`)
       .then(r => r.json())
       .then((data: PunchRecord[]) => {
@@ -272,10 +272,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Refresh the live attendance status once we know which employee this is
-  // (and whenever that identity changes — e.g. after login or demo heal).
+  // (and whenever that identity changes — e.g. after login or demo heal), and
+  // again once the store timezone is known, since "today" depends on it.
   useEffect(() => {
     refreshLiveStatus();
-  }, [me.employeeId, refreshLiveStatus]);
+  }, [me.employeeId, settings.timezone, refreshLiveStatus]);
 
   // React to auth changes. A just-completed login navigates client-side
   // (router.push) without remounting this provider, so the mount-effect above

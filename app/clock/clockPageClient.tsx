@@ -29,27 +29,11 @@ import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 import { playPunchSound } from "@/lib/sounds";
+import { dateFromKey, dayOfWeekForKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
-
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
-
-function getNowMinutes() {
-  const now = new Date();
-  const parts = now.toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const [h, m] = parts.split(":").map(Number);
-  return h * 60 + m;
-}
-
-
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
   clocked_in:    "Clocked In",
@@ -72,17 +56,11 @@ const PUNCH_TYPE_LABELS: Record<PunchType, string> = {
   break_end:   "Break End",
 };
 
-function formatPunchTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+function formatPunchTime(iso: string, tz: string): string {
+  return formatTimeInTz(iso, tz, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 export default function ClockPageClient() {
-  const today = new Date();
   const supabase = createClient();
 
   async function handleSignOut() {
@@ -94,12 +72,19 @@ export default function ClockPageClient() {
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nowMinutes, setNowMinutes] = useState(getNowMinutes);
+  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
+  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress, timezone } = settings;
+  // "Today" and every displayed time are in the store's timezone, whatever
+  // timezone this device is set to.
+  const todayKey = useStoreTodayKey(timezone);
+  const today = useMemo(() => dateFromKey(todayKey), [todayKey]);
+  // The store's current wall-clock minute, derived each render; a ticker below
+  // re-renders once a minute so it stays live.
+  const [, setMinuteTick] = useState(0);
+  const nowMinutes = nowMinutesInTz(timezone);
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
-  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress } = settings;
   const isDemo = cachedMe.isDemo;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
@@ -133,15 +118,15 @@ export default function ClockPageClient() {
   // Correction form state
   const [showCorrection, setShowCorrection] = useState(false);
   const [correctionType, setCorrectionType] = useState<PunchType>("clock_in");
-  const [correctionDate, setCorrectionDate] = useState(toDateKey(today));
+  const [correctionDate, setCorrectionDate] = useState(todayKey);
   const [correctionTime, setCorrectionTime] = useState("09:00");
   const [correctionNote, setCorrectionNote] = useState("");
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
 
   // Export state
-  const [exportFrom, setExportFrom] = useState(toDateKey(today));
-  const [exportTo, setExportTo] = useState(toDateKey(today));
+  const [exportFrom, setExportFrom] = useState(todayKey);
+  const [exportTo, setExportTo] = useState(todayKey);
   const [showExport, setShowExport] = useState(false);
 
   function handleExportDownload() {
@@ -169,8 +154,7 @@ export default function ClockPageClient() {
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
   const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
 
-  const todayKey = toDateKey(today);
-  const storeHours = weeklyHours[today.getDay()];
+  const storeHours = weeklyHours[dayOfWeekForKey(todayKey)];
 
   const status = getAttendanceStatus(punches);
 
@@ -201,7 +185,7 @@ export default function ClockPageClient() {
 
   // Live nowMinutes for shift status
   useEffect(() => {
-    const t = setInterval(() => setNowMinutes(getNowMinutes()), 60000);
+    const t = setInterval(() => setMinuteTick((n) => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
 
@@ -359,7 +343,7 @@ export default function ClockPageClient() {
   }
 
   function handlePunchClick(punchType: PunchType) {
-    const warning = getPunchWarning(punchType, nowMinutes, schedule);
+    const warning = getPunchWarning(punchType, nowMinutes, schedule, { nowMs: Date.now(), tz: timezone });
     if (warning) {
       setPendingPunchType(punchType);
       setPendingWarning(warning);
@@ -466,13 +450,15 @@ export default function ClockPageClient() {
     setCorrectionSaving(true);
     setCorrectionError(null);
     try {
-      const punchedAt = new Date(`${correctionDate}T${correctionTime}:00`).toISOString();
+      // Send the store-local wall time; the server converts it with the
+      // store's timezone and validates it against its own clock.
       const res = await fetch("/api/punches", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           punchType: correctionType,
-          punchedAt,
+          localDate: correctionDate,
+          localTime: correctionTime,
           note: correctionNote.trim(),
           scheduleId: schedule?.id ?? null,
           employeeId: isManager ? employeeId : undefined,
@@ -508,13 +494,11 @@ export default function ClockPageClient() {
     if (!schedule || sortedPunches.length === 0) return null;
     const clockIn = sortedPunches.find((p) => p.punchType === "clock_in");
     if (!clockIn) return null;
-    const punchedAt = new Date(clockIn.punchedAt);
-    const clockInMinutes = punchedAt.getHours() * 60 + punchedAt.getMinutes();
-    const diff = clockInMinutes - schedule.startMinutes;
+    const diff = minutesFromScheduled(clockIn.punchedAt, schedule.date.slice(0, 10), schedule.startMinutes, timezone);
     if (diff > 5) return { text: `${diff}m late`, color: "#ef4444" };
     if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
     return null;
-  }, [schedule, sortedPunches]);
+  }, [schedule, sortedPunches, timezone]);
 
   const shiftType = schedule
     ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close)
@@ -705,8 +689,8 @@ export default function ClockPageClient() {
                 <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
                 <div className="text-xs text-amber-400/80 mt-0.5">
                   {missedPunchInfo.lastPunchType === "break_start"
-                    ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {new Date(missedPunchInfo.lastPunchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Add your missing break end and clock-out before clocking in today.</>
-                    : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {new Date(missedPunchInfo.lastPunchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Add your missing clock-out before clocking in today.</>
+                    ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing break end and clock-out before clocking in today.</>
+                    : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing clock-out before clocking in today.</>
                   }
                 </div>
               </div>
@@ -896,7 +880,7 @@ export default function ClockPageClient() {
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt)}</div>
+                      <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
                       {p.note && <div className="text-[11px] text-slate-500 mt-0.5 max-w-[140px] truncate">{p.note}</div>}
                     </div>
                   </motion.div>

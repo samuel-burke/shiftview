@@ -36,6 +36,9 @@ import {
 import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
+import { addDaysToKey, dateFromKey, daysBetweenKeys, formatDateKey, localDateKey, nowMinutesInTz } from "@/lib/dates";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { shiftMinutes } from "@/lib/schedule-hours";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -113,22 +116,12 @@ export function isShiftUpcoming(
 
 export function formatNextShiftDate(dateStr: string, todayKey: string): string {
   if (dateStr === todayKey) return "Today";
-  const d = new Date(todayKey + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + 1);
-  const tomorrowKey = d.toISOString().slice(0, 10);
-  if (dateStr === tomorrowKey) return "Tomorrow";
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+  if (dateStr === addDaysToKey(todayKey, 1)) return "Tomorrow";
+  return formatDateKey(dateStr, { weekday: "long", month: "long", day: "numeric" });
 }
 
 export function getDaysUntil(dateStr: string, todayKey: string): number {
-  const a = new Date(dateStr + "T12:00:00Z").getTime();
-  const b = new Date(todayKey + "T12:00:00Z").getTime();
-  return Math.round((a - b) / 86400000);
-}
-
-
-function toDateKey(d: Date, tz = "America/New_York") {
-  return d.toLocaleDateString("en-CA", { timeZone: tz });
+  return daysBetweenKeys(todayKey, dateStr);
 }
 
 function offsetDays(d: Date, n: number): Date {
@@ -156,7 +149,12 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SchedulePageClient() {
-  const [today] = useState(() => new Date());
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading, cacheEmployees } = useAppData();
+  const { firstDayOfWeek, timezone } = settings;
+  // Dates on this page are store-local calendar days held as local-noon Date
+  // objects (see lib/dates.ts); "today" is the store's today, not the device's.
+  const todayKey = useStoreTodayKey(timezone);
+  const today = useMemo(() => dateFromKey(todayKey), [todayKey]);
   const router = useRouter();
   const supabase = createClient();
 
@@ -166,9 +164,7 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading, cacheEmployees } = useAppData();
   const { isManager, employeeId, employeeName, isDemo } = me;
-  const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -201,10 +197,20 @@ export default function SchedulePageClient() {
   viewRef.current = view;
   const firstDayOfWeekRef = useRef(firstDayOfWeek);
   firstDayOfWeekRef.current = firstDayOfWeek;
-  const timezoneRef = useRef(timezone);
-  timezoneRef.current = timezone;
   const isManagerRef = useRef(isManager);
   isManagerRef.current = isManager;
+
+  // When the store's "today" changes (settings loaded with the store timezone,
+  // or the store's midnight passed), keep a selection that was on the old
+  // today pinned to the new one.
+  const prevTodayKeyRef = useRef(todayKey);
+  useEffect(() => {
+    const prev = prevTodayKeyRef.current;
+    prevTodayKeyRef.current = todayKey;
+    if (prev === todayKey) return;
+    setSelectedDate((sd) => (localDateKey(sd) === prev ? dateFromKey(todayKey) : sd));
+    setNavDate((nd) => (localDateKey(nd) === prev ? dateFromKey(todayKey) : nd));
+  }, [todayKey]);
 
   async function handleApproveManagerTimeOff(id: number) {
     const res = await fetch(`/api/time-off/${id}`, {
@@ -456,8 +462,8 @@ export default function SchedulePageClient() {
       from = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
       to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
     }
-    const fromKey = toDateKey(from, timezone);
-    const toKey = toDateKey(to, timezone);
+    const fromKey = localDateKey(from);
+    const toKey = localDateKey(to);
     const rangeKey = `${fromKey}:${toKey}`;
     setScheduleError(null);
 
@@ -478,7 +484,7 @@ export default function SchedulePageClient() {
         setLoading(false);
       })
       .catch(() => { if (!cached) { setScheduleError("Failed to load schedule"); setLoading(false); } });
-  }, [view, navDate, firstDayOfWeek, timezone]);
+  }, [view, navDate, firstDayOfWeek]);
 
   // Reset time-off request status when selected date changes
   useEffect(() => {
@@ -522,12 +528,8 @@ export default function SchedulePageClient() {
   // navigation never affects it.
   useEffect(() => {
     let cancelled = false;
-    const now = new Date();
-    const todayKey = toDateKey(now, timezone);
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const to = new Date(now);
-    to.setDate(now.getDate() + 30);
-    const toKey = toDateKey(to, timezone);
+    const nowMinutes = nowMinutesInTz(timezone);
+    const toKey = addDaysToKey(todayKey, 30);
     fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
@@ -539,7 +541,7 @@ export default function SchedulePageClient() {
       })
       .catch(() => { if (!cancelled) setNextShift(null); });
     return () => { cancelled = true; };
-  }, [employeeId, timezone]);
+  }, [employeeId, timezone, todayKey]);
 
   // Supabase Realtime — live updates for schedule, time-off, store hours, settings
   useEffect(() => {
@@ -547,7 +549,6 @@ export default function SchedulePageClient() {
       const nd = navDateRef.current;
       const v = viewRef.current;
       const fdw = firstDayOfWeekRef.current;
-      const tz = timezoneRef.current;
       let from: Date, to: Date;
       if (v === "week") {
         const ws = getWeekStart(nd, fdw);
@@ -557,8 +558,8 @@ export default function SchedulePageClient() {
         from = new Date(nd.getFullYear(), nd.getMonth(), 1);
         to = new Date(nd.getFullYear(), nd.getMonth() + 1, 0);
       }
-      const fk = toDateKey(from, tz);
-      const tk = toDateKey(to, tz);
+      const fk = localDateKey(from);
+      const tk = localDateKey(to);
       fetch(`/api/my-schedule?from=${fk}&to=${tk}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
         .then((data) => {
@@ -676,10 +677,9 @@ export default function SchedulePageClient() {
   const weekStart = useMemo(() => getWeekStart(navDate, firstDayOfWeek), [navDate, firstDayOfWeek]);
   const weekEnd = useMemo(() => offsetDays(weekStart, 6), [weekStart]);
 
-  const todayKey = toDateKey(today, timezone);
   const isAtToday =
     view === "week"
-      ? todayKey >= toDateKey(weekStart, timezone) && todayKey <= toDateKey(weekEnd, timezone)
+      ? todayKey >= localDateKey(weekStart) && todayKey <= localDateKey(weekEnd)
       : navDate.getFullYear() === today.getFullYear() && navDate.getMonth() === today.getMonth();
 
   const rangeLabel =
@@ -687,7 +687,7 @@ export default function SchedulePageClient() {
       ? formatWeekRange(weekStart, weekEnd)
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const selectedDateKey = toDateKey(selectedDate, timezone);
+  const selectedDateKey = localDateKey(selectedDate);
   const selectedSchedule =
     schedules.find((s) => s.date.slice(0, 10) === selectedDateKey) ?? null;
 
@@ -697,11 +697,9 @@ export default function SchedulePageClient() {
     : null;
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
   const shiftLabel = shiftType ? SHIFT_TYPE_LABELS[shiftType] : null;
-  const shiftHours = selectedSchedule
-    ? (selectedSchedule.endMinutes - selectedSchedule.startMinutes) / 60
-    : null;
+  const shiftHours = selectedSchedule ? shiftMinutes(selectedSchedule, timezone) / 60 : null;
 
-  const isSelectedToday = selectedDateKey === toDateKey(today, timezone);
+  const isSelectedToday = selectedDateKey === todayKey;
   const selectedDayLabel = isSelectedToday
     ? "Today"
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
@@ -776,10 +774,7 @@ export default function SchedulePageClient() {
 
   // Stats
   const totalShifts = schedules.length;
-  const totalHours = schedules.reduce(
-    (acc, s) => acc + (s.endMinutes - s.startMinutes) / 60,
-    0,
-  );
+  const totalHours = schedules.reduce((acc, s) => acc + shiftMinutes(s, timezone) / 60, 0);
   const daysInRange =
     view === "week"
       ? 7
@@ -930,14 +925,14 @@ export default function SchedulePageClient() {
       ) : nextShift ? (
         <>
           <div className="text-slate-300 font-semibold text-sm">
-            {formatNextShiftDate(nextShift.date, toDateKey(today))}
+            {formatNextShiftDate(nextShift.date, todayKey)}
           </div>
           <div className="text-2xl font-extrabold text-slate-100 mt-1">
             {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
           </div>
-          {getDaysUntil(nextShift.date, toDateKey(today)) > 1 && (
+          {getDaysUntil(nextShift.date, todayKey) > 1 && (
             <div className="text-xs text-slate-400 mt-1">
-              in {getDaysUntil(nextShift.date, toDateKey(today))} days
+              in {getDaysUntil(nextShift.date, todayKey)} days
             </div>
           )}
         </>

@@ -150,3 +150,127 @@ describe("computeTimecard — totals & filtering", () => {
     expect(tc.days).toHaveLength(0);
   });
 });
+
+// ── DST and overnight edge cases ──────────────────────────────────────────────
+
+function at(iso: string, punchType: TimecardPunchInput["punchType"]): TimecardPunchInput {
+  return { id: nextId++, punchType, punchedAt: iso };
+}
+
+function runRange(opts: {
+  from: string;
+  to: string;
+  tz?: string;
+  schedules: { date: string; startMinutes: number; endMinutes: number }[];
+  punches: TimecardPunchInput[];
+  policy?: Partial<PunchPolicy>;
+  nowMs?: number;
+}) {
+  return computeTimecard({
+    employeeId: 1,
+    employeeName: "Test Employee",
+    from: opts.from,
+    to: opts.to,
+    timezone: opts.tz ?? TZ,
+    policy: { ...DEFAULT_PUNCH_POLICY, ...opts.policy },
+    schedules: opts.schedules,
+    punches: opts.punches,
+    callouts: [],
+    nowMs: opts.nowMs ?? Date.parse("2027-01-01T00:00:00Z"),
+  });
+}
+
+describe("computeTimecard — DST changes", () => {
+  it("pays the real 9 hours for a midnight–8 AM shift on the fall-back night", () => {
+    const tc = runRange({
+      from: "2026-11-01", to: "2026-11-01",
+      schedules: [{ date: "2026-11-01", startMinutes: 0, endMinutes: 480 }],
+      punches: [at("2026-11-01T04:00:00Z", "clock_in"), at("2026-11-01T13:00:00Z", "clock_out")], // 00:00 EDT → 08:00 EST
+    });
+    expect(tc.days).toHaveLength(1);
+    expect(tc.days[0].workedHours).toBe(9);
+    expect(tc.days[0].violations).toEqual([]); // on time in and out
+  });
+
+  it("pays the real 7 hours for a midnight–8 AM shift on the spring-forward night", () => {
+    const tc = runRange({
+      from: "2026-03-08", to: "2026-03-08",
+      schedules: [{ date: "2026-03-08", startMinutes: 0, endMinutes: 480 }],
+      punches: [at("2026-03-08T05:00:00Z", "clock_in"), at("2026-03-08T12:00:00Z", "clock_out")], // 00:00 EST → 08:00 EDT
+    });
+    expect(tc.days[0].workedHours).toBe(7);
+    expect(tc.days[0].violations).toEqual([]);
+  });
+
+  it("keeps a 12:30 AM fall-back clock-in on its own day (not the previous one)", () => {
+    const tc = runRange({
+      from: "2026-10-31", to: "2026-11-01",
+      schedules: [{ date: "2026-11-01", startMinutes: 30, endMinutes: 480 }],
+      punches: [at("2026-11-01T04:30:00Z", "clock_in"), at("2026-11-01T13:00:00Z", "clock_out")],
+    });
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-11-01"]);
+    expect(tc.days[0].workedHours).toBe(8.5);
+  });
+
+  it("judges a clock-in at the repeated 1:30 AM as an hour late", () => {
+    const tc = runRange({
+      from: "2026-11-01", to: "2026-11-01",
+      schedules: [{ date: "2026-11-01", startMinutes: 90, endMinutes: 540 }],
+      punches: [at("2026-11-01T06:30:00Z", "clock_in"), at("2026-11-01T14:00:00Z", "clock_out")], // second 01:30 (EST)
+    });
+    const late = tc.days[0].violations.find((v) => v.type === "late_in");
+    expect(late?.minutes).toBe(60);
+  });
+
+  it("flags NCNS at the right real time on a DST day", () => {
+    // 9 AM shift on spring-forward day = 13:00Z; grace 60 min → NCNS from 14:00Z.
+    const base = {
+      from: "2026-03-08", to: "2026-03-08",
+      schedules: [{ date: "2026-03-08", startMinutes: 540, endMinutes: 1020 }],
+      punches: [],
+    };
+    expect(runRange({ ...base, nowMs: Date.parse("2026-03-08T13:59:00Z") }).violationCounts.ncns).toBe(0);
+    expect(runRange({ ...base, nowMs: Date.parse("2026-03-08T14:01:00Z") }).violationCounts.ncns).toBe(1);
+  });
+});
+
+describe("computeTimecard — shifts past midnight", () => {
+  it("keeps a late close on the day it started, with no false early-out", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-16",
+      schedules: [{ date: "2026-01-15", startMinutes: 960, endMinutes: 1440 }], // 4 PM – midnight
+      punches: [at("2026-01-15T21:00:00Z", "clock_in"), at("2026-01-16T05:20:00Z", "clock_out")], // 16:00 → 00:20 EST
+      policy: { lateOutEnabled: true, lateOutMinutes: 10 },
+    });
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-01-15"]);
+    expect(tc.days[0].workedHours).toBeCloseTo(8.33, 2);
+    const types = tc.days[0].violations.map((v) => v.type);
+    expect(types).toContain("late_out");
+    expect(types).not.toContain("early_out");
+  });
+
+  it("does not let a forgotten clock-out swallow the next day's punches", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-17",
+      schedules: [],
+      punches: [
+        at("2026-01-15T13:00:00Z", "clock_in"),   // never clocked out
+        at("2026-01-17T13:00:00Z", "break_start"), // >24h later: its own day
+      ],
+    });
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-01-15", "2026-01-17"]);
+    expect(tc.days[0].hasIncomplete).toBe(true);
+  });
+
+  it("buckets days in the store's timezone, whatever it is", () => {
+    // 23:30 UTC Jan 15 is 05:15 Jan 16 in Kathmandu (+05:45).
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-16", tz: "Asia/Kathmandu",
+      schedules: [],
+      punches: [at("2026-01-15T23:30:00Z", "clock_in"), at("2026-01-16T08:30:00Z", "clock_out")],
+    });
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-01-16"]);
+    expect(tc.days[0].punches[0].localMinutes).toBe(5 * 60 + 15);
+    expect(tc.days[0].workedHours).toBe(9);
+  });
+});

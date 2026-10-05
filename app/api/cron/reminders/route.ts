@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { notify } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
+import { addDaysToKey, DEFAULT_TIMEZONE, formatDateKey, resolveTimezone, todayKeyInTz } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,6 @@ export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const tomorrow = new Date();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  const date = tomorrow.toISOString().slice(0, 10);
 
   // Cron has no authenticated user session — use admin client to read schedules/employees,
   // then use the same client to call SECURITY DEFINER notify RPCs.
@@ -31,11 +28,28 @@ export async function GET(request: Request) {
   }
   const demoOrgIds = new Set((demoOrgs ?? []).map((o) => o.id));
 
+  // "Tomorrow" is per org, in each store's own timezone. Candidate dates span
+  // every zone's possible tomorrow; each row is then kept only if it is
+  // tomorrow for its org.
+  const { data: tzRows } = await supabase
+    .from("app_settings")
+    .select("org_id, value")
+    .eq("key", "timezone");
+  const tzByOrg = new Map<string, string>(
+    (tzRows ?? []).map((r: { org_id: string; value: string }) => [r.org_id, resolveTimezone(r.value)])
+  );
+  const tomorrowFor = (orgId: string) =>
+    addDaysToKey(todayKeyInTz(tzByOrg.get(orgId) ?? DEFAULT_TIMEZONE), 1);
+  const utcToday = todayKeyInTz("UTC");
+  const candidateDates = [0, 1, 2].map((n) => addDaysToKey(utcToday, n));
+
   const { data: allSchedules, error: schedErr } = await supabase
     .from("schedules")
     .select("id, employee_id, org_id, date, start_minutes, end_minutes")
-    .eq("date", date);
-  const schedules = (allSchedules ?? []).filter((s) => !demoOrgIds.has(s.org_id));
+    .in("date", candidateDates);
+  const schedules = (allSchedules ?? []).filter(
+    (s) => !demoOrgIds.has(s.org_id) && s.date === tomorrowFor(s.org_id)
+  );
 
   if (schedErr) {
     console.error("[cron/reminders] schedules fetch failed:", schedErr);
@@ -64,13 +78,6 @@ export async function GET(request: Request) {
     (employees ?? []).map((e) => [`${e.org_id}:${e.id}`, e])
   );
 
-  const formattedDate = new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-
   let sent = 0;
   let skipped = 0;
 
@@ -81,6 +88,8 @@ export async function GET(request: Request) {
       continue;
     }
 
+    const date: string = schedule.date;
+    const formattedDate = formatDateKey(date, { weekday: "long", month: "long", day: "numeric" });
     const startTime = fmtMinutes(schedule.start_minutes);
     const endTime = fmtMinutes(schedule.end_minutes);
 

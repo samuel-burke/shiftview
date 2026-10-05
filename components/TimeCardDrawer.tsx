@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
+import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
 
 type Props = {
   open: boolean;
@@ -38,26 +39,15 @@ const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string
   ncns:        { label: "No Call No Show", className: "bg-red-600/20 text-red-300 border border-red-500/40" },
 };
 
-function todayKey(tz: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+const todayKey = todayKeyInTz;
+const addDays = addDaysToKey;
 
 function formatDayHeader(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
-    weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
-  });
+  return formatDateKey(dateStr, { weekday: "short", month: "short", day: "numeric" });
 }
 
 function formatPunchTime(iso: string, tz: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: tz, hour: "numeric", minute: "2-digit",
-  });
+  return formatTimeInTz(iso, tz);
 }
 
 export default function TimeCardDrawer({ open, employee, timezone, onClose }: Props) {

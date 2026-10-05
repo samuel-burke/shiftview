@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { haptic } from "../lib/haptic";
+import { dayOfWeekForKey } from "../lib/dates";
 import MessageThread from "./MessageThread";
 import {
   Employee,
@@ -119,7 +120,8 @@ export default function EmployeeDrawer({
 
   if (!employee) return null;
 
-  const dayOfWeek = date ? new Date(date + "T12:00:00").getDay() : new Date().getDay();
+  // `date` is the store-local day being viewed (always passed by the dashboard).
+  const dayOfWeek = date ? dayOfWeekForKey(date) : new Date().getDay();
   const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";

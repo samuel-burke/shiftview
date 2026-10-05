@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { weekDates } from "@/lib/draft-metrics";
+import { getOrgTimezone } from "@/lib/org-timezone";
 import {
   summarizeWeeklyHours,
   WEEKLY_OVERTIME_THRESHOLD_MINUTES,
@@ -53,7 +54,8 @@ export async function GET(request: Request) {
     endMinutes: s.end_minutes,
   }));
 
-  const rows = summarizeWeeklyHours(shifts, dates);
+  const tz = await getOrgTimezone(supabase, orgId!);
+  const rows = summarizeWeeklyHours(shifts, dates, undefined, tz);
 
   // Resolve names for the employees that actually have hours this week.
   const names: Record<number, string> = {};
