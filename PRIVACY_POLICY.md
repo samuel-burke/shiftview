@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**ShiftView** · Last updated: June 12, 2026
+**ShiftView** · Last updated: October 5, 2026
 
 This policy describes what information ShiftView collects, how it is used, and how it is protected.
 
@@ -32,6 +32,9 @@ ShiftView is a shift management tool for retail and hospitality teams. The servi
 - Authentication session tokens (stored in your browser)
 - Standard server logs (IP address, user agent, timestamps) retained by the hosting provider
 
+### Contact form
+- Your name, email address, topic and message when you write to us through the contact form
+
 ---
 
 ## 3. How We Use Your Information
@@ -43,6 +46,7 @@ ShiftView is a shift management tool for retail and hospitality teams. The servi
 | Enable manager-to-employee messaging | Name, message content |
 | Authenticate users and enforce access control | Email, session token |
 | Audit trail for schedule changes | User ID, timestamps |
+| Replying to contact form messages | Name, email address, message |
 
 We do not sell, rent, or share your personal information with third parties for marketing purposes.
 
@@ -101,6 +105,8 @@ ShiftView uses browser storage (cookies and `localStorage`) only to maintain you
 | Supabase | Database, authentication, and real-time | [supabase.com/privacy](https://supabase.com/privacy) |
 | Vercel | Hosting and edge delivery | [vercel.com/legal/privacy-policy](https://vercel.com/legal/privacy-policy) |
 | Web Push (browser API) | Push notifications | Handled by your browser/OS vendor |
+| Resend | Delivery of invite, reminder and contact form emails | [resend.com/legal/privacy-policy](https://resend.com/legal/privacy-policy) |
+| Cloudflare Turnstile | Bot protection on the demo, sign-up and contact forms | [cloudflare.com/privacypolicy](https://www.cloudflare.com/privacypolicy/) |
 
 ---
 
@@ -118,4 +124,4 @@ We may update this policy from time to time. When we do, the "Last updated" date
 
 ## 12. Contact
 
-If you have questions about this privacy policy or how your data is handled, please contact the administrator of your ShiftView account.
+If you have questions about this privacy policy or how your data is handled, please contact the administrator of your ShiftView account, or write to us through the contact form at [shiftview.app/contact](https://shiftview.app/contact). Contact form messages are delivered to us by email and kept only as long as needed to respond.

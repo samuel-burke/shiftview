@@ -50,7 +50,7 @@ export default function PrivacyPage() {
         </div>
 
         <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-500 mb-8">Last updated: June 12, 2026</p>
+        <p className="text-xs text-slate-500 mb-8">Last updated: October 5, 2026</p>
 
         <div className="bg-card border border-slate-800/60 rounded-2xl px-5 py-6 [@media(min-width:640px)]:px-7 [@media(min-width:640px)]:py-7 text-sm text-slate-400 leading-relaxed space-y-1">
           <Section title="1. Who We Are">
@@ -71,6 +71,7 @@ export default function PrivacyPage() {
                 ["Messages", "Text messages sent between employees and managers within the app"],
                 ["Push tokens", "Notification subscription tokens if you grant notification permission"],
                 ["Technical data", "Session tokens (stored in your browser) and standard server logs retained by the hosting provider"],
+                ["Contact form", "Your name, email address, topic and message when you write to us through the contact form"],
               ]}
             />
           </Section>
@@ -83,6 +84,7 @@ export default function PrivacyPage() {
                 ["Manager-to-employee messaging", "Name, message content"],
                 ["Authentication and access control", "Email, session token"],
                 ["Audit trail for schedule changes", "User ID, timestamps"],
+                ["Replying to contact form messages", "Name, email address, message"],
               ]}
             />
             <p className="mt-3">
@@ -157,6 +159,8 @@ export default function PrivacyPage() {
                 ["Supabase", "Database, authentication, and real-time"],
                 ["Vercel", "Hosting and edge delivery"],
                 ["Web Push (browser API)", "Push notifications, handled by your browser/OS vendor"],
+                ["Resend", "Delivery of invite, reminder and contact form emails"],
+                ["Cloudflare Turnstile", "Bot protection on the demo, sign-up and contact forms"],
               ]}
             />
           </Section>
@@ -179,7 +183,9 @@ export default function PrivacyPage() {
           <Section title="12. Contact">
             <p>
               If you have questions about this privacy policy or how your data is handled, please contact the
-              administrator of your ShiftView account.
+              administrator of your ShiftView account, or write to us through the{" "}
+              <Link href="/contact" className="text-slate-300 underline underline-offset-2 hover:text-slate-100">contact form</Link>.
+              Contact form messages are delivered to us by email and kept only as long as needed to respond.
             </p>
           </Section>
         </div>
