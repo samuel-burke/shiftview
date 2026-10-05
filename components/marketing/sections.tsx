@@ -239,7 +239,7 @@ export function EngineeringSection({ asPageTitle = false }: { asPageTitle?: bool
             <p className="mt-5 max-w-md text-base leading-relaxed text-slate-400">
               Schedules and time punches turn into paychecks, so ShiftView is built to be boring in the best way: enforced rules, tested paths, and a record of every change.
             </p>
-            <a href={REPO_URL} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-200 hover:text-white transition-colors">
+            <a href={REPO_URL} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-200 hover:text-slate-50 transition-colors">
               Read the source and architecture notes <Arrow />
             </a>
           </div>

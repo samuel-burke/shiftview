@@ -53,7 +53,7 @@ function MarketingNav({ active }: { active?: "product" | "engineering" }) {
           <Link href="/login" className="px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100">
             Sign in
           </Link>
-          <Link href="/signup" className="rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-white">
+          <Link href="/signup" className="rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-200">
             Get started
           </Link>
         </nav>
