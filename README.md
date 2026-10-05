@@ -1,12 +1,72 @@
-# ShiftView
+<h1 align="center">ShiftView</h1>
 
-A mobile-first shift management app for scheduling, time clock, coverage analytics, and team messaging in a single installable PWA.
+<p align="center">
+  <strong>Scheduling, time clock and live coverage for retail &amp; fulfillment teams.</strong><br />
+  A mobile-first, installable PWA for managers and the people on the floor.
+</p>
 
-**[shiftview.app](https://shiftview.app)** · [Try the demo](https://shiftview.app) — click "View Demo"
+<p align="center">
+  <a href="https://shiftview.app"><strong>shiftview.app</strong></a> ·
+  <a href="https://shiftview.app">Try the live demo</a> ·
+  <a href="https://shiftview.app/product">Product tour</a> ·
+  <a href="https://shiftview.app/contact">Contact</a>
+</p>
 
-![ShiftView screenshot](public/screenshot.png)
+<p align="center">
+  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml"><img alt="CI" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=dev" /></a>
+  <img alt="Status: public beta" src="https://img.shields.io/badge/status-public%20beta-6366f1" />
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" />
+  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" />
+</p>
 
-![CI](https://github.com/samuel-burke/shift-dashboard/actions/workflows/test.yml/badge.svg?branch=dev)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
+  <img alt="ShiftView home page: the manager dashboard updating live as an employee clocks in, next to an employee's clock screen" src="docs/screenshots/hero-dark.png" />
+</picture>
+
+### The app
+
+Every screen below is the real UI rendered from the demo organization's seed data.
+
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-team-light.png" />
+        <img alt="Manager dashboard with live coverage timeline and who is clocked in" src="docs/screenshots/phone-team-dark.png" />
+      </picture>
+      <br /><sub><b>Live coverage</b><br />Planned vs. clocked in, updated in real time</sub>
+    </td>
+    <td align="center" width="25%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-schedule-light.png" />
+        <img alt="Employee weekly schedule with shift types and today's shift" src="docs/screenshots/phone-schedule-dark.png" />
+      </picture>
+      <br /><sub><b>My schedule</b><br />The week at a glance, call-outs and swaps</sub>
+    </td>
+    <td align="center" width="25%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-requests-light.png" />
+        <img alt="Manager requests inbox with time-off and shift swap approvals" src="docs/screenshots/phone-requests-dark.png" />
+      </picture>
+      <br /><sub><b>Approvals</b><br />Time off and two-step shift swaps</sub>
+    </td>
+    <td align="center" width="25%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-clock-light.png" />
+        <img alt="Employee time clock on break with punch history" src="docs/screenshots/phone-clock-dark.png" />
+      </picture>
+      <br /><sub><b>Time clock</b><br />Geofenced punches and breaks</sub>
+    </td>
+  </tr>
+</table>
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/planner-light.png" />
+  <img alt="Draft schedule planner comparing recommended vs. scheduled staffing by hour and daily labor budget vs. scheduled hours" src="docs/screenshots/planner-dark.png" />
+</picture>
+
+<sub>Draft planning: staff to an hourly coverage target and a daily labor-hours budget before publishing.</sub>
 
 ## Features
 
@@ -34,6 +94,7 @@ A mobile-first shift management app for scheduling, time clock, coverage analyti
 - Installable PWA with service worker, offline-aware shell, and home-screen prompts
 - Demo mode — one click signs you in anonymously to a seeded Demo organization with full read/write access; sample data resets nightly
 - Nightly shift reminders for tomorrow's schedule via a Vercel cron job
+- Public marketing site (`/`, `/product`, `/contact`) whose product previews are built from the real UI components and demo data, with a bot-protected contact form delivered via Resend
 
 ## Tech Stack
 
@@ -110,7 +171,8 @@ Optional variables enable additional features:
 | Variable | Enables |
 |---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Manager role management and the employee invite flow |
-| `RESEND_API_KEY` | Invite emails (via Resend) |
+| `RESEND_API_KEY` | Invite, reminder and contact form emails (via Resend) |
+| `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until set |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web push notifications |
 | `CRON_SECRET` | Nightly shift-reminder cron endpoint |
 | `NEXT_PUBLIC_SITE_URL` | Absolute URLs in emails and auth redirects |
