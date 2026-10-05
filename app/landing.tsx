@@ -2,11 +2,11 @@ import Link from "next/link";
 import TryDemoButton from "@/components/TryDemoButton";
 import MarketingShell, { ClosingCta } from "@/components/marketing/MarketingShell";
 import { LiveClockPhone, LiveCoverageCard, LiveTeamPhone, LiveTimerCard, NextShiftCard, Reveal, WeekStrip } from "@/components/marketing/live";
-import { Arrow, Container, primaryBtn, secondaryBtn } from "@/components/marketing/ui";
+import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "@/components/marketing/ui";
 
 // Home page for signed-out visitors. Kept deliberately short: the hero, three
 // product pillars that link into /product, a trust line that links into
-// /engineering, and a call to action.
+// the source on GitHub, and a call to action.
 export default function LandingPage() {
   return (
     <MarketingShell>
@@ -142,9 +142,9 @@ function TrustStrip() {
             </li>
           ))}
         </ul>
-        <Link href="/engineering" className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-200 transition-colors hover:text-slate-50">
-          How it&rsquo;s built <Arrow />
-        </Link>
+        <a href={REPO_URL} className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-200 transition-colors hover:text-slate-50">
+          View the source <Arrow />
+        </a>
       </Container>
     </section>
   );

@@ -232,48 +232,6 @@ export function ShiftCard({ row, now = NOW }: { row: Row; now?: number }) {
   );
 }
 
-export function ArchitectureDiagram() {
-  const box = "rounded-lg border border-slate-700/70 bg-bg/70 px-3 py-2";
-  const label = "text-[12px] font-semibold text-slate-200";
-  const sub = "mt-0.5 text-[11px] text-slate-400";
-  return (
-    <figure aria-label="Request flow architecture" className="rounded-2xl border border-slate-800 bg-card p-5">
-      <figcaption className="mb-4 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">Request path</figcaption>
-      <div className="grid items-stretch gap-2 sm:grid-cols-[1fr_auto_1.2fr_auto_1fr]">
-        <div className={box}>
-          <div className={label}>PWA client</div>
-          <div className={sub}>React 19 · offline shell</div>
-        </div>
-        <FlowArrow />
-        <div className={`${box} border-blue-500/40`}>
-          <div className={label}>API route handlers</div>
-          <div className={sub}>auth, role, validation, audit</div>
-        </div>
-        <FlowArrow />
-        <div className={box}>
-          <div className={label}>Postgres</div>
-          <div className={sub}>RLS on every table</div>
-        </div>
-      </div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-3">
-        <div className={box}><div className={label}>Realtime</div><div className={sub}>live schedule &amp; messages</div></div>
-        <div className={box}><div className={label}>Web Push</div><div className={sub}>VAPID notifications</div></div>
-        <div className={box}><div className={label}>Cron jobs</div><div className={sub}>reminders · demo reset</div></div>
-      </div>
-    </figure>
-  );
-}
-
-export function FlowArrow() {
-  return (
-    <div aria-hidden="true" className="flex items-center justify-center text-slate-600">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="rotate-90 sm:rotate-0">
-        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
-
 export function StatTiles({ here, scheduled, off }: { here: React.ReactNode; scheduled: React.ReactNode; off: React.ReactNode }) {
   const tiles = [
     { value: here, label: "Here Now", className: "text-green-500 border-green-500/25" },

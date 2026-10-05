@@ -6,7 +6,7 @@
 // preview is on screen, and visitors who prefer reduced motion get the static
 // first frame.
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion, useInView, useReducedMotion } from "framer-motion";
 import { EMPLOYEE_PATTERNS, DEMO_EMPLOYEES } from "@/data/demo-fixtures";
 import { MegaphoneIcon, ShiftIcon } from "@/components/ShiftIcons";
@@ -502,16 +502,22 @@ export function LiveRequestsPhone() {
               </motion.div>
             ))}
             {swaps.length > 0 && (
-              <motion.div key="sw-label" layout exit={exit} className="pt-2"><SectionLabel label="Shift Swaps" count={swaps.length} /></motion.div>
+              <motion.div key="sw-label" layout exit={exit}><SectionLabel label="Shift Swaps" count={swaps.length} /></motion.div>
             )}
             {swaps.map((sw) => sw.kind === "swap" && (
               <motion.div key={sw.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={exit} className="overflow-hidden rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
-                <div className="mb-1 text-sm font-semibold text-slate-100">{sw.a} wants to swap with {sw.b}</div>
-                <div className={`mb-1 text-xs text-slate-400 ${hide}`}>{fmtLong(sw.date)}</div>
-                <div className="mb-3 flex items-center gap-1.5 whitespace-nowrap text-[10.5px] text-slate-400">
-                  <span className="rounded-lg bg-slate-800 px-2 py-1">{sw.a.split(" ")[0]}: {sw.aTime}</span>
-                  <span className="text-slate-600" aria-hidden="true">⇄</span>
-                  <span className="rounded-lg bg-slate-800 px-2 py-1">{sw.b.split(" ")[0]}: {sw.bTime}</span>
+                <div className="text-sm font-semibold leading-snug text-slate-100">{sw.a} wants to swap with {sw.b}</div>
+                <div className={`mt-1 text-xs text-slate-400 ${hide}`}>{fmtLong(sw.date)}</div>
+                <div className="mb-4 mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  {[[sw.a, sw.aTime], [sw.b, sw.bTime]].map(([name, time], i) => (
+                    <Fragment key={name}>
+                      {i === 1 && <span className="text-sm text-slate-500" aria-hidden="true">⇄</span>}
+                      <div className="rounded-xl bg-slate-800 px-3 py-2">
+                        <div className="text-xs font-semibold text-slate-200">{name.split(" ")[0]}</div>
+                        <div className="mt-0.5 whitespace-nowrap text-[11px] tabular-nums text-slate-400">{time}</div>
+                      </div>
+                    </Fragment>
+                  ))}
                 </div>
                 <Buttons id={sw.id} />
               </motion.div>

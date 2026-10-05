@@ -1,7 +1,7 @@
 import { LiveClockPhone, LiveCoveragePanel, LiveRequestsPhone, PlannerPreview, SchedulePhone } from "./live";
-import { Arrow, ArchitectureDiagram, Container, REPO_URL, SectionCopy } from "./ui";
+import { Container, SectionCopy } from "./ui";
 
-// Long-form sections for /product and /engineering.
+// Long-form sections for /product.
 
 export function CoverageSection() {
   return (
@@ -189,99 +189,3 @@ export function CapabilityMap() {
     </section>
   );
 }
-
-export function EngineeringSection({ asPageTitle = false }: { asPageTitle?: boolean }) {
-  const Heading = asPageTitle ? "h1" : "h2";
-  const principles = [
-    {
-      title: "One write path, two locks",
-      body: "Every mutation goes through an API route that authenticates, checks the role, validates input and writes an audit entry. Postgres row-level security on every table enforces the same rules again underneath.",
-    },
-    {
-      title: "Server-side truth",
-      body: "Geofenced punches are validated on the server, not trusted from the browser. Privileged writes use a separate service-role client only after the API verifies manager status.",
-    },
-    {
-      title: "Private by default",
-      body: "Direct messages are encrypted at rest with AES-256-GCM. The database never stores message plaintext.",
-    },
-    {
-      title: "No timezone bugs",
-      body: "Shift times are minutes since midnight and dates are plain YYYY-MM-DD strings, so DST changes never move a shift.",
-    },
-    {
-      title: "The demo is production",
-      body: "The live demo is a real tenant on the same routes and policies. What you try is exactly what your team gets.",
-    },
-    {
-      title: "Works like a native app",
-      body: "Installable PWA with a service worker, offline-aware shell, realtime updates and web push.",
-    },
-  ];
-  const pipeline = [
-    { step: "Lint", detail: "ESLint" },
-    { step: "Typecheck", detail: "TypeScript strict" },
-    { step: "Unit tests", detail: "1,100+ tests · Vitest" },
-    { step: "Build", detail: "Next.js production" },
-    { step: "E2E", detail: "Playwright · mobile" },
-  ];
-  const stack = ["Next.js 16", "React 19", "TypeScript", "Supabase Postgres", "Row-level security", "Realtime", "Tailwind CSS 4", "Web Push", "Vitest", "Playwright", "Vercel"];
-
-  return (
-    <section id="engineering" className="scroll-mt-16 border-b border-slate-800/60">
-      <Container className="py-16 sm:py-20 lg:py-28">
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:gap-16">
-          <div>
-            <p className="mb-4 text-sm font-medium text-blue-400">Engineering</p>
-            <Heading className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
-              Built for payroll-grade reliability.
-            </Heading>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-slate-400">
-              Schedules and time punches turn into paychecks, so ShiftView is built to be boring in the best way: enforced rules, tested paths, and a record of every change.
-            </p>
-            <a href={REPO_URL} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-200 hover:text-slate-50 transition-colors">
-              Read the source and architecture notes <Arrow />
-            </a>
-          </div>
-
-          <div className="space-y-4">
-            <ArchitectureDiagram />
-            <div className="rounded-2xl border border-slate-800 bg-card p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">CI on every pull request</span>
-                <span className="font-mono text-[11px] text-slate-400">GitHub Actions</span>
-              </div>
-              <ol className="divide-y divide-slate-800/80 rounded-lg border border-slate-800 bg-bg/60">
-                {pipeline.map((p, i) => (
-                  <li key={p.step} className="flex items-center gap-3 px-3.5 py-2.5 text-[13px]">
-                    <span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-green-500/15 text-green-500">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </span>
-                    <span className="font-semibold text-slate-200"><span className="sr-only">Step {i + 1}: </span>{p.step}</span>
-                    <span className="ml-auto font-mono text-[12px] text-slate-400">{p.detail}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </div>
-        </div>
-
-        <dl className="mt-16 grid gap-x-10 gap-y-8 border-t border-slate-800/80 pt-12 sm:grid-cols-2 lg:grid-cols-3">
-          {principles.map((p) => (
-            <div key={p.title}>
-              <dt className="text-sm font-semibold text-slate-100">{p.title}</dt>
-              <dd className="mt-2 text-sm leading-relaxed text-slate-400">{p.body}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <div className="mt-14 flex flex-wrap gap-2">
-          {stack.map((t) => (
-            <span key={t} className="rounded-md border border-slate-800 px-2.5 py-1 font-mono text-[12px] text-slate-400">{t}</span>
-          ))}
-        </div>
-      </Container>
-    </section>
-  );
-}
-
