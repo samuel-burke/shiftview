@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, LayoutGroup } from "framer-motion";
 import ClockStatusBadge from "./ClockStatusBadge";
+import BetaBadge from "@/components/BetaBadge";
 
 type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
 
@@ -27,6 +28,7 @@ export default function SideNav({ active, isManager }: Props) {
           <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
             View
           </span>
+          <BetaBadge />
         </span>
         <ClockStatusBadge />
       </div>
