@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
   // unauthenticated POST (e.g. /api/demo/start, cron jobs) into a
   // method-preserving 307 to /login, which then 405s.
   const isApi = pathname.startsWith("/api/");
-  const isPublic = pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname.startsWith("/auth/");
+  const isPublic = pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname === "/product" || pathname === "/contact" || pathname.startsWith("/auth/");
 
   if (!user && !isPublic && !isApi) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -43,5 +43,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-.*\\.png|manifest.json).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-.*\\.png|manifest.json|sw.js).*)"],
 };
