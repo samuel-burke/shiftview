@@ -196,4 +196,33 @@ test.describe("Responsive layout", () => {
       await expect(detail.getByRole("heading", { name: "Carol White" })).toBeVisible();
     }
   });
+
+  test("the desk-size rail widens into the full sidebar and remembers it", async ({ page }) => {
+    await interceptAPIs(page, { isManager: true });
+    await page.goto("/");
+    await expect(page.getByText("Alice S.").first()).toBeVisible();
+
+    const expand = page.getByRole("button", { name: "Expand sidebar" });
+    if (sizeOf(page) !== "desk") {
+      // Phones, tablets and wide screens have a fixed nav, so there's no toggle.
+      await expect(expand).toBeHidden();
+      return;
+    }
+
+    // Activate from the keyboard: under `next dev` the Next.js indicator sits
+    // over the rail's bottom corner and would swallow a pointer click.
+    await expand.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("side-nav")).toBeVisible();
+    await expect(page.getByTestId("nav-rail")).toBeHidden();
+
+    await page.reload();
+    await expect(page.getByTestId("side-nav")).toBeVisible();
+
+    const collapse = page.getByRole("button", { name: "Collapse sidebar" });
+    await collapse.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("nav-rail")).toBeVisible();
+    await expect(page.getByTestId("side-nav")).toBeHidden();
+  });
 });

@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import SideNav from "./SideNav";
 import NavRail from "./NavRail";
 import TopBar from "./TopBar";
+import KeyboardShortcuts from "./KeyboardShortcuts";
+import { useSidebarExpanded } from "@/hooks/useSidebarExpanded";
 
 export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner" | "week" | "requests";
 
@@ -34,16 +37,28 @@ export default function AppShell({
   children,
 }: Props) {
   const showTopBar = onSignOut !== undefined || onSignIn !== undefined;
+  // Desk-size screens can swap the rail for the full sidebar; remembered per device.
+  const [sidebarExpanded, setSidebarExpanded] = useSidebarExpanded();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   return (
     <div className="tablet:flex min-h-screen bg-bg">
-      {/* compact: BottomNav (rendered by each page) · tablet/desk: icon rail · wide: full sidebar */}
-      <div className="hidden tablet:block wide:hidden">
-        <NavRail active={active} isManager={isManager} />
+      {/*
+       * compact: BottomNav (rendered by each page) · tablet: icon rail ·
+       * desk: icon rail, or the full sidebar when expanded · wide: full sidebar
+       */}
+      <div className={`hidden tablet:block wide:hidden ${sidebarExpanded ? "desk:hidden" : ""}`}>
+        <NavRail active={active} isManager={isManager} onExpand={() => setSidebarExpanded(true)} />
       </div>
-      <div className="hidden wide:block">
-        <SideNav active={active} isManager={isManager} />
+      <div className={`hidden wide:block ${sidebarExpanded ? "desk:block" : ""}`}>
+        <SideNav
+          active={active}
+          isManager={isManager}
+          onCollapse={() => setSidebarExpanded(false)}
+          onShowShortcuts={() => setShortcutsOpen(true)}
+        />
       </div>
+      <KeyboardShortcuts active={active} open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       {/* Wrapper keeps TopBar + content in a single flex column beside the nav */}
       <div className="tablet:flex-1 desk:overflow-y-auto min-w-0">

@@ -10,9 +10,12 @@ import type { NavItem } from "./AppShell";
 type Props = {
   active: NavItem;
   isManager?: boolean;
+  /** Back to the icon rail (offered at the desk size, where the sidebar is optional). */
+  onCollapse?: () => void;
+  onShowShortcuts?: () => void;
 };
 
-export default function SideNav({ active, isManager }: Props) {
+export default function SideNav({ active, isManager, onCollapse, onShowShortcuts }: Props) {
   return (
     <motion.div
       role="complementary"
@@ -77,6 +80,30 @@ export default function SideNav({ active, isManager }: Props) {
           </NavLink>
         </LayoutGroup>
       </nav>
+
+      {(onShowShortcuts || onCollapse) && (
+        <div className="px-3 py-3 border-t border-slate-800 flex items-center gap-1 shrink-0">
+          {onShowShortcuts && (
+            <button
+              onClick={onShowShortcuts}
+              className="flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              Shortcuts
+              <kbd className="px-1.5 rounded border border-slate-700 font-mono text-[11px] text-slate-300">?</kbd>
+            </button>
+          )}
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+              className="hidden desk:flex wide:hidden size-9 shrink-0 rounded-xl items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

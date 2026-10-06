@@ -30,4 +30,14 @@ describe("NavRail", () => {
     render(<NavRail active="team" />);
     expect(screen.getByRole("status", { name: "Clocked In" })).toBeInTheDocument();
   });
+
+  it("offers to expand into the full sidebar only when the shell allows it", () => {
+    const { rerender } = render(<NavRail active="team" />);
+    expect(screen.queryByRole("button", { name: "Expand sidebar" })).not.toBeInTheDocument();
+
+    const onExpand = vi.fn();
+    rerender(<NavRail active="team" onExpand={onExpand} />);
+    screen.getByRole("button", { name: "Expand sidebar" }).click();
+    expect(onExpand).toHaveBeenCalledOnce();
+  });
 });

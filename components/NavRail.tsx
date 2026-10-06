@@ -19,6 +19,8 @@ import {
 type Props = {
   active: NavItem;
   isManager?: boolean;
+  /** Swap the rail for the full sidebar (offered at the desk size only). */
+  onExpand?: () => void;
 };
 
 /*
@@ -26,7 +28,7 @@ type Props = {
  * destination — the phone's bottom tabs only fit three — while using a fraction
  * of the full SideNav's width. The wide size class swaps it for SideNav.
  */
-export default function NavRail({ active, isManager }: Props) {
+export default function NavRail({ active, isManager, onExpand }: Props) {
   return (
     <div
       role="complementary"
@@ -74,6 +76,17 @@ export default function NavRail({ active, isManager }: Props) {
           <RailLink href="/settings" label="Settings" isActive={active === "settings"}><SettingsIcon size={20} /></RailLink>
         </LayoutGroup>
       </nav>
+
+      {onExpand && (
+        <button
+          onClick={onExpand}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="hidden desk:flex mb-4 size-10 shrink-0 rounded-xl items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 6l6 6-6 6M5 6l6 6-6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      )}
     </div>
   );
 }
