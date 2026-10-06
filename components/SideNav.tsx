@@ -16,6 +16,7 @@ export default function SideNav({ active, isManager }: Props) {
   return (
     <motion.div
       role="complementary"
+      data-testid="side-nav"
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}

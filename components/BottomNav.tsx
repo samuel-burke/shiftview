@@ -17,6 +17,7 @@ export default function BottomNav({ active }: Props) {
   return (
     <nav
       aria-label="Main navigation"
+      data-testid="bottom-nav"
       /*
        * Opaque background, no backdrop-filter: on iOS Safari an element that is
        * both `position: fixed` and has a backdrop-filter intermittently loses
