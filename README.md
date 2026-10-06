@@ -173,6 +173,7 @@ Optional variables enable additional features:
 | `SUPABASE_SERVICE_ROLE_KEY` | Manager role management and the employee invite flow |
 | `RESEND_API_KEY` | Invite, reminder and contact form emails (via Resend) |
 | `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until set |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web push notifications |
 | `CRON_SECRET` | Nightly shift-reminder cron endpoint |
 | `NEXT_PUBLIC_SITE_URL` | Absolute URLs in emails and auth redirects |
