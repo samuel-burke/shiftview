@@ -12,13 +12,16 @@ import {
   ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
-import { Schedule, PunchRecord } from "../data/types";
+import { Schedule, PunchRecord, isHere } from "../data/types";
 import { CoverageBlock, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
 import { DEFAULT_TIMEZONE, getLocalMinutes } from "@/lib/dates";
 
 type Props = {
   schedules: Schedule[];
+  // The day being charted; shifts from the day before (overnight) are placed
+  // relative to it.
+  dayKey?: string;
   nowMinutes: number;
   isToday: boolean;
   openMinutes: number;
@@ -32,7 +35,7 @@ type Props = {
 function fmtMinutes(m: number): string {
   const h = Math.floor(m / 60);
   const min = m % 60;
-  const ampm = h >= 12 ? "PM" : "AM";
+  const ampm = h % 24 >= 12 ? "PM" : "AM";
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return min === 0
     ? `${h12}:00 ${ampm}`
@@ -54,6 +57,7 @@ function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; c
 
 export default function CoverageTimeline({
   schedules,
+  dayKey,
   nowMinutes,
   isToday,
   openMinutes,
@@ -137,25 +141,21 @@ export default function CoverageTimeline({
   const data = useMemo(() => {
     return points.map(({ label, m }, i) => ({
       label,
-      staff: schedules.filter(
-        (s) => m >= s.startMinutes && m < s.endMinutes,
-      ).length,
+      staff: schedules.filter((s) => isHere(s, m, dayKey)).length,
       actual: actualByPoint ? actualByPoint[i] : undefined,
       target: hasTarget ? targetAt(targetBlocks!, Math.min(m, closeMinutes - 1)) : undefined,
     }));
-  }, [schedules, points, actualByPoint, hasTarget, targetBlocks, closeMinutes]);
+  }, [schedules, dayKey, points, actualByPoint, hasTarget, targetBlocks, closeMinutes]);
 
   const nowDataPoint = useMemo(() => {
     if (!isToday) return null;
     const clampedM = Math.min(Math.max(nowMinutes, openMinutes), closeMinutes);
     const label = fmtMinutes(clampedM);
-    const staff = schedules.filter(
-      (s) => clampedM >= s.startMinutes && clampedM < s.endMinutes,
-    ).length;
+    const staff = schedules.filter((s) => isHere(s, clampedM, dayKey)).length;
     const idx = points.findIndex((p) => p.m === clampedM);
     const actual = actualByPoint && idx >= 0 ? actualByPoint[idx] : null;
     return { label, staff, actual };
-  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules, points, actualByPoint]);
+  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules, dayKey, points, actualByPoint]);
 
   // Measure the actual chart area after mount and on resize
   useEffect(() => {

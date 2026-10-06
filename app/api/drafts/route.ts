@@ -3,9 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { validateShiftMinutes } from "@/app/api/schedules/validation";
 import { requireManager } from "@/lib/require-manager";
 import { withOrg } from "@/lib/org-scope";
-import { fmtMinutes } from "@/data/types";
 import { weekDates } from "@/lib/draft-metrics";
-import { dayOfWeekForKey, formatDateKey } from "@/lib/dates";
+import { findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,50 +20,8 @@ async function findConflict(
   startMinutes: number,
   endMinutes: number
 ): Promise<NextResponse | null> {
-  const dayOfWeek = dayOfWeekForKey(date);
-
-  const { data: timeOff } = await supabase
-    .from("time_off_requests")
-    .select("id, status")
-    .eq("org_id", orgId)
-    .eq("employee_id", employeeId)
-    .eq("date", date)
-    .eq("status", "approved")
-    .maybeSingle();
-
-  if (timeOff) {
-    return NextResponse.json({
-      conflict: "time_off",
-      message: `Employee has approved time off on ${date}`,
-    }, { status: 409 });
-  }
-
-  const { data: availRecord } = await supabase
-    .from("availability")
-    .select("id, start_minutes, end_minutes")
-    .eq("org_id", orgId)
-    .eq("employee_id", employeeId)
-    .eq("day_of_week", dayOfWeek)
-    .maybeSingle();
-
-  if (availRecord) {
-    if (availRecord.start_minutes === null || availRecord.end_minutes === null) {
-      return NextResponse.json({
-        conflict: "availability",
-        window: null,
-        message: `Employee is unavailable on ${formatDateKey(date, { weekday: "long" })}s`,
-      }, { status: 409 });
-    }
-    if (startMinutes < availRecord.start_minutes || endMinutes > availRecord.end_minutes) {
-      return NextResponse.json({
-        conflict: "availability",
-        window: { startMinutes: availRecord.start_minutes, endMinutes: availRecord.end_minutes },
-        message: `Shift falls outside employee's availability window (${fmtMinutes(availRecord.start_minutes)} – ${fmtMinutes(availRecord.end_minutes)})`,
-      }, { status: 409 });
-    }
-  }
-
-  return null;
+  const conflict = await findShiftConflict(supabase, orgId, employeeId, date, startMinutes, endMinutes);
+  return conflict ? NextResponse.json(conflict, { status: 409 }) : null;
 }
 
 export async function GET(request: Request) {
@@ -129,6 +86,9 @@ export async function POST(request: Request) {
   if (existing)
     return NextResponse.json({ error: "Employee already has a draft shift on this date" }, { status: 409 });
 
+  const overlap = await findShiftOverlap(supabase, "draft_schedules", orgId!, employeeId, date, startMinutes, endMinutes);
+  if (overlap) return NextResponse.json({ error: overlap }, { status: 409 });
+
   if (!override) {
     const conflict = await findConflict(supabase, orgId!, employeeId, date, startMinutes, endMinutes);
     if (conflict) return conflict;
@@ -169,8 +129,11 @@ export async function PUT(request: Request) {
   if (!existing)
     return NextResponse.json({ error: "Draft shift not found" }, { status: 404 });
 
+  const dateStr = typeof existing.date === "string" ? existing.date.slice(0, 10) : existing.date;
+  const overlap = await findShiftOverlap(supabase, "draft_schedules", orgId!, existing.employee_id, dateStr, startMinutes, endMinutes, id);
+  if (overlap) return NextResponse.json({ error: overlap }, { status: 409 });
+
   if (!override) {
-    const dateStr = typeof existing.date === "string" ? existing.date.slice(0, 10) : existing.date;
     const conflict = await findConflict(supabase, orgId!, existing.employee_id, dateStr, startMinutes, endMinutes);
     if (conflict) return conflict;
   }

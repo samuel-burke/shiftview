@@ -9,7 +9,7 @@
 // shift at the right moment, with DST handled by the conversion. Without a
 // timezone we fall back to *floating* local times (no Z, no TZID).
 
-import { zonedTimeToUtc } from "@/lib/dates";
+import { addDaysToKey, zonedTimeToUtc } from "@/lib/dates";
 
 const PRODID = "-//ShiftView//Shift Schedule//EN";
 
@@ -36,10 +36,10 @@ export function formatUTCStamp(d: Date): string {
 // A floating local date-time (no Z) from a YYYY-MM-DD date and minutes since
 // midnight, e.g. ("2026-07-06", 480) → 20260706T080000.
 export function formatFloatingLocal(date: string, minutes: number): string {
-  const compact = date.slice(0, 10).replace(/-/g, "");
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${compact}T${pad(h)}${pad(m)}00`;
+  // Minutes past 1440 (an overnight shift's end) roll into the next day.
+  const key = addDaysToKey(date.slice(0, 10), Math.floor(minutes / 1440));
+  const m = ((minutes % 1440) + 1440) % 1440;
+  return `${key.replace(/-/g, "")}T${pad(Math.floor(m / 60))}${pad(m % 60)}00`;
 }
 
 // Fold a content line to the 75-octet limit (RFC 5545 §3.1): continuation lines

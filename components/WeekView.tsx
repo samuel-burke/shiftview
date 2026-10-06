@@ -37,7 +37,7 @@ function shortTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  const suffix = h < 12 ? "a" : "p";
+  const suffix = h % 24 < 12 ? "a" : "p"; // past 1440 = next day (overnight shift)
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, "0")}${suffix}`;
 }
 

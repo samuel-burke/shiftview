@@ -3,6 +3,7 @@ import {
   addDaysToKey,
   allTimezones,
   dateFromKey,
+  dateForWeekday,
   dateKeyInTz,
   dayOfWeekForKey,
   daysBetweenKeys,
@@ -345,5 +346,18 @@ describe("timezone validation and catalogue", () => {
     expect(parseHHMM("9:00")).toBeNull();
     expect(parseHHMM("09:60")).toBeNull();
     expect(parseHHMM(undefined)).toBeNull();
+  });
+});
+
+describe("dateForWeekday", () => {
+  it("finds a weekday (0 = Sunday) within the 7 days from the week start", () => {
+    // Monday-start week of 2026-10-05
+    expect(dateForWeekday("2026-10-05", 1)).toBe("2026-10-05");
+    expect(dateForWeekday("2026-10-05", 6)).toBe("2026-10-10");
+    expect(dateForWeekday("2026-10-05", 0)).toBe("2026-10-11");
+    // Saturday-start week of 2026-10-03
+    expect(dateForWeekday("2026-10-03", 6)).toBe("2026-10-03");
+    expect(dateForWeekday("2026-10-03", 0)).toBe("2026-10-04");
+    expect(dateForWeekday("2026-10-03", 5)).toBe("2026-10-09");
   });
 });

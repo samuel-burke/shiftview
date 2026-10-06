@@ -9,6 +9,7 @@ import { haversineMeters } from "@/lib/haversine";
 import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
+import { loadCarriedOverPunches, loadCurrentShift } from "@/lib/current-shift-server";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +81,21 @@ export async function GET(request: Request) {
     console.error("[api/punches]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  const rows = (data ?? []) as Record<string, unknown>[];
 
-  return NextResponse.json((data ?? []).map(mapRow));
+  // ?carried=1 on today's date: also include the earlier punches of shifts
+  // still open from before midnight (closers, overnight shifts), so a live
+  // view shows them as clocked in rather than "not here yet".
+  if (searchParams.get("carried") === "1" && date === todayKeyInTz(tz)) {
+    const { punches: carried } = await loadCarriedOverPunches(
+      supabase, orgId, tz, Date.now(), isManager ? undefined : (employeeId ?? undefined),
+    );
+    const seen = new Set(rows.map((r) => r.id));
+    const earlier = carried.filter((p) => !seen.has(p.id)) as unknown as Record<string, unknown>[];
+    return NextResponse.json([...earlier, ...rows].map(mapRow));
+  }
+
+  return NextResponse.json(rows.map(mapRow));
 }
 
 // POST /api/punches — employee clocks a punch
@@ -118,7 +132,7 @@ export async function POST(request: Request) {
   if (!emp)
     return NextResponse.json({ error: "No employee record linked to this account" }, { status: 403 });
 
-  // Fetch settings up front — needed for timezone (day-scoped state machine),
+  // Fetch settings up front — needed for timezone (store-day state machine),
   // geofence enforcement, and late clock-in notifications.
   const { data: settingsData } = await supabase
     .from("app_settings")
@@ -129,28 +143,17 @@ export async function POST(request: Request) {
   );
   const tz = resolveTimezone(settingsMap.timezone);
 
-  // Day-scoped state machine: only consider today's punches (local timezone).
-  // This prevents a missed clock-out from a previous day from blocking today's clock-in.
-  const todayKey = todayKeyInTz(tz);
-  const { start: todayStart, end: todayEnd } = localDayBoundsUtc(todayKey, tz);
-
-  const { data: todayLastPunch, error: todayPunchError } = await supabase
-    .from("punch_records")
-    .select("punch_type, punched_at")
-    .eq("org_id", orgId)
-    .eq("employee_id", emp.id)
-    .gte("punched_at", todayStart.toISOString())
-    .lte("punched_at", todayEnd.toISOString())
-    .order("punched_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (todayPunchError) {
-    console.error("[api/punches]", todayPunchError);
+  // State machine over the employee's *current shift*: today's punches, or a
+  // shift still open from the previous store day within the overnight grace
+  // window (a closer clocking out after midnight). An older open shift is a
+  // forgotten clock-out and never blocks today's clock-in.
+  const { shift, error: shiftError } = await loadCurrentShift(supabase, orgId, emp.id, tz);
+  if (shiftError || !shift) {
+    console.error("[api/punches]", shiftError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  const lastType = todayLastPunch?.punch_type ?? null;
+  const lastType = shift.state;
 
   const VALID_TRANSITIONS: Record<string, (string | null)[]> = {
     clock_in:    [null, "clock_out"],
@@ -160,34 +163,20 @@ export async function POST(request: Request) {
   };
 
   if (!VALID_TRANSITIONS[punchType].includes(lastType)) {
-    const msg = lastType
-      ? `Cannot ${punchType}: current state is ${lastType}`
-      : `Cannot ${punchType}: no active clock-in`;
+    const msg = shift.carriedOver && punchType === "clock_in"
+      ? "You're still clocked in from your shift that started yesterday — clock out first"
+      : lastType
+        ? `Cannot ${punchType}: current state is ${lastType}`
+        : `Cannot ${punchType}: no active clock-in`;
     return NextResponse.json({ error: msg }, { status: 409 });
   }
 
   // Configurable break cap: orgs can limit how many breaks a single shift may
-  // contain. Count break_start punches since the most recent clock-in today and
-  // reject the new break_start once the limit is reached.
+  // contain. Count break_start punches since the shift's clock-in (which may
+  // have been yesterday) and reject the new break_start once the limit is hit.
   const policy = parsePunchPolicy(settingsMap);
   if (punchType === "break_start" && policy.maxBreaksPerShift > 0) {
-    const { data: todayPunches, error: todayPunchesError } = await supabase
-      .from("punch_records")
-      .select("punch_type, punched_at")
-      .eq("org_id", orgId)
-      .eq("employee_id", emp.id)
-      .gte("punched_at", todayStart.toISOString())
-      .lte("punched_at", todayEnd.toISOString())
-      .order("punched_at", { ascending: true });
-    if (todayPunchesError) {
-      console.error("[api/punches]", todayPunchesError);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-    let breaksThisShift = 0;
-    for (const p of todayPunches ?? []) {
-      if (p.punch_type === "clock_in") breaksThisShift = 0;
-      else if (p.punch_type === "break_start") breaksThisShift++;
-    }
+    const breaksThisShift = shift.punches.filter((p) => p.punchType === "break_start").length;
     if (breaksThisShift >= policy.maxBreaksPerShift) {
       return NextResponse.json(
         {

@@ -38,6 +38,7 @@ import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
 import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
+import { shiftWindowOn } from "@/lib/shift-times";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 
 const PUNCH_TYPE_LABELS: Record<PunchCorrection["punchType"], string> = {
@@ -121,11 +122,13 @@ export function isShiftUpcoming(
   todayKey: string,
   nowMinutes: number,
 ): boolean {
-  return shift.date > todayKey || (shift.date === todayKey && shift.endMinutes > nowMinutes);
+  // An overnight shift from yesterday is still upcoming until it ends this morning.
+  return shiftWindowOn(shift, todayKey).end > nowMinutes;
 }
 
 export function formatNextShiftDate(dateStr: string, todayKey: string): string {
   if (dateStr === todayKey) return "Today";
+  if (dateStr === addDaysToKey(todayKey, -1)) return "Since last night";
   if (dateStr === addDaysToKey(todayKey, 1)) return "Tomorrow";
   return formatDateKey(dateStr, { weekday: "long", month: "long", day: "numeric" });
 }
@@ -589,12 +592,12 @@ export default function SchedulePageClient() {
     let cancelled = false;
     const nowMinutes = nowMinutesInTz(timezone);
     const toKey = addDaysToKey(todayKey, 30);
-    fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
+    fetch(`/api/my-schedule?from=${addDaysToKey(todayKey, -1)}&to=${toKey}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         if (cancelled) return;
         const upcoming = (data.schedules ?? [])
-          .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+          .filter((s: Schedule) => isShiftUpcoming(s, todayKey, nowMinutes))
           .sort((a: Schedule, b: Schedule) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes));
         setNextShift(upcoming[0] ?? null);
       })

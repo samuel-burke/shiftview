@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { createClient } from "@/lib/supabase-browser";
 import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedule, type PunchRecord, type StoreHours } from "@/data/types";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
-import { DEFAULT_TIMEZONE, resolveTimezone, todayKeyInTz } from "@/lib/dates";
+import { DEFAULT_TIMEZONE } from "@/lib/dates";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -227,14 +227,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // Fetch today's punches for the current user and derive the live attendance
+  // Fetch the current user's current shift and derive the live attendance
   // status. Only meaningful for users linked to an employee record; managers
-  // without one keep "not_clocked_in" (no ring). Reads me/timezone via refs so
-  // the callback identity stays stable across renders.
+  // without one keep "not_clocked_in" (no ring). Reads me via a ref so the
+  // callback identity stays stable across renders.
   const meRef = useRef(me);
   meRef.current = me;
-  const timezoneRef = useRef(settings.timezone);
-  timezoneRef.current = settings.timezone;
 
   const refreshLiveStatus = useCallback(() => {
     const empId = meRef.current.employeeId;
@@ -242,11 +240,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setLiveStatus("not_clocked_in");
       return;
     }
-    const todayKey = todayKeyInTz(resolveTimezone(timezoneRef.current));
-    fetch(`/api/punches?date=${todayKey}`)
+    // The current shift — including one still open from before midnight —
+    // decides the status (see /api/punches/current).
+    fetch("/api/punches/current")
       .then(r => r.json())
-      .then((data: PunchRecord[]) => {
-        const mine = Array.isArray(data) ? data.filter(p => p.employeeId === empId) : [];
+      .then((data: { punches?: PunchRecord[] }) => {
+        const mine = Array.isArray(data?.punches) ? data.punches.filter(p => p.employeeId === empId) : [];
         setLiveStatus(getAttendanceStatus(mine));
       })
       .catch(() => {});

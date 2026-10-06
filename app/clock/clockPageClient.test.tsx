@@ -32,6 +32,7 @@ function mockApi({
   schedules = [] as Record<string, unknown>[],
   todayPunches = [] as Record<string, unknown>[],
   missedPunch = true,
+  current = { carriedOver: false, punches: [] } as { carriedOver: boolean; punches: Record<string, unknown>[] },
 } = {}) {
   const puts: unknown[] = [];
   let currentCorrections = corrections;
@@ -39,7 +40,10 @@ function mockApi({
     const json = (data: unknown, status = 200) =>
       new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
     if (url.startsWith("/api/me")) return json({ isManager: false, employeeId: 5, employeeName: "Alex Kim" });
-    if (url.startsWith("/api/schedules")) return json(schedules);
+    if (url.startsWith("/api/schedules")) {
+      const date = new URL(url, "http://x").searchParams.get("date");
+      return json(schedules.filter((s) => !s.date || s.date === date));
+    }
     if (url.startsWith("/api/punches/missed")) {
       if (!missedPunch) return json({ missedPunch: null });
       return json({
@@ -58,6 +62,7 @@ function mockApi({
       ];
       return json({ ok: true, pending: true, correctionId: 9 }, putStatus);
     }
+    if (url.startsWith("/api/punches/current")) return json(current);
     if (url.startsWith("/api/punches")) return json(todayPunches);
     if (url.startsWith("/api/punch-corrections")) return json({ corrections: currentCorrections });
     if (url.startsWith("/api/callouts")) return json({ callouts: [] });
@@ -141,5 +146,55 @@ describe("Clock — call-out button", () => {
     render(<ClockPageClient />);
     await screen.findByText(/Clocked In/i);
     expect(callOutButton()).not.toBeInTheDocument();
+  });
+});
+
+describe("Clock — closing past midnight", () => {
+  it("shows yesterday's open shift with End Shift after midnight", async () => {
+    vi.setSystemTime(new Date("2026-11-02T05:30:00Z")); // 12:30 AM EST, Nov 2
+    mockApi({
+      missedPunch: false,
+      schedules: [],
+      todayPunches: [],
+      current: {
+        carriedOver: true,
+        punches: [{ id: 7, employeeId: 5, punchType: "clock_in", punchedAt: "2026-11-01T21:00:00Z", isManual: false, note: null }],
+      },
+    });
+    render(<ClockPageClient />);
+    expect(await screen.findByText("Shift from yesterday")).toBeInTheDocument();
+    expect(screen.queryByText(/No shift scheduled today/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "End Shift" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clock In" })).not.toBeInTheDocument();
+    // No call-out for a shift you're already working.
+    expect(screen.queryByRole("button", { name: /Can.t make it in today\? Call out/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("Clock — scheduled overnight shift", () => {
+  const night = { id: 9, employeeId: 5, date: "2026-11-01", startMinutes: 1320, endMinutes: 1800 }; // 10 PM – 6 AM
+
+  it("shows yesterday's overnight shift after midnight, without a call-out", async () => {
+    vi.setSystemTime(new Date("2026-11-02T08:00:00Z")); // 3:00 AM EST, Nov 2
+    mockApi({
+      missedPunch: false,
+      schedules: [night],
+      current: {
+        carriedOver: true,
+        punches: [{ id: 7, employeeId: 5, punchType: "clock_in", punchedAt: "2026-11-02T03:00:00Z", isManual: false, note: null }],
+      },
+    });
+    render(<ClockPageClient />);
+    expect(await screen.findByTestId("shift-started-yesterday")).toBeInTheDocument();
+    expect(screen.getByText(/10:00 PM – 6:00 AM/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "End Shift" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Can.t make it in today\? Call out/ })).not.toBeInTheDocument();
+  });
+
+  it("shows tonight's overnight shift as ending tomorrow", async () => {
+    vi.setSystemTime(new Date("2026-11-01T20:00:00Z")); // 3:00 PM EST, Nov 1
+    mockApi({ missedPunch: false, schedules: [night] });
+    render(<ClockPageClient />);
+    expect(await screen.findByText("Ends tomorrow morning")).toBeInTheDocument();
   });
 });

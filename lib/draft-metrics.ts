@@ -1,4 +1,5 @@
 import { shiftMinutes } from "@/lib/schedule-hours";
+import { isWorkingAt } from "@/lib/shift-times";
 
 /** A shift-like record — works for both drafts and published schedules. */
 export type ShiftSpan = {
@@ -32,8 +33,7 @@ export function scheduledHoursForDate(shifts: ShiftSpan[], date: string, tz?: st
     .reduce((sum, s) => sum + shiftHours(s, tz), 0);
 }
 
+// Includes the after-midnight part of the previous day's overnight shifts.
 export function headcountAt(shifts: ShiftSpan[], date: string, minute: number): number {
-  return shifts.filter(
-    (s) => s.date.slice(0, 10) === date && minute >= s.startMinutes && minute < s.endMinutes
-  ).length;
+  return shifts.filter((s) => isWorkingAt(s, date, minute)).length;
 }

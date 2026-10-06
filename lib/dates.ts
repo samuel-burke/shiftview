@@ -78,6 +78,12 @@ export function weekStartForKey(key: string, firstDayOfWeek: number): string {
   return addDaysToKey(key, -diff);
 }
 
+// The date of weekday `dayOfWeek` (0 = Sunday … 6 = Saturday) within the
+// 7 days starting at `weekStartKey`.
+export function dateForWeekday(weekStartKey: string, dayOfWeek: number): string {
+  return addDaysToKey(weekStartKey, (dayOfWeek - dayOfWeekForKey(weekStartKey) + 7) % 7);
+}
+
 // The Monday–Sunday week before the one containing `todayKey` — the default
 // payroll period.
 export function previousPayWeek(todayKey: string): { from: string; to: string } {

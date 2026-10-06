@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
 import { withOrgAll } from "@/lib/org-scope";
-import { addDaysToKey, dayOfWeekForKey, isDateKey } from "@/lib/dates";
+import { dateForWeekday, isDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +21,6 @@ type ScheduleInsert = {
   end_minutes: number;
 };
 
-function addDays(dateStr: string, days: number): string {
-  return addDaysToKey(dateStr, days);
-}
 
 export async function POST(
   request: Request,
@@ -43,7 +40,6 @@ export async function POST(
   if (!weekStartDate || !/^\d{4}-\d{2}-\d{2}$/.test(weekStartDate))
     return NextResponse.json({ error: "weekStartDate must be YYYY-MM-DD" }, { status: 400 });
   if (!isDateKey(weekStartDate)) return NextResponse.json({ error: "Invalid weekStartDate" }, { status: 400 });
-  if (dayOfWeekForKey(weekStartDate) !== 1) return NextResponse.json({ error: "weekStartDate must be a Monday" }, { status: 422 });
 
   const { data: template } = await supabase
     .from("schedule_templates")
@@ -67,7 +63,10 @@ export async function POST(
 
   // Compute target dates
   const templateRows: TemplateRow[] = rows;
-  const targetDates = templateRows.map((r) => addDays(weekStartDate, r.day_of_week));
+  // day_of_week is 0 = Sunday … 6 = Saturday, like store hours and
+  // availability. Each row lands on that weekday within the 7 days starting at
+  // weekStartDate, whichever weekday the week starts on.
+  const targetDates = templateRows.map((r) => dateForWeekday(weekStartDate, r.day_of_week));
   const uniqueDates = [...new Set(targetDates)];
 
   // Fetch existing schedules for those dates
