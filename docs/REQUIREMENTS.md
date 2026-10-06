@@ -124,6 +124,29 @@ ShiftView is a mobile-first shift scheduling dashboard for retail and hospitalit
 
 ---
 
+### FR-9 Auto-schedule (Manager Only)
+
+See [AUTO_SCHEDULER.md](AUTO_SCHEDULER.md).
+
+| ID | Requirement | Actor |
+|---|---|---|
+| FR-9.1 | A manager shall be able to generate shifts for a Planner week in one action (Auto-schedule). | Manager |
+| FR-9.2 | Generated shifts shall be saved as drafts only; nothing shall be published or sent to employees until the manager publishes the week. | System |
+| FR-9.3 | The scheduler shall never schedule an employee on approved time off or a call-out day; outside their availability; in two overlapping shifts or two shifts on one day; beyond their weekly hours or days; with less than the minimum rest between shifts; or for more consecutive days than allowed, counting the previous week's published shifts. | System |
+| FR-9.4 | The scheduler shall not schedule anyone past 40 hours in the week unless the manager allows overtime for that run or raises that employee's hours for the week. | System |
+| FR-9.5 | The scheduler shall aim, in this order, to meet the coverage target in every 15-minute slot, give full-timers their minimum hours, avoid overstaffing, avoid days with pending time off, and honor shift-type, day and weekly-hours preferences. | System |
+| FR-9.6 | When the week already has drafts, the manager shall be able to keep them and fill around them, or replace them. | Manager |
+| FR-9.7 | The manager shall be able to add adjustments for the week only: more or fewer people for a time range, keeping someone off a day, and someone's maximum hours. | Manager |
+| FR-9.8 | After generating, the Planner shall show coverage before and after, scheduled hours against the budget, overtime hours, labor cost and preferences honored, and shall list each remaining gap with the reasons nobody could cover it. | System |
+| FR-9.9 | The manager shall be able to generate another version (replacing only that run's drafts), apply a suggested fix, or undo the week's latest run, which restores the drafts it replaced. | Manager |
+| FR-9.10 | The same inputs and seed shall produce the same schedule. | System |
+| FR-9.11 | If the week's drafts change while a schedule is being generated, nothing shall be saved and the manager shall be asked to try again. | System |
+| FR-9.12 | A manager shall be able to set each employee's employment type (full-time or part-time) and weekly hour and day limits; unset limits shall fall back to the organization's defaults. | Manager |
+| FR-9.13 | An employee shall be able to set shift preferences (shift types, preferred and "rather not" days, desired weekly hours); a manager shall be able to edit anyone's. | Employee / Manager |
+| FR-9.14 | Schedules shall be generated on ShiftView's own servers without any third-party AI service. | System |
+
+---
+
 ## Business Rules
 
 | Rule | Description |
