@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { createClient } from "@/lib/supabase-browser";
 import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedule, type PunchRecord, type StoreHours } from "@/data/types";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
+import { DEFAULT_SCHEDULING_RULES, type SchedulingRules } from "@/lib/scheduling-rules";
 import { DEFAULT_TIMEZONE } from "@/lib/dates";
 
 export type AppSettings = {
@@ -18,6 +19,7 @@ export type AppSettings = {
   geofenceRadius: number;
   geofenceAddress: string | null;
   punchPolicy: PunchPolicy;
+  schedulingRules: SchedulingRules;
 };
 
 export type MeData = {
@@ -52,7 +54,18 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geofenceRadius: 100,
   geofenceAddress: null,
   punchPolicy: DEFAULT_PUNCH_POLICY,
+  schedulingRules: DEFAULT_SCHEDULING_RULES,
 };
+
+// /api/settings fills every field, but a response from an older server (or a
+// test double) may predate newer ones; default anything missing.
+function withSettingsDefaults(data: Partial<AppSettings>): AppSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...data,
+    schedulingRules: { ...DEFAULT_SCHEDULING_RULES, ...data.schedulingRules },
+  };
+}
 
 type AppDataContextValue = {
   me: MeData;
@@ -223,7 +236,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const refreshSettings = useCallback(() => {
     fetch("/api/settings")
       .then(r => r.json())
-      .then((data: AppSettings) => setSettings(data))
+      .then((data: Partial<AppSettings>) => setSettings(withSettingsDefaults(data)))
       .catch(() => {});
   }, []);
 
@@ -266,7 +279,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     ]).then(([meResult, hoursResult, settingsResult]) => {
       if (meResult.status === "fulfilled") applyMe(meResult.value);
       if (hoursResult.status === "fulfilled") setStoreHours(prev => ({ ...prev, ...hoursResult.value }));
-      if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
+      if (settingsResult.status === "fulfilled") setSettings(withSettingsDefaults(settingsResult.value));
     }).finally(() => setSharedLoading(false));
   }, []);
 

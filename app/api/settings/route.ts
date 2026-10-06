@@ -5,6 +5,7 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrgAll } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
+import { applySchedulingRulesPatch, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { isValidTimezone, resolveTimezone } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export async function GET(request?: Request) {
     geofenceRadius:       parseInt(map.geofence_radius ?? "100"),
     geofenceAddress:      map.geofence_address || null,
     punchPolicy:          parsePunchPolicy(map),
+    schedulingRules:      parseSchedulingRules(map),
   });
 }
 
@@ -137,6 +139,24 @@ export async function PUT(request: Request) {
     const { rows: policyRows, error: policyError } = punchPolicyRows(body.punchPolicy);
     if (policyError) return NextResponse.json({ error: policyError }, { status: 400 });
     rows.push(...policyRows);
+  }
+
+  // Auto-scheduler rules — a nested object, validated against the stored rules
+  // so a patch that sets one end of a min/max range can't invert it.
+  if (body.schedulingRules !== undefined) {
+    const { data: stored, error: storedError } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .eq("org_id", orgId!)
+      .like("key", "sched_%");
+    if (storedError) {
+      console.error("[api/settings]", storedError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    const current = parseSchedulingRules(Object.fromEntries((stored ?? []).map((r) => [r.key, r.value])));
+    const result = applySchedulingRulesPatch(body.schedulingRules, current);
+    if (result.error !== null) return NextResponse.json({ error: result.error }, { status: 400 });
+    rows.push(...result.rows);
   }
 
   if (rows.length === 0)

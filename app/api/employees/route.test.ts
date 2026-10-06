@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeQueryBuilder, makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
@@ -70,6 +70,40 @@ describe("GET /api/employees", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(500);
+  });
+
+  it("returns weekly hour limits as numbers", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      queryData: [{ id: 1, name: "Alice Smith", employment_type: "part_time", min_weekly_hours: "12.0", max_weekly_hours: "24.5", max_days_per_week: 4 }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/employees"));
+    expect(await res.json()).toEqual([
+      { id: 1, name: "Alice Smith", employment_type: "part_time", min_weekly_hours: 12, max_weekly_hours: 24.5, max_days_per_week: 4 },
+    ]);
+  });
+
+  it("falls back to the base columns when the scheduling migration isn't applied", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    const original = client.from.getMockImplementation()!;
+    client.from.mockImplementation((table: string) => {
+      const builder = original(table);
+      if (table === "employees") {
+        const select = builder.select;
+        builder.select = vi.fn((columns: string) =>
+          columns.includes("employment_type")
+            ? makeQueryBuilder({ data: null, error: { code: "42703", message: "column employees.employment_type does not exist" } })
+            : select(columns)
+        );
+      }
+      return builder;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/employees"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED);
   });
 });
 
@@ -197,6 +231,57 @@ describe("PATCH /api/employees", () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
     const res = await PATCH(patchReq({ id: 1, payRate: "20" }));
     expect(res.status).toBe(400);
+  });
+
+  // ── Employment type and weekly limits ───────────────────────────────────────
+
+  function updateArgs(client: ReturnType<typeof makeSupabaseClient>) {
+    for (const r of (client.from as ReturnType<typeof vi.fn>).mock.results) {
+      const calls = (r.value.update as ReturnType<typeof vi.fn>).mock.calls;
+      if (calls.length) return calls[0][0];
+    }
+    return undefined;
+  }
+
+  it("saves employment type and weekly limits", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PATCH(patchReq({ id: 1, employmentType: "full_time", minWeeklyHours: 35, maxWeeklyHours: 40, maxDaysPerWeek: 5 }));
+    expect(res.status).toBe(200);
+    expect(updateArgs(client)).toEqual({
+      employment_type: "full_time",
+      min_weekly_hours: 35,
+      max_weekly_hours: 40,
+      max_days_per_week: 5,
+    });
+  });
+
+  it("clears a limit back to the org default with null", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PATCH(patchReq({ id: 1, maxWeeklyHours: null }));
+    expect(res.status).toBe(200);
+    expect(updateArgs(client)).toEqual({ max_weekly_hours: null });
+  });
+
+  it("returns 400 for an unknown employment type", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, employmentType: "seasonal" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("employmentType") });
+  });
+
+  it("returns 400 when a new minimum exceeds the stored maximum", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        queryData: { id: 1, name: "Alice Smith", min_weekly_hours: null, max_weekly_hours: "20.0" },
+      }) as any
+    );
+    const res = await PATCH(patchReq({ id: 1, minWeeklyHours: 25 }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "minWeeklyHours cannot exceed maxWeeklyHours" });
   });
 
   // ── DB error ────────────────────────────────────────────────────────────────

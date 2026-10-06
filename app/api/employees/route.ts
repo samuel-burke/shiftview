@@ -5,6 +5,7 @@ import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { writeAuditLog } from "@/lib/audit";
+import { validateEmployeeSchedulingPatch } from "@/lib/scheduling-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,22 @@ function sortByName<T extends { name: string }>(rows: T[]): T[] {
   });
 }
 
+const BASE_COLUMNS = "id, name, email, user_id, pay_rate";
+// Employment type and weekly limits (migration 0034).
+const SCHEDULING_COLUMNS = "employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week";
+// Postgres "undefined column": the database predates migration 0034.
+const UNDEFINED_COLUMN = "42703";
+const SCHEDULING_FIELDS = ["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
+
+// numeric columns can arrive as strings; hours are plain numbers in the API.
+function normalizeHours<T extends Record<string, unknown>>(row: T): T {
+  const out: Record<string, unknown> = { ...row };
+  for (const key of ["min_weekly_hours", "max_weekly_hours"]) {
+    if (out[key] != null) out[key] = Number(out[key]);
+  }
+  return out as T;
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
@@ -31,19 +48,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No organization membership" }, { status: 403 });
   }
 
-  const { data, error: dbError } = await supabase
+  const full = await supabase
     .from("employees")
-    .select("id, name, email, user_id, pay_rate")
+    .select(`${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}`)
     .eq("org_id", ctx!.orgId);
+  let data: ({ name: string } & Record<string, unknown>)[] | null = full.data;
+  let dbError = full.error;
+  // Keep the roster working if this deploy lands before its migration does.
+  if (dbError?.code === UNDEFINED_COLUMN) {
+    const base = await supabase.from("employees").select(BASE_COLUMNS).eq("org_id", ctx!.orgId);
+    data = base.data;
+    dbError = base.error;
+  }
   if (dbError) {
     console.error("[api/employees]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  return NextResponse.json(sortByName(data ?? []));
+  return NextResponse.json(sortByName((data ?? []).map(normalizeHours)));
 }
 
 export async function PATCH(request: Request) {
-  const { id, userId, name, payRate } = await request.json();
+  const body = await request.json();
+  const { id, userId, name, payRate } = body;
 
   if (id == null)
     return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -97,6 +123,24 @@ export async function PATCH(request: Request) {
   if (userId !== undefined) updates.user_id = userId;
   if (name !== undefined) updates.name = name.trim();
   if (payRate !== undefined) updates.pay_rate = payRate;
+
+  // Employment type and weekly limits. A one-sided min/max change is checked
+  // against the stored other end, so the range can't invert.
+  if (SCHEDULING_FIELDS.some((f) => body[f] !== undefined)) {
+    const { data: stored } = await supabase
+      .from("employees")
+      .select("min_weekly_hours, max_weekly_hours")
+      .eq("org_id", orgId!)
+      .eq("id", id)
+      .maybeSingle();
+    const scheduling = validateEmployeeSchedulingPatch(body, {
+      minWeeklyHours: stored?.min_weekly_hours == null ? null : Number(stored.min_weekly_hours),
+      maxWeeklyHours: stored?.max_weekly_hours == null ? null : Number(stored.max_weekly_hours),
+    });
+    if (scheduling.error !== null)
+      return NextResponse.json({ error: scheduling.error }, { status: 400 });
+    Object.assign(updates, scheduling.updates);
+  }
 
   if (Object.keys(updates).length === 0)
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
