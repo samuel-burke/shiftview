@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { dateKeyInTz, localDayBoundsUtc, resolveTimezone, todayKeyInTz } from "@/lib/dates";
+import { loadCurrentShift } from "@/lib/current-shift-server";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,25 @@ export async function GET(request?: Request) {
     .maybeSingle();
 
   if (!prevPunch || prevPunch.punch_type === "clock_out") {
+    return NextResponse.json({ missedPunch: null });
+  }
+
+  // Not missed if that shift carried on past midnight: either it's still the
+  // current shift (a closer within the overnight grace window), or its
+  // continuation — a break or clock-out — was already punched today.
+  const [{ shift }, { data: firstToday }] = await Promise.all([
+    loadCurrentShift(supabase, orgId, employeeId, tz),
+    supabase
+      .from("punch_records")
+      .select("punch_type")
+      .eq("org_id", orgId)
+      .eq("employee_id", employeeId)
+      .gte("punched_at", todayStart.toISOString())
+      .order("punched_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (shift?.carriedOver || (firstToday && firstToday.punch_type !== "clock_in")) {
     return NextResponse.json({ missedPunch: null });
   }
 

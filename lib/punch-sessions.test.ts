@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assignPunchDays } from "./punch-sessions";
+import { assignPunchDays, currentShift } from "./punch-sessions";
 
 const TZ = "America/New_York";
 
@@ -37,5 +37,62 @@ describe("assignPunchDays", () => {
   it("buckets orphan punches (no prior clock-in) on their own day", () => {
     const out = assignPunchDays([{ punchType: "clock_out", punchedAt: "2026-01-16T05:30:00Z" }], TZ);
     expect(out[0]).toEqual({ day: "2026-01-16", minutes: 30 });
+  });
+});
+
+describe("currentShift — across midnight", () => {
+  const p = (punchType: string, punchedAt: string) => ({ punchType, punchedAt });
+  // New York, January (EST, UTC−5). The closer clocked in at 4:00 PM Jan 15.
+  const closer = [p("clock_in", "2026-01-15T21:00:00Z")];
+  const at = (iso: string) => Date.parse(iso);
+
+  it("keeps a closer's shift current after midnight so they can clock out", () => {
+    const s = currentShift(closer, at("2026-01-16T05:30:00Z"), TZ); // 00:30 Jan 16
+    expect(s).toMatchObject({ state: "clock_in", carriedOver: true });
+    expect(s.punches).toHaveLength(1);
+  });
+
+  it("continues the shift through breaks taken after midnight", () => {
+    const punches = [...closer, p("break_start", "2026-01-16T05:10:00Z")];
+    const s = currentShift(punches, at("2026-01-16T05:20:00Z"), TZ);
+    expect(s).toMatchObject({ state: "break_start", carriedOver: true });
+    expect(s.punches.map((x) => x.punchType)).toEqual(["clock_in", "break_start"]);
+  });
+
+  it("ends once the closer clocks out after midnight", () => {
+    const punches = [...closer, p("clock_out", "2026-01-16T05:30:00Z")];
+    const s = currentShift(punches, at("2026-01-16T06:00:00Z"), TZ);
+    expect(s.state).toBe("clock_out");
+    expect(s.carriedOver).toBe(false);
+  });
+
+  it("treats a shift still open after 4:00 AM as a forgotten clock-out", () => {
+    // Forgot to clock out of an evening shift; it's 7:00 AM the next day.
+    const s = currentShift(closer, at("2026-01-16T12:00:00Z"), TZ);
+    expect(s).toEqual({ state: null, punches: [], carriedOver: false });
+  });
+
+  it("treats a shift that began over 16 hours ago as forgotten, even before 4:00 AM", () => {
+    const morning = [p("clock_in", "2026-01-15T13:00:00Z")]; // 8:00 AM Jan 15
+    const s = currentShift(morning, at("2026-01-16T06:00:00Z"), TZ); // 1:00 AM, 17h later
+    expect(s.state).toBeNull();
+  });
+
+  it("never carries over a shift from two days ago", () => {
+    const old = [p("clock_in", "2026-01-14T21:00:00Z")];
+    expect(currentShift(old, at("2026-01-16T05:30:00Z"), TZ).state).toBeNull();
+  });
+
+  it("uses today's punches as normal during the day", () => {
+    const punches = [...closer, p("clock_out", "2026-01-16T03:00:00Z"), p("clock_in", "2026-01-16T14:00:00Z")];
+    const s = currentShift(punches, at("2026-01-16T15:00:00Z"), TZ);
+    expect(s).toMatchObject({ state: "clock_in", carriedOver: false });
+    expect(s.punches).toHaveLength(1);
+  });
+
+  it("handles a closer on the US fall-back night (25-hour day)", () => {
+    // Clocked in 6:00 PM EDT Oct 31; it's 1:30 AM EST (the second 1:30) Nov 1.
+    const s = currentShift([p("clock_in", "2026-10-31T22:00:00Z")], at("2026-11-01T06:30:00Z"), TZ);
+    expect(s).toMatchObject({ state: "clock_in", carriedOver: true });
   });
 });

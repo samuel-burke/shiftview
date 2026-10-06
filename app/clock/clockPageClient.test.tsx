@@ -32,6 +32,7 @@ function mockApi({
   schedules = [] as Record<string, unknown>[],
   todayPunches = [] as Record<string, unknown>[],
   missedPunch = true,
+  current = { carriedOver: false, punches: [] } as { carriedOver: boolean; punches: Record<string, unknown>[] },
 } = {}) {
   const puts: unknown[] = [];
   let currentCorrections = corrections;
@@ -58,6 +59,7 @@ function mockApi({
       ];
       return json({ ok: true, pending: true, correctionId: 9 }, putStatus);
     }
+    if (url.startsWith("/api/punches/current")) return json(current);
     if (url.startsWith("/api/punches")) return json(todayPunches);
     if (url.startsWith("/api/punch-corrections")) return json({ corrections: currentCorrections });
     if (url.startsWith("/api/callouts")) return json({ callouts: [] });
@@ -141,5 +143,27 @@ describe("Clock — call-out button", () => {
     render(<ClockPageClient />);
     await screen.findByText(/Clocked In/i);
     expect(callOutButton()).not.toBeInTheDocument();
+  });
+});
+
+describe("Clock — closing past midnight", () => {
+  it("shows yesterday's open shift with End Shift after midnight", async () => {
+    vi.setSystemTime(new Date("2026-11-02T05:30:00Z")); // 12:30 AM EST, Nov 2
+    mockApi({
+      missedPunch: false,
+      schedules: [],
+      todayPunches: [],
+      current: {
+        carriedOver: true,
+        punches: [{ id: 7, employeeId: 5, punchType: "clock_in", punchedAt: "2026-11-01T21:00:00Z", isManual: false, note: null }],
+      },
+    });
+    render(<ClockPageClient />);
+    expect(await screen.findByText("Shift from yesterday")).toBeInTheDocument();
+    expect(screen.queryByText(/No shift scheduled today/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "End Shift" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clock In" })).not.toBeInTheDocument();
+    // No call-out for a shift you're already working.
+    expect(screen.queryByRole("button", { name: /Can.t make it in today\? Call out/ })).not.toBeInTheDocument();
   });
 });

@@ -116,6 +116,8 @@ export default function ClockPageClient() {
     suggestedPunchType: PunchType;
   };
   const [missedPunchInfo, setMissedPunchInfo] = useState<MissedPunchInfo | null>(null);
+  // True while the current shift is one that started before midnight.
+  const [carriedOver, setCarriedOver] = useState(false);
 
   // Correction form state
   const [showCorrection, setShowCorrection] = useState(false);
@@ -209,10 +211,11 @@ export default function ClockPageClient() {
     if (!background) setLoading(true);
     setError(null);
     try {
-      const [schedRes, punchRes, missedRes] = await Promise.all([
+      const [schedRes, punchRes, missedRes, currentRes] = await Promise.all([
         fetch(`/api/schedules?date=${todayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
         fetch(`/api/punches/missed`),
+        fetch(`/api/punches/current`),
       ]);
 
       const scheds: Schedule[] = await schedRes.json();
@@ -224,7 +227,20 @@ export default function ClockPageClient() {
       const allPunches = Array.isArray(punchData) ? punchData : [];
       setPunchCache(todayKey, allPunches);
       const myPunches = empId ? allPunches.filter((p) => p.employeeId === empId) : [];
-      setPunches(myPunches);
+
+      // A shift still open from before midnight (a closer) is the current
+      // shift: include its earlier punches so status, timers and history
+      // continue it, and Clock Out works.
+      const current = await currentRes.json().catch(() => null);
+      const carried = !!current?.carriedOver && Array.isArray(current.punches);
+      setCarriedOver(carried);
+      if (carried) {
+        const byId = new Map<number, PunchRecord>();
+        for (const p of [...(current.punches as PunchRecord[]), ...myPunches]) byId.set(p.id, p);
+        setPunches([...byId.values()].sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()));
+      } else {
+        setPunches(myPunches);
+      }
 
       const missedData = await missedRes.json();
       setMissedPunchInfo(missedData.missedPunch ?? null);
@@ -633,6 +649,11 @@ export default function ClockPageClient() {
           {schedule ? (
             <div className="mt-1.5 text-2xl font-bold text-slate-100">
               {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
+            </div>
+          ) : carriedOver ? (
+            <div className="mt-1.5">
+              <div className="text-xl font-bold text-slate-100">Shift from yesterday</div>
+              <div className="text-xs text-slate-400 mt-0.5">Still open after midnight — clock out when you&apos;re done.</div>
             </div>
           ) : (
             <div className="mt-1.5 text-xl font-bold text-slate-400">No shift scheduled today</div>

@@ -18,11 +18,12 @@ import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../li
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
 
-// Templates apply to a Monday-start week: default to the next Monday on or
-// after today in the store's timezone.
-function upcomingMondayKey(tz: string): string {
+// Templates are applied to the 7 days starting at a chosen date: default to
+// the next start of the store's week (its "first day of week" setting) on or
+// after today, in the store's timezone.
+function upcomingWeekStartKey(tz: string, firstDayOfWeek: number): string {
   const today = todayKeyInTz(tz);
-  return addDaysToKey(today, (8 - dayOfWeekForKey(today)) % 7);
+  return addDaysToKey(today, (firstDayOfWeek - dayOfWeekForKey(today) + 7) % 7);
 }
 
 type NominatimAddress = {
@@ -1551,7 +1552,7 @@ export default function SettingsPageClient({
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingMondayKey(timezone) }))}
+                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingWeekStartKey(timezone, firstDayOfWeek) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
@@ -1576,6 +1577,7 @@ export default function SettingsPageClient({
                     </div>
                     {applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "" && (
                       <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 shrink-0">Week starting</span>
                         <input
                           type="date"
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}

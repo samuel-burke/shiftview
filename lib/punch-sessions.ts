@@ -1,4 +1,4 @@
-import { daysBetweenKeys, dateKeyInTz, getLocalMinutes } from "@/lib/dates";
+import { addDaysToKey, daysBetweenKeys, dateKeyInTz, getLocalMinutes, todayKeyInTz } from "@/lib/dates";
 
 // A session that runs this long without a clock-out is treated as abandoned
 // (a forgotten clock-out) rather than continuing into later punches.
@@ -32,4 +32,63 @@ export function assignPunchDays(
     if (p.punchType === "clock_out") sessionDay = null;
     return { day, minutes };
   });
+}
+
+// ── The current shift, across midnight ───────────────────────────────────────
+// The clock works in store calendar days, but a closer's shift can run past
+// midnight. A shift left open from the previous store day is still the
+// *current* shift — so its owner can take/end a break and clock out normally —
+// until OVERNIGHT_GRACE_MINUTES past the store's midnight, and only if it began
+// within MAX_SHIFT_MS. After that it's treated as a forgotten clock-out (the
+// missed-punch flow), so it never blocks the next day's clock-in.
+
+export const OVERNIGHT_GRACE_MINUTES = 4 * 60; // until 4:00 AM store time
+export const MAX_SHIFT_MS = 16 * 60 * 60 * 1000; // longest allowed shift (BR-3)
+
+type SessionPunch = { punchType: string; punchedAt: string };
+
+export type CurrentShift<P extends SessionPunch> = {
+  // The latest punch type of the current shift, or null when there is none
+  // (never clocked in, or the shift was left open on a previous day).
+  state: string | null;
+  // Punches from the current shift's clock-in onward (empty when state is null).
+  punches: P[];
+  // True while the current shift is still open and began on the previous store day.
+  carriedOver: boolean;
+};
+
+// `punches`: the employee's punches from the start of the previous store day
+// up to now, sorted ascending.
+export function currentShift<P extends SessionPunch>(punches: P[], nowMs: number, tz: string): CurrentShift<P> {
+  const today = todayKeyInTz(tz, nowMs);
+  const sinceLastClockIn = (list: P[]) => {
+    const i = list.map((p) => p.punchType).lastIndexOf("clock_in");
+    return i >= 0 ? list.slice(i) : [];
+  };
+  const startedBeforeToday = (session: P[]) =>
+    session.length > 0 && dateKeyInTz(session[0].punchedAt, tz) < today;
+
+  const todays = punches.filter((p) => dateKeyInTz(p.punchedAt, tz) === today);
+  if (todays.length > 0) {
+    const session = sinceLastClockIn(punches);
+    const state = todays[todays.length - 1].punchType;
+    return {
+      state,
+      punches: session,
+      carriedOver: state !== "clock_out" && startedBeforeToday(session) && todays.every((p) => p.punchType !== "clock_in"),
+    };
+  }
+
+  // Nothing yet today: is yesterday's shift still open and within the grace window?
+  const last = punches[punches.length - 1];
+  const session = sinceLastClockIn(punches);
+  const clockIn = session[0];
+  const open =
+    !!last && last.punchType !== "clock_out" &&
+    !!clockIn && dateKeyInTz(clockIn.punchedAt, tz) === addDaysToKey(today, -1) &&
+    getLocalMinutes(nowMs, tz) < OVERNIGHT_GRACE_MINUTES &&
+    nowMs - new Date(clockIn.punchedAt).getTime() <= MAX_SHIFT_MS;
+  return open
+    ? { state: last.punchType, punches: session, carriedOver: true }
+    : { state: null, punches: [], carriedOver: false };
 }
