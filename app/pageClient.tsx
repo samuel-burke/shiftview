@@ -985,11 +985,17 @@ export default function Page() {
        * Single responsive layout — no JS fork.
        * Mobile: linear stack inside max-w-[480px], pb-28 for the fixed BottomNav.
        * Desktop (desk, ≥1024px): 2-column grid, pb-8, no max-width.
+       * Wide (≥1440px): room is reserved on the right while the employee pane is open.
        * px-4 is on the inner content wrapper (not on <main>) so the sticky
        * CoverageHeader can span the full width of its parent without fighting
        * against inherited horizontal padding.
        */}
-      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8">
+      <main
+        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
+          // Wide screens show employee detail as a side pane beside the dashboard (EmployeeDrawer)
+          selected ? "wide:pr-[420px]" : ""
+        }`}
+      >
         <CoverageHeader {...headerProps} hideMobileBrand />
         {errorBanner}
         {/*

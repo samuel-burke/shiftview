@@ -129,5 +129,13 @@ test.describe("Responsive layout", () => {
       expect(Math.round(box.x + box.width)).toBeGreaterThanOrEqual(vp.width - 2);
       expect(box.width).toBeLessThan(vp.width * 0.75);
     }
+
+    if (sizeOf(page) === "wide") {
+      // Non-modal pane: the dashboard stays usable, so picking another person
+      // swaps the pane's content without closing it first.
+      await page.getByText("Bob J.").first().click();
+      await expect(drawer.getByText("9:00 AM")).toBeVisible();
+      await expect(drawer.getByText("6:00 AM")).toBeHidden();
+    }
   });
 });

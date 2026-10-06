@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { BREAKPOINTS } from "../hooks/useBreakpoint";
 import { haptic } from "../lib/haptic";
 import { dayOfWeekForKey } from "../lib/dates";
 import MessageThread from "./MessageThread";
@@ -73,6 +74,10 @@ export default function EmployeeDrawer({
   isManager,
 }: Props) {
   const isDesktop = useIsDesktop();
+  // At the wide size class the drawer is a non-modal side pane: no
+  // backdrop, the page stays scrollable, and the dashboard reserves room for
+  // it (see app/pageClient.tsx) so another person can be picked while it's open.
+  const isPane = useIsDesktop(BREAKPOINTS.wide);
   const dragControls = useDragControls();
   const [editing, setEditing] = useState(false);
   const [startVal, setStartVal] = useState("");
@@ -85,9 +90,9 @@ export default function EmployeeDrawer({
   const [conflict, setConflict] = useState<ConflictState>(null);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    document.body.style.overflow = open && !isPane ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  }, [open, isPane]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -266,7 +271,7 @@ export default function EmployeeDrawer({
       <AnimatePresence>
         {open && (
           <>
-            <motion.div
+            {!isPane && <motion.div
               key="backdrop"
               aria-hidden="true"
               className="fixed inset-0 bg-black/60 z-40"
@@ -275,11 +280,11 @@ export default function EmployeeDrawer({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onClick={onClose}
-            />
+            />}
             <motion.div
               key="panel"
               role="dialog"
-              aria-modal="true"
+              aria-modal={!isPane}
               aria-labelledby="employee-drawer-title"
               data-testid="employee-drawer"
               className={`fixed z-50 bg-bg ${
