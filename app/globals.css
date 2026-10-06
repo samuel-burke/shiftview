@@ -32,6 +32,18 @@
   --color-timeoff-pending:  #cbd5e1; /* lighter slate for visibility */
   --color-timeoff-approved: #4ade80; /* brighter green for dark UI */
   --color-timeoff-denied:   #f87171; /* softened red (less harsh on dark bg) */
+
+  /* Coverage heatmap: diverging around the target. Neutral = met; red arm =
+     short by 1 / 2 / 3+, blue arm = over by 1 / 2 / 3+. Each arm is one hue
+     with lightness moving away from the neutral, validated against the card
+     surface (monotone, visible steps, nearest step >= 2:1). */
+  --color-cov-met:     #334155;
+  --color-cov-short-1: #991b1b;
+  --color-cov-short-2: #dc2626;
+  --color-cov-short-3: #f87171;
+  --color-cov-over-1:  #1e40af;
+  --color-cov-over-2:  #2563eb;
+  --color-cov-over-3:  #60a5fa;
 }
 
 /* ── Light theme overrides ────────────────────────────────── */
@@ -52,6 +64,15 @@
   --color-timeoff-pending:  #94a3b8; /* neutral slate (no confusion with "warning") */
   --color-timeoff-approved: #22c55e; /* strong, readable green */
   --color-timeoff-denied:   #ef4444; /* clear error red */
+
+  /* Coverage heatmap (see the dark values above) */
+  --color-cov-met:     #e2e8f0;
+  --color-cov-short-1: #f87171;
+  --color-cov-short-2: #dc2626;
+  --color-cov-short-3: #991b1b;
+  --color-cov-over-1:  #60a5fa;
+  --color-cov-over-2:  #2563eb;
+  --color-cov-over-3:  #1e40af;
 
   /*
    * Invert the Tailwind slate palette so every bg-slate-*, text-slate-*,
@@ -74,8 +95,13 @@
    * Accent colors: replace light tints with darker equivalents so text
    * and borders remain legible on a white/near-white background.
    */
+  --color-indigo-100: #312e81;
+  --color-indigo-200: #3730a3;
   --color-indigo-300: #4338ca;
   --color-indigo-400: #4f46e5;
+  --color-violet-100: #4c1d95;
+  --color-violet-200: #5b21b6;
+  --color-violet-300: #6d28d9;
   --color-emerald-400: #059669;
   --color-red-300: #b91c1c;
   --color-red-400: #dc2626;

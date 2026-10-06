@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  limitsFromColumns,
   MAX_WEEKLY_HOURS,
   resolveEmployeeLimits,
+  type EmployeeLimitColumns,
   type EmploymentType,
   type SchedulingRules,
 } from "@/lib/scheduling-rules";
@@ -15,14 +17,6 @@ import ShiftPreferencesSection from "./ShiftPreferencesSection";
 // weekly limits for the Planner's Auto-schedule, plus the employee's shift
 // preferences. Blank limits fall back to the org default for the type
 // (Settings → Scheduling Rules).
-
-// The employee fields this row reads, as /api/employees returns them.
-export type EmployeeSchedulingFields = {
-  employment_type?: EmploymentType | null;
-  min_weekly_hours?: number | null;
-  max_weekly_hours?: number | null;
-  max_days_per_week?: number | null;
-};
 
 type TypeChoice = EmploymentType | "unset";
 
@@ -44,10 +38,10 @@ export default function EmployeeSchedulingRow({
   firstDayOfWeek,
   onSaved,
 }: {
-  employee: EmployeeSchedulingFields & { id: number; name: string };
+  employee: EmployeeLimitColumns & { id: number; name: string };
   rules: SchedulingRules;
   firstDayOfWeek: number;
-  onSaved: (fields: EmployeeSchedulingFields) => void;
+  onSaved: (fields: EmployeeLimitColumns) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [type, setType] = useState<TypeChoice>(employee.employment_type ?? "unset");
@@ -59,15 +53,7 @@ export default function EmployeeSchedulingRow({
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (statusTimer.current) clearTimeout(statusTimer.current); }, []);
 
-  const savedLimits = resolveEmployeeLimits(
-    {
-      employmentType: employee.employment_type ?? null,
-      minWeeklyHours: employee.min_weekly_hours ?? null,
-      maxWeeklyHours: employee.max_weekly_hours ?? null,
-      maxDaysPerWeek: employee.max_days_per_week ?? null,
-    },
-    rules
-  );
+  const savedLimits = limitsFromColumns(employee, rules);
   // Placeholders show what a blank field means for the selected type.
   const typeDefaults = resolveEmployeeLimits({ employmentType: type === "unset" ? null : type }, rules);
 
@@ -87,7 +73,7 @@ export default function EmployeeSchedulingRow({
       return;
     }
     setProblem(null);
-    const fields: EmployeeSchedulingFields = {
+    const fields: EmployeeLimitColumns = {
       employment_type: type === "unset" ? null : type,
       min_weekly_hours: min,
       max_weekly_hours: max,

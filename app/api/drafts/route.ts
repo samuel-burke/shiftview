@@ -55,6 +55,8 @@ export async function GET(request: Request) {
     date:         typeof s.date === "string" ? s.date.slice(0, 10) : s.date,
     startMinutes: s.start_minutes,
     endMinutes:   s.end_minutes,
+    // The Auto-schedule run that created it (null if made by hand).
+    generationRunId: s.generation_run_id ?? null,
   }));
 
   return NextResponse.json(mapped);
@@ -119,9 +121,11 @@ export async function PUT(request: Request) {
   const { orgId, error: authError } = await requireManager(supabase, request);
   if (authError) return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  // "*" rather than a column list: generation_run_id only exists once
+  // migration 0034 is applied.
   const { data: existing } = await supabase
     .from("draft_schedules")
-    .select("employee_id, date")
+    .select("*")
     .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
@@ -138,9 +142,14 @@ export async function PUT(request: Request) {
     if (conflict) return conflict;
   }
 
+  // An Auto-schedule draft the manager edits becomes their own: another
+  // version or an undo of that run leaves it alone.
+  const changes: Record<string, number | null> = { start_minutes: startMinutes, end_minutes: endMinutes };
+  if (existing.generation_run_id != null) changes.generation_run_id = null;
+
   const { error } = await supabase
     .from("draft_schedules")
-    .update({ start_minutes: startMinutes, end_minutes: endMinutes })
+    .update(changes)
     .eq("org_id", orgId)
     .eq("id", id);
 

@@ -203,6 +203,26 @@ export function resolveEmployeeLimits(emp: EmployeeSchedulingFields, rules: Sche
   };
 }
 
+// The scheduling columns /api/employees returns with each employee.
+export type EmployeeLimitColumns = {
+  employment_type?: EmploymentType | null;
+  min_weekly_hours?: number | null;
+  max_weekly_hours?: number | null;
+  max_days_per_week?: number | null;
+};
+
+export function limitsFromColumns(row: EmployeeLimitColumns, rules: SchedulingRules): EmployeeLimits {
+  return resolveEmployeeLimits(
+    {
+      employmentType: row.employment_type ?? null,
+      minWeeklyHours: row.min_weekly_hours ?? null,
+      maxWeeklyHours: row.max_weekly_hours ?? null,
+      maxDaysPerWeek: row.max_days_per_week ?? null,
+    },
+    rules
+  );
+}
+
 function isWeeklyHours(v: unknown): v is number {
   return typeof v === "number" && isValidNumber(v, "hours", 0, MAX_WEEKLY_HOURS);
 }

@@ -22,8 +22,8 @@ const MOCK_DRAFT_DB = [
 ];
 
 const MOCK_DRAFT_MAPPED = [
-  { id: 1, employeeId: 10, date: "2026-06-01", startMinutes: 480, endMinutes: 960 },
-  { id: 2, employeeId: 11, date: "2026-06-02", startMinutes: 540, endMinutes: 1020 },
+  { id: 1, employeeId: 10, date: "2026-06-01", startMinutes: 480, endMinutes: 960, generationRunId: null },
+  { id: 2, employeeId: 11, date: "2026-06-02", startMinutes: 540, endMinutes: 1020, generationRunId: null },
 ];
 
 // ── GET ───────────────────────────────────────────────────────────────────────
@@ -330,6 +330,44 @@ describe("PUT /api/drafts", () => {
     const res = await PUT(putReq(validBody));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  // The update sent to draft_schedules (the one builder whose update() ran).
+  async function updateSent(client: ReturnType<typeof makeSupabaseClient>) {
+    const builders = client.from.mock.results.map((r: { value: any }) => r.value);
+    const updated = builders.filter((b: any) => b.update.mock.calls.length > 0);
+    expect(updated).toHaveLength(1);
+    return updated[0].update.mock.calls[0][0];
+  }
+
+  it("keeps a hand-made draft's fields as they are", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        draft_schedules: { data: { ...existingDraft, generation_run_id: null }, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: null, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await PUT(putReq(validBody))).status).toBe(200);
+    expect(await updateSent(client)).toEqual({ start_minutes: 480, end_minutes: 960 });
+  });
+
+  it("makes an edited Auto-schedule draft the manager's own", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: {
+        draft_schedules: { data: { ...existingDraft, generation_run_id: 7 }, error: null },
+        time_off_requests: { data: null, error: null },
+        availability: { data: null, error: null },
+      },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await PUT(putReq(validBody))).status).toBe(200);
+    expect(await updateSent(client)).toEqual({ start_minutes: 480, end_minutes: 960, generation_run_id: null });
   });
 
   it("returns 500 on database error", async () => {

@@ -25,22 +25,22 @@ export default defineConfig({
     },
     {
       // iPad Air portrait size (the tablet size class) in Chromium, which is
-      // the only browser CI installs. Layout specs only — the dashboard specs
-      // in demo.spec.ts target the phone header.
+      // the only browser CI installs. Layout and Planner specs only — the
+      // dashboard specs in demo.spec.ts target the phone header.
       name: "tablet-chrome",
-      testMatch: /responsive\.spec\.ts/,
+      testMatch: /(responsive|auto-schedule)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 }, hasTouch: true },
     },
     {
       // iPad Air landscape (desk size class).
       name: "tablet-landscape-chrome",
-      testMatch: /responsive\.spec\.ts/,
+      testMatch: /(responsive|auto-schedule)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1180, height: 820 }, hasTouch: true },
     },
     {
       // Desktop monitor (wide size class).
       name: "desktop-chrome",
-      testMatch: /responsive\.spec\.ts/,
+      testMatch: /(responsive|auto-schedule)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1600, height: 1000 } },
     },
   ],
