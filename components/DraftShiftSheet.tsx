@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { haptic } from "../lib/haptic";
 import { Employee, Schedule, getMonogram, fmtMinutes } from "../data/types";
+import { minutesFromTimeInputs, timeInputFromMinutes, validateShiftTimes } from "../lib/shift-times";
 
 type ConflictState = {
   type: string;
@@ -24,12 +25,7 @@ type Props = {
 
 function minutesToTime(m: number): string {
   if (m < 0) return "";
-  return `${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`;
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
+  return timeInputFromMinutes(m); // an overnight end (past 1440) shows as the next day's time
 }
 
 export default function DraftShiftSheet({ open, employee, draft, date, onClose, onSave, onRemove }: Props) {
@@ -75,9 +71,13 @@ export default function DraftShiftSheet({ open, employee, draft, date, onClose, 
   async function handleSave(overrideFlag = false) {
     if (!employee) return;
     if (!startVal || !endVal) { setError("Both times are required."); return; }
-    const start = timeToMinutes(startVal);
-    const end = timeToMinutes(endVal);
-    if (start >= end) { setError("End time must be after start time."); return; }
+    // An end time at or before the start means the shift ends the next day.
+    const { startMinutes: start, endMinutes: end } = minutesFromTimeInputs(startVal, endVal);
+    const timeError = validateShiftTimes(start, end);
+    if (timeError) {
+      setError(end - start < 60 ? "A shift must be at least 1 hour." : "A shift can't be longer than 16 hours.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setConflict(null);
@@ -253,6 +253,10 @@ export default function DraftShiftSheet({ open, employee, draft, date, onClose, 
                       />
                     </div>
                   ))}
+
+                  {startVal && endVal && endVal <= startVal && (
+                    <div className="text-xs text-indigo-300 -mt-1" data-testid="draft-shift-overnight">Ends the next day (overnight shift)</div>
+                  )}
 
                   {error && (
                     <div role="alert" className="text-xs text-red-400 text-center">{error}</div>

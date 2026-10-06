@@ -42,6 +42,7 @@ import {
   weekStartForKey,
 } from "@/lib/dates";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { isOvernight, shiftTouchesDay, shiftWindowOn } from "@/lib/shift-times";
 
 // Code-split the recharts-backed timeline off the dashboard's initial bundle.
 // It only renders once data has loaded (gated behind SkeletonTimeline below),
@@ -149,6 +150,9 @@ export default function Page() {
   const [, setMinuteTick] = useState(0);
   const nowMinutes = nowMinutesInTz(timezone);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  // The previous day's shifts: overnight ones (and closers still clocked in)
+  // run into the viewed day.
+  const [prevSchedules, setPrevSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
@@ -225,6 +229,18 @@ export default function Page() {
     window.location.href = "/login";
   }
 
+  function reloadPrevSchedules(dk: string) {
+    const prev = addDaysToKey(dk, -1);
+    return apiFetch(`/api/schedules?date=${prev}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data) || dateKeyRef.current !== dk) return;
+        setPrevSchedules(data);
+        setScheduleCache(prev, data);
+      })
+      .catch(() => {});
+  }
+
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
     const res = await apiFetch("/api/schedules", {
       method: "PUT",
@@ -242,6 +258,7 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to save shift");
     }
+    reloadPrevSchedules(dateKey); // the edited shift may be last night's overnight shift
     const data = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
     if (Array.isArray(data)) {
       setSchedules(data);
@@ -357,7 +374,7 @@ export default function Page() {
 
     // 5-minute background poll as a fallback in case the Realtime connection drops
     const t = setInterval(() => {
-      apiFetch(`/api/punches?date=${dateKey}`)
+      apiFetch(`/api/punches?date=${dateKey}&carried=1`)
         .then((r) => r.json())
         .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
         .catch(() => {});
@@ -379,6 +396,7 @@ export default function Page() {
           if (Array.isArray(data)) { setSchedules(data); setScheduleCache(dk, data); }
         })
         .catch(() => {});
+      reloadPrevSchedules(dk);
     }
 
     function refetchEmployees() {
@@ -443,6 +461,7 @@ export default function Page() {
     setError(null);
 
     const cachedSchedules = scheduleCache[dateKey];
+    setPrevSchedules(scheduleCache[addDaysToKey(dateKey, -1)] ?? []);
     const cachedPunches = isViewingToday ? punchCache[dateKey] : undefined;
 
     if (cachedSchedules) {
@@ -472,10 +491,11 @@ export default function Page() {
           setSchedules(data);
           setScheduleCache(dateKey, data);
         }),
+      reloadPrevSchedules(dateKey),
     ];
     if (isViewingToday) {
       fetches.push(
-        apiFetch(`/api/punches?date=${dateKey}`)
+        apiFetch(`/api/punches?date=${dateKey}&carried=1`)
           .then((r) => r.json())
           .then((data) => {
             const punches = Array.isArray(data) ? data : [];
@@ -530,10 +550,21 @@ export default function Page() {
 
   const isToday = dateKey === todayKey;
 
-  const daySchedules = useMemo(
-    () => schedules.filter((s) => s.date.slice(0, 10) === dateKey),
-    [schedules, dateKey],
-  );
+  // The viewed day's shifts, plus the previous day's that run into it: an
+  // overnight shift, or a shift whose employee is still clocked in from it.
+  const daySchedules = useMemo(() => {
+    const prevKey = addDaysToKey(dateKey, -1);
+    const carriedIds = new Set(
+      isToday ? punchRecords.filter((p) => dateKeyInTz(p.punchedAt, timezone) === prevKey).map((p) => p.employeeId) : [],
+    );
+    const todays = schedules.filter((s) => s.date.slice(0, 10) === dateKey);
+    const spill = prevSchedules.filter((s) =>
+      s.date.slice(0, 10) === prevKey &&
+      (isOvernight(s) || carriedIds.has(s.employeeId)) &&
+      // a carried-over closer whose shift has already ended still shows, as clocked in
+      (shiftTouchesDay(s, dateKey) || carriedIds.has(s.employeeId)));
+    return [...spill, ...todays];
+  }, [schedules, prevSchedules, dateKey, isToday, punchRecords, timezone]);
   const scheduled = daySchedules;
 
   // Build a map from employeeId → AttendanceStatus using real punch records.
@@ -604,8 +635,10 @@ export default function Page() {
   }, [employees, daySchedules, walkInSchedules, calloutIds]);
 
   const sortedScheduled = useMemo(
-    () => [...scheduled].sort((a, b) => a.startMinutes - b.startMinutes).filter((s) => !calloutIds.has(s.employeeId)),
-    [scheduled, calloutIds],
+    () => [...scheduled]
+      .sort((a, b) => shiftWindowOn(a, dateKey).start - shiftWindowOn(b, dateKey).start)
+      .filter((s) => !(s.date.slice(0, 10) === dateKey && calloutIds.has(s.employeeId))),
+    [scheduled, calloutIds, dateKey],
   );
 
   // Split sortedScheduled (plus walk-ins) into the three attendance-based sub-groups.
@@ -651,8 +684,8 @@ export default function Page() {
       }
       return count;
     }
-    return scheduled.filter((s) => isHere(s, nowMinutes)).length;
-  }, [punchRecords, scheduled, nowMinutes, isToday, punchesLoaded]);
+    return scheduled.filter((s) => isHere(s, nowMinutes, dateKey)).length;
+  }, [punchRecords, scheduled, nowMinutes, isToday, punchesLoaded, dateKey]);
 
   // "Scheduled" count includes employees with a shift today plus any employee who
   // has made at least one punch today (walk-ins or unscheduled arrivals).
@@ -662,7 +695,7 @@ export default function Page() {
       for (const p of punchRecords) ids.add(p.employeeId);
       return ids.size;
     }
-    return daySchedules.length;
+    return new Set(daySchedules.map((s) => s.employeeId)).size;
   }, [daySchedules, punchRecords, isToday, punchesLoaded]);
 
 
@@ -701,6 +734,7 @@ export default function Page() {
   const timeline = isLoading ? <SkeletonTimeline /> : (
     <CoverageTimeline
       schedules={daySchedules}
+      dayKey={dateKey}
       nowMinutes={nowMinutes}
       isToday={isToday}
       openMinutes={storeHours.open}
@@ -796,6 +830,7 @@ export default function Page() {
     storeHours,
     nowMinutes,
     isToday,
+    dayKey: dateKey,
     attendanceMap: isToday && punchesLoaded ? attendanceMap : undefined,
     onSelect: handleSelectShift,
   };

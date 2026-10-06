@@ -132,3 +132,15 @@ describe("buildShiftCalendar — store timezone", () => {
     expect(ics).toContain("DTSTART:20260706T080000\r\n");
   });
 });
+
+describe("overnight shifts", () => {
+  it("rolls an end time past midnight into the next day", () => {
+    expect(formatFloatingLocal("2026-07-06", 1800)).toBe("20260707T060000");
+    const ics = buildShiftCalendar(
+      [{ uid: "n@x", date: "2026-07-06", startMinutes: 1320, endMinutes: 1800, summary: "Night" }],
+      { calendarName: "C", timezone: "America/New_York", dtstamp: new Date(0) }
+    );
+    expect(ics).toContain("DTSTART:20260707T020000Z"); // 10 PM EDT
+    expect(ics).toContain("DTEND:20260707T100000Z");   // 6 AM EDT next day
+  });
+});

@@ -96,3 +96,27 @@ describe("currentShift — across midnight", () => {
     expect(s).toMatchObject({ state: "clock_in", carriedOver: true });
   });
 });
+
+describe("currentShift — scheduled overnight shifts", () => {
+  const p = (punchType: string, punchedAt: string) => ({ punchType, punchedAt });
+  const at = (iso: string) => Date.parse(iso);
+  // 10 PM Jan 15 – 6 AM Jan 16 New York (EST): ends 11:00 UTC.
+  const night = [p("clock_in", "2026-01-16T03:00:00Z")];
+  const end = at("2026-01-16T11:00:00Z");
+
+  it("keeps the shift current until its scheduled end, past 4:00 AM", () => {
+    expect(currentShift(night, at("2026-01-16T11:15:00Z"), TZ, end)).toMatchObject({ state: "clock_in", carriedOver: true });
+  });
+
+  it("allows a late clock-out within two hours of the scheduled end", () => {
+    expect(currentShift(night, at("2026-01-16T12:59:00Z"), TZ, end).state).toBe("clock_in");
+  });
+
+  it("treats it as forgotten after that", () => {
+    expect(currentShift(night, at("2026-01-16T13:01:00Z"), TZ, end).state).toBeNull();
+  });
+
+  it("without a scheduled overnight shift, still ends at 4:00 AM", () => {
+    expect(currentShift(night, at("2026-01-16T09:30:00Z"), TZ).state).toBeNull();
+  });
+});

@@ -6,10 +6,10 @@ import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
-import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, zonedTimeToUtc } from "@/lib/dates";
+import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
-import { loadCurrentShift } from "@/lib/current-shift-server";
+import { loadCarriedOverPunches, loadCurrentShift } from "@/lib/current-shift-server";
 
 export const dynamic = "force-dynamic";
 
@@ -81,8 +81,21 @@ export async function GET(request: Request) {
     console.error("[api/punches]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  const rows = (data ?? []) as Record<string, unknown>[];
 
-  return NextResponse.json((data ?? []).map(mapRow));
+  // ?carried=1 on today's date: also include the earlier punches of shifts
+  // still open from before midnight (closers, overnight shifts), so a live
+  // view shows them as clocked in rather than "not here yet".
+  if (searchParams.get("carried") === "1" && date === todayKeyInTz(tz)) {
+    const { punches: carried } = await loadCarriedOverPunches(
+      supabase, orgId, tz, Date.now(), isManager ? undefined : (employeeId ?? undefined),
+    );
+    const seen = new Set(rows.map((r) => r.id));
+    const earlier = carried.filter((p) => !seen.has(p.id)) as unknown as Record<string, unknown>[];
+    return NextResponse.json([...earlier, ...rows].map(mapRow));
+  }
+
+  return NextResponse.json(rows.map(mapRow));
 }
 
 // POST /api/punches — employee clocks a punch

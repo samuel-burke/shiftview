@@ -1,4 +1,4 @@
-import type { Schedule, PunchType } from "@/data/types";
+import { fmtMinutes, type Schedule, type PunchType } from "@/data/types";
 import { minutesFromScheduled } from "@/lib/dates";
 
 export type PunchWarning = {
@@ -72,9 +72,5 @@ export function getPunchWarning(
 }
 
 function fmtMin(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+  return fmtMinutes(minutes);
 }

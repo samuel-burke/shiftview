@@ -24,12 +24,13 @@ import UserMenu from "../../components/UserMenu";
 import { MegaphoneIcon } from "../../components/ShiftIcons";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
+import { isOvernight, shiftWindowOn } from "@/lib/shift-times";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 import { playPunchSound } from "@/lib/sounds";
-import { dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
+import { addDaysToKey, dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
@@ -211,8 +212,10 @@ export default function ClockPageClient() {
     if (!background) setLoading(true);
     setError(null);
     try {
-      const [schedRes, punchRes, missedRes, currentRes] = await Promise.all([
+      const yesterdayKey = addDaysToKey(todayKey, -1);
+      const [schedRes, prevSchedRes, punchRes, missedRes, currentRes] = await Promise.all([
         fetch(`/api/schedules?date=${todayKey}`),
+        fetch(`/api/schedules?date=${yesterdayKey}`),
         fetch(`/api/punches?date=${todayKey}`),
         fetch(`/api/punches/missed`),
         fetch(`/api/punches/current`),
@@ -220,8 +223,9 @@ export default function ClockPageClient() {
 
       const scheds: Schedule[] = await schedRes.json();
       setScheduleCache(todayKey, scheds);
+      const prevScheds: unknown = await prevSchedRes.json().catch(() => []);
+      if (Array.isArray(prevScheds)) setScheduleCache(yesterdayKey, prevScheds as Schedule[]);
       const empId = employeeIdRef.current;
-      setSchedule(empId ? (scheds.find((s) => s.employeeId === empId) ?? null) : null);
 
       const punchData: PunchRecord[] = await punchRes.json();
       const allPunches = Array.isArray(punchData) ? punchData : [];
@@ -234,6 +238,9 @@ export default function ClockPageClient() {
       const current = await currentRes.json().catch(() => null);
       const carried = !!current?.carriedOver && Array.isArray(current.punches);
       setCarriedOver(carried);
+      setSchedule(pickMySchedule(
+        empId, todayKey, scheds, Array.isArray(prevScheds) ? (prevScheds as Schedule[]) : [], carried, nowMinutesInTz(timezone),
+      ));
       if (carried) {
         const byId = new Map<number, PunchRecord>();
         for (const p of [...(current.punches as PunchRecord[]), ...myPunches]) byId.set(p.id, p);
@@ -249,7 +256,7 @@ export default function ClockPageClient() {
     } finally {
       if (!background) setLoading(false);
     }
-  }, [todayKey, setScheduleCache, setPunchCache]);
+  }, [todayKey, timezone, setScheduleCache, setPunchCache]);
 
   useEffect(() => {
     if (meLoading) return; // don't load data until employee identity is known
@@ -257,7 +264,9 @@ export default function ClockPageClient() {
     const cachedScheds = scheduleCache[todayKey];
     const cachedPunches = punchCache[todayKey];
     if (cachedScheds && cachedPunches) {
-      setSchedule(empId ? (cachedScheds.find((s) => s.employeeId === empId) ?? null) : null);
+      setSchedule(pickMySchedule(
+        empId, todayKey, cachedScheds, scheduleCache[addDaysToKey(todayKey, -1)] ?? [], false, nowMinutesInTz(timezone),
+      ));
       setPunches(empId ? cachedPunches.filter((p) => p.employeeId === empId) : []);
       setLoading(false);
       loadData(true);
@@ -649,6 +658,14 @@ export default function ClockPageClient() {
           {schedule ? (
             <div className="mt-1.5 text-2xl font-bold text-slate-100">
               {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
+              {schedule.date && schedule.date.slice(0, 10) !== todayKey && (
+                <div className="text-xs font-normal text-slate-400 mt-0.5" data-testid="shift-started-yesterday">
+                  Overnight shift — started yesterday
+                </div>
+              )}
+              {schedule.date && schedule.date.slice(0, 10) === todayKey && isOvernight(schedule) && (
+                <div className="text-xs font-normal text-slate-400 mt-0.5">Ends tomorrow morning</div>
+              )}
             </div>
           ) : carriedOver ? (
             <div className="mt-1.5">
@@ -844,7 +861,7 @@ export default function ClockPageClient() {
         {employeeId && (myCallout || calloutBlockReason({
           date: todayKey,
           todayKey,
-          hasShift: !!schedule,
+          hasShift: !!schedule && schedule.date.slice(0, 10) === todayKey,
           clockedInToday: punches.some((p) => p.punchType === "clock_in"),
         }) === null) && (
           <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden" style={myCallout ? { borderColor: "rgba(248,113,113,0.3)" } : {}}>
@@ -1178,4 +1195,20 @@ export default function ClockPageClient() {
     </main>
     </AppShell>
   );
+}
+
+// The employee's shift for the clock screen: yesterday's overnight shift while
+// it's still running (or its punches carried past midnight), else today's.
+function pickMySchedule(
+  empId: number | null | undefined,
+  todayKey: string,
+  todays: Schedule[],
+  yesterdays: Schedule[],
+  carriedOver: boolean,
+  nowMinutes: number,
+): Schedule | null {
+  if (!empId) return null;
+  const overnight = yesterdays.find((s) => s.employeeId === empId && isOvernight(s));
+  if (overnight && (carriedOver || nowMinutes < shiftWindowOn(overnight, todayKey).end)) return overnight;
+  return todays.find((s) => s.employeeId === empId) ?? null;
 }

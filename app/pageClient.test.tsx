@@ -145,3 +145,37 @@ describe("pageClient mount fetches", () => {
     });
   });
 });
+
+describe("pageClient — after midnight", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-16T05:30:00Z")); // 12:30 AM Jan 16, New York
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("shows a closer still clocked in from yesterday and last night's overnight shift", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/employees")) return makeJsonResponse([{ id: 1, name: "Casey Closer" }, { id: 2, name: "Nia Night" }]);
+      if (url.includes("/api/schedules?date=2026-01-15")) {
+        return makeJsonResponse([
+          { id: 10, employeeId: 1, date: "2026-01-15", startMinutes: 960, endMinutes: 1380 },  // 4 PM – 11 PM
+          { id: 11, employeeId: 2, date: "2026-01-15", startMinutes: 1320, endMinutes: 1800 }, // 10 PM – 6 AM
+        ]);
+      }
+      if (url.includes("/api/schedules")) return makeJsonResponse([]);
+      if (url.includes("/api/punches")) {
+        // Only returned with carried=1 — the punches are from before midnight.
+        if (!url.includes("carried=1")) return makeJsonResponse([]);
+        return makeJsonResponse([
+          { id: 1, employeeId: 1, scheduleId: null, punchType: "clock_in", punchedAt: "2026-01-15T21:00:00Z", lat: null, lng: null, isManual: false, note: null },
+          { id: 2, employeeId: 2, scheduleId: null, punchType: "clock_in", punchedAt: "2026-01-16T03:00:00Z", lat: null, lng: null, isManual: false, note: null },
+        ]);
+      }
+      return makeJsonResponse({});
+    });
+    render(<Page />);
+    expect(await screen.findByRole("button", { name: /Casey.*from yesterday, 4:00 PM to 11:00 PM, Clocked In/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Nia.*from yesterday, 10:00 PM to 6:00 AM, Clocked In/ })).toBeInTheDocument();
+    expect(screen.queryByText("Walk-in")).not.toBeInTheDocument();
+  });
+});

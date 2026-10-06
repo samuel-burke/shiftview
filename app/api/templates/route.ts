@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
 import { withOrg } from "@/lib/org-scope";
+import { validateShiftTimes } from "@/lib/shift-times";
 
 export const dynamic = "force-dynamic";
 
@@ -63,18 +64,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rows must be a non-empty array" }, { status: 400 });
 
   // dayOfWeek: 0 = Sunday … 6 = Saturday (same convention as store hours and
-  // availability). Times are minutes since midnight.
-  const badRow = rows.find((r: TemplateRowInput) =>
-    !Number.isInteger(r?.employeeId) ||
-    !Number.isInteger(r?.dayOfWeek) || r.dayOfWeek < 0 || r.dayOfWeek > 6 ||
-    !Number.isInteger(r?.startMinutes) || !Number.isInteger(r?.endMinutes) ||
-    r.startMinutes < 0 || r.endMinutes > 1440 || r.startMinutes >= r.endMinutes
-  );
-  if (badRow)
-    return NextResponse.json(
-      { error: "each row needs employeeId, dayOfWeek (0 = Sunday … 6 = Saturday), and startMinutes < endMinutes within 0–1440" },
-      { status: 400 }
-    );
+  // availability). Times are minutes since that day's midnight.
+  for (const r of rows as TemplateRowInput[]) {
+    if (!Number.isInteger(r?.employeeId) || !Number.isInteger(r?.dayOfWeek) || r.dayOfWeek < 0 || r.dayOfWeek > 6)
+      return NextResponse.json(
+        { error: "each row needs employeeId and dayOfWeek (0 = Sunday … 6 = Saturday)" },
+        { status: 400 }
+      );
+    // Same shift rules as the schedule; an overnight row ends past 1440.
+    const timeError = validateShiftTimes(r.startMinutes, r.endMinutes);
+    if (timeError) return NextResponse.json({ error: timeError }, { status: 400 });
+  }
 
   const { data: template, error: tplError } = await supabase
     .from("schedule_templates")

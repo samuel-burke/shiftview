@@ -27,7 +27,7 @@ const mockNotifyManagers = vi.mocked(notifyManagers);
  */
 function makeBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+  for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -76,7 +76,7 @@ function makePunchClient({
         // We distinguish them by returning a builder that tracks calls:
         // first call = state-machine read, second call = insert.
         const b: any = {};
-        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+        for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
           b[m] = vi.fn().mockReturnValue(b);
         }
         b.maybeSingle = vi.fn().mockResolvedValue({ data: lastPunch, error: lastPunchError });
@@ -715,7 +715,7 @@ function makeMissedPunchClient({
       if (table === "schedules")  return makeBuilder({ data: null, error: null });
       if (table === "punch_records") {
         const b: any = {};
-        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+        for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
           b[m] = vi.fn().mockReturnValue(b);
         }
         b.maybeSingle = vi.fn().mockImplementation(() => {
@@ -875,7 +875,7 @@ describe("POST /api/punches — max breaks per shift", () => {
           punchCall++;
           const idx = punchCall;
           const b: any = {};
-          for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+          for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
             b[m] = vi.fn().mockReturnValue(b);
           }
           b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });

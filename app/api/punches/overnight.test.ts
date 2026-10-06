@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 import { GET as getMissed } from "./missed/route";
 import { GET as getCurrent } from "./current/route";
 import { createClient } from "@/lib/supabase-server";
@@ -21,11 +21,11 @@ type Punch = { id: number; punch_type: string; punched_at: string };
 
 // Supabase mock whose punch_records queries honour gte/lte/lt and ordering
 // over `history`, so the routes see exactly what the database would return.
-function makeClient(history: Punch[], settings: Record<string, string> = {}) {
+function makeClient(history: Punch[], settings: Record<string, string> = {}, schedules: unknown[] = []) {
   const inserted: Record<string, unknown>[] = [];
   const simple = (data: unknown) => {
     const b: any = {};
-    for (const m of ["select", "eq", "in", "order", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+    for (const m of ["select", "eq", "in", "order", "limit", "gt", "gte", "lte"]) b[m] = vi.fn().mockReturnValue(b);
     b.maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
     b.then = (res: any, rej: any) => Promise.resolve({ data, error: null }).then(res, rej);
     return b;
@@ -35,6 +35,7 @@ function makeClient(history: Punch[], settings: Record<string, string> = {}) {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers") return simple(null);
+      if (table === "schedules") return simple(schedules);
       if (table === "employees") return simple({ id: 1, org_id: MOCK_ORG_ID, name: "Casey" });
       if (table === "app_settings") {
         return simple(Object.entries({ timezone: "America/New_York", ...settings }).map(([key, value]) => ({ key, value })));
@@ -123,6 +124,24 @@ describe("closing past midnight", () => {
   });
 });
 
+describe("scheduled overnight shift (10 PM – 6 AM)", () => {
+  const NIGHT: Punch[] = [{ id: 1, punch_type: "clock_in", punched_at: "2026-01-16T03:00:00.000Z" }]; // 10 PM Jan 15
+  const SHIFT = [{ end_minutes: 1800 }];
+
+  it("lets the employee clock out at 6:15 AM", async () => {
+    vi.setSystemTime(new Date("2026-01-16T11:15:00Z"));
+    const client = makeClient(NIGHT, {}, SHIFT);
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await punch("clock_out")).status).toBe(201);
+  });
+
+  it("without the schedule, a 6:15 AM clock-out is too late", async () => {
+    vi.setSystemTime(new Date("2026-01-16T11:15:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(NIGHT) as any);
+    expect((await punch("clock_out")).status).toBe(409);
+  });
+});
+
 describe("forgotten clock-outs don't block the next day", () => {
   it("allows clocking in the next morning", async () => {
     vi.setSystemTime(new Date("2026-01-16T12:00:00Z")); // 7:00 AM
@@ -177,5 +196,22 @@ describe("GET /api/punches/current", () => {
     mockCreateClient.mockResolvedValue(makeClient(CLOSER) as any);
     const body = await (await getCurrent(new Request("http://localhost/api/punches/current"))).json();
     expect(body).toEqual({ carriedOver: false, punches: [] });
+  });
+});
+
+describe("GET /api/punches?carried=1", () => {
+  const get = (q: string) => GET(new Request(`http://localhost/api/punches?${q}`));
+
+  it("includes the punches of a shift still open from before midnight", async () => {
+    vi.setSystemTime(new Date("2026-01-16T05:30:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(CLOSER) as any);
+    const body = await (await get("date=2026-01-16&carried=1")).json();
+    expect(body).toEqual([expect.objectContaining({ id: 1, punchType: "clock_in", employeeId: 1 })]);
+  });
+
+  it("leaves a plain day query unchanged", async () => {
+    vi.setSystemTime(new Date("2026-01-16T05:30:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(CLOSER) as any);
+    expect(await (await get("date=2026-01-16")).json()).toEqual([]);
   });
 });
