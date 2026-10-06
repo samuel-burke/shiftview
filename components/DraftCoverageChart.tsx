@@ -15,6 +15,7 @@ import { Schedule, StoreHours, fmtMinutes } from "../data/types";
 import { dayOfWeek, headcountAt, scheduledHoursForDate } from "../lib/draft-metrics";
 import { CoverageBlock, SLOT_MINUTES, curveHours, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
+import { useAspectHeight } from "@/hooks/useAspectHeight";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -41,6 +42,8 @@ function LegendChip({ color, label, dashed = false }: { color: string; label: st
 
 export default function DraftCoverageChart({ drafts, dates, storeHours, curves, timezone }: Props) {
   const { mode } = useTheme();
+  // 170px on phones (as before), growing at 2.6:1 on wider screens up to 280px.
+  const [chartRef, chartHeight] = useAspectHeight({ aspect: 2.6, min: 170, max: 280 });
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [view, setView] = useState<"day" | "hour">("day");
@@ -153,7 +156,8 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
         </div>
       )}
 
-      <ResponsiveContainer width="100%" height={170} style={{ overflow: "visible" }}>
+      <div ref={chartRef}>
+      <ResponsiveContainer width="100%" height={chartHeight} style={{ overflow: "visible" }}>
         {view === "day" ? (
           <LineChart data={byDayData} margin={{ top: 12, right: 8, left: -28, bottom: 0 }}>
             <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -184,6 +188,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
           </ComposedChart>
         )}
       </ResponsiveContainer>
+      </div>
     </motion.div>
   );
 }

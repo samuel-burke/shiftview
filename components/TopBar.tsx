@@ -15,7 +15,7 @@ type Props = {
 
 export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }: Props) {
   return (
-    <div className="[@media(min-width:900px)]:hidden sticky top-0 z-30 bg-bg border-b border-slate-800">
+    <div className="desk:hidden sticky top-0 z-30 bg-bg border-b border-slate-800">
       {isDemo && (
         <div
           className="px-4 pb-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between"

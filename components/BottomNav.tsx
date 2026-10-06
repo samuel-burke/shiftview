@@ -24,7 +24,7 @@ export default function BottomNav({ active }: Props) {
        * already 95% opaque, so dropping the blur for a solid bg is a no-op
        * visually but keeps the nav reliably pinned to the bottom.
        */
-      className="[@media(min-width:900px)]:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800/80 max-w-[480px] mx-auto"
+      className="tablet:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800/80 max-w-[480px] mx-auto"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">

@@ -775,14 +775,14 @@ export default function SettingsPageClient({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm [@media(min-width:900px)]:items-center [@media(min-width:900px)]:justify-center"
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm desk:items-center desk:justify-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
     <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
-                 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:max-h-[90vh] [@media(min-width:900px)]:rounded-2xl [@media(min-width:900px)]:shadow-2xl"
+                 desk:max-w-2xl desk:max-h-[90vh] desk:rounded-2xl desk:shadow-2xl"
       style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
       initial={{ x: "100%" }}
       animate={{ x: 0 }}

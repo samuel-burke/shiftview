@@ -1,6 +1,7 @@
 "use client";
 
 import SideNav from "./SideNav";
+import NavRail from "./NavRail";
 import TopBar from "./TopBar";
 
 export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
@@ -35,13 +36,17 @@ export default function AppShell({
   const showTopBar = onSignOut !== undefined || onSignIn !== undefined;
 
   return (
-    <div className="[@media(min-width:900px)]:flex min-h-screen bg-bg">
-      <div className="hidden [@media(min-width:900px)]:block">
+    <div className="tablet:flex min-h-screen bg-bg">
+      {/* compact: BottomNav (rendered by each page) · tablet/desk: icon rail · wide: full sidebar */}
+      <div className="hidden tablet:block wide:hidden">
+        <NavRail active={active} isManager={isManager} />
+      </div>
+      <div className="hidden wide:block">
         <SideNav active={active} isManager={isManager} />
       </div>
 
-      {/* Wrapper keeps TopBar + content in a single flex column on desktop */}
-      <div className="[@media(min-width:900px)]:flex-1 [@media(min-width:900px)]:overflow-y-auto min-w-0">
+      {/* Wrapper keeps TopBar + content in a single flex column beside the nav */}
+      <div className="tablet:flex-1 desk:overflow-y-auto min-w-0">
         {/* TopBar sits outside the fade animation so it never visually reloads */}
         {showTopBar && (
           <TopBar

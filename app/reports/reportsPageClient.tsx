@@ -659,7 +659,7 @@ export default function ReportsPageClient() {
 
   return (
     <AppShell active="reports" isManager>
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
+    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
       {/* Demo banner */}
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
@@ -671,21 +671,21 @@ export default function ReportsPageClient() {
       {/* Top bar — sticky on mobile, static on desktop */}
       <div
         className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
-                   [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px] [@media(min-width:900px)]:gap-0"
+                   desk:static desk:px-6 desk:py-[14px] desk:pb-[14px] desk:gap-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors desk:hidden"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">Reports</span>
+        <span className="text-2xl font-extrabold text-slate-100 tracking-tight desk:text-xl">Reports</span>
       </div>
 
       {/* Tab bar */}
-      <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex gap-2">
+      <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex gap-2">
         {(["coverage", "payroll", "punctuality", "activity"] as const).map((tab) => (
           <button
             key={tab}
@@ -704,7 +704,7 @@ export default function ReportsPageClient() {
 
       {/* ── Coverage tab ── */}
       {activeTab === "coverage" && (
-        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-5 flex flex-col gap-5">
+        <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-5 flex flex-col gap-5">
           {/* Coverage heatmap */}
           <section>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
@@ -959,7 +959,7 @@ export default function ReportsPageClient() {
 
       {/* ── Punctuality tab ── */}
       {activeTab === "punctuality" && (
-        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
+        <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex flex-col gap-4">
           {/* Date picker */}
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
             <label htmlFor="punctuality-date" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Date</label>
@@ -993,7 +993,7 @@ export default function ReportsPageClient() {
 
       {/* ── Activity Log tab ── */}
       {activeTab === "activity" && (
-        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
+        <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex flex-col gap-4">
           {/* Filters */}
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">

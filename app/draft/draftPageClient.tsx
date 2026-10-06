@@ -304,7 +304,7 @@ export default function DraftPageClient() {
   if (!sharedLoading && !isManager) {
     return (
       <AppShell active="planner" isManager={isManager}>
-        <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center [@media(min-width:900px)]:max-w-none">
+        <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">🗓️</div>
           <h1 className="text-lg font-bold text-slate-100 mb-1.5">Draft Schedule</h1>
           <p className="text-sm text-slate-400">Only managers can create draft schedules.</p>
@@ -333,16 +333,16 @@ export default function DraftPageClient() {
 
   return (
     <AppShell active="planner" isManager={isManager}>
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
+      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8">
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
-                     [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
+                     desk:px-6 desk:py-[14px] desk:pb-[14px]"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
           <button
             onClick={() => router.back()}
-            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors desk:hidden"
             aria-label="Back"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -385,12 +385,12 @@ export default function DraftPageClient() {
 
         {/* Banners */}
         {migrationRequired && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 [@media(min-width:900px)]:mx-6">
+          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 tablet:mx-6">
             Database tables are missing. Run the migrations in <code className="font-mono">db/migrations/</code> (draft schedules + coverage profiles) in the Supabase SQL editor.
           </div>
         )}
         {error && !migrationRequired && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center [@media(min-width:900px)]:mx-6">
+          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center tablet:mx-6">
             {error}
           </div>
         )}
@@ -401,7 +401,7 @@ export default function DraftPageClient() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               role="status"
-              className="mx-4 mt-3 px-4 py-3 bg-green-500/10 border border-green-500/25 rounded-xl text-sm text-green-400 text-center [@media(min-width:900px)]:mx-6"
+              className="mx-4 mt-3 px-4 py-3 bg-green-500/10 border border-green-500/25 rounded-xl text-sm text-green-400 text-center tablet:mx-6"
             >
               Published {publishResult.published} shift{publishResult.published === 1 ? "" : "s"}
               {publishResult.skipped > 0 && ` · ${publishResult.skipped} skipped (already scheduled)`}
@@ -409,10 +409,10 @@ export default function DraftPageClient() {
           )}
         </AnimatePresence>
 
-        <div className="px-4 pt-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_400px] [@media(min-width:900px)]:gap-8 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:items-start">
-          {/* Left column — metrics & charts */}
-          <div>
-            <div className="grid grid-cols-4 gap-2 mb-4">
+        <div className="px-4 pt-4 tablet:px-6 desk:grid desk:grid-cols-[1fr_400px] desk:gap-8 desk:items-start wide:grid-cols-[minmax(0,1fr)_440px] wide:max-w-[1680px] wide:mx-auto">
+          {/* Left column — metrics & charts. Tablet and wide: the two charts sit side by side. */}
+          <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-4 tablet:items-start desk:block wide:grid">
+            <div className="grid grid-cols-4 gap-2 mb-4 tablet:col-span-2">
               <StatCard index={0} value={String(Math.round(weeklyBudget))} suffix="hrs" label="Weekly Budget" color="#818cf8" loading={isLoading} />
               <StatCard index={1} value={String(Math.round(weeklyScheduled * 10) / 10)} suffix="hrs" label="Scheduled" color="#3b82f6" loading={isLoading} />
               <StatCard
@@ -426,13 +426,15 @@ export default function DraftPageClient() {
               <StatCard index={3} value={covScore === null ? "—" : String(covScore)} suffix={covScore === null ? undefined : "%"} label="Coverage Score" color="#22c55e" loading={isLoading} />
             </div>
 
-            <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} curves={curves} timezone={timezone} />
+            <div className="min-w-0 tablet:row-start-2 tablet:col-start-1">
+              <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} curves={curves} timezone={timezone} />
+            </div>
 
             {!isLoading && alertList.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-4 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25"
+                className="mb-4 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 tablet:col-span-2 tablet:row-start-3"
               >
                 {(alertsExpanded ? alertList : alertList.slice(0, 1)).map((a) => (
                   <div key={a.key} className="flex items-center gap-2 text-xs text-amber-400 py-0.5">
@@ -450,17 +452,19 @@ export default function DraftPageClient() {
               </motion.div>
             )}
 
-            <DraftBudgetChart
-              drafts={drafts}
-              dates={dates}
-              curves={curves}
-              isManager={isManager}
-              timezone={timezone}
-            />
+            <div className="min-w-0 tablet:row-start-2 tablet:col-start-2">
+              <DraftBudgetChart
+                drafts={drafts}
+                dates={dates}
+                curves={curves}
+                isManager={isManager}
+                timezone={timezone}
+              />
+            </div>
           </div>
 
           {/* Right column — week editor */}
-          <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
+          <div className="desk:sticky desk:top-4">
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Schedule At a Glance
             </div>

@@ -1228,9 +1228,9 @@ export default function SchedulePageClient() {
       isDemo={isDemo}
       onSignOut={handleSignOut}
     >
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
+      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
         {/* Desktop header (hidden on mobile) */}
-        <div className="hidden [@media(min-width:900px)]:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
+        <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
             <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
@@ -1248,21 +1248,22 @@ export default function SchedulePageClient() {
         {/*
          * Content: single DOM tree, CSS-responsive layout.
          * Mobile: vertical stack (nextShift → calendar → detail).
+         * Tablet: next shift full width, then calendar | day detail.
          * Desktop: 2-column grid — explicit col/row placement reorders without
          * duplicating React elements (which would cause double state/effects).
          * nextShiftCard and detailSection go in col 2; calendarSection fills col 1.
          */}
-        <div className="flex flex-col px-4 pt-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_320px] [@media(min-width:900px)]:gap-6 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6 [@media(min-width:900px)]:items-start">
+        <div className="flex flex-col px-4 pt-4 tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:px-6 tablet:items-start desk:grid desk:grid-cols-[1fr_320px] desk:gap-6 desk:px-6 desk:py-6 desk:items-start wide:grid-cols-[minmax(0,1fr)_380px] wide:max-w-[1680px] wide:mx-auto">
           {/* Mobile: 1st. Desktop: col 2, row 1 (sticky) */}
-          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-6">
+          <div className="tablet:col-span-2 desk:col-span-1 desk:col-start-2 desk:row-start-1 desk:sticky desk:top-6">
             {nextShiftCard}
           </div>
           {/* Mobile: 2nd. Desktop: col 1, rows 1–2 */}
-          <div className="[@media(min-width:900px)]:col-start-1 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:row-span-2">
+          <div className="min-w-0 desk:col-start-1 desk:row-start-1 desk:row-span-2">
             {calendarSection}
           </div>
           {/* Mobile: 3rd. Desktop: col 2, row 2 */}
-          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-2">
+          <div className="min-w-0 desk:col-start-2 desk:row-start-2">
             {detailSection}
           </div>
         </div>
