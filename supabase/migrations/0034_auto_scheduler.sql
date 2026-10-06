@@ -17,8 +17,14 @@
 --     open shifts, positions, announcements, punch corrections): their org
 --     foreign keys don't cascade, so deleting an org that had any of those
 --     rows used to fail.
-
-begin;
+--
+-- No begin/commit around the file, unlike earlier migrations. Some SQL
+-- runners send a script's statements separately and over more than one
+-- connection. An open transaction on one connection hides its work from the
+-- others, so later statements fail with "does not exist" or wait on locks.
+-- Every statement here is safe to repeat: if a run stops partway, run the
+-- whole file again. Needs 0031 (is_own_employee) applied first; generated
+-- overnight shifts also need 0033.
 
 -- ---------------------------------------------------------------------------
 -- 1. Employee scheduling limits.
@@ -481,8 +487,6 @@ $$;
 revoke all on function public.org_delete(uuid)
   from public, anon, authenticated;
 
--- Have the API (PostgREST) pick up the new columns, tables and functions as
--- soon as this commits. Supabase usually does this on its own after DDL.
+-- Have the API (PostgREST) pick up the new columns, tables and functions
+-- right away. Supabase usually does this on its own after DDL.
 notify pgrst, 'reload schema';
-
-commit;
