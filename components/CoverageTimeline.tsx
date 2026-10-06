@@ -259,14 +259,18 @@ export default function CoverageTimeline({
       {/* Wrapper — position relative so overlay can be absolute */}
       <div
         ref={containerRef}
-        className="relative"
+        /*
+         * Height from CSS, so it's right in the server HTML (no layout jump):
+         * 3:1 with the width, at least 150px (the phone size) and at most 300px.
+         */
+        className="relative w-full min-w-0 aspect-[3/1] min-h-[150px] max-h-[300px]"
         onTouchStart={() => setShowTooltip(true)}
         onTouchEnd={() => setShowTooltip(false)}
         onTouchCancel={() => setShowTooltip(false)}
       >
         <ResponsiveContainer
           width="100%"
-          height={150}
+          height="100%"
           style={{ overflow: "visible" }}
         >
           <ComposedChart

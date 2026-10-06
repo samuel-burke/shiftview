@@ -1,5 +1,6 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -903,9 +904,18 @@ export default function Page() {
   );
 
   const errorBanner = error ? (
-    <div role="alert" className="mx-4 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
+    <div role="alert" className="mx-4 tablet:mx-6 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
       {error}
     </div>
+  ) : null;
+
+  const weekButton = isManager ? (
+    <Link
+      href="/week"
+      className="w-full mt-4 py-3 flex items-center justify-center text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-slate-600 transition-colors"
+    >
+      Team week
+    </Link>
   ) : null;
 
   const draftButton = isManager ? (
@@ -984,25 +994,42 @@ export default function Page() {
       {/*
        * Single responsive layout — no JS fork.
        * Mobile: linear stack inside max-w-[480px], pb-28 for the fixed BottomNav.
-       * Desktop (≥900px): 2-column grid, pb-8, no max-width.
+       * Desktop (desk, ≥1024px): 2-column grid, pb-8, no max-width.
+       * Wide (≥1440px): room is reserved on the right while the employee pane is open.
        * px-4 is on the inner content wrapper (not on <main>) so the sticky
        * CoverageHeader can span the full width of its parent without fighting
        * against inherited horizontal padding.
        */}
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
+      <main
+        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
+          // Wide screens show employee detail as a side pane beside the dashboard (EmployeeDrawer)
+          selected ? "wide:pr-[420px]" : ""
+        }`}
+      >
         <CoverageHeader {...headerProps} hideMobileBrand />
         {errorBanner}
-        <div className="px-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_380px] [@media(min-width:900px)]:gap-8 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:pb-8 [@media(min-width:900px)]:items-start">
-          <div>
+        {/*
+         * One DOM order (overview → team → manager actions), placed per size class:
+         * tablet: stacked, team sections in 2 columns.
+         * desk:   overview left; team list right (sticky) with actions under it.
+         * wide:   overview + actions side by side; team sections in 3 columns below.
+         */}
+        <div className="px-4 tablet:px-6 desk:grid desk:grid-cols-[minmax(0,1fr)_380px] desk:gap-x-8 desk:pb-8 desk:items-start wide:grid-cols-[minmax(0,1fr)_340px] wide:max-w-[1680px] wide:mx-auto">
+          <div className="desk:col-start-1 desk:row-start-1">
             {statsRow}
             {timeline}
             {legend}
           </div>
-          <div className="[@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-4">
+          <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:items-start desk:block desk:col-start-2 desk:row-start-1 desk:sticky desk:top-4 wide:grid wide:grid-cols-3 wide:col-start-1 wide:col-span-2 wide:row-start-2 wide:static wide:mt-2">
             {teamSections}
-            {draftButton}
-            {exportButton}
           </div>
+          {(draftButton || weekButton || exportButton) && (
+            <div className="tablet:grid tablet:grid-cols-3 tablet:gap-x-4 tablet:items-start desk:block desk:col-start-2 desk:row-start-2 wide:row-start-1 wide:-mt-4">
+              {draftButton}
+              {weekButton}
+              {exportButton}
+            </div>
+          )}
         </div>
         {drawer}
         {timeCardDrawer}

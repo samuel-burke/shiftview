@@ -39,6 +39,7 @@ import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapReque
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
 import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
 import { shiftWindowOn } from "@/lib/shift-times";
+import { mapSwap, type Swap, type RawSwap } from "@/lib/swaps";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 
 const PUNCH_TYPE_LABELS: Record<PunchCorrection["punchType"], string> = {
@@ -48,6 +49,7 @@ const PUNCH_TYPE_LABELS: Record<PunchCorrection["punchType"], string> = {
   break_end:   "Break End",
 };
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { BREAKPOINTS } from "@/hooks/useBreakpoint";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import { calloutBlockReason } from "@/lib/callout-rules";
 
@@ -58,62 +60,6 @@ type ManagerTimeOffRequest = {
   note?: string;
   status: string;
 };
-
-// Shape the SwapRequestsDrawer consumes (flat, display-ready). `schedule_a` is
-// the requester's shift, `schedule_b` is the target's.
-type Swap = {
-  id: number;
-  status: "pending" | "accepted" | "declined" | "approved" | "denied";
-  requesterId: number | null;
-  targetId: number | null;
-  requesterName: string;
-  targetName: string;
-  date: string;
-  scheduleAId: number | null;
-  scheduleBId: number | null;
-  scheduleATime: string;
-  scheduleBTime: string;
-};
-
-// GET /api/swaps returns nested employee/schedule joins; Supabase types them as
-// object-or-array depending on the relationship, so normalize defensively.
-function firstOf<T>(v: T | T[] | null | undefined): T | null {
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v ?? null;
-}
-
-type RawSwap = {
-  id: number;
-  status?: Swap["status"];
-  requester_id?: number;
-  target_id?: number;
-  schedule_a_id?: number;
-  schedule_b_id?: number;
-  requester?: { name: string } | { name: string }[] | null;
-  target?: { name: string } | { name: string }[] | null;
-  schedule_a?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
-  schedule_b?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
-};
-
-function mapSwap(raw: RawSwap): Swap {
-  const requester = firstOf(raw.requester);
-  const target = firstOf(raw.target);
-  const a = firstOf(raw.schedule_a);
-  const b = firstOf(raw.schedule_b);
-  return {
-    id: raw.id,
-    status: raw.status ?? "pending",
-    requesterId: raw.requester_id ?? null,
-    targetId: raw.target_id ?? null,
-    requesterName: requester?.name ?? "Unknown",
-    targetName: target?.name ?? "Unknown",
-    date: a?.date ?? "",
-    scheduleAId: raw.schedule_a_id ?? null,
-    scheduleBId: raw.schedule_b_id ?? null,
-    scheduleATime: a ? `${fmtMinutes(a.start_minutes)} – ${fmtMinutes(a.end_minutes)}` : "",
-    scheduleBTime: b ? `${fmtMinutes(b.start_minutes)} – ${fmtMinutes(b.end_minutes)}` : "",
-  };
-}
 
 type View = "week" | "month";
 
@@ -1206,7 +1152,8 @@ export default function SchedulePageClient() {
 
       {isManager && (
         <button
-          onClick={() => setSwapDrawerOpen(true)}
+          // Phones review requests in the drawer; wider screens get the full inbox page.
+          onClick={() => (window.matchMedia(`(min-width: ${BREAKPOINTS.tablet}px)`).matches ? router.push("/requests") : setSwapDrawerOpen(true))}
           className="w-full mt-3 py-3 text-sm font-bold text-slate-200 bg-card border border-slate-800/60 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors flex items-center justify-center gap-2"
         >
           Requests
@@ -1228,9 +1175,9 @@ export default function SchedulePageClient() {
       isDemo={isDemo}
       onSignOut={handleSignOut}
     >
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
+      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
         {/* Desktop header (hidden on mobile) */}
-        <div className="hidden [@media(min-width:900px)]:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
+        <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
             <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
@@ -1248,21 +1195,22 @@ export default function SchedulePageClient() {
         {/*
          * Content: single DOM tree, CSS-responsive layout.
          * Mobile: vertical stack (nextShift → calendar → detail).
+         * Tablet: next shift full width, then calendar | day detail.
          * Desktop: 2-column grid — explicit col/row placement reorders without
          * duplicating React elements (which would cause double state/effects).
          * nextShiftCard and detailSection go in col 2; calendarSection fills col 1.
          */}
-        <div className="flex flex-col px-4 pt-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_320px] [@media(min-width:900px)]:gap-6 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6 [@media(min-width:900px)]:items-start">
+        <div className="flex flex-col px-4 pt-4 tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:px-6 tablet:items-start desk:grid desk:grid-cols-[1fr_320px] desk:gap-6 desk:px-6 desk:py-6 desk:items-start wide:grid-cols-[minmax(0,1fr)_380px] wide:max-w-[1680px] wide:mx-auto">
           {/* Mobile: 1st. Desktop: col 2, row 1 (sticky) */}
-          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-6">
+          <div className="tablet:col-span-2 desk:col-span-1 desk:col-start-2 desk:row-start-1 desk:sticky desk:top-6">
             {nextShiftCard}
           </div>
           {/* Mobile: 2nd. Desktop: col 1, rows 1–2 */}
-          <div className="[@media(min-width:900px)]:col-start-1 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:row-span-2">
+          <div className="min-w-0 desk:col-start-1 desk:row-start-1 desk:row-span-2">
             {calendarSection}
           </div>
           {/* Mobile: 3rd. Desktop: col 2, row 2 */}
-          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-2">
+          <div className="min-w-0 desk:col-start-2 desk:row-start-2">
             {detailSection}
           </div>
         </div>

@@ -33,7 +33,7 @@ const SHIFT_LABELS: Record<string, string> = {
 
 
 
-function shortTime(minutes: number): string {
+export function shortTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   const h12 = h % 12 === 0 ? 12 : h % 12;

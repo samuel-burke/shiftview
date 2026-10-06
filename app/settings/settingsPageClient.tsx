@@ -6,6 +6,7 @@ import { motion, LayoutGroup } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
+import AppShell from "../../components/AppShell";
 import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
@@ -82,9 +83,14 @@ function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string
 
 // Top-level grouping divider — sits above a cluster of related settings
 // sections to give the page a clear two-tier hierarchy (group → section → card).
+/** Anchor id for a settings group, used by the section nav on wide screens. */
+function groupId(label: string) {
+  return `settings-${label.toLowerCase()}`;
+}
+
 function SettingsGroupHeader({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 mt-3 first:mt-0 select-none">
+    <div id={groupId(label)} className="flex items-center gap-3 mt-3 first:mt-0 select-none scroll-mt-24">
       <span className="text-sm font-bold text-slate-100 tracking-tight">{label}</span>
       <div className="flex-1 h-px bg-slate-800" />
     </div>
@@ -773,16 +779,27 @@ export default function SettingsPageClient({
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  // Group headers in render order, for the section nav shown from the desk size up.
+  const groups = ["Preferences", ...(isManager ? ["Workplace", "Team"] : []), "Account"];
+
+  /*
+   * Phones: a full-screen sheet that slides in over the current page.
+   * Tablet and up: an ordinary page beside the nav rail / sidebar (the
+   * overlay, slide-in transform and shadow are switched off with tablet:
+   * overrides), with a sticky section nav from the desk size up.
+   */
   return (
+    <AppShell active="settings" isManager={isManager}>
     <motion.div
-      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm [@media(min-width:900px)]:items-center [@media(min-width:900px)]:justify-center"
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm
+                 tablet:static tablet:z-auto tablet:block tablet:bg-transparent tablet:backdrop-blur-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
     <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
-                 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:max-h-[90vh] [@media(min-width:900px)]:rounded-2xl [@media(min-width:900px)]:shadow-2xl"
+                 tablet:max-w-none tablet:h-auto tablet:min-h-screen tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
       style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
@@ -790,12 +807,12 @@ export default function SettingsPageClient({
     >
       {/* Header */}
       <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0"
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0 tablet:px-6 desk:py-[14px]"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          className="tablet:hidden size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -806,11 +823,26 @@ export default function SettingsPageClient({
         {isDemo && <span className="ml-auto text-[11px] text-blue-400/80 font-medium">Demo Mode</span>}
       </div>
 
+      <div className="tablet:px-2 desk:grid desk:grid-cols-[180px_minmax(0,720px)] desk:justify-center desk:gap-10 desk:px-6">
+      {!loading && (
+        <nav aria-label="Settings sections" className="hidden desk:flex flex-col gap-0.5 sticky top-14 self-start pt-5">
+          {groups.map((g) => (
+            <a
+              key={g}
+              href={`#${groupId(g)}`}
+              className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            >
+              {g}
+            </a>
+          ))}
+        </nav>
+      )}
+
       {loading ? (
-        <div className="px-4 pt-5"><SkeletonSettingsBody isManager={isManager} /></div>
+        <div className="px-4 pt-5 desk:col-start-2"><SkeletonSettingsBody isManager={isManager} /></div>
       ) : null}
 
-      <div className={`px-4 pt-5 pb-12 flex flex-col gap-5${loading ? " hidden" : ""}`}>
+      <div className={`px-4 pt-5 pb-12 flex flex-col gap-5 min-w-0 tablet:max-w-[720px] tablet:mx-auto tablet:w-full desk:mx-0 desk:col-start-2${loading ? " hidden" : ""}`}>
 
         {/* ── Preferences (personal, all users) ── */}
         <SettingsGroupHeader label="Preferences" />
@@ -1690,7 +1722,7 @@ export default function SettingsPageClient({
           </section>
         )}
       </div>
-
+      </div>
 
       <InviteSheet
         open={showInvite}
@@ -1870,5 +1902,6 @@ export default function SettingsPageClient({
       )}
     </motion.div>
     </motion.div>
+    </AppShell>
   );
 }

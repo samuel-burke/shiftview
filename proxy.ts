@@ -2,6 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  // E2E runs mock every /api/* call client-side; the Playwright webServer sets
+  // E2E_BYPASS_AUTH=1 so app pages render without a session (see
+  // playwright.config.ts and app/page.tsx). Never set in production.
+  if (process.env.E2E_BYPASS_AUTH === "1") {
+    return NextResponse.next({ request });
+  }
+
   // No Supabase credentials — skip auth entirely (e.g. test/CI environments)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.next({ request });

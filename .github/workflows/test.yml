@@ -89,7 +89,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - run: npm run test:e2e -- --project=mobile-chrome --project=mobile-chrome-far-timezone
+      - run: npm run test:e2e -- --project=mobile-chrome --project=mobile-chrome-far-timezone --project=tablet-chrome --project=tablet-landscape-chrome --project=desktop-chrome
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

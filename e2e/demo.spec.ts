@@ -46,6 +46,13 @@ const MOCK_STORE_HOURS = {
   6: { open: 360, close: 1320 },
 };
 
+// The visible date nav. Production builds stream the page, so for a moment a
+// hidden copy of the header can sit in the DOM next to the live one; matching
+// only visible elements keeps strict-mode locators from seeing both.
+function dateNav(page: Page) {
+  return page.getByTestId("mobile-date-nav").filter({ visible: true });
+}
+
 async function interceptAPIs(page: Page) {
   // Catch-all FIRST so later, more specific routes take precedence. Without
   // this, unmocked endpoints hit the real handlers, 401, and bounce to /login.
@@ -102,7 +109,7 @@ test.describe("Dashboard — schedule view", () => {
 
   test("shows today's date in the header", async ({ page }) => {
     const todayLabel = storeDateLabel();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(todayLabel, "i"))).toBeVisible();
+    await expect(dateNav(page).getByText(new RegExp(todayLabel, "i"))).toBeVisible();
   });
 });
 
@@ -114,22 +121,22 @@ test.describe("Dashboard — date navigation", () => {
 
   test("navigates to the previous day with the back button", async ({ page }) => {
     const prevLabel = storeDateLabel(-1);
-    await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(prevLabel, "i"))).toBeVisible();
+    await dateNav(page).getByRole("button", { name: "Previous day" }).click();
+    await expect(dateNav(page).getByText(new RegExp(prevLabel, "i"))).toBeVisible();
   });
 
   test("navigates to the next day with the forward button", async ({ page }) => {
     const nextLabel = storeDateLabel(1);
-    await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Next day" }).click();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(nextLabel, "i"))).toBeVisible();
+    await dateNav(page).getByRole("button", { name: "Next day" }).click();
+    await expect(dateNav(page).getByText(new RegExp(nextLabel, "i"))).toBeVisible();
   });
 
   test("returns to today when Today button is clicked", async ({ page }) => {
     const todayLabel = storeDateLabel();
     // Navigate away then back
-    await page.getByTestId("mobile-date-nav").getByRole("button", { name: "Previous day" }).click();
+    await dateNav(page).getByRole("button", { name: "Previous day" }).click();
     await page.getByRole("button", { name: /back to today/i }).click();
-    await expect(page.getByTestId("mobile-date-nav").getByText(new RegExp(todayLabel, "i"))).toBeVisible();
+    await expect(dateNav(page).getByText(new RegExp(todayLabel, "i"))).toBeVisible();
   });
 });
 

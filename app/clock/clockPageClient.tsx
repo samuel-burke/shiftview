@@ -567,7 +567,7 @@ export default function ClockPageClient() {
 
   // Desktop-only header — mobile header is handled by AppShell's TopBar
   const clockHeader = (
-    <div className="hidden [@media(min-width:900px)]:flex px-6 py-[14px] border-b border-slate-800 items-center justify-between">
+    <div className="hidden desk:flex px-6 py-[14px] border-b border-slate-800 items-center justify-between">
       <div>
         <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
         <div className="text-xl font-extrabold text-slate-100 leading-tight mt-0.5">{firstName}</div>
@@ -582,7 +582,7 @@ export default function ClockPageClient() {
     </div>
   );
 
-  const mainClass = "max-w-[480px] mx-auto px-4 pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:px-0 [@media(min-width:900px)]:pb-0";
+  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-screen desk:max-w-none desk:px-0 desk:pb-0";
 
   const appShellProps = {
     active: "clock" as const,
@@ -596,7 +596,7 @@ export default function ClockPageClient() {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
-          <div className="[@media(min-width:900px)]:max-w-[600px] [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6">
+          <div className="desk:max-w-[600px] desk:mx-auto desk:px-6 desk:py-6">
             <SkeletonClockBody />
           </div>
           <BottomNav active="clock" />
@@ -626,14 +626,14 @@ export default function ClockPageClient() {
     <main className={mainClass}>
       {/* Mobile banner comes from AppShell's TopBar; this one is desktop-only */}
       {isDemo && (
-        <div className="hidden [@media(min-width:900px)]:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
+        <div className="hidden desk:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
           <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
       )}
       {clockHeader}
 
-      <div className="[@media(min-width:900px)]:max-w-[600px] [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-4">
+      <div className="desk:max-w-[600px] desk:mx-auto desk:px-6 desk:py-4">
       {error && (
         <div role="alert" className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
           {error}

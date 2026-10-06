@@ -153,7 +153,9 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
         </div>
       )}
 
-      <ResponsiveContainer width="100%" height={170} style={{ overflow: "visible" }}>
+      {/* Height from CSS (no layout jump): 2.6:1 with the width, 170px (phone size) to 280px. */}
+      <div className="w-full min-w-0 aspect-[2.6/1] min-h-[170px] max-h-[280px]">
+      <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
         {view === "day" ? (
           <LineChart data={byDayData} margin={{ top: 12, right: 8, left: -28, bottom: 0 }}>
             <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} />
@@ -184,6 +186,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
           </ComposedChart>
         )}
       </ResponsiveContainer>
+      </div>
     </motion.div>
   );
 }

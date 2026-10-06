@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
 @theme {
+  /*
+   * App size classes (see docs/wide-layout-wireframes.html). Custom names so the
+   * marketing pages keep Tailwind's default sm/md/lg/xl.
+   *   compact  < 600   phone: bottom tabs, bottom sheets
+   *   tablet   600+    iPad portrait / split view: nav rail, wider content
+   *   desk     1024+   iPad landscape / laptop: multi-column desktop layout
+   *   wide     1440+   desktop monitor: full sidebar
+   * Keep in sync with BREAKPOINTS in hooks/useBreakpoint.ts.
+   */
+  --breakpoint-tablet: 600px;
+  --breakpoint-desk: 1024px;
+  --breakpoint-wide: 1440px;
+
   --color-bg: #080f1e;
   --color-card: #111827;
 }

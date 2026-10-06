@@ -62,7 +62,7 @@ export default function AddToHomeScreenBanner() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 16, opacity: 0 }}
           transition={{ type: "spring", damping: 28, stiffness: 320 }}
-          className="fixed left-0 right-0 z-40 px-3 max-w-[480px] mx-auto [@media(min-width:900px)]:hidden"
+          className="fixed left-0 right-0 z-40 px-3 max-w-[480px] mx-auto tablet:hidden"
           style={{ bottom: "calc(72px + env(safe-area-inset-bottom))" }}
         >
           <div
