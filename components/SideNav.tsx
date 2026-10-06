@@ -55,6 +55,11 @@ export default function SideNav({ active, isManager }: Props) {
             </NavLink>
           )}
           {isManager && (
+            <NavLink href="/requests" label="Requests" isActive={active === "requests"}>
+              <RequestsIcon />
+            </NavLink>
+          )}
+          {isManager && (
             <NavLink href="/draft" label="Planner" isActive={active === "planner"}>
               <PlannerIcon />
             </NavLink>
@@ -202,6 +207,15 @@ export function WeekGridIcon({ size = 17 }: { size?: number } = {}) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
       <path d="M3 9h18M3 14.5h18M9 4v16" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+export function RequestsIcon({ size = 17 }: { size?: number } = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 13l2.5-7.5A2 2 0 018.4 4h7.2a2 2 0 011.9 1.5L20 13v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M4 13h4.5l1 2h5l1-2H20" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   );
 }

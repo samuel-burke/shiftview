@@ -71,13 +71,13 @@ test.describe("Responsive layout", () => {
       await expect(bottom).toBeHidden();
       // The rail reaches every destination, including the manager ones the
       // phone's bottom tabs leave out.
-      for (const name of ["Team", "Schedule", "Clock", "Planner", "Admin", "Reports", "Settings"]) {
+      for (const name of ["Team", "Schedule", "Clock", "Week", "Requests", "Planner", "Admin", "Reports", "Settings"]) {
         await expect(rail.getByRole("link", { name })).toBeVisible();
       }
     }
   });
 
-  for (const path of ["/", "/schedule", "/clock", "/draft", "/reports", "/admin", "/week"]) {
+  for (const path of ["/", "/schedule", "/clock", "/draft", "/reports", "/admin", "/week", "/requests"]) {
     test(`${path} never scrolls sideways`, async ({ page }) => {
       await interceptAPIs(page, { isManager: true });
       await page.goto(path);
@@ -150,5 +150,36 @@ test.describe("Responsive layout", () => {
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("6:00 AM")).toBeVisible();
     await expect(drawer.getByRole("button", { name: /edit shift/i })).toBeVisible();
+  });
+
+  test("the requests inbox approves a request and moves to the next", async ({ page }) => {
+    await interceptAPIs(page, { isManager: true });
+    let pending = [
+      { id: 5, employeeId: 1, employeeName: "Alice Smith", date: todayKey(), status: "pending", note: "Family wedding" },
+      { id: 6, employeeId: 3, employeeName: "Carol White", date: todayKey(), status: "pending" },
+    ];
+    const decisions: string[] = [];
+    await page.route("**/api/time-off", (route) => route.fulfill({ json: { requests: pending } }));
+    await page.route("**/api/time-off/*", async (route) => {
+      const id = Number(route.request().url().split("/").pop());
+      decisions.push(`${id}:${route.request().postDataJSON().status}`);
+      pending = pending.filter((r) => r.id !== id);
+      await route.fulfill({ json: { ok: true } });
+    });
+    await page.goto("/requests");
+
+    const list = page.getByRole("list", { name: "Pending requests" });
+    await list.getByRole("button", { name: /Alice Smith/ }).click();
+    const detail = page.getByTestId("request-detail").filter({ visible: true });
+    await expect(detail.getByText("“Family wedding”")).toBeVisible();
+
+    await detail.getByRole("button", { name: "Approve" }).click();
+    await expect(list.getByRole("button", { name: /Alice Smith/ })).toHaveCount(0);
+    expect(decisions).toEqual(["5:approved"]);
+
+    if (sizeOf(page) !== "compact") {
+      // Wider screens move straight on to the next request.
+      await expect(detail.getByRole("heading", { name: "Carol White" })).toBeVisible();
+    }
   });
 });
