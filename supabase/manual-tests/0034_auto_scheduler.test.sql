@@ -261,6 +261,13 @@ select pg_temp.check('a shift that breaks the shift-time rules is invalid',
     '[{"employee_id":1,"date":"2026-10-13","start_minutes":900,"end_minutes":600}]', 1, '{}', '[]', '{}')$q$,
     :orgA, :week, pg_temp.expected(:orgA, :week)))->>'status' = 'invalid');
 
+-- The fingerprint as /api/drafts/generate sends it: JSON.stringify of
+-- [[id, employee_id, "YYYY-MM-DD", start_minutes, end_minutes], …].
+select pg_temp.check('a fingerprint sent as JSON text matches the stored drafts',
+  pg_temp.call(:mia, format($q$select apply_generated_drafts(%L, %L, 'fill', null, %L::jsonb, '[]', 1, '{}', '[]', '{}')$q$,
+    :orgA, :week, format('[[%s,3,"2026-10-12",540,1020]]', (select id from draft_schedules where employee_id = 3))))->>'status' = 'ok');
+delete from schedule_generation_runs;
+
 -- Fill: run 1 adds two shifts and keeps carol's draft.
 select pg_temp.check('fill adds the generated drafts',
   pg_temp.call(:mia, format($q$select apply_generated_drafts(%L, %L, 'fill', null, %L,

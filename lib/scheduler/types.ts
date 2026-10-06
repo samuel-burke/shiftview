@@ -160,3 +160,20 @@ export type ScheduleResult = {
   employees: EmployeeResult[];
   warnings: SchedulerWarning[];
 };
+
+// A saved Auto-schedule run, as /api/drafts/generate returns it: the inputs
+// that shaped it and what it reported. The shifts themselves are drafts.
+export type GenerationRun = {
+  runId: number;
+  weekStart: string;
+  mode: "fill" | "replace";
+  seed: number;
+  createdAt: string;
+  rules: SchedulingRules;
+  adjustments: Adjustment[];
+  metrics: ScheduleMetrics;
+  gaps: ScheduleGap[];
+  suggestions: Suggestion[];
+  warnings: SchedulerWarning[];
+  employees: EmployeeResult[];
+};

@@ -39,6 +39,7 @@ function makePublishClient({
   insertError = null as any,
   deleteError = null as any,
   employees = [] as any[],
+  runsError = null as any,
 } = {}) {
   const managerRow = isManager && user ? { user_id: user.id, org_id: "00000000-0000-0000-0000-000000000001" } : null;
 
@@ -47,7 +48,7 @@ function makePublishClient({
 
   function makeBuilder(result: { data: any; error: any }) {
     const b: any = {};
-    for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "in", "limit"]) {
+    for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order", "in", "limit", "is"]) {
       b[m] = vi.fn().mockReturnValue(b);
     }
     b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -80,6 +81,10 @@ function makePublishClient({
 
       if (table === "employees") {
         return makeBuilder({ data: employees, error: null });
+      }
+
+      if (table === "schedule_generation_runs") {
+        return makeBuilder({ data: null, error: runsError });
       }
 
       return makeBuilder({ data: null, error: null });
@@ -240,6 +245,32 @@ describe("POST /api/drafts/publish — success", () => {
     // writeAuditLog is also fire-and-forget; verify it was scheduled
     // (vitest can see the mock was called synchronously as a fire-and-forget)
     // We just verify no throw here.
+  });
+});
+
+// ── Auto-schedule runs ────────────────────────────────────────────────────────
+
+describe("POST /api/drafts/publish — auto-schedule runs", () => {
+  it("marks the week's runs published so they can no longer be undone", async () => {
+    const client = makePublishClient({ drafts: [DRAFT_1] });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(postReq({ weekStart: "2026-06-01" }));
+    const calls = (client.from as ReturnType<typeof vi.fn>).mock.calls;
+    const idx = calls.findIndex((c: string[]) => c[0] === "schedule_generation_runs");
+    expect(idx).toBeGreaterThan(-1);
+    const builder = (client.from as ReturnType<typeof vi.fn>).mock.results[idx].value;
+    expect(builder.update).toHaveBeenCalledWith({ published_at: expect.any(String) });
+    expect(builder.eq).toHaveBeenCalledWith("week_start", "2026-06-01");
+    expect(builder.is).toHaveBeenCalledWith("published_at", null);
+  });
+
+  it("still publishes when marking the runs fails", async () => {
+    mockCreateClient.mockResolvedValue(
+      makePublishClient({ drafts: [DRAFT_1], runsError: { code: "42P01", message: "missing" } }) as any
+    );
+    const res = await POST(postReq({ weekStart: "2026-06-01" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ published: 1, skipped: 0 });
   });
 });
 

@@ -82,6 +82,17 @@ export async function POST(request: Request) {
     console.error("[api/drafts/publish] cleanup failed", deleteError);
   }
 
+  // Auto-schedule runs for the week can't be undone once their drafts are live.
+  const { error: runsError } = await supabase
+    .from("schedule_generation_runs")
+    .update({ published_at: new Date().toISOString() })
+    .eq("org_id", orgId)
+    .eq("week_start", dates[0])
+    .is("published_at", null);
+  if (runsError) {
+    console.error("[api/drafts/publish] marking generation runs published failed", runsError);
+  }
+
   const publishedEmployeeIds = [...new Set(toPublish.map((d) => d.employee_id))];
   if (publishedEmployeeIds.length > 0) {
     const { data: emps } = await supabase

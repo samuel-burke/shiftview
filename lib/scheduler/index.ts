@@ -13,6 +13,7 @@ import { ScheduleState } from "./state";
 import type { ScheduleResult, SchedulerInput } from "./types";
 
 export type * from "./types";
+export { parseAdjustments } from "./adjustments";
 
 const DEFAULT_TIME_LIMIT_MS = 3000;
 
