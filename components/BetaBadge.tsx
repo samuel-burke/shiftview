@@ -1,5 +1,5 @@
 // Small "Beta" pill shown next to the ShiftView wordmark while the product is
-// in public beta. Remove the component's usages to drop the label everywhere.
+// in public beta. Logo renders it, so removing it there drops the label everywhere.
 export default function BetaBadge({ className = "" }: { className?: string }) {
   return (
     <span

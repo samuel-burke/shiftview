@@ -1,6 +1,6 @@
 {
   "name": "ShiftView",
-  "short_name": "SView",
+  "short_name": "ShiftView",
   "description": "Team shift scheduling dashboard",
   "start_url": "/",
   "display": "standalone",
@@ -11,12 +11,20 @@
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

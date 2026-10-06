@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import TryDemoButton from "@/components/TryDemoButton";
+import Logo from "@/components/Logo";
 import { CurrentYear, MotionProvider } from "./live";
-import { Arrow, Container, REPO_URL, Wordmark, primaryBtn, secondaryBtn } from "./ui";
+import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "./ui";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -23,7 +24,7 @@ function MarketingNav({ active }: { active?: "product" }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/60 bg-bg/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/" aria-label="ShiftView home"><Wordmark className="text-lg" /></Link>
+        <Link href="/" aria-label="ShiftView home"><Logo className="h-[22px]" /></Link>
         <nav aria-label="Site navigation" className="flex items-center gap-1 sm:gap-4">
           <Link
             href="/product"
@@ -70,7 +71,7 @@ function MarketingFooter() {
     <footer className="border-t border-slate-800/60">
       <Container className="flex flex-col gap-4 py-8 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Wordmark className="text-sm" />
+          <Logo className="h-4" />
           <CurrentYear />
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
