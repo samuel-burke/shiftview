@@ -183,7 +183,10 @@ declare
   v_week_end date;
   v_current  jsonb;
   v_previous jsonb := '[]'::jsonb;
-  v_replaced public.schedule_generation_runs%rowtype;
+  -- record, not %rowtype: a %rowtype declaration needs the table to exist
+  -- when the function is created, so applying the statements out of order
+  -- or in pieces would fail. A record only needs it when the function runs.
+  v_replaced record;
   v_run_id   bigint;
   v_removed  int := 0;
   v_inserted int := 0;
@@ -229,8 +232,10 @@ begin
       from public.schedule_generation_runs
      where id = p_replace_run_id and org_id = p_org and week_start = p_week_start
        for update;
-    if not found
-       or v_replaced.undone_at is not null
+    if not found then
+      return jsonb_build_object('status', 'stale');
+    end if;
+    if v_replaced.undone_at is not null
        or v_replaced.published_at is not null
        or exists (
          select 1 from public.schedule_generation_runs r
@@ -315,7 +320,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_run      public.schedule_generation_runs%rowtype;
+  v_run      record; -- not %rowtype: see apply_generated_drafts
   v_removed  int := 0;
   v_restored int := 0;
 begin
@@ -475,5 +480,9 @@ $$;
 -- before it invokes this through the admin client.
 revoke all on function public.org_delete(uuid)
   from public, anon, authenticated;
+
+-- Have the API (PostgREST) pick up the new columns, tables and functions as
+-- soon as this commits. Supabase usually does this on its own after DDL.
+notify pgrst, 'reload schema';
 
 commit;

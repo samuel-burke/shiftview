@@ -14,9 +14,11 @@ type QueryClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
-// Postgres "undefined column" / "undefined table" / "undefined function":
-// the database predates migration 0034.
-export const MIGRATION_ERROR_CODES = new Set(["42703", "42P01", "42883", "PGRST202"]);
+// The database predates migration 0034: Postgres "undefined column" /
+// "undefined table" / "undefined function", or PostgREST's schema-cache
+// misses for a function (PGRST202), a column it's asked to write (PGRST204)
+// and, from PostgREST 13, a table (PGRST205).
+export const MIGRATION_ERROR_CODES = new Set(["42703", "42P01", "42883", "PGRST202", "PGRST204", "PGRST205"]);
 
 export type WeekDraft = ExistingShift & { id: number; generationRunId: number | null };
 

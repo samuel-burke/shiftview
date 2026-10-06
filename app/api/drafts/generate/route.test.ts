@@ -210,6 +210,11 @@ describe("POST /api/drafts/generate", () => {
     expect(await res.json()).toMatchObject({ migrationRequired: true });
   });
 
+  it("returns 503 when PostgREST 13 reports the new table missing", async () => {
+    client({ tableOverrides: tables({ employee_preferences: { data: null, error: { code: "PGRST205", message: "Could not find the table" } } }) });
+    expect((await POST(postReq({ weekStart: WEEK_START, mode: "fill" }))).status).toBe(503);
+  });
+
   it("returns 503 when the RPC is missing", async () => {
     client({ rpcData: null, rpcError: { code: "PGRST202", message: "function not found" } });
     expect((await POST(postReq({ weekStart: WEEK_START, mode: "fill" }))).status).toBe(503);
@@ -255,8 +260,8 @@ describe("GET /api/drafts/generate", () => {
     expect(body).toEqual({ run: null });
   });
 
-  it("returns null with a flag when the migration hasn't been applied", async () => {
-    client({ tableOverrides: tables({ schedule_generation_runs: { data: null, error: { code: "42P01", message: "missing" } } }) });
+  it.each(["42P01", "PGRST205"])("returns null with a flag when the migration hasn't been applied (%s)", async (code) => {
+    client({ tableOverrides: tables({ schedule_generation_runs: { data: null, error: { code, message: "missing" } } }) });
     const body = await (await GET(new Request(`http://localhost/api/drafts/generate?weekStart=${WEEK_START}`))).json();
     expect(body).toEqual({ run: null, migrationRequired: true });
   });

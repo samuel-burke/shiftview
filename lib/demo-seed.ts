@@ -47,8 +47,10 @@ function zonedToUtcIso(date: string, minutes: number, timeZone: string): string 
   return zonedTimeToUtc(date, minutes, timeZone).toISOString();
 }
 
-// Postgres "undefined column" / "undefined table".
-const MISSING_SCHEMA = new Set(["42703", "42P01"]);
+// The 0034 schema isn't there yet: Postgres "undefined column" / "undefined
+// table", or PostgREST's schema-cache misses for a column it's asked to write
+// (PGRST204) and, from PostgREST 13, a table (PGRST205).
+const MISSING_SCHEMA = new Set(["42703", "42P01", "PGRST204", "PGRST205"]);
 
 async function seedSchedulingProfiles(admin: SupabaseClient, empId: Map<number, number>): Promise<void> {
   for (const [fixtureId, e] of Object.entries(DEMO_EMPLOYMENT)) {

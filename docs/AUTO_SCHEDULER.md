@@ -204,7 +204,29 @@ npx playwright test e2e/auto-schedule.spec.ts                     # Planner flow
 
 ## Deploying
 
-Apply `supabase/migrations/0034_auto_scheduler.sql` in the Supabase SQL editor before deploying, as with earlier migrations. Until it's applied:
+Apply `supabase/migrations/0034_auto_scheduler.sql` in the Supabase SQL editor before deploying, as with earlier migrations:
+
+- Paste the whole file into a new snippet and run it with nothing selected.
+- If an AI assistant or another tool applies it for you, have it apply the file exactly as it is, in one piece.
+- It's safe to run again.
+
+To check it applied, run this; every column should be `true`:
+
+```sql
+select
+  to_regclass('public.schedule_generation_runs') is not null as runs_table,
+  to_regclass('public.employee_preferences') is not null as preferences_table,
+  exists (select 1 from information_schema.columns
+           where table_schema = 'public' and table_name = 'employees'
+             and column_name = 'employment_type') as employee_columns,
+  exists (select 1 from information_schema.columns
+           where table_schema = 'public' and table_name = 'draft_schedules'
+             and column_name = 'generation_run_id') as draft_column,
+  (select count(*) from pg_proc
+    where proname in ('apply_generated_drafts', 'undo_generation_run')) = 2 as functions;
+```
+
+Until it's applied:
 
 - the rest of the app keeps working;
 - the scheduling fields fall back to their defaults;
