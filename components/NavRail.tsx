@@ -12,6 +12,7 @@ import {
   AdminIcon,
   SettingsIcon,
   ReportsIcon,
+  WeekGridIcon,
 } from "./SideNav";
 
 type Props = {
@@ -56,6 +57,9 @@ export default function NavRail({ active, isManager }: Props) {
 
           <div className="h-px bg-slate-800 my-1.5 mx-2" />
 
+          {isManager && (
+            <RailLink href="/week" label="Week" isActive={active === "week"}><WeekGridIcon size={20} /></RailLink>
+          )}
           {isManager && (
             <RailLink href="/draft" label="Planner" isActive={active === "planner"}><PlannerIcon size={20} /></RailLink>
           )}

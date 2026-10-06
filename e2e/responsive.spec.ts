@@ -77,7 +77,7 @@ test.describe("Responsive layout", () => {
     }
   });
 
-  for (const path of ["/", "/schedule", "/clock", "/draft", "/reports", "/admin"]) {
+  for (const path of ["/", "/schedule", "/clock", "/draft", "/reports", "/admin", "/week"]) {
     test(`${path} never scrolls sideways`, async ({ page }) => {
       await interceptAPIs(page, { isManager: true });
       await page.goto(path);
@@ -137,5 +137,17 @@ test.describe("Responsive layout", () => {
       await expect(drawer.getByText("9:00 AM")).toBeVisible();
       await expect(drawer.getByText("6:00 AM")).toBeHidden();
     }
+  });
+
+  test("the team week grid opens a shift for editing", async ({ page }) => {
+    await interceptAPIs(page, { isManager: true });
+    await page.goto("/week");
+    const grid = page.getByTestId("week-grid");
+    await expect(grid.getByRole("rowheader", { name: /Alice S\./ })).toBeVisible();
+
+    await grid.getByRole("button", { name: /Alice Smith, .*: Opener 6a to 2p/ }).click();
+    const drawer = page.getByTestId("employee-drawer");
+    await expect(drawer.getByText("6:00 AM")).toBeVisible();
+    await expect(drawer.getByRole("button", { name: /edit shift/i })).toBeVisible();
   });
 });

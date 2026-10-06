@@ -1,5 +1,6 @@
 "use client";
 import { downloadCSV } from "../lib/csv-download";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -908,6 +909,15 @@ export default function Page() {
     </div>
   ) : null;
 
+  const weekButton = isManager ? (
+    <Link
+      href="/week"
+      className="w-full mt-4 py-3 flex items-center justify-center text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-slate-600 transition-colors"
+    >
+      Team week
+    </Link>
+  ) : null;
+
   const draftButton = isManager ? (
     <motion.button
       onClick={() => router.push("/draft")}
@@ -1013,9 +1023,10 @@ export default function Page() {
           <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:items-start desk:block desk:col-start-2 desk:row-start-1 desk:sticky desk:top-4 wide:grid wide:grid-cols-3 wide:col-start-1 wide:col-span-2 wide:row-start-2 wide:static wide:mt-2">
             {teamSections}
           </div>
-          {(draftButton || exportButton) && (
-            <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:items-start desk:block desk:col-start-2 desk:row-start-2 wide:row-start-1 wide:-mt-4">
+          {(draftButton || weekButton || exportButton) && (
+            <div className="tablet:grid tablet:grid-cols-3 tablet:gap-x-4 tablet:items-start desk:block desk:col-start-2 desk:row-start-2 wide:row-start-1 wide:-mt-4">
               {draftButton}
+              {weekButton}
               {exportButton}
             </div>
           )}

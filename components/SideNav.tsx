@@ -4,8 +4,8 @@ import Link from "next/link";
 import { motion, LayoutGroup } from "framer-motion";
 import ClockStatusBadge from "./ClockStatusBadge";
 import BetaBadge from "@/components/BetaBadge";
+import type { NavItem } from "./AppShell";
 
-type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
 
 type Props = {
   active: NavItem;
@@ -49,6 +49,11 @@ export default function SideNav({ active, isManager }: Props) {
 
           <div className="h-px bg-slate-800 my-2" />
 
+          {isManager && (
+            <NavLink href="/week" label="Week" isActive={active === "week"}>
+              <WeekGridIcon />
+            </NavLink>
+          )}
           {isManager && (
             <NavLink href="/draft" label="Planner" isActive={active === "planner"}>
               <PlannerIcon />
@@ -188,6 +193,15 @@ export function ReportsIcon({ size = 17 }: { size?: number } = {}) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function WeekGridIcon({ size = 17 }: { size?: number } = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M3 9h18M3 14.5h18M9 4v16" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }

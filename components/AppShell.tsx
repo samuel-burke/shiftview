@@ -4,7 +4,7 @@ import SideNav from "./SideNav";
 import NavRail from "./NavRail";
 import TopBar from "./TopBar";
 
-export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
+export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner" | "week";
 
 type Props = {
   active: NavItem;

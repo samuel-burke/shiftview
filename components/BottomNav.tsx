@@ -29,8 +29,8 @@ export default function BottomNav({ active }: Props) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">
-        {/* Pill — snaps instantly to the active tab */}
-        <div
+        {/* Pill — snaps instantly to the active tab (none on pages without a tab) */}
+        {tabIndex >= 0 && <div
           aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
           style={{ width: "33.333%", left: `${tabIndex * 33.333}%` }}
@@ -42,7 +42,7 @@ export default function BottomNav({ active }: Props) {
               boxShadow: "0 0 10px #6366f1aa, 0 0 20px #6366f155",
             }}
           />
-        </div>
+        </div>}
 
         <NavTab href="/" label="Team" isActive={active === "team"}>
           <TeamIcon />
