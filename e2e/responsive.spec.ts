@@ -90,7 +90,8 @@ test.describe("Responsive layout", () => {
   test("uses the width for the dashboard's team lists", async ({ page }) => {
     await interceptAPIs(page);
     await page.goto("/");
-    const headers = page.getByTestId("team-section-header");
+    // Visible only: a streamed production page can briefly hold a hidden copy.
+    const headers = page.getByTestId("team-section-header").filter({ visible: true });
     const scheduled = headers.filter({ hasText: "Scheduled" });
     const off = headers.filter({ hasText: "Off Today" });
     await expect(off).toBeVisible();
