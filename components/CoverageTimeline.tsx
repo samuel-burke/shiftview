@@ -16,7 +16,6 @@ import { Schedule, PunchRecord, isHere } from "../data/types";
 import { CoverageBlock, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
 import { DEFAULT_TIMEZONE, getLocalMinutes } from "@/lib/dates";
-import { useAspectHeight } from "@/hooks/useAspectHeight";
 
 type Props = {
   schedules: Schedule[];
@@ -129,8 +128,6 @@ export default function CoverageTimeline({
   }, [isToday, punchesLoaded, punchRecords, points, nowMinutes, timezone]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  // 150px on phones (as before), growing at 3:1 on wider screens up to 300px.
-  const [aspectRef, chartHeight] = useAspectHeight({ aspect: 3, min: 150, max: 300 });
   const [showTooltip, setShowTooltip] = useState(true);
   const [chartRect, setChartRect] = useState<{
     left: number;
@@ -261,15 +258,19 @@ export default function CoverageTimeline({
 
       {/* Wrapper — position relative so overlay can be absolute */}
       <div
-        ref={(el) => { containerRef.current = el; aspectRef(el); }}
-        className="relative"
+        ref={containerRef}
+        /*
+         * Height from CSS, so it's right in the server HTML (no layout jump):
+         * 3:1 with the width, at least 150px (the phone size) and at most 300px.
+         */
+        className="relative w-full min-w-0 aspect-[3/1] min-h-[150px] max-h-[300px]"
         onTouchStart={() => setShowTooltip(true)}
         onTouchEnd={() => setShowTooltip(false)}
         onTouchCancel={() => setShowTooltip(false)}
       >
         <ResponsiveContainer
           width="100%"
-          height={chartHeight}
+          height="100%"
           style={{ overflow: "visible" }}
         >
           <ComposedChart

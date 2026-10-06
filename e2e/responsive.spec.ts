@@ -95,18 +95,32 @@ test.describe("Responsive layout", () => {
     const scheduled = headers.filter({ hasText: "Scheduled" });
     const off = headers.filter({ hasText: "Off Today" });
     await expect(off).toBeVisible();
-    const a = (await scheduled.boundingBox())!;
-    const b = (await off.boundingBox())!;
+    await expect(scheduled).toBeVisible();
+
+    // Read both positions from the same layout, in one call, so nothing can
+    // shift the page between the two reads.
+    const offsets = () =>
+      page.evaluate(() => {
+        const visible = [...document.querySelectorAll<HTMLElement>('[data-testid="team-section-header"]')].filter(
+          (el) => el.offsetParent !== null,
+        );
+        const rect = (label: string) => visible.find((el) => el.textContent?.startsWith(label))!.getBoundingClientRect();
+        const a = rect("Scheduled");
+        const b = rect("Off Today");
+        return { dx: b.x - a.x, dy: b.y - a.y };
+      });
 
     const size = sizeOf(page);
     if (size === "tablet" || size === "wide") {
       // Side by side: same row, Off Today to the right.
-      expect(Math.abs(a.y - b.y)).toBeLessThan(4);
-      expect(b.x).toBeGreaterThan(a.x);
+      const { dx, dy } = await offsets();
+      expect(Math.abs(dy)).toBeLessThan(4);
+      expect(dx).toBeGreaterThan(0);
     } else {
       // One column (phone, or the desk layout's right-hand list).
-      expect(b.y).toBeGreaterThan(a.y);
-      expect(Math.abs(a.x - b.x)).toBeLessThan(4);
+      const { dx, dy } = await offsets();
+      expect(dy).toBeGreaterThan(0);
+      expect(Math.abs(dx)).toBeLessThan(4);
     }
   });
 

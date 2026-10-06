@@ -14,7 +14,6 @@ import { Schedule } from "../data/types";
 import { dayOfWeek, scheduledHoursForDate } from "../lib/draft-metrics";
 import { CoverageBlock, curveHours } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
-import { useAspectHeight } from "@/hooks/useAspectHeight";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -33,8 +32,6 @@ type Props = {
  */
 export default function DraftBudgetChart({ drafts, dates, curves, isManager, timezone }: Props) {
   const { mode } = useTheme();
-  // 170px on phones (as before), growing at 2.6:1 on wider screens up to 280px.
-  const [chartRef, chartHeight] = useAspectHeight({ aspect: 2.6, min: 170, max: 280 });
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
 
@@ -80,8 +77,9 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager, tim
         </span>
       </div>
 
-      <div ref={chartRef}>
-      <ResponsiveContainer width="100%" height={chartHeight} style={{ overflow: "visible" }}>
+      {/* Height from CSS (no layout jump): 2.6:1 with the width, 170px (phone size) to 280px. */}
+      <div className="w-full min-w-0 aspect-[2.6/1] min-h-[170px] max-h-[280px]">
+      <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
         <BarChart data={data} margin={{ top: 12, right: 8, left: -28, bottom: 0 }} barGap={2}>
           <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} />
           <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
