@@ -7,7 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 
 type Step = "details" | "code";
 
@@ -173,13 +173,7 @@ export default function SignupPage() {
     <main className="min-h-screen bg-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[360px] bg-card rounded-2xl border border-slate-800 p-8">
         <div className="text-center mb-8">
-          <div className="text-2xl font-extrabold text-slate-100 tracking-tight">
-            Shift
-            <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-              View
-            </span>
-          <BetaBadge />
-          </div>
+          <Logo className="h-7" />
           <div className="text-xs text-slate-500 mt-1.5" aria-live="polite">
             {step === "details" ? "Create your organization" : `Code sent to ${email}`}
           </div>

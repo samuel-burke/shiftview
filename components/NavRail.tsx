@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, LayoutGroup } from "framer-motion";
 import ClockStatusBadge from "./ClockStatusBadge";
+import { LogoMark } from "./Logo";
 import type { NavItem } from "./AppShell";
 import {
   TeamIcon,
@@ -40,12 +41,8 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
         boxSizing: "content-box",
       }}
     >
-      <Link
-        href="/"
-        aria-label="ShiftView home"
-        className="mt-4 mb-2 text-[17px] font-extrabold tracking-tight text-slate-100"
-      >
-        S<span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">V</span>
+      <Link href="/" aria-label="ShiftView home" className="mt-4 mb-2">
+        <LogoMark className="size-7" />
       </Link>
 
       <div className="mb-3 h-4 flex items-center" data-testid="rail-clock-status">

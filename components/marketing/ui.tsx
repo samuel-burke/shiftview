@@ -1,22 +1,12 @@
 import { ShiftIcon } from "@/components/ShiftIcons";
 import { getMonogram, fmtMinutes, SHIFT_COLORS } from "@/data/types";
 import { NOW, type Attendance, type Row } from "./data";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 
 export const REPO_URL = "https://github.com/samuel-burke/shiftview";
 
 export function Container({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 ${className}`}>{children}</div>;
-}
-
-export function Wordmark({ className = "" }: { className?: string }) {
-  return (
-    <span className={`inline-flex items-center whitespace-nowrap font-extrabold tracking-tight text-slate-100 ${className}`}>
-      Shift
-      <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">View</span>
-          <BetaBadge />
-    </span>
-  );
 }
 
 export const primaryBtn =
@@ -130,7 +120,7 @@ export function StatusBar({ time }: { time: string }) {
 export function AppHeader() {
   return (
     <div className="flex shrink-0 items-center justify-between border-b border-slate-800/80 px-4 pb-3 pt-1.5">
-      <Wordmark className="text-[26px]" />
+      <Logo className="h-6" />
       <div className="flex items-center gap-2.5">
         <span className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-[12px] font-semibold text-green-500">
           <span className="h-2 w-2 rounded-full bg-green-500" />

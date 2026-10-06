@@ -3,7 +3,7 @@
 import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
 import ClockStatusBadge from "./ClockStatusBadge";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 
 type Props = {
   userName: string | null;
@@ -40,13 +40,7 @@ export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }
             </svg>
           </button>
         )}
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight">
-          Shift
-          <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-            View
-          </span>
-          <BetaBadge />
-        </span>
+        <Logo className="h-6" />
         <div className="flex items-center gap-2">
           <ClockStatusBadge />
           <NotificationBell />

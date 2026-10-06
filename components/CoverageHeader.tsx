@@ -7,7 +7,7 @@ import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import { WarningIcon, CalendarIcon, LockIcon } from "./ShiftIcons";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 
 type Props = {
   date: Date;
@@ -201,13 +201,7 @@ export default function CoverageHeader({
         <div className="flex items-center justify-between mb-3 desk:contents">
           {/* The wide size class shows the wordmark in SideNav, so skip it here */}
           <div className="desk:shrink-0 wide:hidden">
-            <span className="text-2xl font-extrabold text-slate-100 tracking-tight desk:text-[22px]">
-              Shift
-              <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-                View
-              </span>
-          <BetaBadge />
-            </span>
+            <Logo className="h-6 desk:h-[22px]" />
             <div className="desk:hidden text-[11px] text-slate-400 mt-0.5">
               {dayName} · {dateLabel}
             </div>

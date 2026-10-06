@@ -1,4 +1,9 @@
-<h1 align="center">ShiftView</h1>
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/brand/shiftview-logo-on-light.svg" />
+    <img alt="ShiftView" src="docs/brand/shiftview-logo-on-dark.svg" height="56" />
+  </picture>
+</h1>
 
 <p align="center">
   <strong>Scheduling, time clock and live coverage for retail &amp; fulfillment teams.</strong><br />

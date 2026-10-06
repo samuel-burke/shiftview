@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 
 export const metadata = { title: "Privacy Policy — ShiftView" };
 
@@ -43,12 +43,8 @@ export default function PrivacyPage() {
           Back
         </Link>
 
-        <div className="text-xl font-extrabold text-slate-100 tracking-tight mb-3">
-          Shift
-          <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-            View
-          </span>
-          <BetaBadge />
+        <div className="mb-3">
+          <Logo className="h-5" />
         </div>
 
         <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>

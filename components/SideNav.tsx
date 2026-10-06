@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, LayoutGroup } from "framer-motion";
 import ClockStatusBadge from "./ClockStatusBadge";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 import type { NavItem } from "./AppShell";
 
 
@@ -27,13 +27,7 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
     >
       {/* Brand */}
       <div className="px-5 py-[18px] border-b border-slate-800 shrink-0 flex flex-col items-start gap-2.5">
-        <span className="text-[22px] font-extrabold text-slate-100 tracking-tight">
-          Shift
-          <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-            View
-          </span>
-          <BetaBadge />
-        </span>
+        <Logo className="h-[22px]" />
         <ClockStatusBadge />
       </div>
 
