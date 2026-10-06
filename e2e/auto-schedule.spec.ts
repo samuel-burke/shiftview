@@ -198,6 +198,37 @@ test.describe("Planner auto-schedule", () => {
     await expect(empty).toBeVisible();
   });
 
+  test("one day picker drives the hourly chart and the heatmap", async ({ page }) => {
+    await mockPlanner(page);
+    await page.goto("/draft");
+    const picker = page.getByRole("group", { name: "Day" });
+    const chips = picker.getByRole("button");
+    await expect(chips).toHaveCount(7);
+
+    // The hourly chart has no day buttons of its own; it shows the picker's day.
+    await page.getByRole("tab", { name: "By Hour" }).click();
+    const chartDay = page.getByTestId("coverage-chart-day");
+    await expect(chartDay).toContainText("Sun");
+    await chips.nth(2).click();
+    await expect(chartDay).toContainText("Tue");
+
+    // Tapping an hour in the heatmap selects its day everywhere.
+    const heatmap = page.getByTestId("coverage-heatmap");
+    await heatmap.getByRole("gridcell", { name: /^Thursday 10–11 AM/ }).click();
+    await expect(chips.nth(4)).toHaveAttribute("aria-pressed", "true");
+    await expect(chartDay).toContainText("Thu");
+    await expect(heatmap.getByRole("row", { selected: true })).toContainText("Thu");
+
+    // Below the desk layout the picker is further down; the chart links to it.
+    const changeDay = page.getByRole("button", { name: "Change day" });
+    if (page.viewportSize()!.width < 1024) {
+      await changeDay.click();
+      await expect(picker).toBeInViewport();
+    } else {
+      await expect(changeDay).toBeHidden();
+    }
+  });
+
   test("keeps the summary for the week after a reload", async ({ page }) => {
     const state = await mockPlanner(page);
     await page.goto("/draft");

@@ -192,7 +192,7 @@ export default function AutoScheduleSheet({
             exit={{ y: 30, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[480px] tablet:max-w-[560px] max-h-[88vh] flex flex-col bg-card border border-slate-700 rounded-t-3xl tablet:rounded-3xl overflow-hidden"
+            className="w-full max-w-[480px] tablet:max-w-[560px] max-h-[88dvh] flex flex-col bg-card border border-slate-700 rounded-t-3xl tablet:rounded-3xl overflow-hidden"
             style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
           >
             <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 border-b border-slate-800">
@@ -236,7 +236,7 @@ export default function AutoScheduleSheet({
                         <button
                           onClick={() => setShowUntyped((v) => !v)}
                           aria-expanded={showUntyped}
-                          className="text-indigo-400 font-semibold bg-transparent border-none p-0 cursor-pointer"
+                          className="text-indigo-400 font-semibold bg-transparent border-none px-0 py-1 cursor-pointer"
                         >
                           {showUntyped ? "Hide" : "Set them now"}
                         </button>
@@ -250,7 +250,7 @@ export default function AutoScheduleSheet({
                                     key={t}
                                     onClick={() => setType(e.id, t)}
                                     disabled={typeSaving === e.id}
-                                    className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-slate-100 cursor-pointer disabled:opacity-50"
+                                    className="min-h-9 text-xs font-semibold px-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-slate-100 cursor-pointer disabled:opacity-50"
                                   >
                                     {t === "full_time" ? "Full-time" : "Part-time"}
                                   </button>
@@ -335,7 +335,7 @@ export default function AutoScheduleSheet({
                         <button
                           onClick={() => setAdjustments((list) => list.filter((_, j) => j !== i))}
                           aria-label={`Remove ${describeAdjustment(a, nameOf)}`}
-                          className="size-5 rounded-full bg-transparent border-none text-indigo-300 hover:text-indigo-100 cursor-pointer flex items-center justify-center"
+                          className="size-7 -my-1 -mr-0.5 rounded-full bg-transparent border-none text-base leading-none text-indigo-300 hover:text-indigo-100 cursor-pointer flex items-center justify-center"
                         >
                           ×
                         </button>
@@ -353,7 +353,7 @@ export default function AutoScheduleSheet({
                       key={kind}
                       onClick={() => setAdder(adder === kind ? null : kind)}
                       aria-expanded={adder === kind}
-                      className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                      className={`min-h-9 text-xs font-semibold px-3 rounded-lg border cursor-pointer transition-colors ${
                         adder === kind ? "bg-slate-700 border-slate-600 text-slate-100" : "bg-slate-800 border-slate-700 text-slate-300 hover:text-slate-100"
                       }`}
                     >
@@ -364,7 +364,7 @@ export default function AutoScheduleSheet({
                 {adder && (
                   <div className="flex flex-wrap items-end gap-2 bg-slate-800/50 border border-slate-800 rounded-xl p-3">
                     {adder !== "coverage" && (
-                      <label className="flex flex-col gap-1 text-[10px] text-slate-500 font-semibold uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
                         Who
                         <select aria-label="Employee" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: Number(e.target.value) })} className={selectClass}>
                           {employees.map((e) => <option key={e.id} value={e.id}>{formatDisplayName(e.name)}</option>)}
@@ -372,7 +372,7 @@ export default function AutoScheduleSheet({
                       </label>
                     )}
                     {adder !== "employee_hours" && (
-                      <label className="flex flex-col gap-1 text-[10px] text-slate-500 font-semibold uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
                         Day
                         <select aria-label="Day" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={selectClass}>
                           {dates.map((d) => <option key={d} value={d}>{DAY_SHORT[dayOfWeek(d)]} {Number(d.slice(8, 10))}</option>)}
@@ -381,19 +381,19 @@ export default function AutoScheduleSheet({
                     )}
                     {adder === "coverage" && (
                       <>
-                        <label className="flex flex-col gap-1 text-[10px] text-slate-500 font-semibold uppercase">
+                        <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
                           From
                           <select aria-label="From" value={form.start} onChange={(e) => setForm({ ...form, start: Number(e.target.value) })} className={selectClass}>
                             {TIMES.slice(0, -1).map((t) => <option key={t} value={t}>{fmtMinutes(t)}</option>)}
                           </select>
                         </label>
-                        <label className="flex flex-col gap-1 text-[10px] text-slate-500 font-semibold uppercase">
+                        <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
                           To
                           <select aria-label="To" value={form.end} onChange={(e) => setForm({ ...form, end: Number(e.target.value) })} className={selectClass}>
                             {TIMES.slice(1).map((t) => <option key={t} value={t}>{t === 1440 ? "Midnight" : fmtMinutes(t)}</option>)}
                           </select>
                         </label>
-                        <label className="flex flex-col gap-1 text-[10px] text-slate-500 font-semibold uppercase">
+                        <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
                           People
                           <select aria-label="People" value={form.delta} onChange={(e) => setForm({ ...form, delta: Number(e.target.value) })} className={selectClass}>
                             {[-3, -2, -1, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n > 0 ? `+${n}` : `−${-n}`}</option>)}
@@ -402,7 +402,7 @@ export default function AutoScheduleSheet({
                       </>
                     )}
                     {adder === "employee_hours" && (
-                      <label className="flex flex-col gap-1 text-[10px] text-slate-500 font-semibold uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
                         Up to
                         <span className="flex items-center gap-1">
                           <input
@@ -422,7 +422,7 @@ export default function AutoScheduleSheet({
                     )}
                     <button
                       onClick={addAdjustment}
-                      className="text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer"
+                      className="min-h-9 text-xs font-semibold px-4 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer"
                     >
                       Add
                     </button>

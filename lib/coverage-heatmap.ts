@@ -67,3 +67,21 @@ export function coverageHeatmap(
   }));
   return { hours, rows };
 }
+
+export type HeatRange = { kind: "short" | "over"; diff: number; startMinutes: number; endMinutes: number };
+
+// A day's off-target hours, merged into runs of the same kind and size, e.g.
+// 9 AM–1 PM short 2: the heatmap's list view.
+export function heatRanges(row: HeatRow): HeatRange[] {
+  const ranges: HeatRange[] = [];
+  for (const cell of row.cells) {
+    if (cell.kind !== "short" && cell.kind !== "over") continue;
+    const last = ranges[ranges.length - 1];
+    if (last && last.kind === cell.kind && last.diff === cell.diff && last.endMinutes === cell.startMinutes) {
+      last.endMinutes += HOUR;
+    } else {
+      ranges.push({ kind: cell.kind, diff: cell.diff, startMinutes: cell.startMinutes, endMinutes: cell.startMinutes + HOUR });
+    }
+  }
+  return ranges;
+}

@@ -113,10 +113,10 @@ function StatCard({
       ) : (
         <div className="relative flex items-baseline justify-center gap-0.5">
           <span className="text-[22px] font-extrabold leading-none tabular-nums" style={{ color }}>{value}</span>
-          {suffix && <span className="text-[10px] font-bold" style={{ color }}>{suffix}</span>}
+          {suffix && <span className="text-[11px] font-bold" style={{ color }}>{suffix}</span>}
         </div>
       )}
-      <div className="text-[10px] text-slate-400 mt-1 font-medium relative">{label}</div>
+      <div className="text-[11px] text-slate-400 mt-1 font-medium relative">{label}</div>
     </motion.div>
   );
 }
@@ -456,6 +456,14 @@ export default function DraftPageClient() {
     </motion.button>
   );
 
+  // The day picker sits below the charts until the desk layout; bring it into
+  // view and focus the selected day.
+  function focusDayPicker() {
+    const picker = document.getElementById("planner-day-picker");
+    picker?.scrollIntoView({ behavior: "smooth", block: "center" });
+    picker?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
+  }
+
   function openAutoSchedule() {
     setAutoError(null);
     setAutoOpen(true);
@@ -509,7 +517,7 @@ export default function DraftPageClient() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-xl font-extrabold text-slate-100 tracking-tight">Draft Schedule</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-full px-2 py-0.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-full px-2 py-0.5">
                 Draft
               </span>
             </div>
@@ -517,7 +525,7 @@ export default function DraftPageClient() {
               <button
                 onClick={() => setWeekOffset((w) => w - 1)}
                 aria-label="Previous week"
-                className="size-6 rounded-md bg-transparent border-none text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-center"
+                className="size-8 -my-1 rounded-md bg-transparent border-none text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-center"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
@@ -525,14 +533,14 @@ export default function DraftPageClient() {
               <button
                 onClick={() => setWeekOffset((w) => w + 1)}
                 aria-label="Next week"
-                className="size-6 rounded-md bg-transparent border-none text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-center"
+                className="size-8 -my-1 rounded-md bg-transparent border-none text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-center"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
               {weekOffset !== 1 && (
                 <button
                   onClick={() => setWeekOffset(1)}
-                  className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer ml-1"
+                  className="min-h-8 -my-1 px-1.5 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer"
                 >
                   Next Week
                 </button>
@@ -625,7 +633,15 @@ export default function DraftPageClient() {
             </div>
 
             <div className="min-w-0 tablet:row-start-2 tablet:col-start-1">
-              <DraftCoverageChart drafts={drafts} dates={dates} storeHours={storeHours} curves={curves} timezone={timezone} />
+              <DraftCoverageChart
+                drafts={drafts}
+                dates={dates}
+                storeHours={storeHours}
+                curves={curves}
+                selectedDate={selectedDate}
+                onPickDay={focusDayPicker}
+                timezone={timezone}
+              />
             </div>
 
             {!isLoading && alertList.length > 0 && (
@@ -642,7 +658,7 @@ export default function DraftPageClient() {
                 {alertList.length > 1 && (
                   <button
                     onClick={() => setAlertsExpanded((v) => !v)}
-                    className="text-[11px] font-semibold text-amber-300/80 hover:text-amber-200 bg-transparent border-none cursor-pointer mt-1 p-0"
+                    className="min-h-8 -mb-1.5 text-[11px] font-semibold text-amber-300/80 hover:text-amber-200 bg-transparent border-none cursor-pointer p-0"
                   >
                     {alertsExpanded ? "Show less" : `${alertList.length - 1} more alert${alertList.length - 1 === 1 ? "" : "s"} →`}
                   </button>
@@ -664,7 +680,13 @@ export default function DraftPageClient() {
             {!isLoading && (
               <>
                 <div className="min-w-0 tablet:col-span-2 wide:col-span-1">
-                  <WeekCoverageHeatmap shifts={drafts} dates={dates} curves={curves} />
+                  <WeekCoverageHeatmap
+                    shifts={drafts}
+                    dates={dates}
+                    curves={curves}
+                    selectedDate={selectedDate}
+                    onSelectDate={(date) => setSelectedDayIdx(Math.max(0, dates.indexOf(date)))}
+                  />
                 </div>
                 <div className="min-w-0 tablet:col-span-2 wide:col-span-1">
                   <DraftHoursPanel
@@ -685,8 +707,9 @@ export default function DraftPageClient() {
               Schedule At a Glance
             </div>
 
-            {/* Day chips */}
-            <div className="grid grid-cols-7 gap-1 mb-3">
+            {/* Day chips: the Planner's one day picker. The hourly coverage
+                chart and the heatmap follow it. */}
+            <div id="planner-day-picker" className="grid grid-cols-7 gap-1 mb-3 scroll-mt-4" role="group" aria-label="Day">
               {dates.map((date, i) => {
                 const dayScheduled = scheduledHoursForDate(drafts, date, timezone);
                 const dayBudget = curveHours(curves[date] ?? []);
@@ -702,7 +725,7 @@ export default function DraftPageClient() {
                         : "bg-card border-slate-800/60 text-slate-400 hover:text-slate-200"
                     }`}
                   >
-                    <span className="text-[10px] font-semibold uppercase">{DAY_LABELS[dayOfWeek(date)]}</span>
+                    <span className="text-[11px] font-semibold uppercase">{DAY_LABELS[dayOfWeek(date)]}</span>
                     <span className="text-sm font-bold tabular-nums">{Number(date.slice(8, 10))}</span>
                     <span
                       aria-hidden="true"
@@ -717,7 +740,7 @@ export default function DraftPageClient() {
 
             {/* Selected day coverage profile */}
             <div className="flex items-center gap-2 mb-3 bg-card rounded-xl px-3 py-2.5 border border-white/[0.05]">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold shrink-0">Coverage</span>
+              <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold shrink-0">Coverage</span>
               <select
                 value={overrides[selectedDate] ?? ""}
                 aria-label="Coverage profile for selected day"
@@ -740,7 +763,7 @@ export default function DraftPageClient() {
                 ))}
               </select>
               {overrides[selectedDate] !== undefined && (
-                <span className="text-[9px] font-bold uppercase text-violet-300 bg-violet-500/15 border border-violet-500/25 rounded-full px-2 py-0.5 shrink-0">
+                <span className="text-[11px] font-bold uppercase text-violet-300 bg-violet-500/15 border border-violet-500/25 rounded-full px-2 py-0.5 shrink-0">
                   Override
                 </span>
               )}
@@ -759,7 +782,7 @@ export default function DraftPageClient() {
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex-1 bg-card rounded-xl px-2 py-2 text-center border border-white/[0.05]">
                     <div className="text-xs font-bold tabular-nums" style={{ color }}>{value}</div>
-                    <div className="text-[9px] text-slate-500 uppercase tracking-wider mt-0.5">{label}</div>
+                    <div className="text-[11px] text-slate-500 uppercase tracking-wider mt-0.5">{label}</div>
                   </div>
                 ));
               })()}
@@ -796,11 +819,11 @@ export default function DraftPageClient() {
                           </div>
                         </div>
                         {d.generationRunId ? (
-                          <span className="text-[10px] font-bold uppercase text-violet-300 bg-violet-500/15 border border-violet-500/25 rounded-full px-2 py-0.5 shrink-0">
+                          <span className="text-[11px] font-bold uppercase text-violet-300 bg-violet-500/15 border border-violet-500/25 rounded-full px-2 py-0.5 shrink-0">
                             Auto
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold uppercase text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 shrink-0">
+                          <span className="text-[11px] font-bold uppercase text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 shrink-0">
                             Draft
                           </span>
                         )}

@@ -14,6 +14,7 @@ import {
 import { Schedule, StoreHours, fmtMinutes } from "../data/types";
 import { dayOfWeek, headcountAt, scheduledHoursForDate } from "../lib/draft-metrics";
 import { CoverageBlock, SLOT_MINUTES, curveHours, targetAt } from "../lib/coverage";
+import { formatDateKey } from "../lib/dates";
 import { useTheme } from "./ThemeProvider";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -23,13 +24,18 @@ type Props = {
   dates: string[]; // 7 YYYY-MM-DD dates
   storeHours: Record<number, StoreHours>;
   curves: Record<string, CoverageBlock[]>; // date -> target coverage curve
+  // The Planner's selected day: the By Hour view shows it. The Planner's day
+  // picker is the only one; onPickDay takes the user there (phones and
+  // tablets, where the picker is further down the page).
+  selectedDate: string;
+  onPickDay?: () => void;
   // Store timezone — makes scheduled hours real elapsed time across DST.
   timezone?: string;
 };
 
 function LegendChip({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
   return (
-    <span className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
+    <span className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
       <span
         className="inline-block w-2.5 h-0.5 rounded-full"
         style={dashed ? { backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)` } : { background: color }}
@@ -39,12 +45,11 @@ function LegendChip({ color, label, dashed = false }: { color: string; label: st
   );
 }
 
-export default function DraftCoverageChart({ drafts, dates, storeHours, curves, timezone }: Props) {
+export default function DraftCoverageChart({ drafts, dates, storeHours, curves, selectedDate, onPickDay, timezone }: Props) {
   const { mode } = useTheme();
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [view, setView] = useState<"day" | "hour">("day");
-  const [hourDayIdx, setHourDayIdx] = useState(0);
 
   const tooltipStyle = {
     background: isLight ? "#ffffff" : "#0f172a",
@@ -63,7 +68,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
     [dates, drafts, curves, timezone]
   );
 
-  const hourDate = dates[hourDayIdx];
+  const hourDate = dates.includes(selectedDate) ? selectedDate : dates[0];
   const hourCurve = curves[hourDate] ?? [];
   const hourDayHours = storeHours[dayOfWeek(hourDate)];
 
@@ -119,7 +124,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
               role="tab"
               aria-selected={view === v}
               onClick={() => setView(v)}
-              className={`px-2.5 py-1 text-[10px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
+              className={`min-h-8 px-3 text-[11px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
                 view === v ? "bg-indigo-600/40 text-indigo-200" : "bg-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -129,37 +134,34 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-3 pl-1.5">
+      <div className="flex flex-wrap items-center gap-2 mb-3 pl-1.5">
         <LegendChip color="#818cf8" label="Recommended" dashed />
         <LegendChip color="#3b82f6" label="Scheduled" />
+        {view === "hour" && (
+          // The day comes from the Planner's day picker (Schedule at a Glance).
+          <span className="ml-auto flex items-center gap-1 pr-1">
+            <span data-testid="coverage-chart-day" className="text-xs font-semibold text-slate-200 whitespace-nowrap">
+              {formatDateKey(hourDate, { weekday: "short", month: "short", day: "numeric" })}
+            </span>
+            {onPickDay && (
+              <button
+                onClick={onPickDay}
+                className="desk:hidden min-h-8 px-2 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer"
+              >
+                Change day
+              </button>
+            )}
+          </span>
+        )}
       </div>
-
-      {view === "hour" && (
-        <div className="flex gap-1 mb-2 px-1 overflow-x-auto">
-          {dates.map((date, i) => (
-            <button
-              key={date}
-              onClick={() => setHourDayIdx(i)}
-              aria-pressed={hourDayIdx === i}
-              className={`px-2 py-1 text-[10px] font-semibold rounded-md cursor-pointer transition-colors shrink-0 ${
-                hourDayIdx === i
-                  ? "bg-indigo-600/30 text-indigo-200 border border-indigo-500/40"
-                  : "bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:text-slate-200"
-              }`}
-            >
-              {DAY_LABELS[dayOfWeek(date)]}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Height from CSS (no layout jump): 2.6:1 with the width, 170px (phone size) to 280px. */}
       <div className="w-full min-w-0 aspect-[2.6/1] min-h-[170px] max-h-[280px]">
       <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
         {view === "day" ? (
           <LineChart data={byDayData} margin={{ top: 12, right: 8, left: -28, bottom: 0 }}>
-            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip
               contentStyle={tooltipStyle}
               formatter={(v, name) => [`${v} hrs`, name === "recommended" ? "Recommended" : "Scheduled"]}
@@ -175,8 +177,8 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} ticks={hourTicks} />
-            <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} ticks={hourTicks} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip
               contentStyle={tooltipStyle}
               formatter={(v, name) => (name === "target" ? [`${v} target`, "Recommended"] : [`${v} scheduled`, "Scheduled"])}

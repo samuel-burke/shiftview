@@ -62,8 +62,8 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
   return (
     <div className="min-w-0">
       <div className="text-sm font-bold text-slate-100 tabular-nums truncate">{value}</div>
-      <div className="text-[10px] text-slate-500 uppercase tracking-wider">{label}</div>
-      {detail && <div className="text-[10px] text-slate-500">{detail}</div>}
+      <div className="text-[11px] text-slate-500 uppercase tracking-wider">{label}</div>
+      {detail && <div className="text-[11px] text-slate-500">{detail}</div>}
     </div>
   );
 }
@@ -120,7 +120,7 @@ export default function AutoScheduleSummary({
         <button
           onClick={onDismiss}
           aria-label="Dismiss summary"
-          className="size-8 rounded-lg bg-transparent border-none text-slate-500 hover:text-slate-300 cursor-pointer flex items-center justify-center shrink-0"
+          className="size-10 -mt-1.5 -mr-2 rounded-lg bg-transparent border-none text-slate-500 hover:text-slate-300 cursor-pointer flex items-center justify-center shrink-0"
         >
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
         </button>
@@ -174,7 +174,7 @@ export default function AutoScheduleSummary({
             <button
               onClick={() => setShowAllGaps((v) => !v)}
               aria-expanded={showAllGaps}
-              className="mt-1.5 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer p-0"
+              className="mt-0.5 min-h-8 text-xs font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer p-0"
             >
               {showAllGaps ? "Show fewer" : `Show all ${run.gaps.length}`}
             </button>
@@ -191,7 +191,7 @@ export default function AutoScheduleSummary({
               key={s.employeeId}
               onClick={() => onApplySuggestion(s)}
               disabled={busy !== null}
-              className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-h-9 text-xs font-semibold px-3 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {suggestionLabel(s, nameOf)}
             </button>
@@ -206,7 +206,7 @@ export default function AutoScheduleSummary({
           onClick={onTryAnother}
           disabled={busy !== null}
           aria-busy={busy === "another" || busy === "suggestion"}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-h-10 text-xs font-semibold px-4 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy === "another" || busy === "suggestion" ? "Generating…" : "Try Another Version"}
         </button>
@@ -214,7 +214,7 @@ export default function AutoScheduleSummary({
           onClick={onUndo}
           disabled={busy !== null}
           aria-busy={busy === "undo"}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-transparent border border-slate-700 text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-h-10 text-xs font-semibold px-4 rounded-lg bg-transparent border border-slate-700 text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy === "undo" ? "Undoing…" : "Undo"}
         </button>

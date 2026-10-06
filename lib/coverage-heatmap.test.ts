@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { coverageHeatmap } from "./coverage-heatmap";
+import { coverageHeatmap, heatRanges } from "./coverage-heatmap";
 
 const MON = "2026-10-12";
 const TUE = "2026-10-13";
@@ -54,5 +54,22 @@ describe("coverageHeatmap", () => {
 
   it("returns no columns for an empty week", () => {
     expect(coverageHeatmap([], [MON], {})).toEqual({ hours: [], rows: [{ date: MON, cells: [] }] });
+  });
+
+  it("merges a day's off-target hours into ranges", () => {
+    const { rows } = coverageHeatmap(
+      [
+        { date: MON, startMinutes: 600, endMinutes: 720 }, // 10–12: 1 of 2
+        { date: MON, startMinutes: 780, endMinutes: 900 }, // 1–3 PM: 2 of 1, 1 of 1
+        { date: MON, startMinutes: 780, endMinutes: 840 },
+      ],
+      [MON],
+      { [MON]: [{ startMinutes: 540, endMinutes: 720, headcount: 2 }, { startMinutes: 720, endMinutes: 900, headcount: 1 }] }
+    );
+    expect(heatRanges(rows[0])).toEqual([
+      { kind: "short", diff: -2, startMinutes: 540, endMinutes: 600 },
+      { kind: "short", diff: -1, startMinutes: 600, endMinutes: 780 }, // 10 AM–1 PM, across the target change
+      { kind: "over", diff: 1, startMinutes: 780, endMinutes: 840 },
+    ]);
   });
 });

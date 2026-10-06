@@ -33,17 +33,20 @@
   --color-timeoff-approved: #4ade80; /* brighter green for dark UI */
   --color-timeoff-denied:   #f87171; /* softened red (less harsh on dark bg) */
 
-  /* Coverage heatmap: diverging around the target. Neutral = met; red arm =
-     short by 1 / 2 / 3+, blue arm = over by 1 / 2 / 3+. Each arm is one hue
-     with lightness moving away from the neutral, validated against the card
-     surface (monotone, visible steps, nearest step >= 2:1). */
-  --color-cov-met:     #334155;
-  --color-cov-short-1: #991b1b;
-  --color-cov-short-2: #dc2626;
-  --color-cov-short-3: #f87171;
-  --color-cov-over-1:  #1e40af;
-  --color-cov-over-2:  #2563eb;
-  --color-cov-over-3:  #60a5fa;
+  /* Coverage heatmap: diverging around the target. Neutral = met; amber arm
+     (the understaffed color) = short by 1 / 2 / 3+, blue arm (the scheduled
+     color) = over by 1 / 2 / 3+. Dark steps are amber-500 / blue-500 tinted
+     over the card (#111827), like the app's translucent pills. Each arm was
+     checked against the card: one hue, monotone lightness, visible steps,
+     nearest step >= 2:1. Empty = the dot marking an hour no one's needed. */
+  --color-cov-met:     #2a3445;
+  --color-cov-empty:   #334155;
+  --color-cov-short-1: #684b1c;
+  --color-cov-short-2: #9e6b16;
+  --color-cov-short-3: #de910e;
+  --color-cov-over-1:  #264d8f;
+  --color-cov-over-2:  #2f64bc;
+  --color-cov-over-3:  #3a80f2;
 }
 
 /* ── Light theme overrides ────────────────────────────────── */
@@ -65,14 +68,16 @@
   --color-timeoff-approved: #22c55e; /* strong, readable green */
   --color-timeoff-denied:   #ef4444; /* clear error red */
 
-  /* Coverage heatmap (see the dark values above) */
+  /* Coverage heatmap (see the dark values above): amber 500 / 600 / 700 and
+     blue 400 / 500 / 600, checked against the white card the same way. */
   --color-cov-met:     #e2e8f0;
-  --color-cov-short-1: #f87171;
-  --color-cov-short-2: #dc2626;
-  --color-cov-short-3: #991b1b;
+  --color-cov-empty:   #cbd5e1;
+  --color-cov-short-1: #f59e0b;
+  --color-cov-short-2: #d97706;
+  --color-cov-short-3: #b45309;
   --color-cov-over-1:  #60a5fa;
-  --color-cov-over-2:  #2563eb;
-  --color-cov-over-3:  #1e40af;
+  --color-cov-over-2:  #3b82f6;
+  --color-cov-over-3:  #2563eb;
 
   /*
    * Invert the Tailwind slate palette so every bg-slate-*, text-slate-*,

@@ -59,7 +59,7 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager, tim
         {isManager && (
           <Link
             href="/coverage"
-            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="flex items-center min-h-8 -my-1.5 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
           >
             Edit Coverage →
           </Link>
@@ -67,11 +67,11 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager, tim
       </div>
 
       <div className="flex items-center gap-2 mb-3 pl-1.5">
-        <span className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
+        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
           <span className="inline-block w-2 h-2 rounded-[3px] bg-slate-500" />
           Budget
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
+        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
           <span className="inline-block w-2 h-2 rounded-[3px] bg-blue-500" />
           Scheduled
         </span>
@@ -81,8 +81,8 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager, tim
       <div className="w-full min-w-0 aspect-[2.6/1] min-h-[170px] max-h-[280px]">
       <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
         <BarChart data={data} margin={{ top: 12, right: 8, left: -28, bottom: 0 }} barGap={2}>
-          <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+          <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
           <Tooltip
             cursor={{ fill: isLight ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.08)" }}
             contentStyle={{
@@ -105,7 +105,7 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager, tim
         {data.map((d) => (
           <div
             key={d.date}
-            className={`text-center text-[10px] font-bold tabular-nums ${
+            className={`text-center text-[11px] font-bold tabular-nums ${
               d.variance > 0 ? "text-red-400" : d.variance < 0 ? "text-amber-400" : "text-green-500"
             }`}
           >
