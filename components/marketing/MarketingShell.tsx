@@ -29,7 +29,7 @@ function MarketingNav() {
           <Link href="/login" className="whitespace-nowrap px-2 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100 sm:px-3">
             Sign in
           </Link>
-          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-200">
+          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-gradient-to-r from-blue-500 to-violet-500 px-3.5 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110">
             Get started
           </Link>
         </nav>
