@@ -21,16 +21,11 @@ export default function MarketingShell({ children }: { children: React.ReactNode
 }
 
 function MarketingNav() {
-  const section = "hidden whitespace-nowrap px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-100 md:block";
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/60 bg-bg/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
         <Link href="/" aria-label="ShiftView home"><Logo className="h-[22px]" /></Link>
         <nav aria-label="Site navigation" className="flex items-center gap-1 sm:gap-2">
-          <Link href="/#time-clock" className={section}>Time clock</Link>
-          <Link href="/#auto-schedule" className={section}>Auto-schedule</Link>
-          <Link href="/#features" className={section}>Features</Link>
-          <span aria-hidden="true" className="mx-2 hidden h-4 w-px bg-slate-800 md:block" />
           <Link href="/login" className="whitespace-nowrap px-2 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100 sm:px-3">
             Sign in
           </Link>

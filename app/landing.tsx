@@ -3,14 +3,6 @@ import TryDemoButton from "@/components/TryDemoButton";
 import MarketingShell, { ClosingCta } from "@/components/marketing/MarketingShell";
 import { AutoScheduleDemo, DevicesDemo, HeroDemo, Reveal, TeamDemo, TimeClockDemo } from "@/components/marketing/live";
 import { Arrow, Container, REPO_URL, SectionHeading, primaryBtn, secondaryBtn } from "@/components/marketing/ui";
-import {
-  AdminIcon,
-  ClockIcon,
-  ReportsIcon,
-  RequestsIcon,
-  WeekGridIcon,
-} from "@/components/SideNav";
-import { AlarmIcon, BellIcon, CalendarIcon, ChatBubbleIcon, MegaphoneIcon, TimeOffPendingIcon, WarningIcon } from "@/components/ShiftIcons";
 import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 import { todayKeyInTz } from "@/lib/dates";
 
@@ -165,30 +157,43 @@ function Team({ today }: { today: string }) {
   );
 }
 
-function Features() {
-  const icon = (d: string) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d={d} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+// One style for every feature icon, the app's nav icons': a 24-unit grid,
+// 1.5 strokes with round ends, no fills.
+function FeatureIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
     </svg>
   );
-  const features: { label: string; icon: React.ReactNode }[] = [
-    { label: "Live coverage alerts", icon: <WarningIcon size={18} /> },
-    { label: "Late clock-in alerts", icon: <AlarmIcon size={18} /> },
-    { label: "Geofenced clock-in", icon: icon("M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z") },
-    { label: "Breaks and missed punches", icon: <ClockIcon size={18} /> },
-    { label: "Templates and copy week", icon: <WeekGridIcon size={18} /> },
-    { label: "Availability", icon: <CalendarIcon size={18} /> },
-    { label: "Time-off requests", icon: <TimeOffPendingIcon size={18} /> },
-    { label: "Two-step shift swaps", icon: icon("M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7") },
-    { label: "Open shifts to pick up", icon: <RequestsIcon size={18} /> },
-    { label: "One-tap call-outs", icon: <MegaphoneIcon size={18} /> },
-    { label: "Encrypted messages", icon: <ChatBubbleIcon size={18} /> },
-    { label: "Push shift reminders", icon: <BellIcon size={18} /> },
-    { label: "Labor budget and cost", icon: icon("M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3") },
-    { label: "Payroll CSV export", icon: icon("M12 4v11m0 0-4-4m4 4 4-4M5 20h14") },
-    { label: "Payroll and punctuality reports", icon: <ReportsIcon size={18} /> },
-    { label: "Audit log of every change", icon: <AdminIcon size={18} /> },
-  ];
+}
+
+const calendar = (
+  <>
+    <rect x="3" y="5" width="18" height="16" rx="3" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </>
+);
+
+const FEATURES: { label: string; icon: React.ReactNode }[] = [
+  { label: "Live coverage alerts", icon: <><path d="M10.3 4.3 2.6 17.5a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z" /><path d="M12 9.5v4M12 17h.01" /></> },
+  { label: "Late clock-in alerts", icon: <><circle cx="12" cy="13" r="7.5" /><path d="M12 9.5V13l2.5 2M5 3.5 2.5 6M19 3.5 21.5 6" /></> },
+  { label: "Geofenced clock-in", icon: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></> },
+  { label: "Breaks and missed punches", icon: <><path d="M3 9.5h14V14a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6V9.5Z" /><path d="M17 11h1.5a3 3 0 0 1 0 6H17M7 3.5v3M10 3.5v3M13 3.5v3" /></> },
+  { label: "Templates and copy week", icon: <><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></> },
+  { label: "Availability", icon: <>{calendar}<path d="m9 15.5 2 2 4-4" /></> },
+  { label: "Time-off requests", icon: <>{calendar}<path d="m10 14 4 4M14 14l-4 4" /></> },
+  { label: "Two-step shift swaps", icon: <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" /> },
+  { label: "Open shifts to pick up", icon: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5M19 8v6M16 11h6" /></> },
+  { label: "One-tap call-outs", icon: <><path d="M2.5 10v4a1 1 0 0 0 1 1H6l7 5V4L6 9H3.5a1 1 0 0 0-1 1Z" /><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11" /></> },
+  { label: "Encrypted messages", icon: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" /><path d="M8 10h8M8 13h5" /></> },
+  { label: "Push shift reminders", icon: <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.44V11a6 6 0 0 0-5-5.92V4a1 1 0 1 0-2 0v1.08A6 6 0 0 0 6 11v3.16c0 .54-.21 1.06-.6 1.44L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9" /> },
+  { label: "Labor budget and cost", icon: <path d="M12 4.5v15M16.5 9c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3" /> },
+  { label: "Payroll CSV export", icon: <path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /> },
+  { label: "Payroll and punctuality reports", icon: <path d="M18 20V10M12 20V4M6 20v-6" /> },
+  { label: "Audit log of every change", icon: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></> },
+];
+
+function Features() {
   return (
     <section id="features" className="scroll-mt-16 border-b border-slate-800/60">
       <Anchor id="everything" />
@@ -199,9 +204,11 @@ function Features() {
           </h2>
         </Reveal>
         <ul className="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-800/80 lg:grid-cols-4">
-          {features.map((f) => (
+          {FEATURES.map((f) => (
             <li key={f.label} className="flex items-center gap-3 bg-bg px-3 py-3.5 text-[13px] leading-snug text-slate-300 sm:px-5 sm:py-4 sm:text-sm">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-card text-blue-400">{f.icon}</span>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-card text-blue-400">
+                <FeatureIcon>{f.icon}</FeatureIcon>
+              </span>
               {f.label}
             </li>
           ))}
