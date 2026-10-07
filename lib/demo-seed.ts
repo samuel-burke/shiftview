@@ -95,6 +95,7 @@ export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult
     name: e.name,
     email: e.id === 1 ? DEMO_MANAGER_EMAIL : (e.email ?? null),
     user_id: null,
+    pay_rate: DEMO_EMPLOYMENT[e.id]?.payRate ?? null,
   }));
   const { data: insertedEmployees, error: empError } = await admin
     .from("employees")

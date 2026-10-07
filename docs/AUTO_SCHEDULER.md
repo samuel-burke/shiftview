@@ -129,7 +129,7 @@ The engine minimizes a penalty score. These are the weights (`WEIGHTS` in `lib/s
 
 | Roster | Coverage | Hours vs. budget | Overtime | Time |
 |---|---|---|---|---|
-| Demo store (12 people) | 100% | 266–267.5 / 266 h | 0 h | 150–220 ms |
+| Demo store (12 people) | 100% | 266 / 266 h | 0 h | 130–220 ms |
 | Synthetic, 50 people | 100% | 965.5–966.5 / 964 h | 0 h | 0.4–0.5 s |
 
 **Why not an LLM.** A language model can't guarantee hard rules: it can schedule someone on approved time off or past their hours, and it can't prove a gap was unavoidable. Training one would need large datasets and GPUs. A constraint optimizer is the standard tool for rostering: it is exact about rules, fast, explainable and cheap to run. `generateSchedule` keeps a narrow interface, so an exact solver (MILP or CP-SAT) could replace the heuristic later without touching the API or UI.
