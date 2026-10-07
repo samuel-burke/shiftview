@@ -20,18 +20,27 @@ function noonUtc(d: string): number {
 export function tenureYears(hireDate: string, asOf: string): number {
   const h = parts(hireDate);
   const a = parts(asOf);
-  let years = a.y - h.y;
-  if (a.m < h.m || (a.m === h.m && a.day < h.day)) years--;
-  return years;
+  const years = a.y - h.y;
+  return asOf.slice(0, 10) < anniversaryInYear(h, a.y) ? years - 1 : years;
+}
+
+function isLeapYear(y: number): boolean {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+// The anniversary of a hire date in a given year. A Feb 29 hire date is
+// observed on Feb 28 in non-leap years (there is no Feb 29 to land on).
+function anniversaryInYear(h: { m: number; day: number }, year: number): string {
+  const day = h.m === 2 && h.day === 29 && !isLeapYear(year) ? 28 : h.day;
+  return `${year}-${pad(h.m)}-${pad(day)}`;
 }
 
 // The next anniversary date on or after `asOf` (YYYY-MM-DD).
 export function nextAnniversary(hireDate: string, asOf: string): string {
   const h = parts(hireDate);
-  let year = parts(asOf).y;
-  const candidate = `${year}-${pad(h.m)}-${pad(h.day)}`;
-  if (candidate < asOf.slice(0, 10)) year++;
-  return `${year}-${pad(h.m)}-${pad(h.day)}`;
+  const year = parts(asOf).y;
+  const candidate = anniversaryInYear(h, year);
+  return candidate < asOf.slice(0, 10) ? anniversaryInYear(h, year + 1) : candidate;
 }
 
 export function daysUntilAnniversary(hireDate: string, asOf: string): number {

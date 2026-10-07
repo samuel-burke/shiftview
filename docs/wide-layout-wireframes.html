@@ -1,0 +1,818 @@
+<title>ShiftView Wide Layouts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a long-form spec. Narrow reading column for prose, wide "drafting table" bands for wireframes.
+   Palette is ShiftView's own (app/globals.css): navy ground, indigo accent, shift-type colors. Dark-first like the app. */
+:root {
+  --bg: #080f1e;
+  --surface: #0c1426;
+  --card: #111827;
+  --line: #1e293b;
+  --line-2: #334155;
+  --fg: #e2e8f0;
+  --fg-strong: #f8fafc;
+  --muted: #94a3b8;
+  --faint: #64748b;
+  --accent: #818cf8;
+  --accent-soft: rgba(129, 140, 248, .16);
+  --violet: #a78bfa;
+  --opener: #fbbf24;
+  --mid: #60a5fa;
+  --closer: #a78bfa;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --wf-ground: #0a1224;
+  --wf-block: #121b2e;
+  --wf-ink: #3b4a63;
+  --wf-ink-2: #52627d;
+  --hatch: rgba(248, 113, 113, .13);
+
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f1f5f9; --surface: #e9eef5; --card: #ffffff; --line: #e2e8f0; --line-2: #cbd5e1;
+    --fg: #1e293b; --fg-strong: #0f172a; --muted: #475569; --faint: #64748b;
+    --accent: #4f46e5; --accent-soft: rgba(79, 70, 229, .10); --violet: #7c3aed;
+    --opener: #f59e0b; --mid: #3b82f6; --closer: #8b5cf6; --ok: #16a34a; --warn: #b45309; --bad: #dc2626;
+    --wf-ground: #ffffff; --wf-block: #f1f5f9; --wf-ink: #cbd5e1; --wf-ink-2: #94a3b8; --hatch: rgba(220, 38, 38, .09);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f1f5f9; --surface: #e9eef5; --card: #ffffff; --line: #e2e8f0; --line-2: #cbd5e1;
+  --fg: #1e293b; --fg-strong: #0f172a; --muted: #475569; --faint: #64748b;
+  --accent: #4f46e5; --accent-soft: rgba(79, 70, 229, .10); --violet: #7c3aed;
+  --opener: #f59e0b; --mid: #3b82f6; --closer: #8b5cf6; --ok: #16a34a; --warn: #b45309; --bad: #dc2626;
+  --wf-ground: #ffffff; --wf-block: #f1f5f9; --wf-ink: #cbd5e1; --wf-ink-2: #94a3b8; --hatch: rgba(220, 38, 38, .09);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 400 15px/1.6 var(--f-body);
+  padding-inline: 20px; padding-block: 0 80px;
+}
+.wrap { max-width: 1240px; margin-inline: auto; }
+.prose { max-width: 70ch; }
+h1, h2, h3 { font-family: var(--f-display); color: var(--fg-strong); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 800; letter-spacing: -.02em; line-height: 1.02; }
+h2 { font-size: clamp(24px, 3.2vw, 32px); font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+h3 { font-size: 18px; font-weight: 600; line-height: 1.3; }
+p { margin: 0; }
+code, .mono { font-family: var(--f-mono); font-size: .86em; }
+code { background: var(--accent-soft); color: var(--fg-strong); padding: .1em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+
+header.hero { padding-block: 56px 36px; display: grid; gap: 18px; border-bottom: 1px solid var(--line); }
+header.hero h1 span { background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+header.hero .lede { font-size: 18px; color: var(--muted); max-width: 62ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 400 12.5px/1.4 var(--f-mono); color: var(--faint); }
+
+nav.toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); margin-inline: -20px; padding: 10px 20px; overflow-x: auto; }
+nav.toc ol { list-style: none; margin: 0 auto; padding: 0; display: flex; gap: 6px; max-width: 1240px; }
+nav.toc a { display: block; white-space: nowrap; text-decoration: none; color: var(--muted); font: 500 13px/1 var(--f-body); padding: 8px 12px; border-radius: 8px; }
+nav.toc a:hover { color: var(--fg-strong); background: var(--surface); }
+nav.toc a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+section.block { padding-block: 64px 8px; display: grid; gap: 22px; scroll-margin-top: 60px; }
+section.block > .head { display: grid; gap: 10px; }
+
+/* findings */
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 14px; }
+.finding { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.finding h3 { font-size: 16px; }
+.finding .where { font: 400 12px/1.5 var(--f-mono); color: var(--faint); overflow-wrap: anywhere; }
+.sev { display: inline-flex; align-items: center; gap: 6px; font: 500 11px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; }
+.sev::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.sev.bad { color: var(--bad); } .sev.warn { color: var(--warn); }
+
+/* as-is strip */
+.asis { display: flex; gap: 16px; align-items: flex-end; overflow-x: auto; padding-bottom: 6px; }
+.asis figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+figcaption { font: 400 12.5px/1.45 var(--f-mono); color: var(--muted); }
+figcaption b { color: var(--fg-strong); font-weight: 500; }
+
+/* breakpoint ruler */
+.ruler { display: grid; gap: 26px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 18px; overflow-x: auto; }
+.ruler-inner { min-width: 680px; display: grid; gap: 26px; }
+.track { display: grid; gap: 8px; }
+.track-label { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bar { position: relative; display: flex; height: 44px; border-radius: 8px; overflow: hidden; }
+.bar > div { display: flex; align-items: center; padding-inline: 10px; font: 500 12.5px/1.2 var(--f-body); color: var(--fg-strong); border-right: 2px solid var(--bg); }
+.bar > div small { display: block; font: 400 11px/1.2 var(--f-mono); color: var(--muted); }
+.seg-phone { background: color-mix(in srgb, var(--mid) 22%, var(--card)); }
+.seg-med { background: color-mix(in srgb, var(--ok) 20%, var(--card)); }
+.seg-exp { background: color-mix(in srgb, var(--accent) 26%, var(--card)); }
+.seg-wide { background: color-mix(in srgb, var(--violet) 28%, var(--card)); }
+.seg-old-a { background: color-mix(in srgb, var(--mid) 18%, var(--card)); }
+.seg-old-b { background: color-mix(in srgb, var(--faint) 22%, var(--card)); }
+.cliff { position: absolute; top: -6px; bottom: -6px; width: 0; border-left: 2px dashed var(--bad); }
+.cliff span { position: absolute; top: -18px; left: 4px; font: 500 11px/1 var(--f-mono); color: var(--bad); white-space: nowrap; }
+.devices { position: relative; height: 64px; }
+.dev { position: absolute; top: 0; transform: translateX(-1px); border-left: 1px solid var(--line-2); padding-left: 6px; height: 100%; font: 400 11px/1.3 var(--f-mono); color: var(--muted); white-space: nowrap; }
+.dev:nth-child(even) { padding-top: 30px; }
+.dev b { color: var(--fg); font-weight: 500; }
+.scale { display: flex; justify-content: space-between; font: 400 11px/1 var(--f-mono); color: var(--faint); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; align-items: start; }
+pre { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto; font: 400 13px/1.6 var(--f-mono); color: var(--fg); }
+pre .c { color: var(--faint); } pre .k { color: var(--accent); }
+.rules { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.rules li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.rules li:last-child { border-bottom: 0; }
+.rules b { font: 500 12px/1.6 var(--f-mono); color: var(--fg-strong); }
+
+/* nav strip */
+.navs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; align-items: end; }
+
+/* screen explorer */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: 500 13.5px/1 var(--f-body); color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.tabs button:hover { color: var(--fg-strong); border-color: var(--line-2); }
+.tabs button[aria-selected="true"] { color: var(--fg-strong); background: var(--accent-soft); border-color: var(--accent); }
+.tabs button .new { font: 500 10px/1 var(--f-mono); color: var(--ok); margin-left: 6px; letter-spacing: .06em; }
+.screen-intro { display: grid; gap: 6px; max-width: 75ch; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 22px; }
+.row-tab { display: flex; gap: 18px; align-items: flex-end; }
+.row-tab > figure:first-child { flex: 0.695 1 0; }
+.row-tab > figure:last-child { flex: 1.439 1 0; }
+.board figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 26px; margin: 0; padding: 0; list-style: none; }
+.notes li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 14px; }
+.pin-badge { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--bg); display: grid; place-items: center; font: 600 11.5px/1 var(--f-mono); }
+@media (max-width: 760px) {
+  .row-tab { flex-direction: column; align-items: stretch; }
+  .row-tab > figure:first-child { max-width: 380px; width: 100%; margin-inline: auto; }
+}
+
+/* ===== wireframe engine ===== */
+.frame {
+  --px: calc(100cqi / var(--dw));
+  container-type: inline-size;
+  position: relative; width: 100%; max-width: 100%;
+  background: var(--wf-ground); border: 1px solid var(--line-2); border-radius: 10px;
+  overflow: hidden;
+}
+.frame.tablet { border-radius: 16px; border-width: 3px; border-color: var(--line-2); }
+.frame.phone { border-radius: 18px; border-width: 3px; }
+.scr { position: absolute; inset: 0; display: grid; gap: max(3px, calc(var(--px) * 12)); padding: max(3px, calc(var(--px) * 12)); }
+.scr.flush { gap: 0; padding: 0; }
+.blk {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  background: var(--wf-block); border: 1px solid var(--line); border-radius: max(3px, calc(var(--px) * 10));
+  padding: max(3px, calc(var(--px) * 12));
+  display: flex; flex-direction: column; gap: max(2px, calc(var(--px) * 8));
+  font-size: max(6.5px, calc(var(--px) * 15)); line-height: 1.2; color: var(--muted);
+}
+.blk > .t { font-family: var(--f-mono); font-size: max(6.5px, calc(var(--px) * 13)); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+.blk.bare { background: transparent; border-color: transparent; padding: 0; }
+.blk.empty { background: repeating-linear-gradient(135deg, var(--hatch) 0 6px, transparent 6px 12px); border: 1px dashed color-mix(in srgb, var(--bad) 45%, transparent); align-items: center; justify-content: center; text-align: center; color: var(--bad); }
+.blk.empty > .t { color: var(--bad); white-space: normal; }
+.blk.hl { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.co { position: absolute; top: max(2px, calc(var(--px) * 8)); right: max(2px, calc(var(--px) * 8)); z-index: 2; width: max(15px, calc(var(--px) * 26)); height: max(15px, calc(var(--px) * 26)); border-radius: 50%; background: var(--accent); color: var(--bg); display: grid; place-items: center; font: 600 max(9px, calc(var(--px) * 14))/1 var(--f-mono); }
+.fill { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: max(2px, calc(var(--px) * 6)); }
+.ln { height: max(3px, calc(var(--px) * 9)); border-radius: 99px; background: var(--wf-ink); flex: none; }
+.ln.s { width: 40%; } .ln.m { width: 65%; } .ln.l { width: 90%; }
+.ln.a { background: var(--accent); }
+.row { display: flex; align-items: center; gap: max(2px, calc(var(--px) * 8)); min-width: 0; }
+.av { width: max(8px, calc(var(--px) * 30)); height: max(8px, calc(var(--px) * 30)); border-radius: 50%; border: 1px solid var(--wf-ink-2); flex: none; }
+.pill { height: max(6px, calc(var(--px) * 18)); width: max(16px, calc(var(--px) * 64)); border-radius: 99px; flex: none; background: color-mix(in srgb, var(--ok) 30%, transparent); }
+.btn { height: max(8px, calc(var(--px) * 30)); border-radius: max(2px, calc(var(--px) * 8)); background: var(--wf-ink); flex: 1; }
+.btn.p { background: linear-gradient(90deg, #3b82f6, #8b5cf6); }
+.grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: max(2px, calc(var(--px) * 5)); }
+svg.ch { width: 100%; flex: 1; min-height: 0; display: block; }
+
+/* kinds */
+.k-top { flex-direction: row; align-items: center; justify-content: space-between; background: transparent; border-color: transparent; border-bottom: 1px solid var(--line); border-radius: 0; }
+.k-top .ttl { font-family: var(--f-display); font-weight: 800; color: var(--fg-strong); font-size: max(8px, calc(var(--px) * 22)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-top .acts { display: flex; gap: max(2px, calc(var(--px) * 8)); align-items: center; flex: none; }
+.k-top .acts i { display: block; height: max(8px, calc(var(--px) * 30)); min-width: max(8px, calc(var(--px) * 30)); border-radius: max(2px, calc(var(--px) * 8)); background: var(--wf-ink); font: normal 500 max(6px, calc(var(--px) * 12))/max(8px, calc(var(--px) * 30)) var(--f-mono); padding-inline: max(2px, calc(var(--px) * 8)); color: var(--fg); white-space: nowrap; }
+.k-top .acts i.p { background: linear-gradient(90deg, #3b82f6, #8b5cf6); color: #fff; }
+.k-rail, .k-side { background: var(--card); border-radius: 0; border-width: 0 1px 0 0; padding-inline: 0; align-items: center; }
+.k-side { align-items: stretch; padding-inline: max(3px, calc(var(--px) * 12)); }
+.navi { display: flex; flex-direction: column; align-items: center; gap: max(1px, calc(var(--px) * 4)); padding-block: max(2px, calc(var(--px) * 6)); width: 100%; font-size: max(5.5px, calc(var(--px) * 10)); color: var(--faint); }
+.navi .ic { width: max(8px, calc(var(--px) * 26)); height: max(8px, calc(var(--px) * 26)); border-radius: max(2px, calc(var(--px) * 7)); border: 1.5px solid var(--wf-ink-2); }
+.navi.on { color: var(--accent); } .navi.on .ic { border-color: var(--accent); background: var(--accent-soft); }
+.sidei { display: flex; align-items: center; gap: max(3px, calc(var(--px) * 10)); padding: max(2px, calc(var(--px) * 9)) max(2px, calc(var(--px) * 10)); border-radius: max(2px, calc(var(--px) * 9)); color: var(--muted); font-size: max(6.5px, calc(var(--px) * 14)); white-space: nowrap; }
+.sidei .ic { width: max(6px, calc(var(--px) * 18)); height: max(6px, calc(var(--px) * 18)); border-radius: max(2px, calc(var(--px) * 5)); border: 1.5px solid var(--wf-ink-2); flex: none; }
+.sidei.on { background: var(--accent-soft); color: var(--accent); } .sidei.on .ic { border-color: var(--accent); }
+.brand { font-family: var(--f-display); font-weight: 800; color: var(--fg-strong); font-size: max(8px, calc(var(--px) * 20)); padding: max(2px, calc(var(--px) * 6)) max(2px, calc(var(--px) * 10)) max(4px, calc(var(--px) * 12)); white-space: nowrap; }
+.brand em { font-style: normal; color: var(--accent); }
+.sep { height: 1px; background: var(--line); margin-block: max(2px, calc(var(--px) * 6)); flex: none; width: 100%; }
+.k-bnav { flex-direction: row; justify-content: space-around; align-items: center; border-radius: 0; border-width: 1px 0 0; background: var(--card); }
+.k-stats { background: transparent; border-color: transparent; padding: 0; flex-direction: row; gap: max(3px, calc(var(--px) * 10)); }
+.tile { flex: 1; min-width: 0; background: var(--wf-block); border: 1px solid var(--line); border-radius: max(3px, calc(var(--px) * 10)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: max(1px, calc(var(--px) * 4)); }
+.tile b { font-family: var(--f-display); font-weight: 800; font-size: max(9px, calc(var(--px) * 30)); line-height: 1; }
+.tile span { font-size: max(5.5px, calc(var(--px) * 12)); color: var(--muted); white-space: nowrap; }
+.weekgrid { flex: 1; min-height: 0; display: grid; gap: max(1px, calc(var(--px) * 4)); }
+.weekgrid > div { border-radius: max(1px, calc(var(--px) * 5)); min-width: 0; min-height: 0; }
+.wg-h { font: 500 max(5.5px, calc(var(--px) * 11))/1 var(--f-mono); color: var(--faint); display: flex; align-items: center; justify-content: center; }
+.wg-n { display: flex; align-items: center; gap: max(2px, calc(var(--px) * 6)); }
+.wg-n .ln { flex: 1; }
+.wg-c { background: color-mix(in srgb, var(--wf-ink) 25%, transparent); }
+.wg-c.opener { background: color-mix(in srgb, var(--opener) 34%, transparent); box-shadow: inset 2px 0 0 var(--opener); }
+.wg-c.mid { background: color-mix(in srgb, var(--mid) 34%, transparent); box-shadow: inset 2px 0 0 var(--mid); }
+.wg-c.closer { background: color-mix(in srgb, var(--closer) 34%, transparent); box-shadow: inset 2px 0 0 var(--closer); }
+.wg-c.off { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--faint) 25%, transparent) 0 3px, transparent 3px 6px); }
+.wg-c.open { background: transparent; border: 1px dashed var(--ok); }
+.wg-c.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wg-f { display: flex; align-items: flex-end; justify-content: center; }
+.wg-f i { display: block; width: 60%; border-radius: 2px 2px 0 0; }
+.month { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; gap: max(1px, calc(var(--px) * 4)); }
+.month > div { border: 1px solid var(--line); border-radius: max(1px, calc(var(--px) * 5)); padding: max(1px, calc(var(--px) * 5)); display: flex; flex-direction: column; gap: max(1px, calc(var(--px) * 3)); min-height: 0; overflow: hidden; }
+.month > div.today { border-color: var(--accent); }
+.month .d { width: 30%; height: max(2px, calc(var(--px) * 6)); background: var(--wf-ink); border-radius: 9px; }
+.month .chip { height: max(3px, calc(var(--px) * 12)); border-radius: max(1px, calc(var(--px) * 3)); }
+.chip.opener { background: var(--opener); } .chip.mid { background: var(--mid); } .chip.closer { background: var(--closer); } .chip.req { background: transparent; border: 1px dashed var(--faint); }
+.chips { display: flex; gap: max(2px, calc(var(--px) * 6)); }
+.chips > div { flex: 1; aspect-ratio: 1 / 1.25; border: 1px solid var(--line); border-radius: max(2px, calc(var(--px) * 9)); display: flex; flex-direction: column; justify-content: flex-end; padding: max(1px, calc(var(--px) * 5)); gap: 2px; }
+.chips > div.on { border-color: var(--accent); background: var(--accent-soft); }
+.lst { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: max(2px, calc(var(--px) * 7)); overflow: hidden; }
+.item { display: flex; align-items: center; gap: max(3px, calc(var(--px) * 10)); padding: max(2px, calc(var(--px) * 9)); border: 1px solid var(--line); border-radius: max(2px, calc(var(--px) * 9)); background: var(--wf-ground); box-shadow: inset 2px 0 0 var(--c, var(--mid)); flex: none; }
+.item.sel { border-color: var(--accent); background: var(--accent-soft); }
+.cards { flex: 1; min-height: 0; display: grid; gap: max(2px, calc(var(--px) * 8)); align-content: start; }
+.tbl { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tr { display: grid; gap: max(3px, calc(var(--px) * 12)); padding-block: max(2px, calc(var(--px) * 9)); border-bottom: 1px solid var(--line); align-items: center; flex: none; }
+.tr.h .ln { background: var(--wf-ink-2); height: max(2px, calc(var(--px) * 7)); }
+.form { flex: 1; display: flex; flex-direction: column; gap: max(4px, calc(var(--px) * 14)); }
+.fld { display: flex; flex-direction: column; gap: max(2px, calc(var(--px) * 5)); }
+.inp { height: max(8px, calc(var(--px) * 34)); border: 1px solid var(--line-2); border-radius: max(2px, calc(var(--px) * 8)); }
+.tgl { width: max(12px, calc(var(--px) * 40)); height: max(7px, calc(var(--px) * 22)); border-radius: 99px; background: var(--accent); flex: none; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: max(2px, calc(var(--px) * 10)); }
+.keypad i { display: block; aspect-ratio: 1.6; border-radius: max(2px, calc(var(--px) * 10)); border: 1px solid var(--line-2); }
+.roster { flex: 1; min-height: 0; display: grid; gap: max(3px, calc(var(--px) * 12)); align-content: start; }
+.roster > div { border: 1px solid var(--line); border-radius: max(3px, calc(var(--px) * 12)); padding: max(3px, calc(var(--px) * 12)); display: flex; flex-direction: column; align-items: center; gap: max(2px, calc(var(--px) * 8)); box-shadow: inset 0 2px 0 var(--c, var(--mid)); }
+.roster .av { width: max(12px, calc(var(--px) * 52)); height: max(12px, calc(var(--px) * 52)); }
+.roster .here { width: max(4px, calc(var(--px) * 10)); height: max(4px, calc(var(--px) * 10)); border-radius: 50%; background: var(--ok); }
+.ringwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: max(3px, calc(var(--px) * 14)); }
+.ringwrap svg { height: 70%; max-height: 100%; aspect-ratio: 1; flex: none; }
+.ringwrap .btn { flex: none; width: 60%; height: max(10px, calc(var(--px) * 44)); }
+.split { flex: 1; min-height: 0; display: flex; gap: max(3px, calc(var(--px) * 12)); }
+.caption-in { font-size: max(6px, calc(var(--px) * 13)); color: var(--muted); }
+.popover { position: absolute; z-index: 3; background: var(--card); border: 1px solid var(--accent); border-radius: max(3px, calc(var(--px) * 10)); padding: max(3px, calc(var(--px) * 10)); display: flex; flex-direction: column; gap: max(2px, calc(var(--px) * 6)); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+
+/* overlay table */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13.5px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 11.5px/1.3 var(--f-mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); background: var(--surface); }
+td:first-child { font-family: var(--f-mono); font-size: 12.5px; color: var(--fg-strong); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td .tag { display: inline-block; font: 500 11px/1 var(--f-mono); padding: 4px 7px; border-radius: 5px; margin: 0 4px 3px 0; }
+.tag.sheet { background: color-mix(in srgb, var(--mid) 20%, transparent); color: var(--fg-strong); }
+.tag.pane { background: color-mix(in srgb, var(--violet) 22%, transparent); color: var(--fg-strong); }
+.tag.pop { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--fg-strong); }
+.tag.modal { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--fg-strong); }
+.tag.page { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--fg-strong); }
+
+/* principles */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 36px; }
+.principles > div { padding-block: 16px; border-top: 1px solid var(--line); display: grid; gap: 6px; min-width: 0; }
+.principles h3 { font-size: 16.5px; }
+.principles p { font-size: 14.5px; color: var(--muted); }
+kbd { font: 500 12px/1 var(--f-mono); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--fg-strong); }
+
+/* rollout */
+.rollout { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: ph; }
+.rollout > li { counter-increment: ph; display: grid; grid-template-columns: 58px 1fr; gap: 18px; padding-block: 20px; border-top: 1px solid var(--line); }
+.rollout > li::before { content: counter(ph); font: 800 34px/1 var(--f-display); color: var(--accent); }
+.rollout h3 { margin-bottom: 6px; }
+.rollout p { color: var(--muted); font-size: 14.5px; max-width: 75ch; }
+.rollout .files { margin-top: 8px; font: 400 12.5px/1.6 var(--f-mono); color: var(--faint); overflow-wrap: anywhere; }
+.rollout .effort { display: inline-block; margin-left: 8px; font: 500 11px/1 var(--f-mono); color: var(--muted); border: 1px solid var(--line-2); border-radius: 99px; padding: 4px 8px; vertical-align: middle; }
+
+footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); font: 400 12.5px/1.6 var(--f-mono); color: var(--faint); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .board { animation: rise .25s ease-out; }
+  @keyframes rise { from { transform: translateY(4px); } to { transform: none; } }
+}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Design proposal · iPad &amp; desktop</div>
+    <h1>Shift<span>View</span> wide layouts</h1>
+    <p class="lede">ShiftView works well on a phone. On an iPad it shows the phone layout with empty margins on both sides, and on a monitor it spreads a few cards across a wide, mostly empty canvas. This page shows where the layout breaks, proposes a four-size system, and wireframes each screen at iPad portrait, iPad landscape, and desktop sizes.</p>
+    <div class="meta"><span>Based on <code>dev</code> @ 3a8406d</span><span>Oct 6, 2026</span><span>Wireframes, not mockups: proportions are real, content is schematic</span></div>
+  </header>
+
+  <nav class="toc" aria-label="Sections">
+    <ol>
+      <li><a href="#today">Where it breaks</a></li>
+      <li><a href="#sizes">Size classes</a></li>
+      <li><a href="#nav">Navigation</a></li>
+      <li><a href="#screens">Screens</a></li>
+      <li><a href="#overlays">Sheets &amp; panes</a></li>
+      <li><a href="#principles">Principles</a></li>
+      <li><a href="#rollout">Rollout</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 -->
+  <section class="block" id="today">
+    <div class="head prose">
+      <div class="eyebrow">Diagnosis</div>
+      <h2>One breakpoint at 900px decides everything</h2>
+      <p class="muted">Every page switches layout at one hard-coded width, <code>[@media(min-width:900px)]</code> (and <code>useIsDesktop(900)</code> in JavaScript). Below 900px you get the phone layout, capped at 480px. At 900px and above you get a 220px sidebar and a two-column grid. Every iPad in portrait is under 900px. Every iPad in landscape and every monitor is above it.</p>
+    </div>
+    <div class="asis" id="asis"></div>
+    <div class="findings">
+      <div class="finding">
+        <span class="sev bad">High</span>
+        <h3>iPad portrait gets a phone in a box</h3>
+        <p class="muted">Every page's <code>&lt;main&gt;</code> is <code>max-w-[480px] mx-auto</code>, and the bottom nav is pinned at 480px. On an 820px iPad Air, 340px (41% of the width) is empty, and touch targets sit in the middle of the screen, away from your thumbs.</p>
+        <p class="where">app/pageClient.tsx:992 · components/BottomNav.tsx:27 · same pattern in schedule, clock, draft, reports, admin, coverage</p>
+      </div>
+      <div class="finding">
+        <span class="sev warn">Medium</span>
+        <h3>iPad landscape is a squeezed desktop</h3>
+        <p class="muted">At 1180px the 220px sidebar takes 19% of the width. The dashboard's <code>1fr_380px</code> grid leaves the coverage chart about 500px wide, while the right column holds a long scrolling list.</p>
+        <p class="where">components/SideNav.tsx:22 (w-[220px]) · pageClient.tsx:995 · schedulePageClient.tsx:1255 (1fr_320px) · draftPageClient.tsx:412 (1fr_400px)</p>
+      </div>
+      <div class="finding">
+        <span class="sev warn">Medium</span>
+        <h3>Big monitors: either stretched or stranded</h3>
+        <p class="muted">The dashboard has no max width, so the coverage timeline (fixed at 150px tall) becomes a 1,240 × 150 strip at 1920px. Other pages cap themselves at different widths: Admin and Coverage at 672px, Clock at 600px, Reports at 896px. They float in empty space and don't line up with each other.</p>
+        <p class="where">CoverageTimeline.tsx:269 (height 150) · adminPageClient.tsx:162 · clockPageClient.tsx:599 · reportsPageClient.tsx:688</p>
+      </div>
+      <div class="finding">
+        <span class="sev warn">Medium</span>
+        <h3>Overlays cover what you're comparing against</h3>
+        <p class="muted">On desktop, employee detail, requests, open shifts and draft shift editing open as right drawers over the page, so you can't see coverage while you approve or edit. Availability and store hours still open as 480px bottom sheets on a 27-inch screen. Settings is a modal capped at 90% of the viewport height.</p>
+        <p class="where">EmployeeDrawer.tsx:286 · RequestsDrawer.tsx:140 · AvailabilitySection.tsx:310 · StoreHoursSection.tsx:184 · settingsPageClient.tsx:778</p>
+      </div>
+      <div class="finding">
+        <span class="sev warn">Medium</span>
+        <h3>No view built for a manager at a desk</h3>
+        <p class="muted">Managers build schedules on a laptop, but there's no team-wide week grid with people as rows and days as columns. The Planner's "Schedule At a Glance" is seven day chips in a 400px column, and approvals live only in a drawer.</p>
+        <p class="where">draftPageClient.tsx:463–480 · RequestsDrawer.tsx</p>
+      </div>
+      <div class="finding">
+        <span class="sev warn">Low</span>
+        <h3>Desktop input isn't used</h3>
+        <p class="muted">There are no keyboard shortcuts beyond Escape, few hover affordances, and no right-click or multi-select. The store-wide iPad, a common fixture in retail back rooms, has no shared clock-in (kiosk) mode.</p>
+        <p class="where">keydown handlers only in EmployeeDrawer, MessageThread, UserMenu</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="block" id="sizes">
+    <div class="head prose">
+      <div class="eyebrow">Proposal</div>
+      <h2>Four size classes instead of one cliff</h2>
+      <p class="muted">Base layouts on window width, not device type. iPad Split View and Stage Manager produce every width from 320px to 1366px, so an iPad can land in any of the four classes.</p>
+    </div>
+    <div class="ruler">
+      <div class="ruler-inner" id="ruler"></div>
+    </div>
+    <div class="two">
+      <pre><span class="c">/* app/globals.css: Tailwind v4 breakpoints */</span>
+<span class="k">@theme</span> {
+  --breakpoint-md: 600px;   <span class="c">/* medium: iPad portrait, split view */</span>
+  --breakpoint-lg: 1024px;  <span class="c">/* expanded: iPad landscape, laptop */</span>
+  --breakpoint-xl: 1440px;  <span class="c">/* wide: desktop monitor */</span>
+}
+
+<span class="c">// hooks/useBreakpoint.ts replaces useIsDesktop</span>
+<span class="k">type</span> Size = "compact" | "medium" | "expanded" | "wide";
+<span class="k">export function</span> useBreakpoint(): Size
+
+<span class="c">// before: [@media(min-width:900px)]:grid-cols-[1fr_380px]</span>
+<span class="c">// after:  md:grid-cols-2 lg:grid-cols-[1fr_360px] xl:grid-cols-12</span></pre>
+      <ul class="rules">
+        <li><b>compact</b><span>Under 600px. Today's phone layout, unchanged. Bottom tabs, bottom sheets, single column.</span></li>
+        <li><b>medium</b><span>600 to 1023px. Remove the 480px cap. Add a 72px icon rail. Two-column content. Sheets become centered dialogs. Touch targets stay at 44px or larger.</span></li>
+        <li><b>expanded</b><span>1024 to 1439px. The rail can be pinned open to 220px. List and detail sit side by side, and detail opens in a pane instead of a drawer.</span></li>
+        <li><b>wide</b><span>1440px and up. Persistent 240px sidebar, 12-column grid, content capped at 1680px. Shows denser manager views such as the week grid, the approvals inbox, and the inspector pane.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="block" id="nav">
+    <div class="head prose">
+      <div class="eyebrow">Navigation</div>
+      <h2>Bottom tabs → rail → sidebar</h2>
+      <p class="muted">Today, iPad users get three bottom tabs and must open the user menu to reach Planner, Admin, Reports or Settings. A rail shows every destination at medium size while using only 72px. The clock-status dot moves into the rail so it's visible on every screen, just as <code>ClockStatusBadge</code> is in the current sidebar.</p>
+    </div>
+    <div class="navs" id="navs"></div>
+  </section>
+
+  <!-- 4 -->
+  <section class="block" id="screens">
+    <div class="head prose">
+      <div class="eyebrow">Wireframes</div>
+      <h2>Every screen at three sizes</h2>
+      <p class="muted">Pick a screen. Each one is shown at iPad portrait (820 × 1180), iPad landscape (1180 × 820) and desktop (1600 × 1000). Numbered markers match the notes below each set.</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Screens" id="tabs"></div>
+    <div class="board" id="board" role="tabpanel"></div>
+  </section>
+
+  <!-- 5 -->
+  <section class="block" id="overlays">
+    <div class="head prose">
+      <div class="eyebrow">Sheets &amp; panes</div>
+      <h2>One rule for every overlay</h2>
+      <p class="muted">At compact size, use bottom sheets as today. At medium size, use a centered dialog of 560px at most. At expanded and wide sizes, open detail in a side pane that pushes content over instead of covering it, so the list or chart behind stays visible and usable. Short pickers become popovers anchored to the control that opened them.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Component</th><th>Today ≥ 900px</th><th>Medium</th><th>Expanded / wide</th></tr></thead>
+        <tbody>
+          <tr><td>EmployeeDrawer</td><td><span class="tag sheet">right drawer</span>covers the dashboard</td><td><span class="tag modal">dialog</span></td><td><span class="tag pane">detail pane</span>stays open while you select other people</td></tr>
+          <tr><td>RequestsDrawer</td><td><span class="tag sheet">right drawer</span></td><td><span class="tag page">/requests two-pane</span></td><td><span class="tag page">/requests three-pane inbox</span>shows coverage impact</td></tr>
+          <tr><td>OpenShiftsDrawer</td><td><span class="tag sheet">right drawer</span></td><td><span class="tag modal">dialog</span></td><td><span class="tag pane">week grid row</span>plus pane</td></tr>
+          <tr><td>DraftShiftSheet</td><td><span class="tag sheet">right drawer</span></td><td><span class="tag pop">popover</span>on the shift block</td><td><span class="tag pane">inspector pane</span></td></tr>
+          <tr><td>SwapRequestSheet</td><td><span class="tag modal">dialog</span></td><td><span class="tag modal">dialog</span></td><td><span class="tag pop">popover</span>on the shift</td></tr>
+          <tr><td>DatePickerSheet</td><td><span class="tag modal">dialog 360px</span></td><td><span class="tag pop">popover</span></td><td><span class="tag pop">popover</span>or an inline month in the schedule rail</td></tr>
+          <tr><td>InviteSheet</td><td><span class="tag modal">dialog 420px</span></td><td><span class="tag modal">dialog</span></td><td><span class="tag modal">dialog</span>no change</td></tr>
+          <tr><td>AvailabilitySection</td><td><span class="tag sheet">bottom sheet 480px</span>at every width</td><td><span class="tag modal">dialog</span></td><td><span class="tag page">inline weekly editor</span>in Settings</td></tr>
+          <tr><td>StoreHoursSection</td><td><span class="tag sheet">bottom sheet 480px</span>at every width</td><td><span class="tag modal">dialog</span></td><td><span class="tag page">inline table</span>in Settings</td></tr>
+          <tr><td>TimeCardDrawer</td><td><span class="tag sheet">right drawer 560px</span></td><td><span class="tag sheet">full-height sheet</span></td><td><span class="tag pane">detail pane</span>from the dashboard or Reports</td></tr>
+          <tr><td>Settings modal</td><td><span class="tag modal">modal, 90vh max</span></td><td><span class="tag page">section list → page</span></td><td><span class="tag page">section nav + form</span>no modal</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="block" id="principles">
+    <div class="head prose">
+      <div class="eyebrow">Principles</div>
+      <h2>Rules to hold every screen to</h2>
+    </div>
+    <div class="principles">
+      <div><h3>Cap widths by page type</h3><p>Use three widths, applied the same way everywhere. Forms and settings: 720px. Reading and lists: 960px. Dashboards and grids: 1680px. Use 24px gutters at medium and expanded sizes and 32px at wide. Don't let a page decide its own number.</p></div>
+      <div><h3>Charts keep their shape</h3><p>Give the coverage timeline an aspect ratio between 2.5:1 and 3.5:1 with a minimum height, instead of a fixed 150px. When there's spare width, add another panel next to it rather than stretching the chart.</p></div>
+      <div><h3>Fill wide screens with information</h3><p>Use extra width for more context, such as coverage next to approvals, the week next to the day, or a list next to its detail. Bigger cards don't help. Every wide layout should save a tap compared with the phone.</p></div>
+      <div><h3>iPads are touch first</h3><p>Keep 44px targets, swipe-to-dismiss and haptics at medium and expanded sizes. Only add hover-only features (tooltips, row actions) under <code>@media (hover: hover)</code>, so an iPad with a keyboard and trackpad gets them and a bare iPad doesn't lose anything.</p></div>
+      <div><h3>Keyboard on desktop</h3><p><kbd>←</kbd> <kbd>→</kbd> change the week, <kbd>T</kbd> jumps to today, <kbd>N</kbd> creates a new shift, <kbd>A</kbd> / <kbd>D</kbd> approve or deny the selected request, <kbd>/</kbd> searches people, <kbd>Esc</kbd> closes the pane. List them in a <kbd>?</kbd> overlay.</p></div>
+      <div><h3>One DOM, rearranged by CSS</h3><p>Continue the pattern already in schedulePageClient.tsx: one React tree, reordered with grid placement. Keep the JS hook for behavior only, such as drag versus no drag, and never for layout. This avoids the layout shift that AppShell.tsx's comment warns about.</p></div>
+      <div><h3>Same density in both themes</h3><p>Every wireframe here works in the light theme too. Shift-type colors (opener amber, mid blue, closer purple) carry the week grid, so check them on white at the small block sizes used there.</p></div>
+      <div><h3>Safe areas and split view</h3><p>The rail and sidebar take <code>env(safe-area-inset-left)</code> in landscape. Test at 1/3, 1/2 and 2/3 Split View on a 12.9-inch iPad (about 420, 678 and 980px) so each width lands in its intended size class.</p></div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="block" id="rollout">
+    <div class="head prose">
+      <div class="eyebrow">Rollout</div>
+      <h2>Order of work</h2>
+      <p class="muted">Each phase can ship on its own and improves iPads and desktops immediately. Phase 1 gives the biggest improvement for the least work.</p>
+    </div>
+    <ol class="rollout">
+      <li><div><h3>Size classes, rail, and remove the 480px cap <span class="effort">S–M</span></h3><p>Add the <code>@theme</code> breakpoints and <code>useBreakpoint()</code>. Replace <code>[@media(min-width:900px)]</code> with <code>lg:</code> across pages, which is mechanical. Add a <code>NavRail</code> for medium size and hide <code>BottomNav</code> at <code>md:</code>. Change page <code>&lt;main&gt;</code> from <code>max-w-[480px]</code> to <code>md:max-w-none</code> and give each page a medium two-column arrangement.</p><p class="files">components/AppShell.tsx · SideNav.tsx · BottomNav.tsx · TopBar.tsx · hooks/useIsDesktop.ts · app/*/…PageClient.tsx · app/globals.css</p></div></li>
+      <li><div><h3>Panes instead of drawers <span class="effort">M</span></h3><p>Add a shared <code>DetailPane</code> slot in AppShell that pushes content at expanded and wide sizes. Move EmployeeDrawer, TimeCardDrawer and DraftShiftSheet onto it, and move Availability and Store Hours into inline editors. Only the container changes. Drawer contents stay as they are.</p><p class="files">components/AppShell.tsx · EmployeeDrawer.tsx · TimeCardDrawer.tsx · DraftShiftSheet.tsx · AvailabilitySection.tsx · StoreHoursSection.tsx</p></div></li>
+      <li><div><h3>Manager week grid <span class="effort">L</span></h3><p>Add a new view with people as rows and days as columns, with an open-shifts row and a coverage footer. Drafts and published shifts appear in the same grid. Click a block to open the inspector, and use drag-to-move behind a pointer check. This is the main reason managers will use a laptop.</p><p class="files">new: components/WeekGrid.tsx · app/draft/draftPageClient.tsx · app/api/schedules, /api/drafts (existing)</p></div></li>
+      <li><div><h3>Requests inbox and Settings layout <span class="effort">M</span></h3><p>Turn RequestsDrawer into a <code>/requests</code> route with filters, a list and detail, plus a coverage-impact preview. Turn the Settings modal into a section nav with a form page.</p><p class="files">components/RequestsDrawer.tsx → app/requests/ · app/settings/settingsPageClient.tsx</p></div></li>
+      <li><div><h3>Shared iPad kiosk clock <span class="effort">M–L</span></h3><p>Add a store-wide clock-in mode for a fixed iPad: a roster of who's scheduled now, a PIN keypad, and an auto-lock timer. It needs a kiosk session type and a PIN per employee, so it requires a product decision before any design work.</p><p class="files">app/clock/clockPageClient.tsx · app/api/punches · new migration for kiosk PINs</p></div></li>
+    </ol>
+  </section>
+
+  <footer>ShiftView wide-layout proposal · source in docs/wide-layout-wireframes.html · palette and shift colors from app/globals.css</footer>
+</div>
+
+<script>
+(() => {
+  const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const lines = (...w) => w.map(x => `<div class="ln ${x}"></div>`).join("");
+  const SHIFT = ["opener", "mid", "closer"];
+  const rng = seed => () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+
+  /* ---- block renderers ---- */
+  const K = {
+    rail(o) {
+      const items = o.items || ["Team", "Schedule", "Clock", "|", "Planner", "Requests", "Reports", "Settings"];
+      return `<div class="brand" style="padding-inline:0">S<em>V</em></div>` + items.map(n => n === "|" ? `<div class="sep"></div>` : `<div class="navi ${n === o.on ? "on" : ""}"><div class="ic"></div>${n}</div>`).join("");
+    },
+    side(o) {
+      const items = o.items || ["Team", "Week grid", "Schedule", "Clock", "|", "Planner", "Requests", "Reports", "Admin", "Settings"];
+      return `<div class="brand">Shift<em>View</em></div>` + items.map(n => n === "|" ? `<div class="sep"></div>` : `<div class="sidei ${n === o.on ? "on" : ""}"><div class="ic"></div>${n}</div>`).join("");
+    },
+    top(o) {
+      return `<div class="ttl">${o.title}</div><div class="acts">${(o.acts || []).map(a => `<i class="${a.startsWith("!") ? "p" : ""}">${a.replace("!", "")}</i>`).join("")}</div>`;
+    },
+    bnav() { return ["Team", "Schedule", "Clock"].map((n, i) => `<div class="navi ${i === 0 ? "on" : ""}"><div class="ic"></div>${n}</div>`).join(""); },
+    stats(o) {
+      return (o.v || [["9", "Here now", "ok"], ["10", "Scheduled", "accent"], ["2", "Off", "faint"]]).map(([v, l, c]) => `<div class="tile"><b style="color:var(--${c})">${v}</b><span>${l}</span></div>`).join("");
+    },
+    area(o) {
+      const s = [0,0,1,1,2,3,4,4,6,6,7,7,8,8,9,10,10,9,9,8,7,6,6,4,4,3,3,2,2,0,0];
+      const cut = o.now ?? 15, W = 100, H = 40, max = 11;
+      const pt = (i, v) => `${(i / (s.length - 1) * W).toFixed(2)},${(H - v / max * (H - 4)).toFixed(2)}`;
+      let line = s.map((v, i) => (i ? "L" : "M") + pt(i, v)).join(" ");
+      const c = s.slice(0, cut + 1).map(v => Math.max(0, v - (v > 6 ? 1 : 0)));
+      let cl = c.map((v, i) => (i ? "L" : "M") + pt(i, v)).join(" ");
+      const nx = (cut / (s.length - 1) * W).toFixed(2);
+      const rec = o.rec ? `<path d="${s.map((v, i) => (i ? "L" : "M") + pt(i, Math.min(max, v + 1))).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>` : "";
+      return `<svg class="ch" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0,${H} ${line.replace("M", "L")} L${W},${H} Z" fill="var(--mid)" fill-opacity=".14"/>
+        <path d="${line}" fill="none" stroke="var(--mid)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+        ${rec}
+        ${o.rec ? "" : `<path d="M0,${H} ${cl.replace("M", "L")} L${nx},${H} Z" fill="var(--ok)" fill-opacity=".22"/><path d="${cl}" fill="none" stroke="var(--ok)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+        <line x1="${nx}" x2="${nx}" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>`}
+      </svg>`;
+    },
+    bars() {
+      const b = [56, 52, 56, 64, 64, 72, 80], s = [55, 48, 56, 72, 63, 76, 79];
+      let r = "";
+      b.forEach((v, i) => {
+        const x = 4 + i * 13.6;
+        r += `<rect x="${x}" y="${40 - v / 2.2}" width="4.4" height="${v / 2.2}" rx="1" fill="var(--faint)"/>`;
+        r += `<rect x="${x + 5.2}" y="${40 - s[i] / 2.2}" width="4.4" height="${s[i] / 2.2}" rx="1" fill="var(--mid)"/>`;
+      });
+      return `<svg class="ch" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${r}</svg>`;
+    },
+    list(o) {
+      const n = o.cnt || 4, colors = ["mid", "closer", "opener", "mid", "closer", "opener", "mid", "mid"];
+      let r = "";
+      for (let i = 0; i < n; i++) r += `<div class="item ${o.sel === i ? "sel" : ""}" style="--c:var(--${colors[i % colors.length]})"><div class="av"></div><div class="grow">${lines("m", "s")}</div>${o.pill === false ? "" : `<div class="pill" style="${o.pillc ? `background:color-mix(in srgb, var(--${o.pillc}) 30%, transparent)` : ""}"></div>`}</div>`;
+      return `<div class="lst">${r}</div>`;
+    },
+    cards(o) {
+      const n = o.cnt || 6, c = o.cols || 2, colors = ["mid", "closer", "opener"];
+      let r = "";
+      for (let i = 0; i < n; i++) r += `<div class="item" style="--c:var(--${colors[i % 3]})"><div class="av"></div><div class="grow">${lines("m", "s")}</div></div>`;
+      return `<div class="cards" style="grid-template-columns:repeat(${c},1fr)">${r}</div>`;
+    },
+    week(o) {
+      const rows = o.rows || 8, rand = rng(o.seed || 7), days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+      const name = o.name ?? true;
+      const cols = (name ? `${o.namew || "1.6fr"} ` : "") + "repeat(7,1fr)";
+      let r = (name ? `<div></div>` : "") + days.map(d => `<div class="wg-h">${d}</div>`).join("");
+      if (o.open) { r += (name ? `<div class="wg-n"><div class="ln m" style="background:var(--ok)"></div></div>` : ""); for (let d = 0; d < 7; d++) r += `<div class="wg-c ${rand() < .45 ? "open" : ""}" style="${rand() < .45 ? "" : "background:transparent"}"></div>`; }
+      for (let i = 0; i < rows; i++) {
+        if (name) r += `<div class="wg-n"><div class="av"></div><div class="ln"></div></div>`;
+        for (let d = 0; d < 7; d++) {
+          const x = rand();
+          const cls = x < .2 ? "" : x < .27 ? "off" : SHIFT[Math.floor(rand() * 3)];
+          const sel = o.sel && o.sel[0] === i && o.sel[1] === d ? " sel" : "";
+          r += `<div class="wg-c ${cls}${sel}"></div>`;
+        }
+      }
+      if (o.foot) {
+        if (name) r += `<div class="wg-h" style="justify-content:flex-start">COV</div>`;
+        [70, 55, 62, 90, 60, 100, 85].forEach(v => r += `<div class="wg-f"><i style="height:${v}%;background:${v > 95 ? "var(--bad)" : v < 60 ? "var(--warn)" : "var(--ok)"}"></i></div>`);
+      }
+      const rcount = 1 + (o.open ? 1 : 0) + rows + (o.foot ? 1 : 0);
+      const rowsT = o.compact ? "calc(var(--px) * 18) calc(var(--px) * 46)" : `0.5fr ${o.open ? "1fr " : ""}repeat(${rows},1fr)${o.foot ? " 1.4fr" : ""}`;
+      return `<div class="weekgrid" style="grid-template-columns:${cols};grid-template-rows:${rowsT}" data-r="${rcount}">${r}</div>`;
+    },
+    month(o) {
+      const rand = rng(o.seed || 3); let r = "";
+      for (let i = 0; i < 35; i++) {
+        const x = rand();
+        const chip = x < .45 ? "" : `<div class="chip ${x < .52 ? "req" : SHIFT[Math.floor(rand() * 3)]}"></div>`;
+        r += `<div class="${i === 17 ? "today" : ""}"><div class="d"></div>${chip}</div>`;
+      }
+      return `<div class="month">${r}</div>`;
+    },
+    chips() {
+      let r = "";
+      for (let i = 0; i < 7; i++) r += `<div class="${i === 3 ? "on" : ""}"><div class="ln s"></div><div class="chip ${SHIFT[i % 3]}" style="height:3px;border-radius:2px"></div></div>`;
+      return `<div class="chips">${r}</div>`;
+    },
+    ring(o) {
+      return `<div class="ringwrap"><svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="40" fill="none" stroke="var(--wf-ink)" stroke-width="7"/>
+        <circle cx="50" cy="50" r="40" fill="none" stroke="var(--ok)" stroke-width="7" stroke-linecap="round" stroke-dasharray="170 251" transform="rotate(-90 50 50)"/>
+        <text x="50" y="50" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" fill="var(--fg-strong)">${o.time || "4:12"}</text>
+        <text x="50" y="64" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="7" fill="var(--muted)">${o.sub || "on shift"}</text>
+      </svg>${o.btn === false ? "" : `<div class="btn p"></div>`}</div>`;
+    },
+    pin() { return `<div class="caption-in">Enter PIN</div><div class="row" style="justify-content:center;gap:6%">${"<div class=\"av\" style=\"width:7%;height:auto;aspect-ratio:1\"></div>".repeat(4)}</div><div class="keypad">${"<i></i>".repeat(12)}</div>`; },
+    roster(o) {
+      const n = o.cnt || 8, colors = ["mid", "closer", "opener"]; let r = "";
+      for (let i = 0; i < n; i++) r += `<div style="--c:var(--${colors[i % 3]})"><div class="av"></div><div class="ln m" style="width:70%"></div>${i % 3 === 0 ? `<div class="here"></div>` : `<div class="ln s" style="width:40%"></div>`}</div>`;
+      return `<div class="roster" style="grid-template-columns:repeat(${o.cols || 4},1fr)">${r}</div>`;
+    },
+    table(o) {
+      const c = o.c || 5, n = o.cnt || 6, tpl = `grid-template-columns:2fr repeat(${c - 1},1fr)`;
+      let r = `<div class="tr h" style="${tpl}">${lines(...Array(c).fill("m"))}</div>`;
+      for (let i = 0; i < n; i++) r += `<div class="tr" style="${tpl}">${lines("l", ...Array(c - 1).fill(i % 2 ? "s" : "m"))}</div>`;
+      return `<div class="tbl">${r}</div>`;
+    },
+    form(o) {
+      let r = "";
+      for (let i = 0; i < (o.cnt || 4); i++) r += i === 2 ? `<div class="row"><div class="grow">${lines("m", "s")}</div><div class="tgl"></div></div>` : `<div class="fld"><div class="ln s"></div><div class="inp"></div></div>`;
+      return `<div class="form">${r}${o.save === false ? "" : `<div class="row" style="justify-content:flex-end"><div class="btn p" style="flex:none;width:30%"></div></div>`}</div>`;
+    },
+    detail(o) {
+      return `<div class="row"><div class="av" style="width:max(12px,calc(var(--px)*48));height:max(12px,calc(var(--px)*48))"></div><div class="grow">${lines("m", "s")}</div></div>
+        <div class="sep"></div><div class="fill">${lines("l", "m", "l", "s")}${o.week ? `<div style="display:flex">${K.week({ rows: 1, name: false, seed: 11, compact: true })}</div>` : ""}${o.extra ? lines("l", "m", "l") : ""}</div>
+        <div class="row">${o.btns === 1 ? `<div class="btn p"></div>` : `<div class="btn"></div><div class="btn p"></div>`}</div>`;
+    },
+    inbox(o) { return K.list({ cnt: o.cnt || 6, sel: 1, pillc: "warn" }); },
+    filters() {
+      return `<div class="lst">${["All", "Time off", "Swaps", "Corrections", "Call-outs"].map((f, i) => `<div class="sidei ${i === 0 ? "on" : ""}" style="justify-content:space-between"><span>${f}</span><span class="mono">${[12, 4, 3, 2, 3][i]}</span></div>`).join("")}</div>`;
+    },
+    sections(o) {
+      return `<div class="lst">${["Profile", "Availability", "Notifications", "Store hours", "Positions", "Coverage targets", "Team & invites", "Organization"].slice(0, o.cnt || 8).map((f, i) => `<div class="sidei ${i === 1 ? "on" : ""}">${f}</div>`).join("")}</div>`;
+    },
+    text(o) { return `<div class="fill">${lines(...(o.l || ["l", "m", "l", "s"]))}</div>`; },
+    segs(o) { return `<div class="row">${(o.s || ["Labor", "Punctuality", "Coverage", "Payroll"]).map((s, i) => `<div class="sidei ${i === 0 ? "on" : ""}" style="border:1px solid var(--line)">${s}</div>`).join("")}</div>`; },
+    impact() { return `<div class="caption-in">Coverage if approved</div>` + K.area({ now: 30, rec: true }) + `<div class="row"><div class="pill" style="background:color-mix(in srgb,var(--warn) 35%,transparent)"></div><div class="ln m"></div></div>`; },
+    empty() { return ""; },
+  };
+
+  const BARE = new Set(["top", "stats", "rail", "side", "bnav"]);
+  function frame(spec) {
+    const f = h("div", "frame " + (spec.cls || ""));
+    f.style.setProperty("--dw", spec.w);
+    f.style.aspectRatio = `${spec.w} / ${spec.h}`;
+    if (spec.maxw) f.style.maxWidth = spec.maxw;
+    f.setAttribute("role", "img");
+    f.setAttribute("aria-label", spec.aria || "Wireframe");
+    const s = h("div", "scr" + (spec.flush ? " flush" : ""));
+    const dpx = v => v.replace(/(\d+)px/g, "calc(var(--px) * $1)");
+    s.style.gridTemplateColumns = dpx(spec.cols);
+    s.style.gridTemplateRows = spec.rows;
+    s.style.gridTemplateAreas = spec.areas.map(r => `"${r}"`).join(" ");
+    for (const [a, b] of Object.entries(spec.b)) {
+      const k = b.k || "text";
+      const el = h("div", `blk k-${k}${k === "empty" ? " empty" : ""}${b.hl ? " hl" : ""}`);
+      el.style.gridArea = a;
+      if (b.t && !BARE.has(k)) el.appendChild(h("div", "t", b.t));
+      if (k === "empty" && b.t) el.firstChild.textContent = b.t;
+      el.insertAdjacentHTML("beforeend", K[k](b));
+      if (b.n) el.appendChild(h("div", "co", String(b.n)));
+      if (b.pop) el.insertAdjacentHTML("beforeend", `<div class="popover" style="${b.pop}">${lines("m", "s", "l")}<div class="row"><div class="btn"></div><div class="btn p"></div></div></div>`);
+      s.appendChild(el);
+    }
+    f.appendChild(s);
+    return f;
+  }
+  function fig(spec, cap) { const g = h("figure"); g.appendChild(frame(spec)); g.appendChild(h("figcaption", null, cap)); return g; }
+
+  /* ---- section 1: as-is ---- */
+  const asis = document.getElementById("asis");
+  const asisSpecs = [
+    [{ w: 390, h: 844, cls: "phone", cols: "1fr", rows: "7% 12% 22% 1fr 8%", areas: ["t", "k", "c", "l", "b"], aria: "Phone dashboard today",
+      b: { t: { k: "top", title: "ShiftView", acts: ["", ""] }, k: { k: "stats" }, c: { k: "area", t: "Coverage" }, l: { k: "list", t: "Here now", cnt: 0, pill: true }, b: { k: "bnav" } } }, 150, "<b>390px phone.</b> Works as designed."],
+    [{ w: 820, h: 1180, cls: "tablet", cols: "170fr 480fr 170fr", rows: "5% 9% 16% 1fr 6%", areas: ["x t y", "x k y", "x c y", "x l y", "x b y"], aria: "iPad portrait dashboard today, with empty side margins",
+      b: { x: { k: "empty", t: "170px unused" }, y: { k: "empty", t: "170px unused" }, t: { k: "top", title: "ShiftView", acts: ["", ""] }, k: { k: "stats" }, c: { k: "area", t: "Coverage" }, l: { k: "list", t: "Here now", cnt: 6 }, b: { k: "bnav" } } }, 230, "<b>820px iPad portrait.</b> Phone column, 41% empty."],
+    [{ w: 1180, h: 820, cls: "tablet", cols: "220fr 500fr 380fr", rows: "8% 12% 20% 1fr", areas: ["s h h", "s k l", "s c l", "s e l"], aria: "iPad landscape dashboard today",
+      b: { s: { k: "side", items: ["Team", "Schedule", "Clock", "|", "Planner", "Admin", "Settings", "Reports"], on: "Team" }, h: { k: "top", title: "ShiftView · Live", acts: ["", ""] }, k: { k: "stats" }, c: { k: "area", t: "Coverage" }, e: { k: "empty", t: "nothing below the chart" }, l: { k: "list", t: "Here now · Scheduled · Off", cnt: 7 } } }, 330, "<b>1180px iPad landscape.</b> Sidebar takes 19% of the width."],
+    [{ w: 1920, h: 1080, cols: "220fr 1240fr 380fr", rows: "6% 9% 14% 1fr", areas: ["s h h", "s k l", "s c l", "s e l"], aria: "Desktop dashboard today with a stretched chart",
+      b: { s: { k: "side", items: ["Team", "Schedule", "Clock", "|", "Planner", "Admin", "Settings", "Reports"], on: "Team" }, h: { k: "top", title: "ShiftView · Live", acts: ["", ""] }, k: { k: "stats" }, c: { k: "area", t: "Coverage · 1240 × 150" }, e: { k: "empty", t: "≈ 1240 × 700px empty" }, l: { k: "list", t: "Here now · Scheduled · Off", cnt: 8 } } }, 440, "<b>1920px desktop.</b> Chart stretched into a strip."],
+  ];
+  asisSpecs.forEach(([s, w, cap]) => { const g = fig(s, cap); g.style.flex = `0 0 ${w}px`; asis.appendChild(g); });
+
+  /* ---- section 2: ruler ---- */
+  const MAX = 2000, pct = v => (v / MAX * 100).toFixed(2) + "%";
+  const ruler = document.getElementById("ruler");
+  ruler.innerHTML = `
+    <div class="track"><div class="track-label">Today</div>
+      <div class="bar"><div class="seg-old-a" style="width:${pct(900)}">Phone layout, 480px max<small>0 – 899</small></div><div class="seg-old-b" style="width:${pct(1100)}">Desktop layout<small>900+</small></div>
+      <div class="cliff" style="left:${pct(900)}"><span>900px cliff</span></div></div></div>
+    <div class="track"><div class="track-label">Proposed</div>
+      <div class="bar"><div class="seg-phone" style="width:${pct(600)}">compact<small>0 – 599</small></div><div class="seg-med" style="width:${pct(424)}">medium<small>600 – 1023</small></div><div class="seg-exp" style="width:${pct(416)}">expanded<small>1024 – 1439</small></div><div class="seg-wide" style="width:${pct(560)}">wide<small>1440+</small></div></div></div>
+    <div class="devices">${[[390, "iPhone", "390"], [678, "iPad ½ split", "678"], [820, "iPad Air ↕", "820"], [1024, "iPad Pro 13 ↕", "1024"], [1180, "iPad Air ↔", "1180"], [1366, "iPad Pro 13 ↔", "1366"], [1512, "MacBook 14", "1512"], [1920, "1080p monitor", "1920"]].map(([x, n, v]) => `<div class="dev" style="left:${pct(x)}"><b>${n}</b><br>${v}</div>`).join("")}</div>
+    <div class="scale"><span>0</span><span>500</span><span>1000</span><span>1500</span><span>2000px</span></div>`;
+
+  /* ---- section 3: navs ---- */
+  const navs = document.getElementById("navs");
+  [
+    [{ w: 390, h: 640, cls: "phone", flush: true, cols: "1fr", rows: "1fr 12%", areas: ["c", "b"], b: { c: { k: "text", t: "Content", l: ["l", "m", "l", "l", "s", "m", "l"] }, b: { k: "bnav" } } }, "<b>compact.</b> 3 bottom tabs. Manager items are in the user menu."],
+    [{ w: 820, h: 640, cls: "tablet", flush: true, cols: "72px 1fr", rows: "1fr", areas: ["r c"], b: { r: { k: "rail", on: "Team" }, c: { k: "text", t: "Content · 2 columns", l: ["l", "m", "l", "l", "s", "m", "l"] } } }, "<b>medium.</b> 72px rail with every destination and the clock-status dot."],
+    [{ w: 1180, h: 640, cls: "tablet", flush: true, cols: "220px 1fr", rows: "1fr", areas: ["r c"], b: { r: { k: "side", on: "Team" }, c: { k: "text", t: "Content · list + detail", l: ["l", "m", "l", "l", "s", "m", "l"] } } }, "<b>expanded.</b> The rail can be pinned open to 220px."],
+    [{ w: 1600, h: 640, flush: true, cols: "240px 1fr", rows: "11% 1fr", areas: ["r t", "r c"], b: { r: { k: "side", on: "Team" }, t: { k: "top", title: "Northside store ▾", acts: ["⌕ Search people", "🔔", "SB"] }, c: { k: "text", t: "Content · 12 columns", l: ["l", "m", "l", "l", "s", "m", "l"] } } }, "<b>wide.</b> Persistent sidebar, plus a top bar with store switcher, search and alerts."],
+  ].forEach(([s, cap]) => navs.appendChild(fig(s, cap)));
+
+  /* ---- section 4: screens ---- */
+  const P = { w: 820, h: 1180, cls: "tablet" }, L = { w: 1180, h: 820, cls: "tablet" }, D = { w: 1600, h: 1000 };
+  const rail = on => ({ k: "rail", on }), side = on => ({ k: "side", on });
+  const SCREENS = [
+    {
+      id: "team", name: "Team dashboard", intro: "The manager's live view: who's here, who's coming, and whether coverage holds. On wide screens the dashboard shows more at once instead of stretching the same cards.",
+      P: { cols: "72px 1fr 1fr", rows: "5% 10% 24% 1fr", areas: ["r t t", "r k k", "r c c", "r h q"],
+        b: { r: rail("Team"), t: { k: "top", title: "Live · Northside", acts: ["Requests 4", "SB"] }, k: { k: "stats", n: 1, v: [["9", "Here now", "ok"], ["10", "Scheduled", "accent"], ["2", "Off", "faint"], ["OK", "Coverage", "ok"]] }, c: { k: "area", t: "Coverage timeline · 3:1", n: 2 }, h: { k: "list", t: "Here now · 9", cnt: 7, n: 3 }, q: { k: "list", t: "Coming up · 1", cnt: 4, pillc: "mid" } } },
+      L: { cols: "64px 1fr 1fr 34%", rows: "7% 13% 34% 1fr", areas: ["r t t t", "r k k d", "r c c d", "r h q d"],
+        b: { r: rail("Team"), t: { k: "top", title: "Live · Northside", acts: ["Requests 4", "SB"] }, k: { k: "stats", n: 1, v: [["9", "Here now", "ok"], ["10", "Scheduled", "accent"], ["2", "Off", "faint"], ["OK", "Coverage", "ok"]] }, c: { k: "area", t: "Coverage timeline", n: 2 }, h: { k: "list", t: "Here now", cnt: 5, sel: 1, n: 3 }, q: { k: "list", t: "Coming up", cnt: 3, pillc: "mid" }, d: { k: "detail", t: "Dakota P. · pane", n: 4, week: true } } },
+      D: { cols: "240px 1fr 1fr 1fr 24%", rows: "7% 12% 33% 1fr", areas: ["s t t t d", "s k k k d", "s c c a d", "s h q o d"],
+        b: { s: side("Team"), t: { k: "top", title: "Live · Northside store", acts: ["⌕", "Requests 4", "!Plan next week", "SB"] }, k: { k: "stats", n: 1, v: [["9", "Here now", "ok"], ["10", "Scheduled", "accent"], ["2", "Off", "faint"], ["OK", "Coverage now", "ok"], ["38.5", "Labor hrs today", "accent"]] }, c: { k: "area", t: "Coverage timeline · scheduled vs clocked in", n: 2 }, a: { k: "list", t: "Next arrivals", cnt: 4, pillc: "mid", n: 5 }, h: { k: "list", t: "Here now · 9", cnt: 6, sel: 1, n: 3 }, q: { k: "list", t: "Scheduled · 1", cnt: 3, pillc: "mid" }, o: { k: "list", t: "Off today · 2", cnt: 2, pill: false }, d: { k: "detail", t: "Dakota P.", n: 4, week: true, extra: true } } },
+      notes: ["Stat row gains a coverage status tile at medium, and labor hours at wide. All tiles have the same size and baseline.", "The timeline keeps a 3:1 shape with a minimum height. Extra width goes to a neighboring panel instead of a wider chart.", "Here now, Coming up and Off sit in columns side by side instead of one long scroll. Each column scrolls on its own.", "Tapping a person opens their detail (week, punches, contact) in a pane that stays open, so you can move through the list with ↑ ↓ and the dashboard stays visible.", "At wide size the time until each arrival is shown, which on the phone is hidden in the countdown banner."]
+    },
+    {
+      id: "week", name: "Manager week grid", isNew: true, intro: "A new view for managers: everyone's week on one screen. It's the main reason to open ShiftView on a laptop, and it reuses the schedules and drafts APIs that already exist.",
+      P: { cols: "72px 1fr", rows: "5% 4% 1fr", areas: ["r t", "r f", "r g"],
+        b: { r: rail("Planner"), t: { k: "top", title: "Oct 11 – 17", acts: ["‹", "›", "!Publish"] }, f: { k: "segs", s: ["All", "Openers", "Mids", "Closers"] }, g: { k: "week", t: "People × days", rows: 12, open: true, foot: true, n: 1, sel: [3, 2], pop: "left:44%;top:34%;width:40%" } } },
+      L: { cols: "64px 1fr 30%", rows: "7% 1fr", areas: ["r t t", "r g i"],
+        b: { r: rail("Planner"), t: { k: "top", title: "Week of Oct 11", acts: ["‹", "Today", "›", "Copy week", "!Publish"] }, g: { k: "week", t: "People × days", rows: 10, open: true, foot: true, n: 1, sel: [3, 2] }, i: { k: "detail", t: "Shift inspector", n: 3, extra: true } } },
+      D: { cols: "240px 1fr 22%", rows: "7% 1fr 26%", areas: ["s t t", "s g i", "s g o"],
+        b: { s: side("Week grid"), t: { k: "top", title: "Week of Oct 11 · Draft", acts: ["‹", "Today", "›", "Templates", "Copy week", "!Publish 64 shifts"] }, g: { k: "week", t: "People × days · drag to move", rows: 14, open: true, foot: true, n: 1, sel: [3, 2], namew: "2fr" }, i: { k: "detail", t: "Shift inspector · Tue 9a–5p", n: 3, extra: true }, o: { k: "list", t: "Unfilled & conflicts", cnt: 3, pillc: "bad", n: 4 } } },
+      notes: ["Each row is a person and each column a day. Blocks are colored by shift type (opener, mid, closer), and time off is hatched. At medium size, tapping a block opens a popover anchored to it.", "A top row shows open shifts (dashed) and a footer shows coverage per day. A red bar means the day is over its labor budget.", "At expanded and wide sizes, the selected shift opens in an inspector pane with time, position, notes and availability conflicts. This replaces DraftShiftSheet.", "At wide size, a list of unfilled shifts and conflicts pulls from the existing validation in app/api/schedules/validation.ts."]
+    },
+    {
+      id: "schedule", name: "My schedule", intro: "The employee's view. On a phone it's a week strip. With more room, the month view that's now behind a toggle can be shown by default, with the selected day's detail beside it.",
+      P: { cols: "72px 1fr 1fr", rows: "5% 14% 1fr 26%", areas: ["r t t", "r n w", "r m m", "r d d"],
+        b: { r: rail("Schedule"), t: { k: "top", title: "My schedule", acts: ["Week", "Month", "SB"] }, n: { k: "detail", t: "Next shift", btns: 1, n: 1 }, w: { k: "stats", v: [["32", "Hours this week", "accent"], ["4", "Shifts", "mid"]] }, m: { k: "month", t: "October", n: 2 }, d: { k: "list", t: "Wed Oct 16 · who's working with you", cnt: 3, n: 3 } } },
+      L: { cols: "64px 1fr 34%", rows: "7% 26% 1fr", areas: ["r t t", "r m n", "r m d"],
+        b: { r: rail("Schedule"), t: { k: "top", title: "My schedule", acts: ["‹", "October", "›", "Export .ics"] }, m: { k: "month", t: "October", n: 2 }, n: { k: "detail", t: "Next shift · Thu 9a–5p", btns: 2, n: 1 }, d: { k: "list", t: "Wed Oct 16", cnt: 4, n: 3 } } },
+      D: { cols: "240px 1fr 1fr 26%", rows: "7% 22% 1fr 22%", areas: ["s t t t", "s m m n", "s m m d", "s m m q"],
+        b: { s: side("Schedule"), t: { k: "top", title: "My schedule", acts: ["‹", "Today", "›", "Export .ics", "SB"] }, m: { k: "month", t: "October 2026", n: 2 }, n: { k: "detail", t: "Next shift", btns: 2, n: 1 }, d: { k: "list", t: "Wed Oct 16 · coworkers", cnt: 3, n: 3 }, q: { k: "list", t: "My requests", cnt: 2, pillc: "warn", n: 4 } } },
+      notes: ["The next-shift card stays at the top with Swap and Call out actions, as on the phone.", "The month grid shows shift chips by type, and a dashed outline for requested days off. It replaces WeekView at medium size and up, and the week strip remains on phones.", "The selected day shows who you're working with, which on the phone sits below the fold.", "At wide size, your pending time-off and swap requests are shown in the side column instead of a separate sheet."]
+    },
+    {
+      id: "planner", name: "Planner", intro: "Draft scheduling compares targets with what's scheduled. That works much better side by side than stacked, and the planner should end in the week grid rather than in seven day chips.",
+      P: { cols: "72px 1fr 1fr", rows: "5% 8% 20% 6% 1fr", areas: ["r t t", "r k k", "r c b", "r y y", "r e e"],
+        b: { r: rail("Planner"), t: { k: "top", title: "Draft · Oct 11–17", acts: ["!Publish"] }, k: { k: "stats", v: [["420", "Budget hrs", "accent"], ["428", "Scheduled", "mid"], ["+8", "Variance", "bad"], ["92%", "Coverage", "ok"]] }, c: { k: "area", t: "Coverage · Sat", rec: true, n: 1 }, b: { k: "bars", t: "Budget vs scheduled", n: 1 }, y: { k: "chips", t: "Day" }, e: { k: "list", t: "Sat shifts", cnt: 6, pill: false, n: 2 } } },
+      L: { cols: "64px 1fr 1fr 32%", rows: "7% 12% 34% 1fr", areas: ["r t t t", "r k k e", "r c b e", "r g g e"],
+        b: { r: rail("Planner"), t: { k: "top", title: "Draft · Oct 11–17", acts: ["Templates", "!Publish"] }, k: { k: "stats", v: [["420", "Budget", "accent"], ["428", "Scheduled", "mid"], ["+8", "Variance", "bad"], ["92%", "Coverage", "ok"]] }, c: { k: "area", t: "Coverage · Sat", rec: true, n: 1 }, b: { k: "bars", t: "Budget vs scheduled", n: 1 }, g: { k: "week", t: "Draft week", rows: 6, name: true, n: 2, sel: [2, 6] }, e: { k: "detail", t: "Shift inspector", n: 3, extra: true } } },
+      D: { cols: "240px 1fr 1fr 22%", rows: "7% 11% 30% 1fr", areas: ["s t t i", "s k k i", "s c b i", "s g g i"],
+        b: { s: side("Planner"), t: { k: "top", title: "Draft schedule · Oct 11–17 · Not published", acts: ["Templates", "Copy last week", "!Publish"] }, k: { k: "stats", v: [["420", "Weekly budget", "accent"], ["428", "Scheduled", "mid"], ["+8", "Variance", "bad"], ["92%", "Coverage score", "ok"], ["3", "Alerts", "warn"]] }, c: { k: "area", t: "Coverage · Sat by hour · recommended vs scheduled", rec: true, n: 1 }, b: { k: "bars", t: "Daily budget vs scheduled hours", n: 1 }, g: { k: "week", t: "Draft week · same grid as Week view", rows: 9, foot: true, open: true, n: 2, sel: [2, 6], namew: "2fr" }, i: { k: "detail", t: "Inspector · alerts", n: 3, extra: true } } },
+      notes: ["The coverage and budget charts are side by side from medium size up. Clicking a budget bar selects that day in the coverage chart.", "The planner ends in the same week grid as the Week view. Medium size keeps the day chips and the shift list, as in today's layout.", "The inspector pane holds the shift editor and the alert list, which today is collapsed under the charts."]
+    },
+    {
+      id: "clock", name: "Clock & kiosk", intro: "On a phone, the clock screen is personal. A store's iPad is usually shared and mounted by the back door, so the iPad wireframes show a kiosk mode. The desktop wireframe shows the personal view with your timecard beside it.",
+      P: { cols: "1fr", rows: "5% 42% 1fr", areas: ["t", "g", "p"],
+        b: { t: { k: "top", title: "Northside · Kiosk · 1:30 PM", acts: ["Lock"] }, g: { k: "ring", t: "Tap your name", time: "1:30", sub: "Tue Oct 14", btn: false, n: 1 }, p: { k: "roster", t: "Scheduled now", cnt: 12, cols: 4, n: 2 } } },
+      L: { cols: "40% 1fr", rows: "7% 1fr", areas: ["t t", "g p"],
+        b: { t: { k: "top", title: "Northside · Kiosk · 1:30 PM", acts: ["Lock"] }, g: { k: "pin", t: "Dakota P.", n: 3 }, p: { k: "roster", t: "Scheduled now · tap your name", cnt: 12, cols: 4, n: 2 } } },
+      D: { cols: "240px 36% 1fr", rows: "7% 1fr 15%", areas: ["s t t", "s g h", "s w h"],
+        b: { s: side("Clock"), t: { k: "top", title: "Time clock", acts: ["Request correction", "SB"] }, g: { k: "ring", t: "On shift · 9:00 AM", time: "4:30", sub: "worked", n: 4 }, w: { k: "stats", v: [["32.5", "Hours this week", "accent"], ["0:30", "Breaks", "warn"], ["2", "Shifts left", "mid"]] }, h: { k: "table", t: "Punch history & timecard", c: 5, cnt: 10, n: 5 } } },
+      notes: ["Kiosk mode is full screen with no navigation, and locks itself after 30 seconds idle. It needs a kiosk session type, which is a product decision (see rollout phase 5).", "A roster of people scheduled now, with a green dot for anyone already clocked in. Large tiles stay easy to tap with gloves.", "After a person taps their name, a PIN keypad appears. Landscape shows the keypad and the roster together.", "The personal ring keeps the existing ClockStatusRing design, with geofence state underneath.", "At wide size, punch history and the weekly timecard replace the TimeCardDrawer."]
+    },
+    {
+      id: "requests", name: "Requests inbox", intro: "Time off, swaps, punch corrections and call-outs move from a drawer to their own page. Showing coverage impact next to each request saves switching between screens before approving.",
+      P: { cols: "72px 42% 1fr", rows: "5% 5% 1fr", areas: ["r t t", "r f f", "r l d"],
+        b: { r: rail("Requests"), t: { k: "top", title: "Requests · 12", acts: ["SB"] }, f: { k: "segs", s: ["All 12", "Time off 4", "Swaps 3", "Fixes 2"] }, l: { k: "inbox", t: "Pending", cnt: 9, n: 1 }, d: { k: "detail", t: "Time off · Alex R.", n: 2, extra: true } } },
+      L: { cols: "64px 18% 34% 1fr", rows: "7% 1fr", areas: ["r t t t", "r f l d"],
+        b: { r: rail("Requests"), t: { k: "top", title: "Requests", acts: ["Approve all swaps"] }, f: { k: "filters", t: "Type" }, l: { k: "inbox", t: "Pending · 12", cnt: 8, n: 1 }, d: { k: "detail", t: "Swap · Quinn ↔ Dakota", n: 2, extra: true } } },
+      D: { cols: "240px 13% 26% 1fr 24%", rows: "7% 1fr", areas: ["s t t t t", "s f l d c"],
+        b: { s: side("Requests"), t: { k: "top", title: "Requests", acts: ["⌕", "Approve all swaps", "SB"] }, f: { k: "filters", t: "Type" }, l: { k: "inbox", t: "Pending · 12", cnt: 10, n: 1 }, d: { k: "detail", t: "Time off · Alex R. · Oct 20–22", n: 2, extra: true }, c: { k: "impact", t: "Impact", n: 3 } } },
+      notes: ["The list is sorted by urgency, soonest date first. Use ↑ ↓ to move and A or D to approve or deny. The four request types that sit in separate sections of RequestsDrawer now share one list.", "Detail shows the request plus context: who else is off, and the requester's hours this week.", "The impact preview shows coverage for the affected days if the request is approved, using the same chart as the Planner."]
+    },
+    {
+      id: "reports", name: "Reports", intro: "Reports are tables and trends, which need width. Today they're capped at 896px with a stacked card layout.",
+      P: { cols: "72px 1fr", rows: "5% 5% 11% 26% 1fr", areas: ["r t", "r b", "r k", "r c", "r x"],
+        b: { r: rail("Reports"), t: { k: "top", title: "Reports", acts: ["Oct 1–14", "Export"] }, b: { k: "segs" }, k: { k: "stats", v: [["$18.4k", "Labor cost", "accent"], ["412", "Hours", "mid"], ["94%", "On time", "ok"]] }, c: { k: "bars", t: "Labor cost by day", n: 1 }, x: { k: "table", t: "By employee", c: 4, cnt: 8, n: 2 } } },
+      L: { cols: "64px 2fr 1fr", rows: "7% 12% 30% 1fr", areas: ["r t t", "r k k", "r c p", "r x x"],
+        b: { r: rail("Reports"), t: { k: "top", title: "Reports", acts: ["Labor", "Punctuality", "Coverage", "Oct 1–14", "Export"] }, k: { k: "stats", v: [["$18.4k", "Labor cost", "accent"], ["412", "Hours", "mid"], ["94%", "On time", "ok"], ["6", "Anniversaries", "violet"]] }, c: { k: "bars", t: "Labor cost by day", n: 1 }, p: { k: "list", t: "By position", cnt: 4, pill: false }, x: { k: "table", t: "By employee · sortable", c: 6, cnt: 7, n: 2 } } },
+      D: { cols: "240px 2fr 1fr", rows: "7% 11% 30% 1fr", areas: ["s t t", "s k k", "s c p", "s x x"],
+        b: { s: side("Reports"), t: { k: "top", title: "Reports", acts: ["Labor", "Punctuality", "Coverage", "Payroll", "Oct 1–14 ▾", "!Export CSV"] }, k: { k: "stats", v: [["$18.4k", "Labor cost", "accent"], ["412", "Hours", "mid"], ["3.1%", "Overtime", "warn"], ["94%", "On time", "ok"], ["6", "Anniversaries", "violet"]] }, c: { k: "bars", t: "Labor cost by day · budget vs actual", n: 1 }, p: { k: "list", t: "By position", cnt: 5, pill: false }, x: { k: "table", t: "By employee · sortable, sticky header", c: 8, cnt: 9, n: 2 } } },
+      notes: ["Use one chart per report with a breakdown beside it, and the date range in the top bar, so it applies to every tab.", "Full-width tables with a sticky header and sortable columns. On phones they collapse to the existing card list. Clicking a row opens that person's timecard in a pane."]
+    },
+    {
+      id: "settings", name: "Settings", intro: "Settings is a modal today, which works for one form at a time. It has eight areas, so on wide screens it should be a page with its own section navigation.",
+      P: { cols: "72px 36% 1fr", rows: "5% 1fr", areas: ["r t t", "r n f"],
+        b: { r: rail("Settings"), t: { k: "top", title: "Settings", acts: ["SB"] }, n: { k: "sections", t: "Sections", n: 1 }, f: { k: "form", t: "Availability", cnt: 6 } } },
+      L: { cols: "64px 22% 1fr 26%", rows: "7% 1fr", areas: ["r t t t", "r n f h"],
+        b: { r: rail("Settings"), t: { k: "top", title: "Settings", acts: ["SB"] }, n: { k: "sections", t: "Sections", n: 1 }, f: { k: "week", t: "Weekly availability · inline", rows: 6, namew: "1fr", seed: 5, n: 2 }, h: { k: "text", t: "Conflicts this month", n: 3 } } },
+      D: { cols: "240px 15% minmax(0,720px) 1fr", rows: "7% 1fr", areas: ["s t t t", "s n f h"],
+        b: { s: side("Settings"), t: { k: "top", title: "Settings", acts: ["⌕ Find a setting", "SB"] }, n: { k: "sections", t: "Personal · Store · Org", n: 1 }, f: { k: "form", t: "Store hours · 720px max", cnt: 7, n: 2 }, h: { k: "text", t: "Help · what this affects", l: ["l", "m", "l", "s", "m"], n: 3 } } },
+      notes: ["Section navigation is grouped Personal, Store and Organization. Manager-only sections are hidden for employees, as in the current tabs.", "Availability and store hours become inline weekly editors instead of 480px bottom sheets. Forms are capped at 720px wide.", "The side column explains what each setting changes. For example, editing store hours shows which published shifts now fall outside them."]
+    },
+  ];
+
+  const tabs = document.getElementById("tabs"), board = document.getElementById("board");
+  function show(id, focus) {
+    const sc = SCREENS.find(s => s.id === id) || SCREENS[0];
+    [...tabs.children].forEach(b => { const on = b.dataset.id === sc.id; b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
+    board.innerHTML = "";
+    board.setAttribute("aria-label", sc.name);
+    const intro = h("div", "screen-intro", `<h3>${sc.name}</h3><p class="muted">${sc.intro}</p>`);
+    board.appendChild(intro);
+    const row = h("div", "row-tab");
+    row.appendChild(fig({ ...P, ...sc.P, aria: `${sc.name}, iPad portrait` }, "<b>iPad portrait</b> · 820 × 1180 · medium"));
+    row.appendChild(fig({ ...L, ...sc.L, aria: `${sc.name}, iPad landscape` }, "<b>iPad landscape</b> · 1180 × 820 · expanded"));
+    board.appendChild(row);
+    board.appendChild(fig({ ...D, ...sc.D, aria: `${sc.name}, desktop` }, "<b>Desktop</b> · 1600 × 1000 · wide"));
+    const ol = h("ol", "notes");
+    sc.notes.forEach((n, i) => ol.appendChild(h("li", null, `<span class="pin-badge">${i + 1}</span><span>${n}</span>`)));
+    board.appendChild(ol);
+    try { localStorage.setItem("sv-screen", sc.id); } catch (e) {}
+  }
+  SCREENS.forEach(s => {
+    const b = h("button", null, s.name + (s.isNew ? `<span class="new">NEW</span>` : ""));
+    b.type = "button"; b.dataset.id = s.id; b.setAttribute("role", "tab");
+    b.addEventListener("click", () => show(s.id));
+    tabs.appendChild(b);
+  });
+  tabs.addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const i = SCREENS.findIndex(s => s.id === document.activeElement.dataset.id);
+    if (i < 0) return;
+    const n = SCREENS[(i + (e.key === "ArrowRight" ? 1 : SCREENS.length - 1)) % SCREENS.length];
+    show(n.id, true);
+  });
+  let start = "team";
+  const hash = location.hash.slice(1);
+  if (SCREENS.some(s => s.id === hash)) start = hash;
+  else { try { start = localStorage.getItem("sv-screen") || start; } catch (e) {} }
+  show(start);
+})();
+</script>

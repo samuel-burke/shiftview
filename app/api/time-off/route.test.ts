@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
@@ -18,7 +18,11 @@ const mockCreateClient = vi.mocked(createClient);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeEmployeeClient(emp: { id: number; name: string } | null = { id: 5, name: "Alice Smith" }) {
+function makeEmployeeClient(
+  emp: { id: number; name: string } | null = { id: 5, name: "Alice Smith" },
+  // What the employee's own time_off_requests query returns.
+  timeOffRows: Record<string, unknown>[] = []
+) {
   // linkedEmployee drives the employees table lookup in getOrgContext/GET
   const empWithOrg = emp ? { ...emp, org_id: MOCK_ORG_ID } : null;
   return {
@@ -29,25 +33,25 @@ function makeEmployeeClient(emp: { id: number; name: string } | null = { id: 5, 
       if (table === "managers") {
         // Not a manager
         const b: any = {};
-        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
         b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
         b.then = (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve);
         return b;
       }
       if (table === "employees") {
         const b: any = {};
-        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
         b.maybeSingle = vi.fn().mockResolvedValue({ data: empWithOrg, error: null });
         b.then = (resolve: any) => Promise.resolve({ data: empWithOrg ? [empWithOrg] : [], error: null }).then(resolve);
         return b;
       }
       // time_off_requests
       const b: any = {};
-      for (const m of ["select", "eq", "order", "gte", "lte", "in", "insert", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+      for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "insert", "limit"]) b[m] = vi.fn().mockReturnValue(b);
       b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
       b.single = vi.fn().mockResolvedValue({ data: { id: 99 }, error: null });
       b.then = (resolve: any) =>
-        Promise.resolve({ data: [], error: null }).then(resolve);
+        Promise.resolve({ data: timeOffRows, error: null }).then(resolve);
       return b;
     }),
   };
@@ -74,7 +78,7 @@ describe("GET /api/time-off", () => {
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") {
           const b: any = {};
-          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+          for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = vi.fn().mockResolvedValue({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
           b.then = (resolve: any) =>
             Promise.resolve({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null }).then(resolve);
@@ -82,7 +86,7 @@ describe("GET /api/time-off", () => {
         }
         if (table === "employees") {
           const b: any = {};
-          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+          for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 5, name: "Alice Smith", org_id: MOCK_ORG_ID }, error: null });
           b.then = (resolve: any) =>
             Promise.resolve({ data: [{ id: 5, name: "Alice Smith", org_id: MOCK_ORG_ID }], error: null }).then(resolve);
@@ -90,7 +94,7 @@ describe("GET /api/time-off", () => {
         }
         // time_off_requests
         const b: any = {};
-        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
         b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
         b.then = (resolve: any) =>
           Promise.resolve({ data: MOCK_PENDING_REQUESTS, error: null }).then(resolve);
@@ -136,7 +140,7 @@ describe("GET /api/time-off", () => {
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") {
           const b: any = {};
-          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+          for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = vi.fn().mockResolvedValue({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
           b.then = (resolve: any) =>
             Promise.resolve({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null }).then(resolve);
@@ -144,14 +148,14 @@ describe("GET /api/time-off", () => {
         }
         if (table === "employees") {
           const b: any = {};
-          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+          for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = employeesMaybeSingleSpy;
           b.then = (resolve: any) =>
             Promise.resolve({ data: [], error: null }).then(resolve);
           return b;
         }
         const b: any = {};
-        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "eq", "order", "gt", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
         b.then = (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve);
         return b;
       }),
@@ -207,7 +211,7 @@ describe("POST /api/time-off", () => {
       })
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringContaining("future") });
+    expect(await res.json()).toMatchObject({ error: "date must be after today" });
   });
 
   it("returns 401 for unauthenticated request", async () => {
@@ -235,6 +239,86 @@ describe("POST /api/time-off", () => {
   });
 });
 
+// ── Expired requests ──────────────────────────────────────────────────────────
+
+describe("time-off requests expire when their day arrives", () => {
+  beforeEach(() => {
+    // 02:00 UTC on Oct 8 is still Oct 7 in New York, the default store timezone.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-08T02:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("leaves requests for the store's today and earlier out of the manager's list", async () => {
+    const gtArgs: unknown[][] = [];
+    const client: any = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      tableOverrides: { time_off_requests: { data: [], error: null } },
+    });
+    const origFrom = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "time_off_requests") {
+        b.gt = vi.fn().mockImplementation((...args: unknown[]) => {
+          gtArgs.push(args);
+          return b;
+        });
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client);
+
+    const res = await GET(new Request("http://localhost/api/time-off"));
+    expect(res.status).toBe(200);
+    expect(gtArgs).toEqual([["date", "2026-10-07"]]);
+  });
+
+  it("shows the employee's own request still pending on the store's today as denied", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeEmployeeClient(undefined, [
+        { id: 1, employee_id: 5, date: "2026-10-07", status: "pending", note: null },
+        { id: 2, employee_id: 5, date: "2026-10-07", status: "approved", note: null },
+        { id: 3, employee_id: 5, date: "2026-10-08", status: "pending", note: null },
+      ]) as any
+    );
+    const res = await GET(new Request("http://localhost/api/time-off?mine=true"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.requests.map((r: { id: number; status: string }) => [r.id, r.status])).toEqual([
+      [1, "denied"],
+      [2, "approved"],
+      [3, "pending"],
+    ]);
+  });
+
+  it("rejects a new request for the store's today", async () => {
+    mockCreateClient.mockResolvedValue(makeEmployeeClient() as any);
+    const res = await POST(
+      new Request("http://localhost/api/time-off", {
+        method: "POST",
+        body: JSON.stringify({ employeeId: 5, date: "2026-10-07" }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "date must be after today" });
+  });
+
+  it("accepts a request for the store's tomorrow, even though it's already that date in UTC", async () => {
+    mockCreateClient.mockResolvedValue(makeEmployeeClient() as any);
+    const res = await POST(
+      new Request("http://localhost/api/time-off", {
+        method: "POST",
+        body: JSON.stringify({ employeeId: 5, date: "2026-10-08" }),
+      })
+    );
+    expect(res.status).toBe(201);
+  });
+});
+
 // ── Org scoping ───────────────────────────────────────────────────────────────
 
 describe("org scoping — time-off routes", () => {
@@ -246,7 +330,7 @@ describe("org scoping — time-off routes", () => {
       },
       from: vi.fn().mockImplementation((table: string) => {
         const b: any = {};
-        for (const m of ["select", "order", "gte", "lte", "in", "insert", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "order", "gt", "gte", "lte", "in", "insert", "limit"]) b[m] = vi.fn().mockReturnValue(b);
         b.eq = vi.fn().mockImplementation((col: string, val: unknown) => {
           if (table === "time_off_requests") timeOffEqArgs.push([col, val]);
           return b;

@@ -8,7 +8,8 @@
 
 import type { PunchType } from "@/data/types";
 import { fmtMinutes } from "@/data/types";
-import { getLocalMinutes, localDayBoundsUtc } from "@/lib/punch-date-utils";
+import { dayOfWeekForKey, eachDateKey, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
+import { assignPunchDays } from "@/lib/punch-sessions";
 import type { PunchPolicy } from "@/lib/punch-policy";
 
 export type ViolationType =
@@ -94,18 +95,7 @@ function round2(n: number): number {
 }
 
 function getDayName(dateStr: string): string {
-  return DAY_NAMES[new Date(dateStr + "T12:00:00Z").getUTCDay()];
-}
-
-// Inclusive list of YYYY-MM-DD dates from `from` to `to` (noon-UTC anchored to
-// dodge DST midnight edges).
-function eachDate(from: string, to: string): string[] {
-  const out: string[] = [];
-  const end = new Date(to + "T12:00:00Z");
-  for (let d = new Date(from + "T12:00:00Z"); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
+  return DAY_NAMES[dayOfWeekForKey(dateStr)];
 }
 
 // Worked/break time plus every completed break's duration and the break-end
@@ -181,23 +171,27 @@ export function computeTimecard(input: {
   const calloutByDate = new Map<string, TimecardCalloutInput>();
   for (const c of callouts) calloutByDate.set(c.date.slice(0, 10), c);
 
-  // Bucket punches by their local calendar day.
+  // Bucket punches by local work day — a shift that runs past midnight stays
+  // on the day it started, with localMinutes continuing past 1440.
+  const sortedPunches = [...punches].sort(
+    (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()
+  );
+  const assigned = assignPunchDays(sortedPunches, tz);
   const punchesByDate = new Map<string, TimecardPunch[]>();
-  for (const p of punches) {
-    const when = new Date(p.punchedAt);
-    const dateKey = when.toLocaleDateString("en-CA", { timeZone: tz });
+  sortedPunches.forEach((p, i) => {
+    const { day: dateKey, minutes } = assigned[i];
     const tp: TimecardPunch = {
       id: p.id,
       punchType: p.punchType,
       punchedAt: p.punchedAt,
-      localMinutes: getLocalMinutes(when, tz),
+      localMinutes: minutes,
       isManual: !!p.isManual,
       note: p.note ?? null,
     };
     const arr = punchesByDate.get(dateKey) ?? [];
     arr.push(tp);
     punchesByDate.set(dateKey, arr);
-  }
+  });
 
   const violationCounts: Record<ViolationType, number> = {
     late_in: 0, early_in: 0, late_out: 0, early_out: 0,
@@ -207,7 +201,7 @@ export function computeTimecard(input: {
   let totalBreakHours = 0;
   const days: TimecardDay[] = [];
 
-  for (const date of eachDate(from, to)) {
+  for (const date of eachDateKey(from, to)) {
     const schedule = scheduleByDate.get(date) ?? null;
     const callout = calloutByDate.get(date) ?? null;
     const dayPunches = (punchesByDate.get(date) ?? []).sort(
@@ -240,7 +234,9 @@ export function computeTimecard(input: {
 
     // Clock-in timing vs. scheduled start.
     if (schedule && firstClockIn) {
-      const diff = firstClockIn.localMinutes - schedule.startMinutes;
+      // Real elapsed minutes, so a shift that starts in a DST-repeated or
+      // -skipped hour is judged correctly.
+      const diff = minutesFromScheduled(firstClockIn.punchedAt, date, schedule.startMinutes, tz);
       if (policy.lateInEnabled && diff > policy.lateInMinutes) {
         add({
           type: "late_in",
@@ -262,7 +258,7 @@ export function computeTimecard(input: {
 
     // Clock-out timing vs. scheduled end.
     if (schedule && lastClockOut) {
-      const diff = lastClockOut.localMinutes - schedule.endMinutes;
+      const diff = minutesFromScheduled(lastClockOut.punchedAt, date, schedule.endMinutes, tz);
       if (policy.lateOutEnabled && diff > policy.lateOutMinutes) {
         add({
           type: "late_out",
@@ -307,8 +303,7 @@ export function computeTimecard(input: {
     // No call, no show — scheduled, never clocked in, never called out, and the
     // grace window past the scheduled start has elapsed.
     if (policy.ncnsEnabled && schedule && !firstClockIn && !callout) {
-      const { start } = localDayBoundsUtc(date, tz);
-      const startInstantMs = start.getTime() + schedule.startMinutes * 60_000;
+      const startInstantMs = zonedTimeToUtc(date, schedule.startMinutes, tz).getTime();
       if (nowMs - startInstantMs > policy.ncnsMinutes * 60_000) {
         add({
           type: "ncns",

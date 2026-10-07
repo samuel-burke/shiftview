@@ -27,7 +27,7 @@ const mockNotifyManagers = vi.mocked(notifyManagers);
  */
 function makeBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+  for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -40,7 +40,8 @@ function makeBuilder(result: { data: any; error: any }) {
 /**
  * Build a Supabase client mock tailored for the punches POST route.
  *
- * `lastPunch` – what the state-machine look-up returns (null = no punch today).
+ * `lastPunch` – the employee's latest punch today, for the current-shift
+ *   look-up (null = no punch today).
  * `insertResult` – what the INSERT returns (defaults to a valid punch row).
  * `empRow` – the linked employee row (defaults to { id: 1 }).
  */
@@ -75,15 +76,17 @@ function makePunchClient({
         // We distinguish them by returning a builder that tracks calls:
         // first call = state-machine read, second call = insert.
         const b: any = {};
-        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+        for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
           b[m] = vi.fn().mockReturnValue(b);
         }
-        // Both maybeSingle calls (today's state-machine + missed-punch check) return lastPunch.
-        // For most tests lastPunch is null or clock_out, so the missed-punch check passes.
         b.maybeSingle = vi.fn().mockResolvedValue({ data: lastPunch, error: lastPunchError });
         b.single = vi.fn().mockResolvedValue({ data: insertData, error: insertError });
+        // The current-shift query (awaited list): `lastPunch`, if any, was punched today.
         b.then = (resolve: any, _reject: any) =>
-          Promise.resolve({ data: insertData, error: insertError }).then(resolve, _reject);
+          Promise.resolve({
+            data: lastPunch ? [{ ...lastPunch, punched_at: new Date().toISOString() }] : [],
+            error: lastPunchError,
+          }).then(resolve, _reject);
         return b;
       }
       if (table === "schedules") return makeBuilder({ data: null, error: null });
@@ -270,9 +273,9 @@ describe("POST /api/punches — state-machine guard", () => {
   });
 
   it("scopes state machine to current local day — uses gte/lte date filter", async () => {
-    // The day-scoped state machine uses gte/lte to restrict the look-up to today's
-    // local-timezone bounds. A 9pm EST clock-in (= 1am UTC next day) is still
-    // within the local day window so clock-out succeeds.
+    // The state machine reads the employee's current shift with a gte/lte
+    // window (from the start of the previous store day up to now), so a clock-in
+    // late last night still counts and the clock-out succeeds.
     let gteCallCount = 0;
     const client = makePunchClient({ lastPunch: { punch_type: "clock_in" } });
     const origFrom = (client as any).from.bind(client);
@@ -287,7 +290,7 @@ describe("POST /api/punches — state-machine guard", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "clock_out" }));
     expect(res.status).toBe(201);
-    // One gte call — the state-machine query uses a local-day date filter
+    // One gte call — the current-shift query's window
     expect(gteCallCount).toBe(1);
   });
 
@@ -354,8 +357,9 @@ function makeTimezoneClockInClient({
         }
         b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
         b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
+        // Current-shift query: no punches yet.
         b.then = (resolve: any, _rej: any) =>
-          Promise.resolve({ data: insertData, error: null }).then(resolve, _rej);
+          Promise.resolve({ data: [], error: null }).then(resolve, _rej);
         return b;
       }
       return buildSimple(null);
@@ -711,19 +715,25 @@ function makeMissedPunchClient({
       if (table === "schedules")  return makeBuilder({ data: null, error: null });
       if (table === "punch_records") {
         const b: any = {};
-        for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+        for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
           b[m] = vi.fn().mockReturnValue(b);
         }
         b.maybeSingle = vi.fn().mockImplementation(() => {
           maybeSingleCallCount++;
           if (maybeSingleCallCount === 1)
             return Promise.resolve({ data: todayLastPunch, error: null });
-          // Second call is the missed-punch check (only for clock_in)
           return Promise.resolve({ data: prevDayLastPunch, error: null });
         });
         b.single   = vi.fn().mockResolvedValue({ data: insertData, error: null });
+        // Current-shift query: the old open shift (long past) plus today's punch, if any.
         b.then     = (resolve: any, _rej: any) =>
-          Promise.resolve({ data: insertData, error: null }).then(resolve, _rej);
+          Promise.resolve({
+            data: [
+              ...(prevDayLastPunch ? [prevDayLastPunch] : []),
+              ...(todayLastPunch ? [{ ...todayLastPunch, punched_at: new Date().toISOString() }] : []),
+            ],
+            error: null,
+          }).then(resolve, _rej);
         return b;
       }
       return makeBuilder({ data: null, error: null });
@@ -847,8 +857,8 @@ describe("POST /api/punches — max breaks per shift", () => {
     punched_at: new Date().toISOString(), lat: null, lng: null, is_manual: false, note: null,
   };
 
-  // Custom client: distinguishes the three punch_records uses (state-machine
-  // read, break-count read, insert) by creation order.
+  // Custom client: distinguishes the punch_records uses (current-shift read,
+  // insert) by creation order.
   function makeBreakClient({ maxBreaks, todayPunches }: { maxBreaks: number; todayPunches: { punch_type: string }[] }) {
     const settingsRows = [
       { key: "timezone", value: "America/New_York" },
@@ -865,15 +875,16 @@ describe("POST /api/punches — max breaks per shift", () => {
           punchCall++;
           const idx = punchCall;
           const b: any = {};
-          for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit", "upsert"]) {
+          for (const m of ["select", "insert", "eq", "gt", "gte", "lte", "lt", "order", "limit", "upsert"]) {
             b[m] = vi.fn().mockReturnValue(b);
           }
-          // idx 1 = state-machine last-punch (a completed break, so break_start is valid)
-          b.maybeSingle = vi.fn().mockResolvedValue({ data: { punch_type: "break_end" }, error: null });
+          b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
           b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
-          // idx 2 = today's punches (awaited array); other awaits = insert result
+          // idx 1 = the current-shift query (today's punches, awaited list)
           b.then = (resolve: any, reject: any) =>
-            Promise.resolve(idx === 2 ? { data: todayPunches, error: null } : { data: insertData, error: null })
+            Promise.resolve(idx === 1
+              ? { data: todayPunches.map((p) => ({ ...p, punched_at: new Date().toISOString() })), error: null }
+              : { data: insertData, error: null })
               .then(resolve, reject);
           return b;
         }

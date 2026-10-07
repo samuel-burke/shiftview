@@ -22,24 +22,26 @@ type Props = {
   dates: string[]; // 7 YYYY-MM-DD dates
   curves: Record<string, CoverageBlock[]>; // date -> target coverage curve
   isManager: boolean;
+  // Store timezone — makes scheduled hours real elapsed time across DST.
+  timezone?: string;
 };
 
 /**
  * Daily budget vs scheduled hours. The budget is derived from the day's
  * target coverage curve (area under the curve, in staff-hours).
  */
-export default function DraftBudgetChart({ drafts, dates, curves, isManager }: Props) {
+export default function DraftBudgetChart({ drafts, dates, curves, isManager, timezone }: Props) {
   const { mode } = useTheme();
   const isLight = mode === "light" ||
     (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const data = useMemo(
     () => dates.map((date) => {
-      const scheduled = Math.round(scheduledHoursForDate(drafts, date) * 10) / 10;
+      const scheduled = Math.round(scheduledHoursForDate(drafts, date, timezone) * 10) / 10;
       const budget = Math.round(curveHours(curves[date] ?? []) * 10) / 10;
       return { label: DAY_LABELS[dayOfWeek(date)], date, budget, scheduled, variance: Math.round((scheduled - budget) * 10) / 10 };
     }),
-    [dates, drafts, curves]
+    [dates, drafts, curves, timezone]
   );
 
   return (
@@ -75,7 +77,9 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager }: P
         </span>
       </div>
 
-      <ResponsiveContainer width="100%" height={170} style={{ overflow: "visible" }}>
+      {/* Height from CSS (no layout jump): 2.6:1 with the width, 170px (phone size) to 280px. */}
+      <div className="w-full min-w-0 aspect-[2.6/1] min-h-[170px] max-h-[280px]">
+      <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
         <BarChart data={data} margin={{ top: 12, right: 8, left: -28, bottom: 0 }} barGap={2}>
           <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} />
           <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
@@ -94,6 +98,7 @@ export default function DraftBudgetChart({ drafts, dates, curves, isManager }: P
           <Bar dataKey="scheduled" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={18} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
 
       {/* Per-day variance strip */}
       <div className="grid grid-cols-7 gap-1 px-1.5 mt-1" aria-label="Daily variance (scheduled minus budget)">

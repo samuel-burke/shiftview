@@ -18,9 +18,22 @@ const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boo
   not_clocked_in: { color: "#94a3b8", label: "Off",        live: false },
 };
 
-export default function ClockStatusBadge() {
+export default function ClockStatusBadge({ variant = "pill" }: { variant?: "pill" | "dot" }) {
   const { liveStatus } = useAppData();
   const s = STATUS[liveStatus] ?? STATUS.not_clocked_in;
+
+  // Dot-only form for the narrow nav rail; the label stays available to screen readers.
+  if (variant === "dot") {
+    return (
+      <span
+        role="status"
+        aria-label={s.label}
+        title={s.label}
+        className="block size-2.5 rounded-full"
+        style={{ background: s.color, boxShadow: s.live ? `0 0 6px ${s.color}` : "none" }}
+      />
+    );
+  }
 
   return (
     <div

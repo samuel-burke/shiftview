@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Employee, Schedule, StoreHours, AttendanceStatus, getMonogram, formatDisplayName } from "../data/types";
 import ShiftCard from "./ShiftCard";
+import { shiftWindowOn } from "@/lib/shift-times";
 
 const cardContainer = {
   hidden: {},
@@ -21,6 +22,7 @@ type Props = {
   storeHours?: StoreHours;
   nowMinutes: number;
   isToday: boolean;
+  dayKey?: string;
   attendanceMap?: Record<number, AttendanceStatus>;
   onSelect?: (emp: Employee, sch: Schedule) => void;
   onSelectOff?: (emp: Employee) => void;
@@ -37,6 +39,7 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
+      data-testid="team-section-header"
       className="flex items-center gap-2 mb-[10px] text-xs font-bold text-slate-400 uppercase tracking-[0.08em] select-none"
     >
       {label}
@@ -55,6 +58,7 @@ export default function TeamSection({
   storeHours,
   nowMinutes,
   isToday,
+  dayKey,
   attendanceMap,
   onSelect,
   onSelectOff,
@@ -66,11 +70,11 @@ export default function TeamSection({
 
   if (schedules) {
     const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
-    const sorted = [...schedules].sort((a, b) =>
-      a.startMinutes !== b.startMinutes
-        ? a.startMinutes - b.startMinutes
-        : a.endMinutes - b.endMinutes
-    );
+    const span = (s: Schedule) => (dayKey && s.date && s.startMinutes >= 0 ? shiftWindowOn(s, dayKey) : { start: s.startMinutes, end: s.endMinutes });
+    const sorted = [...schedules].sort((a, b) => {
+      const x = span(a), y = span(b);
+      return x.start !== y.start ? x.start - y.start : x.end - y.end;
+    });
 
     return (
       <div className="mb-5">
@@ -87,6 +91,7 @@ export default function TeamSection({
                   storeHours={storeHours ?? { open: 360, close: 1320 }}
                   nowMinutes={nowMinutes}
                   isToday={isToday}
+                  dayKey={dayKey}
                   attendanceStatus={attendanceMap?.[emp.id]}
                   onClick={() => onSelect?.(emp, sch)}
                 />

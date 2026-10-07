@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { weekDates } from "@/lib/draft-metrics";
 import { summarizeWeeklyCost, type EmployeeCostInput } from "@/lib/labor-cost";
+import { getOrgTimezone } from "@/lib/org-timezone";
+import { shiftMinutes } from "@/lib/schedule-hours";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
 
   const { data: scheduleRows, error } = await supabase
     .from("schedules")
-    .select("employee_id, start_minutes, end_minutes")
+    .select("employee_id, date, start_minutes, end_minutes")
     .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6])
@@ -42,12 +44,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  // Aggregate scheduled minutes per employee for the week.
+  // Aggregate scheduled minutes per employee for the week — real elapsed
+  // minutes in the store's timezone, so a shift spanning a DST change is
+  // costed for the hours actually worked.
+  const tz = await getOrgTimezone(supabase, orgId!);
   const minutesByEmployee = new Map<number, number>();
   for (const s of scheduleRows ?? []) {
     minutesByEmployee.set(
       s.employee_id,
-      (minutesByEmployee.get(s.employee_id) ?? 0) + (s.end_minutes - s.start_minutes)
+      (minutesByEmployee.get(s.employee_id) ?? 0) +
+        shiftMinutes({ date: s.date, startMinutes: s.start_minutes, endMinutes: s.end_minutes }, tz)
     );
   }
 

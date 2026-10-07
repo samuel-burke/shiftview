@@ -7,7 +7,7 @@ import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
 import { WarningIcon, CalendarIcon, LockIcon } from "./ShiftIcons";
-import BetaBadge from "@/components/BetaBadge";
+import Logo from "@/components/Logo";
 
 type Props = {
   date: Date;
@@ -158,10 +158,10 @@ export default function CoverageHeader({
   );
 
   return (
-    <div className="mb-4 [@media(min-width:900px)]:mb-6">
+    <div className="mb-4 desk:mb-6">
       {/* Desktop-only demo banner (above the bar) */}
       {isDemo && (
-        <div className="hidden [@media(min-width:900px)]:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
+        <div className="hidden desk:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
           <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
           <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
         </div>
@@ -170,13 +170,13 @@ export default function CoverageHeader({
       {/*
        * Sticky on mobile (eliminates the JS-measured spacer div that was the main CLS source).
        * Static on desktop (content scrolls with the page in the desktop layout).
-       * The `[@media(min-width:900px)]:contents` on the inner row makes brand + actions
+       * The `desk:contents` on the inner row makes brand + actions
        * become direct flex children of this bar on desktop, putting the date nav in the
        * centre between them.
        */}
       {/* Mobile-only bare date nav (when TopBar owns the header) */}
       {hideMobileBrand && (
-        <div data-testid="mobile-date-nav" className="[@media(min-width:900px)]:hidden px-4 py-3 border-b border-slate-800">
+        <div data-testid="mobile-date-nav" className="desk:hidden px-4 py-3 border-b border-slate-800">
           {mobileNav}
         </div>
       )}
@@ -184,40 +184,35 @@ export default function CoverageHeader({
       {/* Full header bar (desktop always; mobile only when brand is shown) */}
       <div
         className={`bg-bg border-b border-slate-800 px-4 pb-3
-                   [@media(min-width:900px)]:static [@media(min-width:900px)]:flex
-                   [@media(min-width:900px)]:items-center [@media(min-width:900px)]:gap-6
-                   [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px]
-                   ${hideMobileBrand ? "hidden [@media(min-width:900px)]:flex" : "sticky top-0 z-30 header-safe-top"}`}
+                   desk:static desk:flex
+                   desk:items-center desk:gap-6
+                   desk:px-6 desk:py-[14px]
+                   ${hideMobileBrand ? "hidden desk:flex" : "sticky top-0 z-30 header-safe-top"}`}
       >
         {/* Mobile-only demo banner (inside bar) */}
         {isDemo && (
-          <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between [@media(min-width:900px)]:hidden">
+          <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between desk:hidden">
             <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
             <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
           </div>
         )}
 
         {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
-        <div className="flex items-center justify-between mb-3 [@media(min-width:900px)]:contents">
-          <div className="[@media(min-width:900px)]:shrink-0">
-            <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-[22px]">
-              Shift
-              <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
-                View
-              </span>
-          <BetaBadge />
-            </span>
-            <div className="[@media(min-width:900px)]:hidden text-[11px] text-slate-400 mt-0.5">
+        <div className="flex items-center justify-between mb-3 desk:contents">
+          {/* The wide size class shows the wordmark in SideNav, so skip it here */}
+          <div className="desk:shrink-0 wide:hidden">
+            <Logo className="h-6 desk:h-[22px]" />
+            <div className="desk:hidden text-[11px] text-slate-400 mt-0.5">
               {dayName} · {dateLabel}
             </div>
           </div>
 
           {/* Desktop centred date nav — sits between brand and actions in the flex row */}
-          <div className="hidden [@media(min-width:900px)]:flex flex-1 justify-center">
+          <div className="hidden desk:flex flex-1 justify-center">
             {desktopNav}
           </div>
 
-          <div className="flex items-center gap-2 [@media(min-width:900px)]:shrink-0">
+          <div className="flex items-center gap-2 desk:shrink-0">
             {!isToday && (
               <motion.button
                 onClick={onNow}
@@ -236,7 +231,7 @@ export default function CoverageHeader({
 
         {/* Mobile-only date nav row (only when brand is in this bar) */}
         {!hideMobileBrand && (
-          <div data-testid="mobile-date-nav" className="mb-1 [@media(min-width:900px)]:hidden">
+          <div data-testid="mobile-date-nav" className="mb-1 desk:hidden">
             {mobileNav}
           </div>
         )}
@@ -250,7 +245,7 @@ export default function CoverageHeader({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 mt-3 [@media(min-width:900px)]:mx-6"
+            className="px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 mt-3 tablet:mx-6"
             style={{ background: alertConfig!.bg, border: `1px solid ${alertConfig!.border}`, color: alertConfig!.text }}
           >
             {alertConfig!.icon}

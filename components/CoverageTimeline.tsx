@@ -12,12 +12,16 @@ import {
   ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
-import { Schedule, PunchRecord } from "../data/types";
+import { Schedule, PunchRecord, isHere } from "../data/types";
 import { CoverageBlock, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
+import { DEFAULT_TIMEZONE, getLocalMinutes } from "@/lib/dates";
 
 type Props = {
   schedules: Schedule[];
+  // The day being charted; shifts from the day before (overnight) are placed
+  // relative to it.
+  dayKey?: string;
   nowMinutes: number;
   isToday: boolean;
   openMinutes: number;
@@ -31,7 +35,7 @@ type Props = {
 function fmtMinutes(m: number): string {
   const h = Math.floor(m / 60);
   const min = m % 60;
-  const ampm = h >= 12 ? "PM" : "AM";
+  const ampm = h % 24 >= 12 ? "PM" : "AM";
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return min === 0
     ? `${h12}:00 ${ampm}`
@@ -53,13 +57,14 @@ function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; c
 
 export default function CoverageTimeline({
   schedules,
+  dayKey,
   nowMinutes,
   isToday,
   openMinutes,
   closeMinutes,
   punchRecords,
   punchesLoaded = false,
-  timezone = "America/New_York",
+  timezone = DEFAULT_TIMEZONE,
   targetBlocks,
 }: Props) {
   const { mode } = useTheme();
@@ -94,17 +99,12 @@ export default function CoverageTimeline({
   const actualByPoint = useMemo(() => {
     if (!isToday || !punchesLoaded) return null;
 
-    const withMinutes = (punchRecords ?? []).map((p) => {
-      const d = new Date(p.punchedAt);
-      const s = d.toLocaleTimeString("en-US", {
-        timeZone: timezone,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-      const [h, min] = s.split(":").map(Number);
-      return { ...p, minuteOfDay: h * 60 + min };
-    });
+    // getLocalMinutes uses a 0–23 hour cycle; `hour12: false` formatting can
+    // report midnight as hour "24" and push early punches off the chart.
+    const withMinutes = (punchRecords ?? []).map((p) => ({
+      ...p,
+      minuteOfDay: getLocalMinutes(p.punchedAt, timezone),
+    }));
 
     const byEmployee = new Map<number, typeof withMinutes>();
     for (const p of withMinutes) {
@@ -141,25 +141,21 @@ export default function CoverageTimeline({
   const data = useMemo(() => {
     return points.map(({ label, m }, i) => ({
       label,
-      staff: schedules.filter(
-        (s) => m >= s.startMinutes && m < s.endMinutes,
-      ).length,
+      staff: schedules.filter((s) => isHere(s, m, dayKey)).length,
       actual: actualByPoint ? actualByPoint[i] : undefined,
       target: hasTarget ? targetAt(targetBlocks!, Math.min(m, closeMinutes - 1)) : undefined,
     }));
-  }, [schedules, points, actualByPoint, hasTarget, targetBlocks, closeMinutes]);
+  }, [schedules, dayKey, points, actualByPoint, hasTarget, targetBlocks, closeMinutes]);
 
   const nowDataPoint = useMemo(() => {
     if (!isToday) return null;
     const clampedM = Math.min(Math.max(nowMinutes, openMinutes), closeMinutes);
     const label = fmtMinutes(clampedM);
-    const staff = schedules.filter(
-      (s) => clampedM >= s.startMinutes && clampedM < s.endMinutes,
-    ).length;
+    const staff = schedules.filter((s) => isHere(s, clampedM, dayKey)).length;
     const idx = points.findIndex((p) => p.m === clampedM);
     const actual = actualByPoint && idx >= 0 ? actualByPoint[idx] : null;
     return { label, staff, actual };
-  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules, points, actualByPoint]);
+  }, [isToday, nowMinutes, openMinutes, closeMinutes, schedules, dayKey, points, actualByPoint]);
 
   // Measure the actual chart area after mount and on resize
   useEffect(() => {
@@ -263,14 +259,18 @@ export default function CoverageTimeline({
       {/* Wrapper — position relative so overlay can be absolute */}
       <div
         ref={containerRef}
-        className="relative"
+        /*
+         * Height from CSS, so it's right in the server HTML (no layout jump):
+         * 3:1 with the width, at least 150px (the phone size) and at most 300px.
+         */
+        className="relative w-full min-w-0 aspect-[3/1] min-h-[150px] max-h-[300px]"
         onTouchStart={() => setShowTooltip(true)}
         onTouchEnd={() => setShowTooltip(false)}
         onTouchCancel={() => setShowTooltip(false)}
       >
         <ResponsiveContainer
           width="100%"
-          height={150}
+          height="100%"
           style={{ overflow: "visible" }}
         >
           <ComposedChart

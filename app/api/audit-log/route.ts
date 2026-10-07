@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { isDateKey, localDayBoundsUtc } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +48,14 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (from)     query = query.gte("created_at", `${from}T00:00:00.000Z`);
-  if (to)       query = query.lte("created_at", `${to}T23:59:59.999Z`);
+  // Date filters are store-local calendar days, not UTC days.
+  if (from && !isDateKey(from))
+    return NextResponse.json({ error: "from must be YYYY-MM-DD" }, { status: 400 });
+  if (to && !isDateKey(to))
+    return NextResponse.json({ error: "to must be YYYY-MM-DD" }, { status: 400 });
+  const tz = from || to ? await getOrgTimezone(supabase, orgId!) : null;
+  if (from)     query = query.gte("created_at", localDayBoundsUtc(from, tz!).start.toISOString());
+  if (to)       query = query.lte("created_at", localDayBoundsUtc(to, tz!).end.toISOString());
   if (category) query = query.like("action", `${category}.%`);
   if (actorId)  query = query.eq("actor_id", actorId);
 

@@ -56,3 +56,16 @@ describe("isShiftUpcoming", () => {
     expect(isShiftUpcoming(shift, todayKey, 600)).toBe(false);
   });
 });
+
+describe("overnight shifts", () => {
+  const night = { date: "2026-05-31", startMinutes: 1320, endMinutes: 1800 }; // 10 PM – 6 AM
+
+  it("keeps last night's overnight shift upcoming until it ends", () => {
+    expect(isShiftUpcoming(night, "2026-06-01", 300)).toBe(true);  // 5:00 AM
+    expect(isShiftUpcoming(night, "2026-06-01", 360)).toBe(false); // 6:00 AM
+  });
+
+  it("labels it as since last night", () => {
+    expect(formatNextShiftDate("2026-05-31", "2026-06-01")).toBe("Since last night");
+  });
+});

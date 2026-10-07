@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
+import { isRequestExpired } from "@/lib/request-expiry";
+import { swapDate } from "@/lib/swaps";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +51,14 @@ export async function PUT(
 
   const { orgId, isManager, employeeId, user } = ctx!;
 
-  // Fetch the swap request — scoped to this org
+  // Fetch the swap request — scoped to this org — with its shifts' days
   const { data: swap, error: fetchError } = await supabase
     .from("shift_swaps")
-    .select("id, status, schedule_a_id, schedule_b_id, requester_id, target_id")
+    .select(`
+      id, status, schedule_a_id, schedule_b_id, requester_id, target_id,
+      schedule_a:schedules!shift_swaps_schedule_a_id_fkey(date),
+      schedule_b:schedules!shift_swaps_schedule_b_id_fkey(date)
+    `)
     .eq("org_id", orgId)
     .eq("id", swapId)
     .maybeSingle();
@@ -62,6 +70,11 @@ export async function PUT(
   if (!swap) {
     return NextResponse.json({ error: "Swap request not found" }, { status: 404 });
   }
+
+  // Still undecided once its day arrives, a swap has expired and can't be
+  // answered or decided (see lib/request-expiry.ts).
+  const date = swapDate(swap);
+  const expired = date !== null && isRequestExpired(date, todayKeyInTz(await getOrgTimezone(supabase, orgId!)));
 
   // ── Target employee accepting / declining ─────────────────────────────────
   // Only the person being asked to give up their shift can answer, and only
@@ -78,6 +91,9 @@ export async function PUT(
         { error: "This swap is no longer awaiting your response" },
         { status: 409 }
       );
+    }
+    if (expired) {
+      return NextResponse.json({ error: "This swap request has expired" }, { status: 409 });
     }
 
     return respondAsTarget(supabase, {
@@ -103,6 +119,9 @@ export async function PUT(
   }
   if (swap.status !== "accepted") {
     return NextResponse.json({ error: "Swap is already resolved" }, { status: 409 });
+  }
+  if (expired) {
+    return NextResponse.json({ error: "This swap request has expired" }, { status: 409 });
   }
 
   return resolveAsManager(supabase, {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
@@ -240,6 +240,60 @@ describe("PUT /api/swaps/:id — manager decision", () => {
     const res = await PUT(req, ctx);
     expect(res.status).toBe(403);
     expect(client.__updates.schedules).toBe(0);
+  });
+});
+
+// ── Expired swaps ──────────────────────────────────────────────────────────────
+describe("PUT /api/swaps/:id — expired swaps", () => {
+  beforeEach(() => {
+    // 02:00 UTC on Oct 8 is still Oct 7 in New York, the default store timezone.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-08T02:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const on = (date: string) => ({ schedule_a: { date }, schedule_b: { date } });
+
+  it.each(["accepted", "declined"])("refuses the target's %s once the swap's day has arrived", async (status) => {
+    const client = makeClient({ callerEmployeeId: 20, swapData: { ...PENDING_SWAP, ...on("2026-10-07") } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "This swap request has expired" });
+    expect(client.__updates.shift_swaps).toBe(0);
+  });
+
+  it.each(["approved", "denied"])("refuses a manager's %s once the swap's day has arrived, moving no shifts", async (status) => {
+    const client = makeClient({ isManager: true, swapData: { ...ACCEPTED_SWAP, ...on("2026-10-06") } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "This swap request has expired" });
+    expect(client.__rpcCalls).toHaveLength(0);
+    expect(client.__updates.shift_swaps).toBe(0);
+    expect(client.__updates.schedules).toBe(0);
+  });
+
+  it("still lets a manager approve a swap for the store's tomorrow", async () => {
+    const client = makeClient({ isManager: true, swapData: { ...ACCEPTED_SWAP, ...on("2026-10-08") } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "approved" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(200);
+    expect(client.__rpcCalls.some((c) => c.fn === "approve_shift_swap")).toBe(true);
+  });
+
+  it("checks who is asking before whether the swap expired", async () => {
+    const client = makeClient({ callerEmployeeId: 99, swapData: { ...PENDING_SWAP, ...on("2026-10-07") } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "accepted" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(403);
   });
 });
 

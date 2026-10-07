@@ -14,6 +14,9 @@ export type NotificationType =
   | "pto_denied"
   | "callout"
   | "late_clock_in"
+  | "punch_correction_requested"
+  | "punch_correction_approved"
+  | "punch_correction_denied"
   | "schedule_published"
   | "open_shift_available"
   | "open_shift_filled"
@@ -32,6 +35,9 @@ type PushPrefKey =
 
 const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
   late_clock_in:      "late_punch_alerts",
+  punch_correction_requested: "late_punch_alerts",
+  punch_correction_approved:  "late_punch_alerts",
+  punch_correction_denied:    "late_punch_alerts",
   message:            "message_alerts",
   chess_move:         "chess_alerts",
   pto_approved:       "pto_alerts",

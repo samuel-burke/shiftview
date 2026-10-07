@@ -6,6 +6,8 @@ import { withOrg } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
 import { validateOpenShift, isEmployeeEligible } from "@/lib/open-shifts";
+import { addDaysToKey, todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +59,7 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, isManager, employeeId } = ctx!;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   // ── Manager view ──────────────────────────────────────────────────────────
   if (isManager) {
@@ -115,7 +117,12 @@ export async function GET(request?: Request) {
 
   // Fetch the caller's own commitments to evaluate eligibility, plus any claims
   // they've already filed.
-  const dates = [...new Set(shifts.map((s) => s.date))];
+  // Include each shift's neighbouring days: an overnight shift reaches into the
+  // next day, and yesterday's overnight shift can reach into this one.
+  const dates = [...new Set(shifts.flatMap((s) => {
+    const d = String(s.date).slice(0, 10);
+    return [addDaysToKey(d, -1), d, addDaysToKey(d, 1)];
+  }))];
   const [{ data: schedules }, { data: timeOff }, { data: callouts }, { data: myClaims }] =
     await Promise.all([
       supabase

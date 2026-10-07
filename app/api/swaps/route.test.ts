@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, POST } from "./route";
 import { PUT } from "./[id]/route";
 import { createClient } from "@/lib/supabase-server";
@@ -367,6 +367,90 @@ describe("PUT /api/swaps/[id]", () => {
     expect(body.ok).toBe(true);
     // Only 1 update: the status update on shift_swaps (no schedule updates)
     expect(updateCallCount).toBe(1);
+  });
+});
+
+// ── Expired swaps ─────────────────────────────────────────────────────────────
+
+describe("swaps expire when their day arrives", () => {
+  beforeEach(() => {
+    // 02:00 UTC on Oct 8 is still Oct 7 in New York, the default store timezone.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-08T02:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const on = (dateA: string, dateB = dateA) => ({ schedule_a: { date: dateA }, schedule_b: { date: dateB } });
+
+  it.each([
+    ["manager", true],
+    ["employee", false],
+  ])("leaves swaps whose day has arrived out of the %s's list", async (_who, isManager) => {
+    const swaps = [
+      { ...ACCEPTED_SWAP, id: 1, ...on("2026-10-07") },               // the store's today
+      { ...PENDING_SWAP, id: 2, ...on("2026-10-01") },                // a past day
+      { ...ACCEPTED_SWAP, id: 3, ...on("2026-10-09", "2026-10-07") }, // one shift is today
+      { ...PENDING_SWAP, id: 4, ...on("2026-10-08") },                // the store's tomorrow
+    ];
+    mockCreateClient.mockResolvedValue(
+      makeSwapsClient({
+        user: MOCK_USER,
+        isManager,
+        employeeRow: { id: 1 },
+        tableData: { shift_swaps: { data: swaps, error: null } },
+      }) as any
+    );
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect((await res.json()).map((s: { id: number }) => s.id)).toEqual([4]);
+  });
+
+  function postClient(dateA: string, dateB: string) {
+    let scheduleCallCount = 0;
+    const client = makeSwapsClient({ user: MOCK_USER, employeeRow: { id: 1 } }) as any;
+    const origFrom = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = origFrom(table);
+      if (table === "schedules") {
+        // Schedule A is fetched first, then B.
+        scheduleCallCount++;
+        const row = scheduleCallCount === 1 ? { ...SCHEDULE_A, date: dateA } : { ...SCHEDULE_B, date: dateB };
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: row, error: null });
+      }
+      if (table === "shift_swaps") b.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 99 }, error: null });
+      return b;
+    });
+    return client;
+  }
+
+  it.each([
+    ["2026-10-07", "2026-10-07"],
+    ["2026-10-08", "2026-10-07"],
+  ])("won't create a swap of shifts on %s and %s, since one is on the store's today", async (dateA, dateB) => {
+    mockCreateClient.mockResolvedValue(postClient(dateA, dateB));
+    const res = await POST(
+      new Request("http://localhost/api/swaps", {
+        method: "POST",
+        body: JSON.stringify({ scheduleAId: SCHEDULE_A.id, scheduleBId: SCHEDULE_B.id }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Swaps must be requested before the day of the shift" });
+  });
+
+  it("creates a swap of shifts on the store's tomorrow, even though it's already that date in UTC", async () => {
+    mockCreateClient.mockResolvedValue(postClient("2026-10-08", "2026-10-08"));
+    const res = await POST(
+      new Request("http://localhost/api/swaps", {
+        method: "POST",
+        body: JSON.stringify({ scheduleAId: SCHEDULE_A.id, scheduleBId: SCHEDULE_B.id }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, id: 99 });
   });
 });
 

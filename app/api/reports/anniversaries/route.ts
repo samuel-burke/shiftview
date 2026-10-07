@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { writeAuditLog } from "@/lib/audit";
 import { upcomingAnniversaries } from "@/lib/tenure";
+import { isDateKey, todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const asOfParam = searchParams.get("asOf");
-  const asOf = asOfParam && DATE_RE.test(asOfParam) ? asOfParam : new Date().toISOString().slice(0, 10);
+
   const withinRaw = Number(searchParams.get("within") ?? "30");
   const within = Number.isInteger(withinRaw) && withinRaw > 0 && withinRaw <= 366 ? withinRaw : 30;
 
@@ -25,6 +27,11 @@ export async function GET(request: Request) {
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
   }
+
+  // Default "as of" is today in the store's timezone, not UTC.
+  const asOf = asOfParam && DATE_RE.test(asOfParam)
+    ? asOfParam
+    : todayKeyInTz(await getOrgTimezone(supabase, orgId!));
 
   const { data: emps, error } = await supabase
     .from("employees")
@@ -58,7 +65,7 @@ export async function PUT(request: Request) {
 
   if (!Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
-  if (hireDate !== null && (typeof hireDate !== "string" || !DATE_RE.test(hireDate)))
+  if (hireDate !== null && !isDateKey(hireDate))
     return NextResponse.json({ error: "hireDate must be YYYY-MM-DD or null" }, { status: 400 });
 
   const supabase = await createClient();

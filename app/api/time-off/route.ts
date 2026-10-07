@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
+import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
+import { isRequestExpired } from "@/lib/request-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +24,15 @@ export async function GET(request?: Request) {
   const { orgId, isManager, employeeId } = ctx!;
 
   if (isManager && !mine) {
-    // Fetch all pending requests for this org
+    // Fetch the org's pending requests that can still be decided: a request
+    // expires once its day arrives (see lib/request-expiry.ts).
+    const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
     const { data: requests, error: fetchError } = await supabase
       .from("time_off_requests")
       .select("id, employee_id, date, status, note")
       .eq("org_id", orgId)
       .eq("status", "pending")
+      .gt("date", today)
       .order("date", { ascending: true });
 
     if (fetchError) {
@@ -73,10 +79,8 @@ export async function GET(request?: Request) {
 
   if (!emp) return NextResponse.json({ requests: [] });
 
-  const today = new Date().toISOString().slice(0, 10);
-  const ninetyDaysOut = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  const ninetyDaysOut = addDaysToKey(today, 90);
 
   const { data: requests, error: fetchError } = await supabase
     .from("time_off_requests")
@@ -97,7 +101,9 @@ export async function GET(request?: Request) {
     employeeId: r.employee_id,
     employeeName: emp.name,
     date: r.date,
-    status: r.status,
+    // Still pending on its day means it wasn't approved in time: it's denied
+    // from the store's midnight, before the nightly job records it.
+    status: r.status === "pending" && isRequestExpired(r.date, today) ? "denied" : r.status,
     note: r.note ?? undefined,
   }));
 
@@ -109,12 +115,8 @@ export async function POST(request: Request) {
 
   if (!employeeId || !Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
-  if (!date || !DATE_RE.test(date))
+  if (!date || !DATE_RE.test(date) || !isDateKey(date))
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
-
-  const today = new Date().toISOString().slice(0, 10);
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   const supabase = await createClient();
 
@@ -125,6 +127,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
+
+  // "Today" is the store's calendar day, not UTC's. A request for today would
+  // already have expired, so it must be for a later day.
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  if (isRequestExpired(date, today))
+    return NextResponse.json({ error: "date must be after today" }, { status: 400 });
 
   // Verify the employee belongs to the current user and is in the same org
   // (Only allow submitting for your own employee record)

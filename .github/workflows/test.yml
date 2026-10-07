@@ -38,6 +38,29 @@ jobs:
 
       - run: npm test
 
+  unit-timezones:
+    # Date logic must not depend on the server's or browser's timezone. Re-run
+    # the unit suite with the process clock at the far east of the date line
+    # and in a half-hour, DST-observing zone (the unit job above runs in UTC).
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tz: ["Pacific/Kiritimati", "America/St_Johns"]
+    env:
+      TZ: ${{ matrix.tz }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -66,7 +89,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - run: npm run test:e2e -- --project=mobile-chrome
+      - run: npm run test:e2e -- --project=mobile-chrome --project=mobile-chrome-far-timezone --project=tablet-chrome --project=tablet-landscape-chrome --project=desktop-chrome
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

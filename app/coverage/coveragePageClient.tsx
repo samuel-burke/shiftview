@@ -156,7 +156,7 @@ export default function CoveragePageClient() {
   if (!sharedLoading && !isManager) {
     return (
       <AppShell active="settings" isManager={isManager}>
-        <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center [@media(min-width:900px)]:max-w-none">
+        <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">📈</div>
           <h1 className="text-lg font-bold text-slate-100 mb-1.5">Coverage Profiles</h1>
           <p className="text-sm text-slate-400">Only managers can manage coverage profiles.</p>
@@ -168,16 +168,16 @@ export default function CoveragePageClient() {
 
   return (
     <AppShell active="settings" isManager={isManager}>
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-8">
+      <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8">
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
-                     [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px]"
+                     desk:px-6 desk:py-[14px] desk:pb-[14px]"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
           <button
             onClick={() => router.back()}
-            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors desk:hidden"
             aria-label="Back"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -189,17 +189,17 @@ export default function CoveragePageClient() {
         </div>
 
         {migrationRequired && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 [@media(min-width:900px)]:mx-6">
+          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 desk:mx-6">
             Coverage tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-coverage-profiles.sql</code> in the Supabase SQL editor.
           </div>
         )}
         {error && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center [@media(min-width:900px)]:mx-6">
+          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center desk:mx-6">
             {error}
           </div>
         )}
 
-        <div className="px-4 pt-5 flex flex-col gap-6 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:mx-auto [@media(min-width:900px)]:px-6">
+        <div className="px-4 pt-5 flex flex-col gap-6 desk:max-w-2xl desk:mx-auto desk:px-6">
           {/* Profiles */}
           <section>
             <div className="flex items-center justify-between mb-2 px-1">

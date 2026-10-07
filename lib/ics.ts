@@ -2,11 +2,14 @@
 // their personal calendar. Pure and dependency-free so it can be unit-tested and
 // run in a route handler.
 //
-// Shift times are stored as minutes since midnight on a plain date, with no
-// timezone (the domain is single-store, no overnight shifts — see BR-4). We emit
-// them as *floating* local times (no Z, no TZID): a calendar shows the event at
-// that wall-clock time in the viewer's own timezone, which is exactly what "your
-// 8:00 AM shift" should mean, and sidesteps VTIMEZONE/DST complexity.
+// Shift times are stored as minutes since midnight on a plain date, meaning the
+// wall clock in the store's timezone. When the store's timezone is known we
+// emit each event as an absolute UTC instant (DTSTART:...Z) so a calendar in any
+// zone — an employee travelling, or a phone set to another zone — shows the
+// shift at the right moment, with DST handled by the conversion. Without a
+// timezone we fall back to *floating* local times (no Z, no TZID).
+
+import { addDaysToKey, zonedTimeToUtc } from "@/lib/dates";
 
 const PRODID = "-//ShiftView//Shift Schedule//EN";
 
@@ -33,10 +36,10 @@ export function formatUTCStamp(d: Date): string {
 // A floating local date-time (no Z) from a YYYY-MM-DD date and minutes since
 // midnight, e.g. ("2026-07-06", 480) → 20260706T080000.
 export function formatFloatingLocal(date: string, minutes: number): string {
-  const compact = date.slice(0, 10).replace(/-/g, "");
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${compact}T${pad(h)}${pad(m)}00`;
+  // Minutes past 1440 (an overnight shift's end) roll into the next day.
+  const key = addDaysToKey(date.slice(0, 10), Math.floor(minutes / 1440));
+  const m = ((minutes % 1440) + 1440) % 1440;
+  return `${key.replace(/-/g, "")}T${pad(Math.floor(m / 60))}${pad(m % 60)}00`;
 }
 
 // Fold a content line to the 75-octet limit (RFC 5545 §3.1): continuation lines
@@ -67,8 +70,11 @@ export type ShiftEvent = {
 // Build a complete VCALENDAR document from a list of shifts.
 export function buildShiftCalendar(
   events: ShiftEvent[],
-  opts: { calendarName: string; dtstamp?: Date }
+  opts: { calendarName: string; dtstamp?: Date; timezone?: string }
 ): string {
+  const tz = opts.timezone;
+  const fmt = (date: string, minutes: number) =>
+    tz ? formatUTCStamp(zonedTimeToUtc(date, minutes, tz)) : formatFloatingLocal(date, minutes);
   const dtstamp = formatUTCStamp(opts.dtstamp ?? new Date());
   const lines: string[] = [
     "BEGIN:VCALENDAR",
@@ -83,8 +89,8 @@ export function buildShiftCalendar(
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:${e.uid}`);
     lines.push(`DTSTAMP:${dtstamp}`);
-    lines.push(`DTSTART:${formatFloatingLocal(e.date, e.startMinutes)}`);
-    lines.push(`DTEND:${formatFloatingLocal(e.date, e.endMinutes)}`);
+    lines.push(`DTSTART:${fmt(e.date, e.startMinutes)}`);
+    lines.push(`DTEND:${fmt(e.date, e.endMinutes)}`);
     lines.push(foldLine(`SUMMARY:${escapeICSText(e.summary)}`));
     if (e.description) lines.push(foldLine(`DESCRIPTION:${escapeICSText(e.description)}`));
     if (e.location) lines.push(foldLine(`LOCATION:${escapeICSText(e.location)}`));

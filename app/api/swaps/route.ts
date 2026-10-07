@@ -4,12 +4,25 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
+import { isRequestExpired } from "@/lib/request-expiry";
+import { swapDate } from "@/lib/swaps";
 
 // Swaps still in flight — shown in the UI. Terminal states (declined/approved/
 // denied) drop out of the lists once resolved.
 const ACTIVE_SWAP_STATUSES = ["pending", "accepted"];
 
 export const dynamic = "force-dynamic";
+
+// Leaves out swaps whose day has arrived: undecided, they've expired (see
+// lib/request-expiry.ts).
+function withoutExpired<T extends Parameters<typeof swapDate>[0]>(swaps: T[] | null, today: string): T[] {
+  return (swaps ?? []).filter((s) => {
+    const date = swapDate(s);
+    return date === null || !isRequestExpired(date, today);
+  });
+}
 
 export async function GET(request?: Request) {
   const supabase = await createClient();
@@ -21,6 +34,7 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, isManager, employeeId } = ctx!;
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   if (!isManager) {
     // Employee sees only their own requests (as requester or target)
@@ -50,7 +64,7 @@ export async function GET(request?: Request) {
       console.error("[api/swaps]", fetchError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
-    return NextResponse.json(data ?? []);
+    return NextResponse.json(withoutExpired(data, today));
   }
 
   // Manager sees all pending swaps for the org
@@ -77,7 +91,7 @@ export async function GET(request?: Request) {
     console.error("[api/swaps]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  return NextResponse.json(data ?? []);
+  return NextResponse.json(withoutExpired(data, today));
 }
 
 export async function POST(request: Request) {
@@ -138,6 +152,14 @@ export async function POST(request: Request) {
   // The requester must own schedule A
   if (scheduleA.employee_id !== requesterEmployee.id) {
     return NextResponse.json({ error: "You can only request swaps for your own shifts" }, { status: 403 });
+  }
+
+  // Only shifts on a later day can be swapped: a request for today's would
+  // already have expired. "Today" is the store's, matching what the schedule
+  // screen offers.
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  if (isRequestExpired(String(scheduleA.date), today) || isRequestExpired(String(scheduleB.date), today)) {
+    return NextResponse.json({ error: "Swaps must be requested before the day of the shift" }, { status: 400 });
   }
 
   // Derive target from schedule B
