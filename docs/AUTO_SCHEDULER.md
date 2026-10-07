@@ -1,13 +1,13 @@
 # Auto-schedule
 
-Auto-schedule fills a Planner week with **draft** shifts. The drafts meet the coverage targets as closely as the rules allow. They respect:
+Auto-schedule fills a week with **draft** shifts, from the Week page's Draft mode. The drafts meet the coverage targets as closely as the rules allow. They respect:
 
 - availability and time off
 - full-time and part-time hour limits
 - rest between shifts
 - overtime rules
 
-They honor employee preferences where possible, and the Planner explains any gap that couldn't be covered. The manager reviews and edits the drafts, then publishes the week with the existing flow. Nothing goes to employees until then.
+They honor employee preferences where possible, and the page explains any gap that couldn't be covered. Shifts already live stay as they are; the drafts fill around them. The manager reviews and edits the drafts, then publishes the week. Nothing goes to employees until then.
 
 The "AI" is our own optimization engine in `lib/scheduler/`. It is strictly typed, deterministic TypeScript, using the same family of techniques as Timefold/OptaPlanner: a greedy construction heuristic followed by local search.
 
@@ -30,7 +30,7 @@ Anyone without an employment type is scheduled as part-time. The Auto-schedule s
 
 ### Each week
 
-1. In the **Planner**, pick the week and tap **Auto-schedule**.
+1. On the **Week** page (`/week`), switch to **Draft**, pick the week and tap **Auto-schedule**. Draft opens on next week.
 2. **Before you start** checks three things: days without a coverage target, anyone without an employment type, and pending time-off requests.
 3. If the week already has drafts, choose **Keep & fill around** or **Start fresh**.
 4. Set **Rules for this week**:
@@ -46,17 +46,20 @@ Anyone without an employment type is scheduled as part-time. The Auto-schedule s
    - overtime, labor cost, and how many preferences were honored
    - each gap left, with who couldn't cover it and why (for example, "Sun 6–8 PM short 1 · Bob J.: at their weekly hours")
 7. Review the week:
-   - The **Coverage by Hour** heatmap shows every day by hour, from short (red) through met (gray) to over (blue).
+   - Draft mode shows the week as it will be after publishing: live shifts (muted, tagged **Live**, view only) plus the drafts. The stats, charts and heatmap count both.
+   - The **Coverage by Hour** heatmap shows every day by hour, from short (amber) through met (gray) to over (blue).
    - **Hours This Week** shows each person against their own range and the 40-hour line.
-   - Each day row shows the person's week so far, e.g. "32/40 h week".
+   - The grid shows each person's hours for the week; on phones, each row of the day list shows their week so far, e.g. "32/40 h week".
    - Edit any draft as usual. An edited Auto draft becomes yours: it loses the Auto tag, and another version or an undo leaves it alone.
 8. To improve the result:
    - **Try Another Version** makes a different schedule with the same settings. It replaces only that run's drafts, never yours.
    - A one-tap fix such as **Let Bob J. work up to 32 h** regenerates with that person's hours raised for the week.
    - **Undo** removes the run's drafts and brings back the ones it replaced.
-9. **Publish** as usual.
+9. **Publish.** The page switches to Live on the same week.
 
-The summary stays on the Planner until the week is published, the run is undone, or you dismiss the card. It survives a page reload.
+The summary stays in Draft mode until the week is published, the run is undone, or you dismiss the card. It survives a page reload.
+
+A draft can't share a day with its person's live shift: the drafts API refuses one, and Auto-schedule plans around live shifts. A draft made before a live shift was added to the same day is flagged **Clash** in Draft mode. Publishing skips it and keeps it in Draft, and the page says whose and which day.
 
 ## What the scheduler considers
 
@@ -68,7 +71,7 @@ The summary stays on the Planner until the week is published, the run is undone,
 - **Shift length and start grid** come from the rules. A shift starts on its own day.
 - **Weekly limits:** each person's maximum hours and maximum days.
 - **Rest** between shifts and **consecutive days.** Both also count the previous week's published shifts.
-- **Overtime:** never past 40 hours in the planner week, which is the same week the hours reports use. The exceptions:
+- **Overtime:** never past 40 hours in the schedule week, which is the same week the hours reports use. The exceptions:
   - The run allows overtime *to fill gaps*. Anyone whose maximum reaches 40 h may then go up to 8 h further, at 1.5× cost.
   - An hours adjustment sets that person's cap for the week.
 - **Closed days:** no shifts on days without a coverage target.
@@ -116,7 +119,7 @@ The engine minimizes a penalty score. These are the weights (`WEIGHTS` in `lib/s
    Every move keeps all hard rules, the score updates incrementally, and the best schedule seen is kept.
 4. **Finish:** one more construction and minimum-hours pass, then **prune** any generated shift the schedule is better off without.
 5. **Diagnose** (`diagnose.ts`):
-   - Computes metrics with the app's shared coverage, hours and cost helpers, so the numbers match the Planner's charts.
+   - Computes metrics with the app's shared coverage, hours and cost helpers, so the numbers match the Week page's charts.
    - Gives each remaining gap the reasons nobody covered it.
    - Suggests one-tap fixes.
 
@@ -183,6 +186,10 @@ Generate and undo are recorded in the audit log as `draft_schedule.generate` and
 | `lib/auto-schedule-server.ts` | Loads a week's inputs for the engine, all scoped to the org |
 | `lib/coverage-heatmap.ts` | Hour-by-hour coverage for the heatmap |
 | `app/api/drafts/generate/` | Generate, latest run, undo |
+| `app/week/weekPageClient.tsx` | The Week page: Live and Draft modes, Auto-schedule and Publish |
+| `components/week/` | The page's header (mode toggle), stats and charts, and the phone day list |
+| `hooks/useWeekShifts.ts`, `hooks/useAutoSchedule.ts` | The week's live shifts and drafts; the Auto-schedule run state |
+| `lib/week-cells.ts` | Which shift each person-day shows when live shifts and drafts meet |
 | `components/AutoScheduleSheet.tsx` | The setup sheet |
 | `components/AutoScheduleSummary.tsx` | The results card |
 | `components/WeekCoverageHeatmap.tsx` | The week heatmap |
@@ -195,7 +202,7 @@ Generate and undo are recorded in the audit log as `draft_schedule.generate` and
 npx vitest run lib/scheduler                                      # engine: cases, invariants, determinism
 BENCH=1 npx vitest run lib/scheduler/benchmark.test.ts            # coverage, gaps and runtime
 npx vitest run app/api/drafts components/AutoSchedule*            # API routes and UI
-npx playwright test e2e/auto-schedule.spec.ts                     # Planner flow, every size class
+npx playwright test e2e/auto-schedule.spec.ts e2e/week.spec.ts   # Draft mode and the Week page, every size class
 ```
 
 - `invariants.test.ts` builds 100 seeded random rosters and checks that no hard rule is ever broken.

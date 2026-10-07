@@ -77,7 +77,7 @@ export default function DraftHoursPanel({
   const shown = expanded ? rows : rows.slice(0, COLLAPSED_ROWS);
 
   return (
-    // Card, title and legend match the Planner's charts.
+    // Card, title and legend match the Week page's charts.
     <motion.section
       data-testid="draft-hours-panel"
       aria-labelledby="draft-hours-title"

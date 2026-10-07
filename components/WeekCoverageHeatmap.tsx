@@ -7,11 +7,11 @@ import { coverageHeatmap, heatRanges, type HeatCell, type HeatRange } from "../l
 import { dayOfWeek, type ShiftSpan } from "../lib/draft-metrics";
 
 // Staffing against the coverage target, hour by hour for the week. Diverging:
-// amber = short (the Planner's understaffed color), blue = more people than
+// amber = short (the Week page's understaffed color), blue = more people than
 // needed (its "scheduled" color), neutral = met; deeper = further off. Grid
 // shows the week's shape; List gives each day's off-target ranges, easier to
 // read on a phone than small cells. Colors: --color-cov-* in globals.css.
-// Linked to the Planner's day picker: the selected day's row is highlighted,
+// Linked to the Week page's day picker: the selected day's row is highlighted,
 // and tapping an hour selects its day.
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

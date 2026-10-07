@@ -10,9 +10,9 @@ import type { EmployeeLimitColumns, EmploymentType, OvertimePolicy, PendingTimeO
 import type { Adjustment } from "../lib/scheduler/types";
 import SegmentedControl from "./SegmentedControl";
 
-// Planner → Auto-schedule: check the week is ready, choose how to treat the
+// Week page (Draft mode) → Auto-schedule: check the week is ready, choose how to treat the
 // existing drafts, set this run's overtime and time-off rules, add one-off
-// adjustments, and generate. The Planner makes the request (onGenerate).
+// adjustments, and generate. The page makes the request (onGenerate).
 
 export type PlannerEmployee = Employee & EmployeeLimitColumns;
 

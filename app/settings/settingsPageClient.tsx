@@ -1088,7 +1088,7 @@ export default function SettingsPageClient({
           </div>
         </section>}
 
-        {/* Scheduling Rules — manager only. What the Planner's Auto-schedule works within. */}
+        {/* Scheduling Rules — manager only. What Auto-schedule (Week page, Draft mode) works within. */}
         {isManager && (
           <SchedulingRulesSection
             rules={schedulingRules}

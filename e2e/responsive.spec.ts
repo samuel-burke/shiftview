@@ -71,13 +71,13 @@ test.describe("Responsive layout", () => {
       await expect(bottom).toBeHidden();
       // The rail reaches every destination, including the manager ones the
       // phone's bottom tabs leave out.
-      for (const name of ["Team", "Schedule", "Clock", "Week", "Requests", "Planner", "Admin", "Reports", "Settings"]) {
+      for (const name of ["Team", "Schedule", "Clock", "Week", "Requests", "Admin", "Reports", "Settings"]) {
         await expect(rail.getByRole("link", { name })).toBeVisible();
       }
     }
   });
 
-  for (const path of ["/", "/schedule", "/clock", "/draft", "/reports", "/admin", "/week", "/requests"]) {
+  for (const path of ["/", "/schedule", "/clock", "/reports", "/admin", "/week", "/week?mode=draft", "/requests"]) {
     test(`${path} never scrolls sideways`, async ({ page }) => {
       await interceptAPIs(page, { isManager: true });
       await page.goto(path);
@@ -154,13 +154,17 @@ test.describe("Responsive layout", () => {
     }
   });
 
-  test("the team week grid opens a shift for editing", async ({ page }) => {
+  test("the Week page opens a shift for editing", async ({ page }) => {
     await interceptAPIs(page, { isManager: true });
     await page.goto("/week");
-    const grid = page.getByTestId("week-grid");
-    await expect(grid.getByRole("rowheader", { name: /Alice S\./ })).toBeVisible();
-
-    await grid.getByRole("button", { name: /Alice Smith, .*: Opener 6a to 2p/ }).click();
+    if (sizeOf(page) === "compact") {
+      // Phones edit through the day list, on today.
+      await page.getByTestId("day-list").getByRole("button", { name: /^Alice Smith: 6:00 AM to 2:00 PM/ }).click();
+    } else {
+      const grid = page.getByTestId("week-grid");
+      await expect(grid.getByRole("rowheader", { name: /Alice S\./ })).toBeVisible();
+      await grid.getByRole("button", { name: /Alice Smith, .*: Opener 6a to 2p/ }).click();
+    }
     const drawer = page.getByTestId("employee-drawer");
     await expect(drawer.getByText("6:00 AM")).toBeVisible();
     await expect(drawer.getByRole("button", { name: /edit shift/i })).toBeVisible();

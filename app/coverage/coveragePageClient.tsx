@@ -333,7 +333,7 @@ export default function CoveragePageClient() {
               ))}
             </div>
             <p className="text-[11px] text-slate-500 mt-2 px-1">
-              Specific dates (holidays, events) can be overridden from the draft schedule planner.
+              Specific dates (holidays, events) can be overridden on the Week page: pick the day, then its coverage.
             </p>
           </section>
         </div>

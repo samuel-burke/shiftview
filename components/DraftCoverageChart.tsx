@@ -24,9 +24,8 @@ type Props = {
   dates: string[]; // 7 YYYY-MM-DD dates
   storeHours: Record<number, StoreHours>;
   curves: Record<string, CoverageBlock[]>; // date -> target coverage curve
-  // The Planner's selected day: the By Hour view shows it. The Planner's day
-  // picker is the only one; onPickDay takes the user there (phones and
-  // tablets, where the picker is further down the page).
+  // The Week page's selected day: the By Hour view shows it. The page's day
+  // picker is the only one; onPickDay takes the user there.
   selectedDate: string;
   onPickDay?: () => void;
   // Store timezone — makes scheduled hours real elapsed time across DST.
@@ -138,7 +137,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
         <LegendChip color="#818cf8" label="Recommended" dashed />
         <LegendChip color="#3b82f6" label="Scheduled" />
         {view === "hour" && (
-          // The day comes from the Planner's day picker (Schedule at a Glance).
+          // The day comes from the Week page's day picker.
           <span className="ml-auto flex items-center gap-1 pr-1">
             <span data-testid="coverage-chart-day" className="text-xs font-semibold text-slate-200 whitespace-nowrap">
               {formatDateKey(hourDate, { weekday: "short", month: "short", day: "numeric" })}
@@ -146,7 +145,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
             {onPickDay && (
               <button
                 onClick={onPickDay}
-                className="desk:hidden min-h-8 px-2 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer"
+                className="min-h-8 px-2 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer"
               >
                 Change day
               </button>

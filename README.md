@@ -82,10 +82,11 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 
 **Scheduling**
 - Week and month views with drag-free editing, reusable shift templates, and copy-week
+- Week page for managers — the whole team's week as a grid (a day list on phones) with a **Live | Draft** toggle. Live edits the published schedule. Draft plans privately on top of it, with coverage charts, an hour-by-hour heatmap and each person's hours showing the week as it will be after publishing, then publishes in one step
 - Employee availability tracking with conflict detection against time-off and availability when scheduling
 - Shift swap requests with manager approval, and time-off requests with approval workflow
 - Employee call-outs — one tap to report "I can't make it in" for a day; managers are notified instantly and the person shows as **Called Out** across the dashboard, schedule, and team status
-- Auto-schedule — one tap in the Planner drafts the week from the coverage targets, availability, time off, full-time/part-time hours, overtime rules and shift preferences, and explains any gap it couldn't fill; try another version, apply a one-tap fix or undo before publishing. Runs on ShiftView's own deterministic optimization engine, with no chatbot or third-party AI ([docs/AUTO_SCHEDULER.md](docs/AUTO_SCHEDULER.md))
+- Auto-schedule — one tap in the Week page's Draft mode drafts the week from the coverage targets, availability, time off, full-time/part-time hours, overtime rules and shift preferences, and explains any gap it couldn't fill; try another version, apply a one-tap fix or undo before publishing. Runs on ShiftView's own deterministic optimization engine, with no chatbot or third-party AI ([docs/AUTO_SCHEDULER.md](docs/AUTO_SCHEDULER.md))
 
 **Time clock**
 - Clock in/out with optional geofence enforcement (server-validated, not just client-side)

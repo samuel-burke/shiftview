@@ -1,5 +1,5 @@
 // Hour-by-hour coverage for a week: how far scheduled headcount is from the
-// coverage target in each hour of each day, for the Planner's heatmap.
+// coverage target in each hour of each day, for the Week page's heatmap.
 
 import { SLOT_MINUTES, targetAt, type CoverageBlock } from "@/lib/coverage";
 import { headcountAt, type ShiftSpan } from "@/lib/draft-metrics";

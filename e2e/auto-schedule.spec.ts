@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// Planner → Auto-schedule → review the generated drafts → another version →
-// undo. Every /api/* call is intercepted (see demo.spec.ts); the generate and
+// Week page, Draft mode → Auto-schedule → review the generated drafts →
+// another version → undo. Every /api/* call is intercepted (see demo.spec.ts); the generate and
 // undo mocks keep drafts and runs the way the real endpoints do. Runs in the
 // phone, tablet and desktop projects (playwright.config.ts).
 
@@ -84,7 +84,7 @@ function runSummary(runId: number, body: GenerateBody, shifts: Draft[]) {
   };
 }
 
-async function mockPlanner(page: Page) {
+async function mockAutoSchedule(page: Page) {
   const state = {
     drafts: [] as Draft[],
     runs: [] as Run[],
@@ -147,10 +147,12 @@ async function mockPlanner(page: Page) {
   return state;
 }
 
-test.describe("Planner auto-schedule", () => {
+const isPhone = (page: Page) => page.viewportSize()!.width < 600;
+
+test.describe("Auto-schedule", () => {
   test("generates a week, tries another version and undoes it", async ({ page }) => {
-    const state = await mockPlanner(page);
-    await page.goto("/draft");
+    const state = await mockAutoSchedule(page);
+    await page.goto("/week?mode=draft");
 
     // An empty week points to Auto-schedule.
     const empty = page.getByTestId("auto-schedule-empty");
@@ -179,8 +181,13 @@ test.describe("Planner auto-schedule", () => {
     await expect(summary.getByText("Bob J.: at their weekly hours")).toBeVisible();
     await expect(empty).toBeHidden();
     await expect(page.getByRole("button", { name: "Publish (3)" })).toBeEnabled();
-    await expect(page.getByText("Auto", { exact: true })).toHaveCount(3);
-    await expect(page.getByText("8/40 h week")).toBeVisible();
+    if (isPhone(page)) {
+      // The day list opens on the week's first day, where the drafts are.
+      await expect(page.getByTestId("day-list").getByText("Auto", { exact: true })).toHaveCount(3);
+      await expect(page.getByText("8/40 h week")).toBeVisible();
+    } else {
+      await expect(page.getByTestId("week-grid").getByRole("button", { name: /, auto draft$/ })).toHaveCount(3);
+    }
     await expect(page.getByTestId("coverage-heatmap").getByRole("grid")).toBeVisible();
     await expect(page.getByTestId("draft-hours-panel")).toBeVisible();
 
@@ -199,39 +206,37 @@ test.describe("Planner auto-schedule", () => {
   });
 
   test("one day picker drives the hourly chart and the heatmap", async ({ page }) => {
-    await mockPlanner(page);
-    await page.goto("/draft");
-    const picker = page.getByRole("group", { name: "Day" });
-    const chips = picker.getByRole("button");
-    await expect(chips).toHaveCount(7);
+    await mockAutoSchedule(page);
+    await page.goto("/week?mode=draft");
+    // Phones pick the day with the chips; wider screens with the grid's day headers.
+    const picker = isPhone(page) ? page.getByRole("group", { name: "Day" }) : page.getByTestId("week-grid").locator("thead");
+    const days = picker.getByRole("button");
+    await expect(days).toHaveCount(7);
 
     // The hourly chart has no day buttons of its own; it shows the picker's day.
     await page.getByRole("tab", { name: "By Hour" }).click();
     const chartDay = page.getByTestId("coverage-chart-day");
     await expect(chartDay).toContainText("Sun");
-    await chips.nth(2).click();
+    await days.nth(2).click();
     await expect(chartDay).toContainText("Tue");
 
     // Tapping an hour in the heatmap selects its day everywhere.
     const heatmap = page.getByTestId("coverage-heatmap");
     await heatmap.getByRole("gridcell", { name: /^Thursday 10–11 AM/ }).click();
-    await expect(chips.nth(4)).toHaveAttribute("aria-pressed", "true");
+    await expect(days.nth(4)).toHaveAttribute("aria-pressed", "true");
     await expect(chartDay).toContainText("Thu");
     await expect(heatmap.getByRole("row", { selected: true })).toContainText("Thu");
 
-    // Below the desk layout the picker is further down; the chart links to it.
-    const changeDay = page.getByRole("button", { name: "Change day" });
-    if (page.viewportSize()!.width < 1024) {
-      await changeDay.click();
-      await expect(picker).toBeInViewport();
-    } else {
-      await expect(changeDay).toBeHidden();
-    }
+    // The picker is above the charts; the chart links back to it.
+    await picker.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.getByRole("button", { name: "Change day" }).click();
+    await expect(picker).toBeInViewport();
+    await expect(days.nth(4)).toBeFocused();
   });
 
   test("keeps the summary for the week after a reload", async ({ page }) => {
-    const state = await mockPlanner(page);
-    await page.goto("/draft");
+    const state = await mockAutoSchedule(page);
+    await page.goto("/week?mode=draft");
     await page.getByTestId("auto-schedule-button").click();
     await page.getByTestId("auto-schedule-sheet").getByRole("button", { name: "Generate Schedule" }).click();
     await expect(page.getByTestId("auto-schedule-summary")).toBeVisible();

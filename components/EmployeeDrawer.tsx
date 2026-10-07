@@ -47,6 +47,16 @@ type Props = {
   onResendInvite?: (email: string) => Promise<void>;
   onViewTimeCard?: () => void;
   isManager: boolean;
+  /**
+   * What `schedule` is (default "live"). A draft shows its Draft/Auto status
+   * instead of clock status, and the actions read Add/Save/Remove Draft.
+   */
+  source?: "live" | "draft";
+  /** A live shift shown in Draft mode: view only, with a way back to Live. */
+  readOnly?: boolean;
+  onSwitchToLive?: () => void;
+  /** A warning about this shift, e.g. a draft that won't publish. */
+  notice?: string;
 };
 
 function minutesToTime(m: number): string {
@@ -72,6 +82,10 @@ export default function EmployeeDrawer({
   onResendInvite,
   onViewTimeCard,
   isManager,
+  source = "live",
+  readOnly = false,
+  onSwitchToLive,
+  notice,
 }: Props) {
   const isDesktop = useIsDesktop();
   // At the wide size class the drawer is a non-modal side pane: no
@@ -106,6 +120,9 @@ export default function EmployeeDrawer({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Start fresh for each cell. As the wide side pane the drawer stays open
+  // while other cells are clicked, so open alone isn't enough.
+  const employeeId = employee?.id;
   useEffect(() => {
     if (open) {
       setEditing(false);
@@ -117,7 +134,7 @@ export default function EmployeeDrawer({
       setChatOpen(false);
       setChatMounted(false);
     }
-  }, [open, schedule]);
+  }, [open, schedule, employeeId, date, source]);
 
   if (!employee) return null;
 
@@ -127,9 +144,17 @@ export default function EmployeeDrawer({
   const here = isToday && !!schedule && isHere(schedule, nowMinutes, date);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
 
+  const isDraft = source === "draft";
   let statusLabel: string;
   let statusColor: string;
-  if (calledOut) {
+  if (isDraft) {
+    statusLabel = !schedule ? "Off" : schedule.generationRunId ? "Auto draft" : "Draft";
+    // Theme variables, so light mode gets its darker amber and violet.
+    statusColor = !schedule ? "#94a3b8" : schedule.generationRunId ? "var(--color-violet-400, #a78bfa)" : "var(--color-amber-400, #fbbf24)";
+  } else if (readOnly) {
+    statusLabel = "Live";
+    statusColor = "#94a3b8";
+  } else if (calledOut) {
     statusLabel = "Called Out";
     statusColor = "#f87171";
   } else if (isToday && attendanceStatus && attendanceStatus !== "not_clocked_in") {
@@ -373,6 +398,12 @@ export default function EmployeeDrawer({
                   </div>
                 )}
 
+                {notice && (
+                  <div role="note" className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+                    {notice}
+                  </div>
+                )}
+
                 {editing ? (
                   <div className="flex flex-col gap-3">
                     {[
@@ -411,7 +442,7 @@ export default function EmployeeDrawer({
                       transition={{ type: "spring", stiffness: 400, damping: 22 }}
                       className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
                     >
-                      {saving ? "Saving…" : "Save Shift"}
+                      {saving ? "Saving…" : isDraft ? "Save Draft" : "Save Shift"}
                     </motion.button>
 
                     {schedule && (
@@ -423,7 +454,7 @@ export default function EmployeeDrawer({
                         transition={{ type: "spring", stiffness: 400, damping: 22 }}
                         className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer disabled:cursor-not-allowed transition-[opacity,background-color] hover:bg-red-500/10 ${saving ? "opacity-70" : "opacity-100"}`}
                       >
-                        Mark as Off
+                        {isDraft ? "Remove Draft" : "Mark as Off"}
                       </motion.button>
                     )}
 
@@ -466,8 +497,24 @@ export default function EmployeeDrawer({
                       ))}
                     </motion.div>
 
+                    {readOnly && (
+                      <div className="mb-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 text-xs text-slate-400">
+                        This shift is live. Change it in Live mode; drafts can&apos;t replace it.
+                      </div>
+                    )}
+
                     <div className="flex gap-2.5">
-                      {isManager && (
+                      {isManager && readOnly && onSwitchToLive && (
+                        <motion.button
+                          onClick={onSwitchToLive}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
+                        >
+                          Switch to Live
+                        </motion.button>
+                      )}
+                      {isManager && !readOnly && (
                         <motion.button
                           onClick={() => setEditing(true)}
                           whileHover={{ scale: 1.02, boxShadow: "0 6px 24px rgba(59,130,246,0.3)" }}
@@ -475,7 +522,7 @@ export default function EmployeeDrawer({
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
                           className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
                         >
-                          {schedule ? "Edit Shift" : "Add Shift"}
+                          {schedule ? (isDraft ? "Edit Draft" : "Edit Shift") : isDraft ? "Add Draft" : "Add Shift"}
                         </motion.button>
                       )}
                       {employee.user_id && (

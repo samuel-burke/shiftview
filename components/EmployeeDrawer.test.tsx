@@ -267,4 +267,42 @@ describe("EmployeeDrawer", () => {
       expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true);
     });
   });
+
+  describe("for drafts", () => {
+    it("shows the draft's status and draft actions", async () => {
+      render(
+        <EmployeeDrawer {...baseProps} employee={employee} schedule={{ ...schedule, generationRunId: 4 }} source="draft" date="2026-05-23" />
+      );
+      expect(screen.getAllByText("Auto draft").length).toBeGreaterThan(0);
+      await userEvent.click(screen.getByRole("button", { name: "Edit Draft" }));
+      expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove Draft" })).toBeInTheDocument();
+    });
+
+    it("offers to add a draft on an empty day", () => {
+      render(<EmployeeDrawer {...baseProps} employee={employee} schedule={null} source="draft" date="2026-05-23" />);
+      expect(screen.getByRole("button", { name: "Add Draft" })).toBeInTheDocument();
+    });
+
+    it("shows a live shift read-only in Draft mode, with a way back to Live", async () => {
+      const onSwitchToLive = vi.fn();
+      render(
+        <EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} readOnly onSwitchToLive={onSwitchToLive} date="2026-05-23" />
+      );
+      expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
+      expect(screen.getByText(/This shift is live/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Switch to Live" }));
+      expect(onSwitchToLive).toHaveBeenCalled();
+    });
+  });
+
+  it("starts fresh when a different cell is shown while it stays open", async () => {
+    const other: Employee = { id: 2, name: "Bob Jones", user_id: null };
+    const { rerender } = render(<EmployeeDrawer {...baseProps} employee={employee} schedule={null} date="2026-05-23" />);
+    await userEvent.click(screen.getByRole("button", { name: "Add Shift" }));
+    expect(screen.getByLabelText("Start time")).toBeInTheDocument();
+    rerender(<EmployeeDrawer {...baseProps} employee={other} schedule={null} date="2026-05-23" />);
+    expect(screen.queryByLabelText("Start time")).toBeNull();
+    expect(screen.getByRole("button", { name: "Add Shift" })).toBeInTheDocument();
+  });
 });

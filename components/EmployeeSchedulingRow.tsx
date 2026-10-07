@@ -14,7 +14,7 @@ import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
 import ShiftPreferencesSection from "./ShiftPreferencesSection";
 
 // Manager-only, under each employee in Settings → Team: employment type and
-// weekly limits for the Planner's Auto-schedule, plus the employee's shift
+// weekly limits for Auto-schedule, plus the employee's shift
 // preferences. Blank limits fall back to the org default for the type
 // (Settings → Scheduling Rules).
 

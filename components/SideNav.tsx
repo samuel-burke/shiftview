@@ -6,7 +6,6 @@ import ClockStatusBadge from "./ClockStatusBadge";
 import Logo from "@/components/Logo";
 import type { NavItem } from "./AppShell";
 
-
 type Props = {
   active: NavItem;
   isManager?: boolean;
@@ -54,11 +53,6 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
           {isManager && (
             <NavLink href="/requests" label="Requests" isActive={active === "requests"}>
               <RequestsIcon />
-            </NavLink>
-          )}
-          {isManager && (
-            <NavLink href="/draft" label="Planner" isActive={active === "planner"}>
-              <PlannerIcon />
             </NavLink>
           )}
           {isManager && (
@@ -183,17 +177,6 @@ export function ClockIcon({ size = 17 }: { size?: number } = {}) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
       <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-export function PlannerIcon({ size = 17 }: { size?: number } = {}) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M3 10h18" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M9.5 15.5l1.8 1.8 3.2-3.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

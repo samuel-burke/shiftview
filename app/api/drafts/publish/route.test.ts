@@ -177,21 +177,28 @@ describe("POST /api/drafts/publish — success", () => {
     );
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 2, skipped: 0 });
+    expect(await res.json()).toEqual({ published: 2, skipped: 0, skippedDrafts: [] });
   });
 
-  it("returns { published: 1, skipped: 1 } when one employee is already scheduled", async () => {
+  it("publishes the free drafts and keeps the one whose employee is already scheduled", async () => {
     // employee_id=10 already has a schedule on 2026-06-01
     const existingSchedules = [{ employee_id: 10, date: "2026-06-01" }];
-    mockCreateClient.mockResolvedValue(
-      makePublishClient({
-        drafts: [DRAFT_1, DRAFT_2],
-        existingSchedules,
-      }) as any
-    );
+    const client = makePublishClient({ drafts: [DRAFT_1, DRAFT_2], existingSchedules });
+    mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 1, skipped: 1 });
+    expect(await res.json()).toEqual({
+      published: 1,
+      skipped: 1,
+      skippedDrafts: [{ id: 1, employeeId: 10, date: "2026-06-01" }],
+    });
+    // Only the published draft is deleted; the skipped one stays a draft.
+    const calls = (client.from as ReturnType<typeof vi.fn>).mock.calls;
+    const draftCalls = calls.map((c: string[], i: number) => (c[0] === "draft_schedules" ? i : -1)).filter((i: number) => i >= 0);
+    const deleteIdx = draftCalls[1]; // the first is the read
+    const deleteBuilder = (client.from as ReturnType<typeof vi.fn>).mock.results[deleteIdx].value;
+    expect(deleteBuilder.delete).toHaveBeenCalled();
+    expect(deleteBuilder.in).toHaveBeenCalledWith("id", [2]);
   });
 
   it("returns { published: 0, skipped: N } when all employees are already scheduled", async () => {
@@ -199,17 +206,17 @@ describe("POST /api/drafts/publish — success", () => {
       { employee_id: 10, date: "2026-06-01" },
       { employee_id: 11, date: "2026-06-02" },
     ];
-    mockCreateClient.mockResolvedValue(
-      makePublishClient({
-        drafts: [DRAFT_1, DRAFT_2],
-        existingSchedules,
-      }) as any
-    );
+    const client = makePublishClient({ drafts: [DRAFT_1, DRAFT_2], existingSchedules });
+    mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    // All drafts are skipped — insert is never called with rows, but delete still runs
+    // Nothing goes live, so nothing is deleted and Auto-schedule runs stay undoable.
     const json = await res.json();
-    expect(json).toEqual({ published: 0, skipped: 2 });
+    expect(json).toMatchObject({ published: 0, skipped: 2 });
+    expect(json.skippedDrafts).toHaveLength(2);
+    const tables = (client.from as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
+    expect(tables.filter((t: string) => t === "draft_schedules")).toHaveLength(1); // the read only
+    expect(tables).not.toContain("schedule_generation_runs");
   });
 
   it("sends notifications for employees with user_id", async () => {
@@ -270,7 +277,7 @@ describe("POST /api/drafts/publish — auto-schedule runs", () => {
     );
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 1, skipped: 0 });
+    expect(await res.json()).toEqual({ published: 1, skipped: 0, skippedDrafts: [] });
   });
 });
 

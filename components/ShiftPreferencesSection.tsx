@@ -7,7 +7,7 @@ import { PREFERENCE_NOTE_MAX, SHIFT_TYPES, type ShiftPreferences } from "@/lib/p
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
 
 // What an employee would like to work: shift types, days, weekly hours. The
-// Planner's Auto-schedule honors these when it can; availability and approved
+// Auto-schedule honors these when it can; availability and approved
 // time off always come first. Employees edit their own (Settings →
 // Preferences); managers can edit anyone's from the Team list (`embedded`).
 

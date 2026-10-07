@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST, PUT, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeQueryBuilder, makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -147,6 +147,37 @@ describe("POST /api/drafts", () => {
     const res = await POST(postReq(validBody));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 409 when the employee already has a live shift that day, even with override", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        tableOverrides: { draft_schedules: { data: null, error: null }, schedules: { data: [{ id: 7 }], error: null } },
+      }) as any
+    );
+    const res = await POST(postReq({ ...validBody, override: true }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ live: true, error: expect.stringContaining("live shift that day") });
+  });
+
+  it("returns 409 when the draft overlaps a live overnight shift the day before", async () => {
+    // The same-day check reads the live table first (empty), then the overlap
+    // check reads the neighbouring days: a 10 PM – 6 AM live shift on May 31.
+    let liveReads = 0;
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, tableOverrides: { draft_schedules: { data: null, error: null } } });
+    const baseFrom = client.from.getMockImplementation()!;
+    client.from.mockImplementation((table: string) => {
+      if (table !== "schedules") return baseFrom(table);
+      liveReads += 1;
+      const rows = liveReads === 1 ? [] : [{ id: 8, date: "2026-05-31", start_minutes: 1320, end_minutes: 1800 }];
+      return makeQueryBuilder({ data: rows, error: null });
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(postReq({ ...validBody, startMinutes: 300, endMinutes: 600 })); // 5–10 AM June 1
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ live: true, error: expect.stringMatching(/^Overlaps .* \(live\)$/) });
   });
 
   it("returns 500 on database insert error", async () => {
@@ -330,6 +361,24 @@ describe("PUT /api/drafts", () => {
     const res = await PUT(putReq(validBody));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("returns 409 when the draft's day already has a live shift", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        tableOverrides: {
+          draft_schedules: { data: existingDraft, error: null },
+          schedules: { data: [{ id: 7 }], error: null },
+          time_off_requests: { data: null, error: null },
+          availability: { data: null, error: null },
+        },
+      }) as any
+    );
+    const res = await PUT(putReq({ ...validBody, override: true }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ live: true });
   });
 
   // The update sent to draft_schedules (the one builder whose update() ran).

@@ -5,7 +5,7 @@ import { MAX_WEEKLY_HOURS, type SchedulingRules } from "@/lib/scheduling-rules";
 import SegmentedControl from "./SegmentedControl";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
 
-// Settings → Workplace → Scheduling Rules: the org-wide rules the Planner's
+// Settings → Workplace → Scheduling Rules: the org-wide rules
 // Auto-schedule works within (lib/scheduling-rules.ts). Each change saves
 // immediately, like the other workplace settings.
 
@@ -133,7 +133,7 @@ export default function SchedulingRulesSection({
       </div>
       <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
         <div className="text-xs text-slate-500 pb-4 mb-0 border-b border-slate-800/60">
-          Auto-schedule in the Planner always follows these. Employees&apos; availability and approved time off come first.
+          Auto-schedule (Week page, Draft mode) always follows these. Employees&apos; availability and approved time off come first.
         </div>
         <div className="flex flex-col divide-y divide-slate-800/60 pt-4">
           <Row title="Shift Length" desc="Generated shifts fall in this range">

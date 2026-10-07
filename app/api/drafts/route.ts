@@ -12,6 +12,30 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
+// The live schedule wins. A draft can't go on a day the employee already has
+// a published shift (publish would skip it and the change would be lost) or
+// overlap a live overnight shift. Not overridable.
+async function findLiveClash(
+  supabase: SupabaseClient,
+  orgId: string,
+  employeeId: number,
+  date: string,
+  startMinutes: number,
+  endMinutes: number
+): Promise<NextResponse | null> {
+  const { data: live } = await supabase
+    .from("schedules")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("employee_id", employeeId)
+    .eq("date", date)
+    .limit(1);
+  if (Array.isArray(live) && live.length > 0)
+    return NextResponse.json({ error: "Already has a live shift that day. Change it in Live mode.", live: true }, { status: 409 });
+  const overlap = await findShiftOverlap(supabase, "schedules", orgId, employeeId, date, startMinutes, endMinutes);
+  return overlap ? NextResponse.json({ error: `${overlap} (live)`, live: true }, { status: 409 }) : null;
+}
+
 async function findConflict(
   supabase: SupabaseClient,
   orgId: string,
@@ -91,6 +115,9 @@ export async function POST(request: Request) {
   const overlap = await findShiftOverlap(supabase, "draft_schedules", orgId!, employeeId, date, startMinutes, endMinutes);
   if (overlap) return NextResponse.json({ error: overlap }, { status: 409 });
 
+  const liveClash = await findLiveClash(supabase, orgId!, employeeId, date, startMinutes, endMinutes);
+  if (liveClash) return liveClash;
+
   if (!override) {
     const conflict = await findConflict(supabase, orgId!, employeeId, date, startMinutes, endMinutes);
     if (conflict) return conflict;
@@ -136,6 +163,9 @@ export async function PUT(request: Request) {
   const dateStr = typeof existing.date === "string" ? existing.date.slice(0, 10) : existing.date;
   const overlap = await findShiftOverlap(supabase, "draft_schedules", orgId!, existing.employee_id, dateStr, startMinutes, endMinutes, id);
   if (overlap) return NextResponse.json({ error: overlap }, { status: 409 });
+
+  const liveClash = await findLiveClash(supabase, orgId!, existing.employee_id, dateStr, startMinutes, endMinutes);
+  if (liveClash) return liveClash;
 
   if (!override) {
     const conflict = await findConflict(supabase, orgId!, existing.employee_id, dateStr, startMinutes, endMinutes);

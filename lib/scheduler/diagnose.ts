@@ -1,5 +1,5 @@
-// Turns the final schedule into the result the Planner shows: metrics (with the
-// app's shared coverage, hours and cost helpers, so numbers match the Planner),
+// Turns the final schedule into the result the Week page shows: metrics (with the
+// app's shared coverage, hours and cost helpers, so numbers match the Week page),
 // per-employee totals, the gaps left and why nobody covered them, and one-tap
 // suggestions.
 

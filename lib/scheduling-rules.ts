@@ -1,4 +1,4 @@
-// Per-organization rules for the Planner's auto-scheduler (lib/scheduler), and
+// Per-organization rules for the auto-scheduler (lib/scheduler), and
 // the per-employee limits it schedules within.
 //
 // Org rules are stored in app_settings as individual text key/value rows, the

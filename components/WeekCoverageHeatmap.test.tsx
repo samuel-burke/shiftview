@@ -92,7 +92,7 @@ describe("WeekCoverageHeatmap", () => {
     expect(screen.getByText("Tue 11 AM–12 PM")).toBeInTheDocument();
   });
 
-  it("follows the Planner's selected day and selects the day of a tapped hour", () => {
+  it("follows the page's selected day and selects the day of a tapped hour", () => {
     const onSelectDate = vi.fn();
     render(<WeekCoverageHeatmap shifts={[]} dates={[MON, TUE]} curves={CURVES} selectedDate={TUE} onSelectDate={onSelectDate} />);
     const [, monRow, tueRow] = screen.getAllByRole("row");
