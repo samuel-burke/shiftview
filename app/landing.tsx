@@ -1,7 +1,7 @@
 import Link from "next/link";
 import TryDemoButton from "@/components/TryDemoButton";
 import MarketingShell, { ClosingCta } from "@/components/marketing/MarketingShell";
-import { AutoScheduleDemo, DevicesDemo, HeroDemo, Reveal, TeamDemo } from "@/components/marketing/live";
+import { AutoScheduleDemo, DevicesDemo, HeroDemo, Reveal, TeamDemo, TimeClockDemo } from "@/components/marketing/live";
 import { Arrow, Container, REPO_URL, SectionHeading, primaryBtn, secondaryBtn } from "@/components/marketing/ui";
 import {
   AdminIcon,
@@ -23,6 +23,7 @@ export default function LandingPage() {
   return (
     <MarketingShell>
       <Hero today={today} />
+      <TimeClock today={today} />
       <AutoSchedule today={today} />
       <AnyDevice today={today} />
       <Team today={today} />
@@ -42,7 +43,6 @@ function Hero({ today }: { today: string }) {
   return (
     <section className="overflow-hidden border-b border-slate-800/60">
       <Anchor id="coverage" />
-      <Anchor id="time-clock" />
       <Container className="grid items-center gap-12 pb-16 pt-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-8 lg:pb-24 lg:pt-20">
         <div className="max-w-xl">
           <p className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-400">
@@ -73,6 +73,29 @@ function Hero({ today }: { today: string }) {
           </p>
         </div>
         <HeroDemo date={today} />
+      </Container>
+    </section>
+  );
+}
+
+function TimeClock({ today }: { today: string }) {
+  const points = ["Geofenced clock-in", "One-tap breaks", "Missed-punch corrections", "Time card CSV export"];
+  return (
+    <section id="time-clock" className="scroll-mt-16 border-b border-slate-800/60">
+      <Container className="py-16 sm:py-20 lg:py-28">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Time clock"
+            title="Every punch, on the time card."
+            body="Staff clock in, take breaks and clock out on their phones. Each punch lands on their time card with hours worked, late punches flagged, ready to export for payroll."
+          />
+        </Reveal>
+        <Reveal className="mt-12 lg:mt-16">
+          <TimeClockDemo date={today} />
+        </Reveal>
+        <ul className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+          {points.map((p) => <li key={p}>{p}</li>)}
+        </ul>
       </Container>
     </section>
   );

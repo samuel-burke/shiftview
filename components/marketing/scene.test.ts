@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildScene, coverageAt, hereAt, punchTime, statusAt, statusBarTime, workedAt } from "./scene";
-import { minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
+import { buildScene, coverageAt, hereAt, punchTime, statusAt, statusBarTime, timecardAt, workedAt } from "./scene";
+import { addDaysToKey, formatTimeInTz, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
+import { fmtMinutes } from "@/data/types";
 import { targetAt } from "@/lib/coverage";
 
 // A Monday through Sunday: the hero plays the same moment on any day.
@@ -47,5 +48,44 @@ describe("marketing scene", () => {
     expect(statusBarTime(13 * 3600 + 10 * 60 + 5)).toBe("1:10");
     expect(punchTime(13 * 3600 + 10 * 60 + 5)).toBe("01:10:05 PM");
     expect(punchTime(9 * 3600 + 2 * 60)).toBe("09:02:00 AM");
+  });
+});
+
+describe("time card", () => {
+  it.each(WEEK)("on %s, the late employee's card flags today's late clock-in and nothing else", (date) => {
+    const scene = buildScene(date);
+    const { shift } = scene.late;
+    const out = scene.punches.find((p) => p.employeeId === shift.employeeId && p.type === "clock_out")!.at;
+    const card = timecardAt(scene, shift.employeeId, out + 60);
+
+    expect(card.from).toBe(addDaysToKey(date, -13));
+    expect(card.to).toBe(date);
+    expect(card.totalViolations).toBe(1);
+    expect(card.violationCounts.late_in).toBe(1);
+    const today = card.days.at(-1)!;
+    expect(today.date).toBe(date);
+    expect(today.violations.map((v) => v.detail)).toEqual([`Clocked in 10 min late (scheduled ${fmtMinutes(shift.startMinutes)})`]);
+    expect(card.days.some((d) => d.hasIncomplete)).toBe(false);
+
+    // One forgotten clock-out, fixed by an approved correction.
+    const manual = card.days.flatMap((d) => d.punches).filter((p) => p.isManual);
+    expect(manual).toHaveLength(1);
+    expect(manual[0].note).toBe("Forgot to clock out");
+
+    // Every day is the shift, less a half-hour break on the longer ones.
+    for (const d of card.days) {
+      const hours = (d.schedule!.endMinutes - d.schedule!.startMinutes) / 60;
+      expect(Math.abs(d.workedHours - (hours >= 6 ? hours - 0.5 : hours))).toBeLessThan(0.3);
+    }
+  });
+
+  it("shows today's punches at the times the clock screen shows them", () => {
+    const scene = buildScene(WEEK[2]);
+    const { shift, at } = scene.late;
+    const card = timecardAt(scene, shift.employeeId, at + 30);
+    const today = card.days.at(-1)!;
+    expect(today.punches.map((p) => p.punchType)).toEqual(["clock_in"]);
+    expect(formatTimeInTz(today.punches[0].punchedAt, card.timezone, { hour: "2-digit", minute: "2-digit", second: "2-digit" })).toBe(punchTime(at));
+    expect(today.hasIncomplete).toBe(true);
   });
 });

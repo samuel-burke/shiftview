@@ -4,6 +4,7 @@
 // they're drawn on. The data is the sample store (./scene) and a real
 // Auto-schedule run (./auto-schedule.json); see those files.
 
+import { useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import TeamSection from "@/components/TeamSection";
 import WeekGrid from "@/components/WeekGrid";
@@ -13,6 +14,7 @@ import { WeekStats } from "@/components/week/WeekInsights";
 import { Sparkle } from "@/components/week/WeekHeader";
 import { MegaphoneIcon } from "@/components/ShiftIcons";
 import SegmentedControl from "@/components/SegmentedControl";
+import { TimeCardPanel } from "@/components/TimeCardDrawer";
 import { PHONE } from "./frames";
 import { DEMO_COVERAGE_DEFAULTS, DEMO_COVERAGE_PROFILES, DEMO_EMPLOYMENT, DEMO_STORE_HOURS } from "@/data/demo-fixtures";
 import { fmtElapsed, fmtMinutes, getMonogram, getShiftType, SHIFT_COLORS, type Schedule } from "@/data/types";
@@ -47,6 +49,7 @@ import {
   shiftTypeOf,
   statusAt,
   statusBarTime,
+  timecardAt,
   workedAt,
   type Scene,
 } from "./scene";
@@ -58,8 +61,12 @@ const initialsOf = (scene: Scene, id: number) => getMonogram(employeeOf(scene, i
 
 export type DashboardSize = "phone" | "tablet" | "desktop";
 
-/** The Team dashboard as the store manager sees it at `t`, laid out for `size`. */
-export function DashboardScreen({ scene, t, size, unread = 0, overlay }: { scene: Scene; t: number; size: DashboardSize; unread?: number; overlay?: React.ReactNode }) {
+/**
+ * The Team dashboard as the store manager sees it at `t`, laid out for `size`.
+ * `pane`: on a desktop, an employee's detail pane is open, so the dashboard
+ * makes room for it on the right, as the app does.
+ */
+export function DashboardScreen({ scene, t, size, unread = 0, pane = false, overlay }: { scene: Scene; t: number; size: DashboardSize; unread?: number; pane?: boolean; overlay?: React.ReactNode }) {
   const now = t / 60;
   const attendance = attendanceAt(scene, t);
   const here = hereAt(scene, t);
@@ -154,11 +161,11 @@ export function DashboardScreen({ scene, t, size, unread = 0, overlay }: { scene
   return (
     <div className="relative flex h-full bg-bg">
       <SideNav active="team" status={managerStatus} />
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${pane ? "pr-[420px]" : ""}`}>
         <DeskHeader label={dateLabel} initials={managerInitials} unread={unread} />
         <div className="mx-6"><CoverageAlert status={coverage} here={here} /></div>
         <div className="mx-auto grid max-w-[1680px] grid-cols-[minmax(0,1fr)_340px] items-start gap-x-8 px-6 pt-6">
-          <div className="col-start-1 row-start-1">{overview(780)}</div>
+          <div className="col-start-1 row-start-1">{overview(pane ? 360 : 780)}</div>
           <div className="col-start-2 row-start-1 -mt-4">
             <div className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 py-3 text-center text-sm font-bold text-white">Plan Draft Schedule</div>
             <div className={button}>Team week</div>
@@ -219,19 +226,22 @@ export function ClockScreen({
   scene: Scene;
   employeeId: number;
   t: number;
-  press?: "clock_in" | "confirm" | null;
+  press?: "clock_in" | "confirm" | "end_shift" | null;
   warning?: boolean;
 }) {
   const shift = scene.shifts.find((s) => s.employeeId === employeeId)!;
   const type = shiftTypeOf(scene, shift);
   const color = SHIFT_COLORS[type];
   const status = statusAt(scene, employeeId, t);
+  // As on the page, a finished shift reads as not clocked in, with Clock In back.
+  const shown = status === "clocked_out" ? "not_clocked_in" : status;
   const punches = punchesOf(scene, employeeId, t);
   const clockIn = punches.find((p) => p.type === "clock_in");
   const lateBy = clockIn ? Math.round((clockIn.at - shift.startMinutes * 60) / 60) : 0;
-  const style = STATUS_STYLE[status];
+  const style = STATUS_STYLE[shown];
   const minutesLate = Math.floor((t - shift.startMinutes * 60) / 60);
-  const pressed = (which: "clock_in" | "confirm") => (press === which ? { scale: [1, 0.96, 1] } : { scale: 1 });
+  const breakFor = shown === "on_break" ? t - punches.at(-1)!.at : 0;
+  const pressed = (which: "clock_in" | "confirm" | "end_shift") => (press === which ? { scale: [1, 0.96, 1] } : { scale: 1 });
 
   return (
     <div className="relative h-full bg-bg">
@@ -249,31 +259,47 @@ export function ClockScreen({
 
         <div className="rounded-2xl border border-slate-800/60 bg-card px-4 py-5 text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `${style.color}22`, color: style.color, border: `1px solid ${style.color}44` }}>
-            <span className="size-2 rounded-full" style={{ background: style.color, boxShadow: status === "clocked_in" ? `0 0 6px ${style.color}` : "none" }} />
+            <span className="size-2 rounded-full" style={{ background: style.color, boxShadow: shown === "clocked_in" ? `0 0 6px ${style.color}` : "none" }} />
             {style.label}
           </div>
-          {status !== "not_clocked_in" && (
+          {shown === "on_break" ? (
+            <>
+              <div className="font-mono text-4xl font-extrabold tabular-nums" style={{ color: STATUS_STYLE.on_break.color }}>{fmtElapsed(breakFor)}</div>
+              <div className="mt-1 text-xs text-slate-400">Current break duration</div>
+              <div className="mt-3 border-t border-slate-800/60 pt-3">
+                <div className="font-mono text-xl font-bold tabular-nums text-slate-500">{fmtElapsed(workedAt(scene, employeeId, t))}</div>
+                <div className="mt-0.5 text-xs text-slate-500">Total time worked today</div>
+              </div>
+            </>
+          ) : shown === "clocked_in" ? (
             <>
               <div className="font-mono text-4xl font-extrabold tabular-nums text-slate-100">{fmtElapsed(workedAt(scene, employeeId, t))}</div>
               <div className="mt-1 text-xs text-slate-400">Total time worked today</div>
             </>
-          )}
+          ) : null}
         </div>
 
         <div className="grid gap-3">
-          {status === "not_clocked_in" ? (
+          {shown === "not_clocked_in" && (
             <motion.div animate={pressed("clock_in")} transition={{ duration: 0.3 }} className="w-full rounded-2xl bg-green-500 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-green-500/20">
               Clock In
             </motion.div>
-          ) : (
+          )}
+          {shown === "clocked_in" && (
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/20 py-4 text-center text-base font-bold text-amber-400">Start Break</div>
-              <div className="rounded-2xl border border-slate-600 bg-slate-700 py-4 text-center text-base font-bold text-slate-200">End Shift</div>
+              <motion.div animate={pressed("end_shift")} transition={{ duration: 0.3 }} className="rounded-2xl border border-slate-600 bg-slate-700 py-4 text-center text-base font-bold text-slate-200">
+                End Shift
+              </motion.div>
             </div>
+          )}
+          {shown === "on_break" && (
+            <div className="w-full rounded-2xl bg-amber-500 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-amber-500/20">End Break</div>
           )}
         </div>
 
-        {status === "not_clocked_in" && (
+        {/* The page offers a call-out only before clocking in for the day. */}
+        {!clockIn && (
           <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-800/60 bg-card px-4 py-3.5 text-sm font-semibold text-slate-300">
             <MegaphoneIcon size={15} color="#94a3b8" />
             Can&apos;t make it in today? Call out
@@ -332,6 +358,48 @@ export function ClockScreen({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Time card (manager, desktop) ────────────────────────────
+
+/**
+ * The manager's dashboard on a desktop with an employee's time card open over
+ * it, as the app opens it: the last 14 days of punches with hours and flags,
+ * in the app's own time card panel. `open` slides it in; `scrolled` scrolls it
+ * down to the latest days.
+ */
+export function TimeCardScreen({ scene, employeeId, t, open, scrolled }: { scene: Scene; employeeId: number; t: number; open: boolean; scrolled: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const card = useMemo(() => timecardAt(scene, employeeId, t), [scene, employeeId, t]);
+  useEffect(() => {
+    const body = ref.current?.querySelector<HTMLElement>('[data-testid="timecard-body"]');
+    body?.scrollTo({ top: scrolled ? body.scrollHeight : 0, behavior: scrolled ? "smooth" : "auto" });
+  }, [scrolled]);
+  return (
+    <div ref={ref} className="relative h-full">
+      {/* The manager opened it from the employee's detail pane, which is under it. */}
+      <DashboardScreen scene={scene} t={t} size="desktop" pane />
+      {/* The drawer's backdrop and panel, as components/TimeCardDrawer.tsx draws them. */}
+      <div className={`absolute inset-0 z-[60] bg-black/60 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`} />
+      <div
+        className={`absolute inset-y-0 right-0 z-[70] flex w-full max-w-[560px] flex-col border-l border-slate-800 bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <TimeCardPanel
+          employee={{ id: employeeId, name: employeeOf(scene, employeeId).name }}
+          from={card.from}
+          to={card.to}
+          onFromChange={noop}
+          onToChange={noop}
+          onApply={noop}
+          onClose={noop}
+          onExport={noop}
+          data={card}
+          loading={false}
+          error={null}
+        />
+      </div>
     </div>
   );
 }

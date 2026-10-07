@@ -12,7 +12,7 @@ import { weekDates } from "@/lib/draft-metrics";
 import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 import { fmtMinutes } from "@/data/types";
 import { BrowserChrome, BrowserFrame, LaptopFrame, PhoneFrame, TabletFrame } from "./frames";
-import { ClockScreen, DashboardScreen, RequestScreen, ScheduleScreen, WeekDraftScreen, type AutoSchedulePhase } from "./screens";
+import { ClockScreen, DashboardScreen, RequestScreen, ScheduleScreen, TimeCardScreen, WeekDraftScreen, type AutoSchedulePhase } from "./screens";
 import { InAppBanner } from "./app-chrome";
 import { buildScene, employeeOf, nextShiftAfter } from "./scene";
 import { draftWeek } from "./auto-schedule";
@@ -113,6 +113,51 @@ export function HeroDemo({ date }: { date: string }) {
               </div>
             }
           />
+        </PhoneFrame>
+      </div>
+    </div>
+  );
+}
+
+// ── Time clock: punches onto the time card ──────────────────
+
+// The script, in seconds from first view.
+const TAP_END_SHIFT = 1.0;
+const CLOCK_OUT = 1.3;
+const OPEN_CARD = 2.4;
+const SCROLL_CARD = 4.2;
+
+/**
+ * The employee who clocked in late in the hero ends their shift on their
+ * phone; then their manager opens their time card on a desktop: the last 14
+ * days of punches, today's late clock-in flagged, and scrolls down to today.
+ */
+export function TimeClockDemo({ date }: { date: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
+  const mounted = useMounted();
+  const e = usePlayhead(ref, { step: 0.1, fineFor: SCROLL_CARD + 1, endAt: SCROLL_CARD + 1 });
+  const scene = useMemo(() => buildScene(date), [date]);
+  const who = scene.late.shift.employeeId;
+  const clockOut = scene.punches.find((p) => p.employeeId === who && p.type === "clock_out")!.at;
+  // Reduced motion: the end of the script. Server render: its start.
+  const at = mounted && reduced ? SCROLL_CARD + 1 : e;
+  const t = clockOut + Math.floor(at - CLOCK_OUT);
+  const name = employeeOf(scene, who).name;
+  return (
+    <div ref={ref} className="relative mx-auto max-w-5xl pb-[6%]">
+      <div className="ml-auto w-full sm:w-[90%]">
+        <BrowserFrame
+          label={`A manager's dashboard on a desktop with ${name}'s time card open: two weeks of punches, hours and breaks, with today's late clock-in flagged`}
+          url="shiftview.app"
+          className="[--screen-zoom:0.25] sm:[--screen-zoom:0.45] lg:[--screen-zoom:0.62]"
+        >
+          <TimeCardScreen scene={scene} employeeId={who} t={t} open={at >= OPEN_CARD} scrolled={at >= SCROLL_CARD} />
+        </BrowserFrame>
+      </div>
+      <div className="absolute bottom-0 left-0 z-10">
+        <PhoneFrame label={`${name}'s phone: ending their shift on the time clock`} className="[--phone-zoom:0.24] sm:[--phone-zoom:0.36] lg:[--phone-zoom:0.5]">
+          <ClockScreen scene={scene} employeeId={who} t={t} press={!reduced && at >= TAP_END_SHIFT && at < CLOCK_OUT ? "end_shift" : null} />
         </PhoneFrame>
       </div>
     </div>

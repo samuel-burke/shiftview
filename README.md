@@ -67,6 +67,13 @@ Every screen below is captured from the home page's product demos, which are bui
 </table>
 
 <picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/time-card-light.png" />
+  <img alt="An employee's phone after they end their shift, with today's punches, and their time card open on the manager's desktop: two weeks of punches, hours and breaks, with a late clock-in flagged and a corrected clock-out marked" src="docs/screenshots/time-card-dark.png" />
+</picture>
+
+<sub>Time cards: every punch from the employee's phone lands on their time card, with hours, breaks and late punches flagged, ready to export for payroll.</sub>
+
+<picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/auto-schedule-light.png" />
   <img alt="The Week page in Draft mode after Auto-schedule: next week drafted to the coverage target, with the run's summary of coverage, hours, overtime, labor cost and preferences" src="docs/screenshots/auto-schedule-dark.png" />
 </picture>

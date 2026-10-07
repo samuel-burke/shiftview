@@ -27,6 +27,7 @@ function MarketingNav() {
       <Container className="flex h-16 items-center justify-between">
         <Link href="/" aria-label="ShiftView home"><Logo className="h-[22px]" /></Link>
         <nav aria-label="Site navigation" className="flex items-center gap-1 sm:gap-2">
+          <Link href="/#time-clock" className={section}>Time clock</Link>
           <Link href="/#auto-schedule" className={section}>Auto-schedule</Link>
           <Link href="/#features" className={section}>Features</Link>
           <span aria-hidden="true" className="mx-2 hidden h-4 w-px bg-slate-800 md:block" />

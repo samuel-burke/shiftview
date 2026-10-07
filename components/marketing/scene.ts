@@ -12,11 +12,14 @@ import {
   DEMO_COVERAGE_DEFAULTS,
   DEMO_COVERAGE_PROFILES,
   DEMO_EMPLOYEES,
+  DEMO_SETTINGS,
   DEMO_STORE_HOURS,
   EMPLOYEE_PATTERNS,
 } from "@/data/demo-fixtures";
-import { addDaysToKey, dayOfWeekForKey } from "@/lib/dates";
+import { addDaysToKey, dayOfWeekForKey, eachDateKey, zonedTimeToUtc } from "@/lib/dates";
 import { liveCoverageStatus, targetAt, type CoverageBlock, type LiveCoverageStatus } from "@/lib/coverage";
+import { DEFAULT_PUNCH_POLICY } from "@/lib/punch-policy";
+import { computeTimecard, type Timecard, type TimecardPunchInput } from "@/lib/timecard";
 import { getShiftType, type AttendanceStatus, type Employee, type PunchType, type Schedule, type ShiftType, type StoreHours } from "@/data/types";
 
 export type ScenePunch = { employeeId: number; type: PunchType; at: number };
@@ -160,4 +163,68 @@ export function punchTime(t: number): string {
   const h = Math.floor(t / 3600) % 24;
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(h % 12 === 0 ? 12 : h % 12)}:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)} ${h < 12 ? "AM" : "PM"}`;
+}
+
+// ── Time cards ──────────────────────────────────────────────
+
+/** The store's wall-clock time `t` on `date`, as an ISO instant. */
+function instant(date: string, t: number): string {
+  return new Date(zonedTimeToUtc(date, Math.floor(t / 60), DEMO_SETTINGS.timezone).getTime() + (t % 60) * 1000).toISOString();
+}
+
+/**
+ * The punches `employeeId` made on an earlier day, like a real week's: in a
+ * few minutes either side of the start, a half-hour break mid-shift on shifts
+ * of 6 hours or more, out just after the end. `forgotOut` is the day they
+ * forgot to clock out and sent a correction, which their manager approved:
+ * the app records it as a manual clock-out at the shift's end.
+ */
+function pastPunches(employeeId: number, date: string, shift: Schedule, forgotOut: boolean): Omit<TimecardPunchInput, "id">[] {
+  const salt = Number(date.slice(5, 7)) * 31 + Number(date.slice(8));
+  const start = shift.startMinutes * 60;
+  const end = shift.endMinutes * 60;
+  const out: Omit<TimecardPunchInput, "id">[] = [{ punchType: "clock_in", punchedAt: instant(date, start + jitter(employeeId, salt * 4, -240, 100)) }];
+  if (end - start >= 6 * 3600) {
+    const at = start + Math.round((end - start) * 0.45) + jitter(employeeId, salt * 4 + 1, -600, 600);
+    out.push({ punchType: "break_start", punchedAt: instant(date, at) });
+    out.push({ punchType: "break_end", punchedAt: instant(date, at + BREAK + jitter(employeeId, salt * 4 + 2, 0, 120)) });
+  }
+  out.push(
+    forgotOut
+      ? { punchType: "clock_out", punchedAt: instant(date, end), isManual: true, note: "Forgot to clock out" }
+      : { punchType: "clock_out", punchedAt: instant(date, end + jitter(employeeId, salt * 4 + 3, 0, 300)) }
+  );
+  return out;
+}
+
+/**
+ * `employeeId`'s time card as the app builds it when a manager opens it at
+ * `t` today: the last 14 days, the store's punch rules (the defaults), and
+ * every punch, with today's from the scene. lib/timecard does the rest.
+ */
+export function timecardAt(scene: Scene, employeeId: number, t: number): Timecard {
+  const from = addDaysToKey(scene.date, -13);
+  const shifts = eachDateKey(from, scene.date).flatMap((d) => {
+    const s = shiftFor(employeeId, d);
+    return s ? [s] : [];
+  });
+  const past = shifts.filter((s) => s.date < scene.date);
+  // The third-latest of those days is the one with the forgotten clock-out.
+  const forgot = past.at(-3)?.date;
+  const punches = [
+    ...past.flatMap((s) => pastPunches(employeeId, s.date, s, s.date === forgot)),
+    ...punchesOf(scene, employeeId, t).map((p) => ({ punchType: p.type, punchedAt: instant(scene.date, p.at) })),
+  ].map((p, i) => ({ id: i + 1, ...p }));
+  return computeTimecard({
+    employeeId,
+    employeeName: employeeOf(scene, employeeId).name,
+    from,
+    to: scene.date,
+    timezone: DEMO_SETTINGS.timezone,
+    policy: DEFAULT_PUNCH_POLICY,
+    schedules: shifts.map((s) => ({ date: s.date, startMinutes: s.startMinutes, endMinutes: s.endMinutes })),
+    punches,
+    callouts: [],
+    nowMs: Date.parse(instant(scene.date, t)),
+  });
 }
