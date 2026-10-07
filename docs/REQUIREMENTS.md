@@ -135,7 +135,7 @@ ShiftView is a mobile-first shift scheduling dashboard for retail and hospitalit
 | BR-5 | Opener classification: clock-in time ≤ 420 minutes (7:00 AM). |
 | BR-6 | Closer classification: clock-out time ≥ 1260 minutes (9:00 PM). Opener takes precedence. |
 | BR-7 | Optimal coverage threshold: 3 staff. Minimum coverage threshold: 2 staff. |
-| BR-8 | A time-off or shift-swap request must be for a day after today (in the store's timezone). A request still awaiting a decision when its day arrives has expired: it no longer appears in any list, can't be approved, denied, accepted or declined, and the nightly `/api/cron/expire-requests` job deletes it. |
+| BR-8 | A time-off or shift-swap request must be for a day after today (in the store's timezone). A request not approved by the time its day arrives is denied automatically: it leaves the managers' inbox, can no longer be approved, denied, accepted or declined, and the nightly `/api/cron/expire-requests` job records it as denied. |
 
 ---
 

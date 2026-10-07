@@ -10,16 +10,16 @@ export const dynamic = "force-dynamic";
 
 // Swaps still waiting on the coworker or a manager.
 const OPEN_SWAP_STATUSES = ["pending", "accepted"];
-// Ids per DELETE, keeping each request URL short.
-const DELETE_BATCH = 100;
+// Ids per UPDATE, keeping each request URL short.
+const UPDATE_BATCH = 100;
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-// Nightly cleanup of requests nobody decided before their day arrived (see
-// lib/request-expiry.ts): time off still pending, and swaps the coworker or a
-// manager never got to. The API already hides and refuses them from the
-// store's midnight on; this deletes them and notes each one in its org's audit
-// log. Also invocable manually:
+// Nightly: denies the requests nobody approved before their day arrived (see
+// lib/request-expiry.ts) — time off still pending, and swaps the coworker or a
+// manager never got to. From the store's midnight the API already keeps them
+// out of the inbox and refuses to decide them; this records them as denied and
+// notes each one in its org's audit log. Also invocable manually:
 //   curl -H "x-cron-secret: $CRON_SECRET" <site>/api/cron/expire-requests
 export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) {
@@ -71,19 +71,19 @@ export async function GET(request: Request) {
     return date !== null && expiredIn(s.org_id, date) ? [{ ...s, date }] : [];
   });
 
-  // The DELETEs re-check the status, so a request decided since the reads
+  // The UPDATEs re-check the status, so a request decided since the reads
   // above is left alone.
-  const timeOffResult = await deleteByIds(admin, "time_off_requests", expiredTimeOff.map((r) => r.id), ["pending"]);
-  const swapResult = await deleteByIds(admin, "shift_swaps", expiredSwaps.map((s) => s.id), OPEN_SWAP_STATUSES);
-  const deletedTimeOff = expiredTimeOff.filter((r) => timeOffResult.deleted.has(r.id));
-  const deletedSwaps = expiredSwaps.filter((s) => swapResult.deleted.has(s.id));
+  const timeOffResult = await denyByIds(admin, "time_off_requests", expiredTimeOff.map((r) => r.id), ["pending"]);
+  const swapResult = await denyByIds(admin, "shift_swaps", expiredSwaps.map((s) => s.id), OPEN_SWAP_STATUSES);
+  const deniedTimeOff = expiredTimeOff.filter((r) => timeOffResult.denied.has(r.id));
+  const deniedSwaps = expiredSwaps.filter((s) => swapResult.denied.has(s.id));
 
   // Names go in the audit metadata, as the API's own entries do. Employee ids
   // are only unique per org, so key by both.
   const employeeIds = [
     ...new Set([
-      ...deletedTimeOff.map((r) => r.employee_id),
-      ...deletedSwaps.flatMap((s) => [s.requester_id, s.target_id]),
+      ...deniedTimeOff.map((r) => r.employee_id),
+      ...deniedSwaps.flatMap((s) => [s.requester_id, s.target_id]),
     ]),
   ];
   const names = new Map<string, string>();
@@ -94,24 +94,26 @@ export async function GET(request: Request) {
   const nameOf = (orgId: string, employeeId: number) => names.get(`${orgId}:${employeeId}`) ?? null;
 
   const entries: AuditEntry[] = [
-    ...deletedTimeOff.map((r): AuditEntry => ({
-      action:       "time_off.expire",
+    ...deniedTimeOff.map((r): AuditEntry => ({
+      action:       "time_off.auto_deny",
       orgId:        r.org_id,
       resourceType: "time_off_request",
       resourceId:   String(r.id),
       before:       { status: "pending" },
+      after:        { status: "denied" },
       metadata: {
         employeeId:   r.employee_id,
         employeeName: nameOf(r.org_id, r.employee_id),
         date:         r.date,
       },
     })),
-    ...deletedSwaps.map((s): AuditEntry => ({
-      action:       "swap.expire",
+    ...deniedSwaps.map((s): AuditEntry => ({
+      action:       "swap.auto_deny",
       orgId:        s.org_id,
       resourceType: "shift_swap",
       resourceId:   String(s.id),
       before:       { status: s.status },
+      after:        { status: "denied" },
       metadata: {
         requesterId:   s.requester_id,
         requesterName: nameOf(s.org_id, s.requester_id),
@@ -126,25 +128,25 @@ export async function GET(request: Request) {
   if (timeOffResult.failed || swapResult.failed) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  return NextResponse.json({ timeOff: deletedTimeOff.length, swaps: deletedSwaps.length });
+  return NextResponse.json({ timeOff: deniedTimeOff.length, swaps: deniedSwaps.length });
 }
 
-// Deletes the given rows, if still in one of `statuses`, in batches. Returns
-// the ids actually deleted; stops at the first failing batch.
-async function deleteByIds(admin: Admin, table: string, ids: number[], statuses: string[]) {
-  const deleted = new Set<number>();
-  for (let i = 0; i < ids.length; i += DELETE_BATCH) {
+// Sets the given rows to "denied", if still in one of `statuses`, in batches.
+// Returns the ids actually denied; stops at the first failing batch.
+async function denyByIds(admin: Admin, table: string, ids: number[], statuses: string[]) {
+  const denied = new Set<number>();
+  for (let i = 0; i < ids.length; i += UPDATE_BATCH) {
     const { data, error } = await admin
       .from(table)
-      .delete()
-      .in("id", ids.slice(i, i + DELETE_BATCH))
+      .update({ status: "denied" })
+      .in("id", ids.slice(i, i + UPDATE_BATCH))
       .in("status", statuses)
       .select("id");
     if (error) {
-      console.error(`[cron/expire-requests] ${table} delete failed:`, error);
-      return { deleted, failed: true };
+      console.error(`[cron/expire-requests] ${table} update failed:`, error);
+      return { denied, failed: true };
     }
-    for (const row of data ?? []) deleted.add(row.id);
+    for (const row of data ?? []) denied.add(row.id);
   }
-  return { deleted, failed: false };
+  return { denied, failed: false };
 }

@@ -19,8 +19,8 @@ import { GET } from "./route";
 type Call = { method: string; args: any[] };
 
 /**
- * Admin client whose reads return the given rows and whose DELETEs report
- * every requested id as deleted (or fail with `deleteError`). Each query's
+ * Admin client whose reads return the given rows and whose UPDATEs report
+ * every requested id as updated (or fail with `updateError`). Each query's
  * chained calls are recorded in `queries` so tests can check the filters.
  */
 function makeAdminClient({
@@ -29,7 +29,7 @@ function makeAdminClient({
   swaps = [] as any[],
   employees = [] as any[],
   fetchError = null as any,
-  deleteError = null as any,
+  updateError = null as any,
 } = {}) {
   const queries: { table: string; calls: Call[] }[] = [];
   const reads: Record<string, any[]> = {
@@ -43,7 +43,7 @@ function makeAdminClient({
       const calls: Call[] = [];
       queries.push({ table, calls });
       const b: any = {};
-      for (const m of ["select", "eq", "lte", "in", "delete"]) {
+      for (const m of ["select", "eq", "lte", "in", "update"]) {
         b[m] = vi.fn((...args: any[]) => {
           calls.push({ method: m, args });
           return b;
@@ -51,9 +51,9 @@ function makeAdminClient({
       }
       b.then = (resolve: any, reject: any) => {
         let result;
-        if (calls.some((c) => c.method === "delete")) {
+        if (calls.some((c) => c.method === "update")) {
           const ids = calls.find((c) => c.method === "in" && c.args[0] === "id")!.args[1] as number[];
-          result = deleteError ? { data: null, error: deleteError } : { data: ids.map((id) => ({ id })), error: null };
+          result = updateError ? { data: null, error: updateError } : { data: ids.map((id) => ({ id })), error: null };
         } else if (fetchError && table === "time_off_requests") {
           result = { data: null, error: fetchError };
         } else {
@@ -64,14 +64,15 @@ function makeAdminClient({
       return b;
     }),
   };
-  const deletes = (table: string) =>
+  const updates = (table: string) =>
     queries
-      .filter((q) => q.table === table && q.calls.some((c) => c.method === "delete"))
+      .filter((q) => q.table === table && q.calls.some((c) => c.method === "update"))
       .map((q) => ({
+        set: q.calls.find((c) => c.method === "update")!.args[0],
         ids: q.calls.find((c) => c.method === "in" && c.args[0] === "id")!.args[1],
         statuses: q.calls.find((c) => c.method === "in" && c.args[0] === "status")?.args[1],
       }));
-  return { client, queries, deletes };
+  return { client, queries, updates };
 }
 
 function cronRequest(secret = "test-secret") {
@@ -102,7 +103,7 @@ describe("GET /api/cron/expire-requests", () => {
     expect(createAdminClient).not.toHaveBeenCalled();
   });
 
-  it("deletes pending time off for each store's today and earlier, in its own timezone", async () => {
+  it("denies pending time off for each store's today and earlier, in its own timezone", async () => {
     const admin = makeAdminClient({
       timezones: [{ org_id: "org-tokyo", value: "Asia/Tokyo" }],
       timeOff: [
@@ -127,17 +128,18 @@ describe("GET /api/cron/expire-requests", () => {
     const read = admin.queries.find((q) => q.table === "time_off_requests")!.calls;
     expect(read).toContainEqual({ method: "eq", args: ["status", "pending"] });
     expect(read).toContainEqual({ method: "lte", args: ["date", "2026-10-09"] });
-    // …and the delete re-checks that they're still pending.
-    expect(admin.deletes("time_off_requests")).toEqual([{ ids: [1, 3, 4], statuses: ["pending"] }]);
+    // …and the update re-checks that they're still pending. Nothing is deleted.
+    expect(admin.updates("time_off_requests")).toEqual([{ set: { status: "denied" }, ids: [1, 3, 4], statuses: ["pending"] }]);
 
+    const denied = { before: { status: "pending" }, after: { status: "denied" } };
     expect(writeAuditLogs).toHaveBeenCalledWith([
-      expect.objectContaining({ action: "time_off.expire", orgId: "org-ny", resourceId: "1", metadata: { employeeId: 7, employeeName: "Alice Smith", date: "2026-10-07" } }),
-      expect.objectContaining({ action: "time_off.expire", orgId: "org-tokyo", resourceId: "3", metadata: { employeeId: 7, employeeName: "Kenji Sato", date: "2026-10-08" } }),
-      expect.objectContaining({ action: "time_off.expire", orgId: "org-ny", resourceId: "4", metadata: { employeeId: 8, employeeName: "Bob Jones", date: "2026-10-01" } }),
+      expect.objectContaining({ action: "time_off.auto_deny", orgId: "org-ny", resourceId: "1", ...denied, metadata: { employeeId: 7, employeeName: "Alice Smith", date: "2026-10-07" } }),
+      expect.objectContaining({ action: "time_off.auto_deny", orgId: "org-tokyo", resourceId: "3", ...denied, metadata: { employeeId: 7, employeeName: "Kenji Sato", date: "2026-10-08" } }),
+      expect.objectContaining({ action: "time_off.auto_deny", orgId: "org-ny", resourceId: "4", ...denied, metadata: { employeeId: 8, employeeName: "Bob Jones", date: "2026-10-01" } }),
     ]);
   });
 
-  it("deletes swaps still awaiting the coworker or a manager once either shift's day arrives", async () => {
+  it("denies swaps still awaiting the coworker or a manager once either shift's day arrives", async () => {
     const admin = makeAdminClient({
       timezones: [{ org_id: "org-tokyo", value: "Asia/Tokyo" }],
       swaps: [
@@ -158,21 +160,24 @@ describe("GET /api/cron/expire-requests", () => {
 
     const read = admin.queries.find((q) => q.table === "shift_swaps")!.calls;
     expect(read).toContainEqual({ method: "in", args: ["status", ["pending", "accepted"]] });
-    expect(admin.deletes("shift_swaps")).toEqual([{ ids: [10, 12], statuses: ["pending", "accepted"] }]);
-    expect(admin.deletes("time_off_requests")).toEqual([]);
+    expect(admin.updates("shift_swaps")).toEqual([{ set: { status: "denied" }, ids: [10, 12], statuses: ["pending", "accepted"] }]);
+    expect(admin.updates("time_off_requests")).toEqual([]);
 
     expect(writeAuditLogs).toHaveBeenCalledWith([
       expect.objectContaining({
-        action: "swap.expire",
+        action: "swap.auto_deny",
         orgId: "org-ny",
         resourceId: "10",
         before: { status: "accepted" },
+        after: { status: "denied" },
         metadata: { requesterId: 1, requesterName: "Alice Smith", targetId: 2, targetName: "Bob Jones", date: "2026-10-07" },
       }),
       expect.objectContaining({
-        action: "swap.expire",
+        action: "swap.auto_deny",
         orgId: "org-tokyo",
         resourceId: "12",
+        before: { status: "pending" },
+        after: { status: "denied" },
         metadata: { requesterId: 3, requesterName: null, targetId: 4, targetName: null, date: "2026-10-08" },
       }),
     ]);
@@ -187,19 +192,19 @@ describe("GET /api/cron/expire-requests", () => {
 
     const res = await GET(cronRequest());
     expect(await res.json()).toEqual({ timeOff: 0, swaps: 0 });
-    expect(admin.queries.filter((q) => q.calls.some((c) => c.method === "delete"))).toEqual([]);
+    expect(admin.queries.filter((q) => q.calls.some((c) => c.method === "update"))).toEqual([]);
     expect(admin.queries.some((q) => q.table === "employees")).toBe(false);
     expect(writeAuditLogs).toHaveBeenCalledWith([]);
   });
 
-  it("deletes in batches of 100 ids", async () => {
+  it("updates in batches of 100 ids", async () => {
     const timeOff = Array.from({ length: 150 }, (_, i) => ({ id: i + 1, org_id: "org-ny", employee_id: 7, date: "2026-10-01" }));
     const admin = makeAdminClient({ timeOff });
     vi.mocked(createAdminClient).mockReturnValue(admin.client as any);
 
     const res = await GET(cronRequest());
     expect(await res.json()).toEqual({ timeOff: 150, swaps: 0 });
-    expect(admin.deletes("time_off_requests").map((d) => d.ids.length)).toEqual([100, 50]);
+    expect(admin.updates("time_off_requests").map((u) => u.ids.length)).toEqual([100, 50]);
   });
 
   it("returns 500 when the requests can't be read", async () => {
@@ -207,13 +212,13 @@ describe("GET /api/cron/expire-requests", () => {
     vi.mocked(createAdminClient).mockReturnValue(admin.client as any);
     const res = await GET(cronRequest());
     expect(res.status).toBe(500);
-    expect(admin.queries.filter((q) => q.calls.some((c) => c.method === "delete"))).toEqual([]);
+    expect(admin.queries.filter((q) => q.calls.some((c) => c.method === "update"))).toEqual([]);
   });
 
-  it("returns 500 when a delete fails, without logging what wasn't deleted", async () => {
+  it("returns 500 when an update fails, without logging what wasn't denied", async () => {
     const admin = makeAdminClient({
       timeOff: [{ id: 1, org_id: "org-ny", employee_id: 7, date: "2026-10-07" }],
-      deleteError: { message: "boom" },
+      updateError: { message: "boom" },
     });
     vi.mocked(createAdminClient).mockReturnValue(admin.client as any);
     const res = await GET(cronRequest());

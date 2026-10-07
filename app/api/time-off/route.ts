@@ -96,15 +96,14 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  // Today's decisions still show; a request left pending until today expired.
-  const live = (requests ?? []).filter((r) => r.status !== "pending" || !isRequestExpired(r.date, today));
-
-  const result = live.map((r) => ({
+  const result = (requests ?? []).map((r) => ({
     id: r.id,
     employeeId: r.employee_id,
     employeeName: emp.name,
     date: r.date,
-    status: r.status,
+    // Still pending on its day means it wasn't approved in time: it's denied
+    // from the store's midnight, before the nightly job records it.
+    status: r.status === "pending" && isRequestExpired(r.date, today) ? "denied" : r.status,
     note: r.note ?? undefined,
   }));
 

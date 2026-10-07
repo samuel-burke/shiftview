@@ -83,7 +83,7 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 **Scheduling**
 - Week and month views with drag-free editing, reusable shift templates, and copy-week
 - Employee availability tracking with conflict detection against time-off and availability when scheduling
-- Shift swap requests with manager approval, and time-off requests with approval workflow; a request still undecided when its day arrives expires and is removed
+- Shift swap requests with manager approval, and time-off requests with approval workflow; a request not approved by the time its day arrives is denied automatically
 - Employee call-outs — one tap to report "I can't make it in" for a day; managers are notified instantly and the person shows as **Called Out** across the dashboard, schedule, and team status
 
 **Time clock**
@@ -230,7 +230,7 @@ docs/             # functional requirements spec
 `vercel.json` defines nightly crons, each protected by an `x-cron-secret` header (or Vercel's `Authorization: Bearer` header) checked against `CRON_SECRET`:
 
 - `/api/cron/reminders` (22:00 UTC) sends each scheduled employee a push reminder of tomorrow's shift, honoring per-user notification preferences.
-- `/api/cron/expire-requests` (10:00 UTC) deletes time-off and shift-swap requests nobody decided before their day arrived (today or earlier in the store's timezone), noting each in the audit log. The API already hides and refuses such requests from the store's midnight on; the job clears them out.
+- `/api/cron/expire-requests` (10:00 UTC) denies time-off and shift-swap requests nobody approved before their day arrived (today or earlier in the store's timezone), noting each in the audit log. From the store's midnight the API already keeps such requests out of the inbox and refuses to approve them; the job records them as denied.
 - `/api/cron/demo-reset` (08:00 UTC) resets and reseeds the demo organization (see [docs/DEMO_ORG.md](docs/DEMO_ORG.md)).
 
 ## Database Schema

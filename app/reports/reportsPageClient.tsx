@@ -127,11 +127,11 @@ function auditTitle(entry: AuditEntry): string {
     case "time_off.request":     return `Time-off requested`;
     case "time_off.approve":     return `Approved time-off for ${empName}`;
     case "time_off.deny":        return `Denied time-off for ${empName}`;
-    case "time_off.expire":      return `Time-off request for ${empName} expired`;
+    case "time_off.auto_deny":   return `Auto-denied time-off for ${empName}`;
     case "swap.request":         return `Shift swap requested`;
     case "swap.approve":         return `Approved shift swap`;
     case "swap.deny":            return `Denied shift swap`;
-    case "swap.expire":          return `Shift swap request expired`;
+    case "swap.auto_deny":       return `Auto-denied shift swap`;
     case "punch.clock_in":       return `Clocked in — ${empName}`;
     case "punch.clock_out":      return `Clocked out — ${empName}`;
     case "punch.break_start":    return `Break started — ${empName}`;
@@ -197,12 +197,12 @@ function auditDetail(entry: AuditEntry, tz: string): string | null {
     case "time_off.request":
     case "time_off.approve":
     case "time_off.deny":
-    case "time_off.expire":
+    case "time_off.auto_deny":
       return (m.date as string | null) ?? null;
     case "swap.request":
     case "swap.approve":
     case "swap.deny":
-    case "swap.expire": {
+    case "swap.auto_deny": {
       const req = m.requesterName as string | null;
       const tgt = m.targetName   as string | null;
       if (req && tgt) return `${req} and ${tgt}`;

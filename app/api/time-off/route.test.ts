@@ -277,7 +277,7 @@ describe("time-off requests expire when their day arrives", () => {
     expect(gtArgs).toEqual([["date", "2026-10-07"]]);
   });
 
-  it("drops the employee's own request left pending until today but keeps today's decision", async () => {
+  it("shows the employee's own request still pending on the store's today as denied", async () => {
     mockCreateClient.mockResolvedValue(
       makeEmployeeClient(undefined, [
         { id: 1, employee_id: 5, date: "2026-10-07", status: "pending", note: null },
@@ -288,7 +288,11 @@ describe("time-off requests expire when their day arrives", () => {
     const res = await GET(new Request("http://localhost/api/time-off?mine=true"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.requests.map((r: { id: number }) => r.id)).toEqual([2, 3]);
+    expect(body.requests.map((r: { id: number; status: string }) => [r.id, r.status])).toEqual([
+      [1, "denied"],
+      [2, "approved"],
+      [3, "pending"],
+    ]);
   });
 
   it("rejects a new request for the store's today", async () => {
