@@ -7,6 +7,10 @@
 // unzoomed, so every box came out too rounded.) Screen contents are inert:
 // the frame's label describes the picture, and nothing inside can be focused
 // or clicked.
+//
+// Drop shadows scale with the device. A fixed blur that is large next to a
+// small box (a phone at a third of its size) is cut off with hard edges in
+// Chrome on 2x and 3x screens.
 
 import { useLayoutEffect, useRef, useState } from "react";
 
@@ -63,7 +67,7 @@ export function PhoneFrame({ label, className = "", children }: { label: string;
       <span aria-hidden="true" className="absolute -left-[3px] top-[18%] h-[6%] w-[3px] rounded-l-sm bg-[#1b1f2a]" />
       <span aria-hidden="true" className="absolute -left-[3px] top-[27%] h-[9%] w-[3px] rounded-l-sm bg-[#1b1f2a]" />
       <span aria-hidden="true" className="absolute -right-[3px] top-[23%] h-[12%] w-[3px] rounded-r-sm bg-[#1b1f2a]" />
-      <div className="rounded-[calc(56px*var(--phone-zoom,0.72))] bg-[#05070d] p-[calc(12px*var(--phone-zoom,0.72))] shadow-[0_50px_100px_-30px_rgba(0,0,0,0.6)] ring-1 ring-white/10">
+      <div className="rounded-[calc(56px*var(--phone-zoom,0.72))] bg-[#05070d] p-[calc(12px*var(--phone-zoom,0.72))] shadow-[0_calc(50px*var(--phone-zoom,0.72))_calc(100px*var(--phone-zoom,0.72))_calc(-28px*var(--phone-zoom,0.72))_rgba(0,0,0,0.6)] ring-1 ring-white/10">
         <div
           className="relative overflow-hidden rounded-[calc(44px*var(--phone-zoom,0.72))] bg-bg"
           style={{ width: `calc(${PHONE.width}px * var(--phone-zoom,0.72))`, height: `calc(${PHONE.height}px * var(--phone-zoom,0.72))` }}
@@ -81,7 +85,7 @@ export function PhoneFrame({ label, className = "", children }: { label: string;
 export function TabletFrame({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
   return (
     <figure aria-label={label} className={`relative isolate ${className}`}>
-      <div className="rounded-[6.5%/4.6%] bg-[#05070d] p-[3.6%] shadow-[0_40px_80px_-30px_rgba(0,0,0,0.6)] ring-1 ring-white/10">
+      <div className="rounded-[6.5%/4.6%] bg-[#05070d] p-[3.6%] shadow-[0_calc(97px*var(--screen-zoom,0.5))_calc(194px*var(--screen-zoom,0.5))_calc(-54px*var(--screen-zoom,0.5))_rgba(0,0,0,0.6)] ring-1 ring-white/10">
         <Screen {...TABLET} className="rounded-[2.6%/1.8%]">{children}</Screen>
       </div>
     </figure>
@@ -129,7 +133,7 @@ export function BrowserChrome({ url }: { url: string }) {
 /** A desktop browser window showing an app page at 1440 × 900, chrome included. */
 export function BrowserFrame({ label, url, className = "", children }: { label: string; url: string; className?: string; children: React.ReactNode }) {
   return (
-    <figure aria-label={label} className={`relative isolate overflow-hidden rounded-[10px] shadow-[0_50px_100px_-40px_rgba(0,0,0,0.6)] ring-1 ring-slate-700/60 ${className}`}>
+    <figure aria-label={label} className={`relative isolate overflow-hidden rounded-[10px] shadow-[0_calc(78px*var(--screen-zoom,0.5))_calc(156px*var(--screen-zoom,0.5))_calc(-62px*var(--screen-zoom,0.5))_rgba(0,0,0,0.6)] ring-1 ring-slate-700/60 ${className}`}>
       <Screen {...DESKTOP}>
         <div className="flex h-full flex-col">
           <BrowserChrome url={url} />

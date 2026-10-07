@@ -274,8 +274,10 @@ export function TeamDemo({ date }: { date: string }) {
     },
   ];
   return (
-    // Phones swipe through them; wider screens show all three.
-    <div className="-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
+    // Phones swipe through them; wider screens show all three. The scroller
+    // runs on below the captions (a negative margin takes the room back), so
+    // it doesn't cut the phones' shadows off with a line.
+    <div className="-mx-4 -mb-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-16 [scrollbar-width:none] sm:mx-0 sm:mb-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
       {phones.map((p, i) => (
         <Reveal key={p.title} delay={i * 0.08} className="flex shrink-0 snap-center flex-col items-center">
           <PhoneFrame label={p.label} className="[--phone-zoom:0.6] sm:[--phone-zoom:0.4] md:[--phone-zoom:0.47] lg:[--phone-zoom:0.6]">
