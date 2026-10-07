@@ -11,7 +11,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Logo, { LogoMark } from "@/components/Logo";
 import { MoonIcon, SunIcon, SunriseIcon, WarningIcon } from "@/components/ShiftIcons";
 import { AdminIcon, ClockIcon, ReportsIcon, RequestsIcon, ScheduleIcon, SettingsIcon, TeamIcon, WeekGridIcon } from "@/components/SideNav";
-import { fmtMinutes, SHIFT_COLORS, type AttendanceStatus } from "@/data/types";
+import { fmtMinutes, isHere, SHIFT_COLORS, type AttendanceStatus, type PunchType, type Schedule } from "@/data/types";
 import { targetAt, type CoverageBlock, type LiveCoverageStatus } from "@/lib/coverage";
 
 // ── Status bar (iOS) ────────────────────────────────────────
@@ -146,7 +146,8 @@ const NAV: { key: NavKey; label: string; icon: (size: number) => React.ReactNode
 /** Tablets: the 72px icon rail. */
 export function NavRail({ active, status }: { active: NavKey; status: AttendanceStatus }) {
   return (
-    <div className="flex h-full w-[72px] shrink-0 flex-col items-center border-r border-slate-800 bg-bg">
+    // content-box, as the app's rail: 72px plus its 1px border.
+    <div className="flex h-full w-[72px] shrink-0 flex-col items-center border-r border-slate-800 bg-bg" style={{ boxSizing: "content-box" }}>
       <span className="mb-2 mt-4"><LogoMark className="size-7" /></span>
       <div className="mb-3 flex h-4 items-center"><ClockBadge status={status} dot /></div>
       <div className="flex w-full flex-1 flex-col items-stretch gap-1 px-2 pb-4">
@@ -365,76 +366,99 @@ function monotonePath(pts: [number, number][]): string {
 
 function LegendChip({ swatch, label }: { swatch: React.ReactNode; label: string }) {
   return (
-    <span className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-700/40 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">
+    <span className="flex items-center gap-1.5 rounded-full border border-slate-700/40 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">
       {swatch}
       {label}
     </span>
   );
 }
 
+export type TimelinePunch = { employeeId: number; type: PunchType; minute: number };
+
 /**
- * The dashboard's coverage timeline: the target (dashed), who's scheduled
- * (blue) and who's clocked in so far (green), every 15 minutes across store
- * hours, with the now line. `width` is the chart's laid-out width in px.
+ * The dashboard's coverage timeline, drawn as the app's Recharts chart draws
+ * it (components/CoverageTimeline.tsx): one point every 15 minutes across
+ * store hours plus one at the current minute, evenly spaced; who's scheduled
+ * (blue) and who's clocked in so far (green) as monotone areas, the target
+ * (dashed steps) on top, and the now line. `width` is the chart's laid-out
+ * width in px; the axes and margins are Recharts' defaults for that config.
  */
 export function CoverageTimeline({
   width,
+  dayKey,
   open,
   close,
   now,
   curve,
-  scheduledAt,
-  clockedInAt,
+  shifts,
+  punches,
 }: {
   width: number;
+  dayKey: string;
   open: number;
   close: number;
-  /** Minutes since midnight, may be fractional. */
+  /** The store's current minute. */
   now: number;
   curve: CoverageBlock[];
-  scheduledAt: (minute: number) => number;
-  clockedInAt: (minute: number) => number;
+  shifts: Schedule[];
+  /** Today's punches so far, oldest first, at the store-local minute they were made. */
+  punches: TimelinePunch[];
 }) {
   const id = useId();
-  const height = Math.min(300, Math.max(150, width / 3));
-  const left = 32;
-  const right = 8;
-  const top = 28;
-  const bottom = 30;
-  const minutes: number[] = [];
-  for (let m = open; m <= close; m += 15) minutes.push(m);
-  const nowMinute = Math.min(Math.max(now, open), close);
-  const peak = Math.max(1, ...minutes.map((m) => Math.max(scheduledAt(m), targetAt(curve, Math.min(m, close - 1)))));
-  const yStep = peak <= 5 ? 1 : 2;
-  const yMax = Math.ceil(peak / yStep) * yStep;
-  const x = (m: number) => left + ((m - open) / (close - open)) * (width - left - right);
-  const y = (v: number) => top + (1 - v / yMax) * (height - top - bottom);
-  const base = y(0);
+  const minutes = new Set<number>();
+  for (let m = open; m <= close; m += 15) minutes.add(m);
+  if (now > open && now < close) minutes.add(now);
+  const points = [...minutes].sort((a, b) => a - b);
 
-  const scheduled = minutes.map((m) => [x(m), y(scheduledAt(m))] as [number, number]);
-  const actualMinutes = [...minutes.filter((m) => m < nowMinute), nowMinute];
-  const actual = actualMinutes.map((m) => [x(m), y(clockedInAt(m))] as [number, number]);
-  const targetSteps = minutes.map((m, i) => {
-    const v = y(targetAt(curve, Math.min(m, close - 1)));
-    return `${i ? "L" : "M"}${x(m).toFixed(1)},${v.toFixed(1)}${i < minutes.length - 1 ? `H${x(minutes[i + 1]).toFixed(1)}` : ""}`;
-  }).join("");
-  const area = (pts: [number, number][]) => `${monotonePath(pts)}L${pts[pts.length - 1][0].toFixed(1)},${base}L${pts[0][0].toFixed(1)},${base}Z`;
+  const people = [...new Set(punches.map((p) => p.employeeId))];
+  const clockedIn = (m: number) =>
+    people.filter((e) => {
+      const last = punches.filter((p) => p.employeeId === e && p.minute <= m).at(-1);
+      return last?.type === "clock_in" || last?.type === "break_end";
+    }).length;
+  const staff = points.map((m) => shifts.filter((s) => isHere(s, m, dayKey)).length);
+  const actual = points.map((m) => (m > now ? null : clockedIn(m)));
+  const target = curve.length > 0 ? points.map((m) => targetAt(curve, Math.min(m, close - 1))) : null;
+
+  // Recharts' y-axis: five ticks from 0 in whole steps (exact for up to 40 people).
+  const peak = Math.max(0, ...staff, ...actual.map((v) => v ?? 0), ...(target ?? []));
+  const step = Math.max(1, Math.ceil(peak / 4));
+  const yTicks = [0, 1, 2, 3, 4].map((i) => i * step);
+  // The box is 3:1 (150–300px tall); Recharts rounds the chart to whole pixels.
+  const boxHeight = Math.min(300, Math.max(150, width / 3));
+  const height = Math.round(boxHeight);
+  const left = 32;
+  const right = width - 8;
+  const top = 28;
+  const bottom = height - 30;
+  const x = (i: number) => left + (i * (right - left)) / (points.length - 1);
+  const y = (v: number) => top + (1 - v / (step * 4)) * (bottom - top);
+
+  const staffPts = staff.map((v, i) => [x(i), y(v)] as [number, number]);
+  const actualPts = actual.flatMap((v, i) => (v === null ? [] : [[x(i), y(v)] as [number, number]]));
+  const area = (pts: [number, number][]) => `${monotonePath(pts)}L${pts[pts.length - 1][0].toFixed(1)},${bottom}L${pts[0][0].toFixed(1)},${bottom}Z`;
+  const targetPath = target?.map((v, i) => (i === 0 ? `M${x(0)},${y(v)}` : `L${x(i).toFixed(1)},${y(target[i - 1])}L${x(i).toFixed(1)},${y(v)}`)).join("");
   const ticks: number[] = [];
   for (let m = open; m <= close; m += 240) ticks.push(m);
-  const nowX = x(nowMinute);
-  const nowY = y(clockedInAt(nowMinute));
+
+  const nowAt = Math.min(Math.max(now, open), close);
+  const nowIndex = points.indexOf(nowAt);
+  const nowValue = actual[nowIndex] ?? staff[nowIndex];
+  const dotColor = actual[nowIndex] != null ? "#22c55e" : "#3b82f6";
+  // The app places its time badge by the clock, not at the point (see CoverageTimeline).
+  const badgeLeft = 30 + ((nowAt - open) / (close - open)) * (width - 38);
 
   return (
     <div className="mb-4 rounded-2xl bg-card px-[10px] pb-[10px] pt-4" style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}>
       <div className="mb-3 flex items-center justify-between pl-1.5 pr-1">
         <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">Coverage Timeline</p>
         <div className="flex items-center gap-2">
-          <LegendChip swatch={<span className="inline-block h-0.5 w-2.5 rounded-full" style={{ backgroundImage: "repeating-linear-gradient(90deg, #818cf8 0 3px, transparent 3px 5px)" }} />} label="Target" />
+          {target && <LegendChip swatch={<span className="inline-block h-0.5 w-2.5 rounded-full" style={{ backgroundImage: "repeating-linear-gradient(90deg, #818cf8 0 3px, transparent 3px 5px)" }} />} label="Target" />}
           <LegendChip swatch={<span className="inline-block h-0.5 w-2.5 rounded-full bg-blue-500" />} label="Scheduled" />
           <LegendChip swatch={<span className="inline-block h-0.5 w-2.5 rounded-full bg-green-500" />} label="Clocked In" />
         </div>
       </div>
-      <div className="relative" style={{ height }}>
+      <div className="relative" style={{ height: boxHeight }}>
         <svg width={width} height={height} className="block overflow-visible">
           <defs>
             <linearGradient id={`${id}cov`} x1="0" y1="0" x2="0" y2="1">
@@ -446,33 +470,38 @@ export function CoverageTimeline({
               <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
             </linearGradient>
           </defs>
-          {Array.from({ length: Math.floor(yMax / yStep) + 1 }, (_, i) => i * yStep).map((v) => (
-            <text key={v} x={left - 8} y={y(v) + 3.5} textAnchor="end" fontSize="10" fill="#94a3b8">{v}</text>
+          {yTicks.map((v) => (
+            <text key={v} x={left - 8} y={y(v)} dy="0.355em" textAnchor="end" fontSize="10" fill="#94a3b8">{v}</text>
           ))}
-          {ticks.map((m) => (
-            <text key={m} x={x(m)} y={height - 12} textAnchor="middle" fontSize="10" fill="#94a3b8">{fmtMinutes(m)}</text>
-          ))}
-          <path d={targetSteps} fill="none" stroke="#818cf8" strokeWidth="2" strokeDasharray="5 4" />
-          <path d={area(scheduled)} fill={`url(#${id}cov)`} />
-          <path d={monotonePath(scheduled)} fill="none" stroke="#3b82f6" strokeWidth="2.5" />
-          {actual.length > 1 && (
+          {ticks.map((m) => {
+            const i = points.indexOf(m);
+            // Recharts pulls the last label in so it ends at the chart's edge.
+            const last = i === points.length - 1;
+            return (
+              <text key={m} x={last ? width : x(i)} y={bottom + 8} dy="0.71em" textAnchor={last ? "end" : "middle"} fontSize="10" fill="#94a3b8">{fmtMinutes(m)}</text>
+            );
+          })}
+          <path d={area(staffPts)} fill={`url(#${id}cov)`} fillOpacity={0.6} />
+          <path d={monotonePath(staffPts)} fill="none" stroke="#3b82f6" strokeWidth="2.5" />
+          {actualPts.length > 0 && (
             <>
-              <path d={area(actual)} fill={`url(#${id}act)`} />
-              <path d={monotonePath(actual)} fill="none" stroke="#22c55e" strokeWidth="2.5" />
+              <path d={area(actualPts)} fill={`url(#${id}act)`} fillOpacity={0.6} />
+              <path d={monotonePath(actualPts)} fill="none" stroke="#22c55e" strokeWidth="2.5" />
             </>
           )}
-          <line x1={nowX} x2={nowX} y1={top} y2={base} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4 3" />
-          <circle cx={nowX} cy={nowY} r={4} fill="#22c55e" />
-          <circle cx={nowX} cy={nowY} r={4} fill="none" stroke="#22c55e" strokeWidth={2}>
+          {targetPath && <path d={targetPath} fill="none" stroke="#818cf8" strokeWidth="2" strokeDasharray="5 4" />}
+          <line x1={x(nowIndex)} x2={x(nowIndex)} y1={bottom} y2={top} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4 3" />
+          <circle cx={x(nowIndex)} cy={y(nowValue)} r={4} fill={dotColor} />
+          <circle cx={x(nowIndex)} cy={y(nowValue)} r={4} fill="none" stroke={dotColor} strokeWidth={2}>
             <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
             <animate attributeName="stroke-opacity" values="0.8;0;0.8" dur="1.5s" repeatCount="indefinite" />
           </circle>
         </svg>
         <div
           className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-slate-800 px-[7px] py-[2px] text-[11px] font-bold text-slate-200"
-          style={{ left: nowX, top: top - 24 }}
+          style={{ left: badgeLeft, top: top - 24 }}
         >
-          {fmtMinutes(Math.floor(now))}
+          {fmtMinutes(now)}
         </div>
       </div>
     </div>

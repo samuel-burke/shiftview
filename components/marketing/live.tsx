@@ -12,7 +12,7 @@ import { weekDates } from "@/lib/draft-metrics";
 import { DEMO_SETTINGS } from "@/data/demo-fixtures";
 import { fmtMinutes } from "@/data/types";
 import { BrowserChrome, BrowserFrame, LaptopFrame, PhoneFrame, TabletFrame } from "./frames";
-import { ClockScreen, DashboardScreen, RequestScreen, ScheduleScreen, WeekDraftScreen } from "./screens";
+import { ClockScreen, DashboardScreen, RequestScreen, ScheduleScreen, WeekDraftScreen, type AutoSchedulePhase } from "./screens";
 import { InAppBanner } from "./app-chrome";
 import { buildScene, employeeOf, nextShiftAfter } from "./scene";
 import { draftWeek } from "./auto-schedule";
@@ -101,7 +101,8 @@ export function HeroDemo({ date }: { date: string }) {
             size="phone"
             unread={e >= BANNER ? 1 : 0}
             overlay={
-              <div className="absolute right-4 top-[62px] z-40">
+              // Where the app puts its banners: 16px in from the top right of the page, below the status bar.
+              <div className="absolute right-4 top-[70px] z-40">
                 <AnimatePresence>
                   {banner && (
                     <motion.div key="late" initial={{ opacity: 0, y: -12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.97 }} transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}>
@@ -151,51 +152,49 @@ export function DevicesDemo({ date }: { date: string }) {
 // ── Auto-schedule ───────────────────────────────────────────
 
 let madeAtCache: string | null = null;
-/** A minute before the visitor first sees the run; the same on every read. */
+/** When the visitor's run is made: the first time it's read, the same after. */
 function runMadeAt() {
-  madeAtCache ??= new Date(Date.now() - 60_000).toISOString();
+  madeAtCache ??= new Date().toISOString();
   return madeAtCache;
 }
 
-const PRESS = 0.9;
-const FIRST_DAY = 1.5;
-const PER_DAY = 0.14;
-const SUMMARY = FIRST_DAY + 7 * PER_DAY + 0.3;
+// The script, in seconds from first view: the empty week, Auto-schedule, the
+// sheet, Generate, the wait while the run is made, then the drafted week.
+const TAP_AUTO = 1.1;
+const SHEET_UP = 1.4;
+const TAP_GENERATE = 3.7;
+const GENERATING = 3.85;
+const GENERATED = 4.9;
 
 /**
- * Next week on the Week page in Draft mode: Auto-schedule is pressed and the
- * engine's drafts fill the week, then the run's summary card comes up.
+ * Next week on the Week page in Draft mode, as the page runs Auto-schedule:
+ * the empty week, its Auto-schedule sheet, "Generating…", and then the
+ * engine's drafts with the run's summary.
  */
 export function AutoScheduleDemo({ date }: { date: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
-  const mounted = useMounted();
-  const e = usePlayhead(ref, { step: 0.1, fineFor: SUMMARY + 1, endAt: SUMMARY + 1 });
+  const e = usePlayhead(ref, { step: 0.1, fineFor: GENERATED + 1, endAt: GENERATED + 1 });
   const scene = useMemo(() => buildScene(date), [date]);
   const nextWeek = addDaysToKey(weekStartForKey(date, DEMO_SETTINGS.firstDayOfWeek), 7);
   // The summary prints when the run was made in the viewer's own clock, so
-  // it's only drawn in the browser: "a minute ago", whenever that is.
+  // the finished week is only drawn in the browser.
   const madeAt = useSyncExternalStore(subscribeNothing, runMadeAt, () => null);
   const week = useMemo(() => draftWeek(nextWeek, madeAt ?? "1970-01-01T00:00:00Z"), [nextWeek, madeAt]);
 
-  // Server render and reduced motion: the finished run. Otherwise the run
-  // plays from an empty week once the window scrolls into view.
-  const still = !mounted || reduced;
-  const shown = still ? 7 : Math.max(0, Math.min(7, Math.floor((e - FIRST_DAY) / PER_DAY) + 1));
+  // Server render (no madeAt yet): the empty week. Reduced motion: the
+  // finished run. Otherwise the run plays once the window scrolls into view.
+  const phase: AutoSchedulePhase =
+    madeAt === null ? "empty" : reduced || e >= GENERATED ? "done" : e >= GENERATING ? "generating" : e >= SHEET_UP ? "sheet" : "empty";
+  const press = reduced ? null : e >= TAP_AUTO && e < TAP_AUTO + 0.35 ? "auto" : e >= TAP_GENERATE && e < TAP_GENERATE + 0.35 ? "generate" : null;
   return (
     <div ref={ref}>
       <BrowserFrame
-        label="The Week page in Draft mode after Auto-schedule: next week drafted to the coverage target, with the run's summary"
+        label="The Week page in Draft mode: Auto-schedule's setup sheet, then next week drafted to the coverage target with the run's summary"
         url={`shiftview.app/week?mode=draft&week=${nextWeek}`}
         className="[--screen-zoom:0.23] sm:[--screen-zoom:0.41] md:[--screen-zoom:0.5] lg:[--screen-zoom:0.75]"
       >
-        <WeekDraftScreen
-          scene={scene}
-          week={week}
-          shown={shown}
-          summary={madeAt !== null && (still || e >= SUMMARY)}
-          pressing={!still && e >= PRESS && e < PRESS + 0.35}
-        />
+        <WeekDraftScreen scene={scene} week={week} phase={phase} press={press} />
       </BrowserFrame>
     </div>
   );

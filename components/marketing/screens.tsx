@@ -12,13 +12,15 @@ import AutoScheduleSummary from "@/components/AutoScheduleSummary";
 import { WeekStats } from "@/components/week/WeekInsights";
 import { Sparkle } from "@/components/week/WeekHeader";
 import { MegaphoneIcon } from "@/components/ShiftIcons";
+import SegmentedControl from "@/components/SegmentedControl";
 import { PHONE } from "./frames";
-import { DEMO_STORE_HOURS } from "@/data/demo-fixtures";
+import { DEMO_COVERAGE_DEFAULTS, DEMO_COVERAGE_PROFILES, DEMO_EMPLOYMENT, DEMO_STORE_HOURS } from "@/data/demo-fixtures";
 import { fmtElapsed, fmtMinutes, getMonogram, getShiftType, SHIFT_COLORS, type Schedule } from "@/data/types";
 import { curveHours, type CoverageBlock } from "@/lib/coverage";
 import { addDaysToKey, dateFromKey, dayOfWeekForKey, daysBetweenKeys, formatDateKey } from "@/lib/dates";
 import { scheduledHoursForDate } from "@/lib/draft-metrics";
 import type { GenerationRun } from "@/lib/scheduler/types";
+import { DEFAULT_SCHEDULING_RULES } from "@/lib/scheduling-rules";
 import {
   BottomTabs,
   CoverageAlert,
@@ -92,12 +94,13 @@ export function DashboardScreen({ scene, t, size, unread = 0, overlay }: { scene
   const timeline = (width: number) => (
     <CoverageTimeline
       width={width}
+      dayKey={scene.date}
       open={scene.hours.open}
       close={scene.hours.close}
-      now={now}
+      now={Math.floor(now)}
       curve={scene.curve}
-      scheduledAt={(m) => scene.shifts.filter((s) => m >= s.startMinutes && m < s.endMinutes).length}
-      clockedInAt={(m) => scene.shifts.filter((s) => statusAt(scene, s.employeeId, Math.round(m * 60)) === "clocked_in").length}
+      shifts={scene.shifts}
+      punches={scene.punches.filter((p) => p.at <= t).map((p) => ({ employeeId: p.employeeId, type: p.type, minute: Math.floor(p.at / 60) }))}
     />
   );
   const overview = (width: number) => (
@@ -137,7 +140,7 @@ export function DashboardScreen({ scene, t, size, unread = 0, overlay }: { scene
             <DateNav label={dateLabel} />
             <div className="px-6"><CoverageAlert status={coverage} here={here} /></div>
             <div className="px-6 pt-4">
-              {overview(680)}
+              {overview(679)}
               <div className="grid grid-cols-2 items-start gap-x-6">{sections}</div>
             </div>
           </div>
@@ -379,86 +382,94 @@ export function ScheduleScreen({
     <div className="relative h-full bg-bg">
       <StatusBar time={statusBarTime(t)} />
       <TopBar status={statusAt(scene, employeeId, t)} initials={initialsOf(scene, employeeId)} />
+      {/* As the page lays it out: a column of three blocks, so margins collapse
+          inside each block but not between them. */}
       <div className="flex flex-col px-4 pt-4">
-        <div className="mb-4 rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next Shift</div>
-          <div className="text-sm font-semibold text-slate-300">
-            {daysUntil === 1 ? "Tomorrow" : formatDateKey(upcoming.date, { weekday: "long", month: "long", day: "numeric" })}
-          </div>
-          <div className="mt-1 text-2xl font-extrabold text-slate-100">{fmtMinutes(upcoming.startMinutes)} – {fmtMinutes(upcoming.endMinutes)}</div>
-          {daysUntil > 1 && <div className="mt-1 text-xs text-slate-400">in {daysUntil} days</div>}
-        </div>
-
-        <div className="mb-1 flex items-start justify-between">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">My Schedule</div>
-            <div className="mt-0.5 text-[28px] font-extrabold leading-tight text-slate-100">{first}</div>
-          </div>
-          <div className="relative mt-1 flex rounded-xl bg-card p-[3px]">
-            <span className="relative rounded-[9px] bg-slate-700 px-4 py-3 text-sm font-semibold text-slate-50" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}>Week</span>
-            <span className="px-4 py-3 text-sm font-semibold text-slate-500">Month</span>
-          </div>
-        </div>
-        <div className="mb-4 mt-5 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 rounded-xl border border-slate-700/60 bg-slate-800/70 px-4 py-2.5">
-            <span className="text-base font-bold tracking-tight text-slate-100">
-              {formatDateKey(week[0], { month: "short", day: "numeric" })} – {formatDateKey(week[6], { month: "short", day: "numeric", year: "numeric" })}
-            </span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </span>
-          <div className="flex items-center gap-2">
-            {arrow("M15 18l-6-6 6-6")}
-            {arrow("M9 18l6-6-6-6")}
-          </div>
-        </div>
-        <WeekView
-          schedules={schedules}
-          weeklyHours={DEMO_STORE_HOURS}
-          firstDayOfWeek={dateFromKey(week[0]).getDay()}
-          selectedDate={dateFromKey(selected)}
-          weekStart={dateFromKey(week[0])}
-          onSelectDate={noop}
-          today={dateFromKey(scene.date)}
-        />
-
-        <div className="mb-3 mt-1 rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-sm text-slate-400">
-              {selected === scene.date ? "Today" : formatDateKey(selected, { weekday: "long", month: "short", day: "numeric" })}
-            </span>
-            {type && color && <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ color }}>{SHIFT_TYPE_LABELS[type]}</span>}
-          </div>
-          {pick ? (
-            <>
-              <div className="mt-1 text-2xl font-bold text-slate-100">{fmtMinutes(pick.startMinutes)} – {fmtMinutes(pick.endMinutes)}</div>
-              <div className="mt-0.5 text-sm text-slate-400">{(pick.endMinutes - pick.startMinutes) / 60} hrs</div>
-              {isTomorrow && (
-                <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-2.5 text-sm font-semibold text-red-300">
-                  <MegaphoneIcon size={15} color="rgb(248 113 113)" />
-                  Can&apos;t make this shift? Call out
-                </div>
-              )}
-              <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 py-2.5 text-sm font-semibold text-indigo-300">
-                <span>⇄</span>
-                Request Shift Swap
-              </div>
-            </>
-          ) : (
-            <div className="mt-1 text-2xl font-bold text-slate-400">Day Off</div>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          {[
-            { value: schedules.length, label: "Shifts this week" },
-            { value: Math.round(totalHours), label: "Hours" },
-            { value: 7 - schedules.length, label: "Days off" },
-          ].map((s) => (
-            <div key={s.label} className="flex-1 rounded-2xl border border-slate-800/60 bg-card px-3 py-4">
-              <div className="text-3xl font-extrabold text-indigo-400">{s.value}</div>
-              <div className="mt-1 text-xs text-slate-400">{s.label}</div>
+        <div>
+          <div className="mb-4 rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next Shift</div>
+            <div className="text-sm font-semibold text-slate-300">
+              {daysUntil === 1 ? "Tomorrow" : formatDateKey(upcoming.date, { weekday: "long", month: "long", day: "numeric" })}
             </div>
-          ))}
+            <div className="mt-1 text-2xl font-extrabold text-slate-100">{fmtMinutes(upcoming.startMinutes)} – {fmtMinutes(upcoming.endMinutes)}</div>
+            {daysUntil > 1 && <div className="mt-1 text-xs text-slate-400">in {daysUntil} days</div>}
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="mb-1 flex items-start justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">My Schedule</div>
+              <div className="mt-0.5 text-[28px] font-extrabold leading-tight text-slate-100">{first}</div>
+            </div>
+            <div className="relative mt-1 flex rounded-xl bg-card p-[3px]">
+              <span className="relative rounded-[9px] bg-slate-700 px-4 py-3 text-sm font-semibold text-slate-50" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}>Week</span>
+              <span className="px-4 py-3 text-sm font-semibold text-slate-500">Month</span>
+            </div>
+          </div>
+          <div className="mb-4 mt-5 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 rounded-xl border border-slate-700/60 bg-slate-800/70 px-4 py-2.5">
+              <span className="text-base font-bold tracking-tight text-slate-100">
+                {formatDateKey(week[0], { month: "short", day: "numeric" })} – {formatDateKey(week[6], { month: "short", day: "numeric", year: "numeric" })}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </span>
+            <div className="flex items-center gap-2">
+              {arrow("M15 18l-6-6 6-6")}
+              {arrow("M9 18l6-6-6-6")}
+            </div>
+          </div>
+          <WeekView
+            schedules={schedules}
+            weeklyHours={DEMO_STORE_HOURS}
+            firstDayOfWeek={dateFromKey(week[0]).getDay()}
+            selectedDate={dateFromKey(selected)}
+            weekStart={dateFromKey(week[0])}
+            onSelectDate={noop}
+            today={dateFromKey(scene.date)}
+          />
+        </div>
+
+        <div className="min-w-0">
+          <div className="mb-3 mt-1 rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-sm text-slate-400">
+                {selected === scene.date ? "Today" : formatDateKey(selected, { weekday: "long", month: "short", day: "numeric" })}
+              </span>
+              {type && color && <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ color }}>{SHIFT_TYPE_LABELS[type]}</span>}
+            </div>
+            {pick ? (
+              <>
+                <div className="mt-1 text-2xl font-bold text-slate-100">{fmtMinutes(pick.startMinutes)} – {fmtMinutes(pick.endMinutes)}</div>
+                <div className="mt-0.5 text-sm text-slate-400">{(pick.endMinutes - pick.startMinutes) / 60} hrs</div>
+                {isTomorrow && (
+                  <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-2.5 text-sm font-semibold text-red-300">
+                    <MegaphoneIcon size={15} color="rgb(248 113 113)" />
+                    Can&apos;t make this shift? Call out
+                  </div>
+                )}
+                <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 py-2.5 text-sm font-semibold text-indigo-300">
+                  <span>⇄</span>
+                  Request Shift Swap
+                </div>
+              </>
+            ) : (
+              <div className="mt-1 text-2xl font-bold text-slate-400">Day Off</div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            {[
+              { value: schedules.length, label: "Shifts this week" },
+              { value: Math.round(totalHours), label: "Hours" },
+              { value: 7 - schedules.length, label: "Days off" },
+            ].map((s) => (
+              <div key={s.label} className="flex-1 rounded-2xl border border-slate-800/60 bg-card px-3 py-4">
+                <div className="text-3xl font-extrabold text-indigo-400">{s.value}</div>
+                <div className="mt-1 text-xs text-slate-400">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       <BottomTabs active="schedule" />
@@ -582,35 +593,38 @@ export type DraftWeek = {
   run: GenerationRun;
 };
 
+export type AutoSchedulePhase = "empty" | "sheet" | "generating" | "done";
+
 /**
- * The Week page in Draft mode for next week, on a desktop. `shown` is how
- * many days of the Auto-schedule run's drafts are on the grid so far, and
- * `summary` whether its results card is up; `pressing` taps Auto-schedule.
+ * The Week page in Draft mode for next week, on a desktop, at one step of an
+ * Auto-schedule run as the page goes through it: the empty week, the setup
+ * sheet, "Generating…", then the drafted week with the run's summary.
+ * `press` taps the empty week's Auto-schedule button or the sheet's Generate.
  */
 export function WeekDraftScreen({
   scene,
   week,
-  shown,
-  summary,
-  pressing,
+  phase,
+  press = null,
 }: {
   scene: Scene;
   week: DraftWeek;
-  shown: number;
-  summary: boolean;
-  pressing: boolean;
+  phase: AutoSchedulePhase;
+  press?: "auto" | "generate" | null;
 }) {
-  const drafts = week.drafts.filter((d) => week.dates.indexOf(d.date) < shown);
+  const drafts = phase === "done" ? week.drafts : [];
   const label = `${formatDateKey(week.dates[0], { month: "short", day: "numeric" })} – ${formatDateKey(week.dates[6], { month: "short", day: "numeric", year: "numeric" })}`;
   const day = week.dates[0];
   const scheduled = Math.round(scheduledHoursForDate(drafts, day) * 10) / 10;
   const budget = Math.round(curveHours(week.curves[day] ?? []) * 10) / 10;
   const variance = Math.round((scheduled - budget) * 10) / 10;
+  const defaultProfile = DEMO_COVERAGE_PROFILES.find((p) => p.id === DEMO_COVERAGE_DEFAULTS[dayOfWeekForKey(day)])?.name ?? "none";
   const navButton = "flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-card text-slate-400";
   const chevron = (d: string) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  const tap = (which: "auto" | "generate") => (press === which ? { scale: [1, 0.95, 1] } : { scale: 1 });
 
   return (
-    <div className="flex h-full bg-bg">
+    <div className="relative flex h-full bg-bg">
       <SideNav active="week" status={statusAt(scene, MANAGER_ID, scene.late.at)} />
       <div className="min-w-0 flex-1 overflow-hidden">
         {/* Header: the week, Live | Draft, Auto-schedule and Publish */}
@@ -642,14 +656,10 @@ export function WeekDraftScreen({
             </div>
             <p className="min-w-0 flex-1 text-xs text-slate-400">Private until you publish. Live shifts stay as they are.</p>
             <div className="flex items-center gap-2">
-              <motion.span
-                animate={pressing ? { scale: [1, 0.95, 1] } : { scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-500/15 px-3.5 text-xs font-bold text-violet-200"
-              >
+              <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-500/15 px-3.5 text-xs font-bold text-violet-200">
                 <Sparkle />
                 Auto-schedule
-              </motion.span>
+              </span>
               <span className={`flex min-h-10 items-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 px-4 text-xs font-bold text-white ${drafts.length ? "" : "opacity-40"}`}>
                 Publish ({drafts.length})
               </span>
@@ -657,23 +667,25 @@ export function WeekDraftScreen({
           </div>
         </div>
 
-        {summary ? (
+        {phase === "done" ? (
           <AutoScheduleSummary run={week.run} employees={scene.employees} busy={null} error={null} onUndo={noop} onTryAnother={noop} onApplySuggestion={noop} onDismiss={noop} />
         ) : (
-          drafts.length === 0 && (
-            <div className="mx-6 mt-3 flex items-center gap-3 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3.5">
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
-                <div className="mt-0.5 text-xs text-slate-400">
-                  Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
-                </div>
+          <div className="mx-6 mt-3 flex items-center gap-3 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
+              <div className="mt-0.5 text-xs text-slate-400">
+                Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
               </div>
-              <span className="flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-500/20 px-3.5 py-2.5 text-xs font-bold text-violet-100">
-                <Sparkle />
-                Auto-schedule
-              </span>
             </div>
-          )
+            <motion.span
+              animate={tap("auto")}
+              transition={{ duration: 0.3 }}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-500/20 px-3.5 py-2.5 text-xs font-bold text-violet-100"
+            >
+              <Sparkle />
+              Auto-schedule
+            </motion.span>
+          </div>
         )}
 
         <div className="px-6 pt-4">
@@ -684,10 +696,14 @@ export function WeekDraftScreen({
             <div className="whitespace-nowrap text-sm font-bold text-slate-100">{formatDateKey(day, { weekday: "long", month: "short", day: "numeric" })}</div>
             <div className="flex max-w-sm flex-1 items-center gap-2 rounded-xl border border-slate-800/60 bg-card px-3 py-2">
               <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Coverage</span>
-              <span className="flex min-h-9 min-w-0 flex-1 items-center justify-between rounded-lg border border-slate-700 bg-bg px-2 py-1.5 text-xs text-slate-100">
-                Default (Weekday)
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-slate-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </span>
+              {/* A real <select>, as on the page: the browser draws it, at the app's 16px minimum. */}
+              <select
+                defaultValue=""
+                aria-label="Coverage profile for selected day"
+                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-slate-700 bg-bg px-2 py-1.5 text-xs text-slate-100 transition-colors focus:border-indigo-500/70 focus:outline-none"
+              >
+                <option value="">Default ({defaultProfile})</option>
+              </select>
             </div>
             <div className="ml-auto flex gap-2">
               {[
@@ -716,7 +732,122 @@ export function WeekDraftScreen({
           />
         </div>
       </div>
+
+      <AnimatePresence>
+        {(phase === "sheet" || phase === "generating") && (
+          <AutoScheduleSheet key="sheet" week={week} label={label} generating={phase === "generating"} tap={tap("generate")} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
+const RULES = DEFAULT_SCHEDULING_RULES;
+const UNTYPED = Object.values(DEMO_EMPLOYMENT).filter((e) => !e.type).length;
+
+function Check({ ok, children }: { ok: true | "warn"; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-xs">
+      <span className={`mt-px flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${ok === true ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
+        {ok === true ? "✓" : "!"}
+      </span>
+      <div className="min-w-0 flex-1 text-slate-300">{children}</div>
+    </li>
+  );
+}
+
+/**
+ * The Week page's Auto-schedule sheet as it opens on a desktop for an empty
+ * week: the readiness checks, this week's rules (the store's defaults) and
+ * Generate. `generating` is the wait while the run is made.
+ */
+function AutoScheduleSheet({ week, label, generating, tap }: { week: DraftWeek; label: string; generating: boolean; tap: { scale: number | number[] } }) {
+  const pending = week.timeOff.length;
+  const allTargets = week.dates.every((d) => (week.curves[d] ?? []).some((b) => b.headcount > 0));
+  const heading = "mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400";
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="absolute inset-0 z-[60] flex items-center justify-center px-4"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        className="flex max-h-[88%] w-full max-w-[560px] flex-col overflow-hidden rounded-3xl border border-slate-700 bg-card"
+        style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-5 pb-3 pt-5">
+          <div className="min-w-0">
+            <div className="text-lg font-bold text-slate-100">Auto-schedule</div>
+            <div className="text-xs tabular-nums text-slate-400">{label}</div>
+          </div>
+          <span className={`flex size-10 items-center justify-center rounded-full bg-slate-800 text-slate-400 ${generating ? "opacity-50" : ""}`}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
+          </span>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+          <section>
+            <div className={heading}>Before you start</div>
+            <ul className="flex flex-col gap-2">
+              <Check ok={allTargets ? true : "warn"}>Coverage targets set for every day</Check>
+              {UNTYPED === 0 ? (
+                <Check ok>Everyone is set as full-time or part-time</Check>
+              ) : (
+                <Check ok="warn">
+                  {UNTYPED} {UNTYPED === 1 ? "person has" : "people have"} no employment type and will be scheduled as part-time.{" "}
+                  <span className="inline-block py-1 font-semibold text-indigo-400">Set them now</span>
+                </Check>
+              )}
+              <Check ok={pending === 0 ? true : "warn"}>
+                {pending === 0 ? "No pending time-off requests this week" : `${pending} pending time-off request${pending === 1 ? "" : "s"} this week (approved time off is always respected)`}
+              </Check>
+            </ul>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Rules for this week</div>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-xs font-semibold text-slate-300">Overtime</div>
+              <SegmentedControl ariaLabel="Overtime" value={RULES.overtimePolicy} onChange={noop} options={[{ value: "never", label: "Never" }, { value: "when_needed", label: "To fill gaps" }]} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-xs font-semibold text-slate-300">Pending time off</div>
+              <SegmentedControl ariaLabel="Pending time off" value={RULES.pendingTimeOff} onChange={noop} options={[{ value: "avoid", label: "Avoid those days" }, { value: "ignore", label: "Ignore" }]} />
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Shifts {RULES.minShiftMinutes / 60}–{RULES.maxShiftMinutes / 60} h · {RULES.minRestMinutes / 60} h rest · up to {RULES.maxConsecutiveDays} days in a row.{" "}
+              <span className="font-semibold text-indigo-400">Change in Settings</span>
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">This week only</div>
+            <div className="flex flex-wrap gap-1.5">
+              {["+ Extra people", "+ Keep someone off", "+ Someone's hours"].map((l) => (
+                <span key={l} className="flex min-h-9 items-center rounded-lg border border-slate-700 bg-slate-800 px-3 text-xs font-semibold text-slate-300">{l}</span>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-slate-800 px-5 py-4">
+          <span className={`flex-1 rounded-xl border border-slate-700 bg-slate-800 py-3 text-center text-sm font-semibold text-slate-300 ${generating ? "opacity-50" : ""}`}>Cancel</span>
+          <motion.span
+            animate={tap}
+            transition={{ duration: 0.3 }}
+            className={`flex-[2] rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 py-3 text-center text-sm font-bold text-white ${generating ? "opacity-40" : ""}`}
+          >
+            {generating ? "Generating…" : "Generate Schedule"}
+          </motion.span>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
