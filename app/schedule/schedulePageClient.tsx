@@ -794,12 +794,13 @@ export default function SchedulePageClient() {
       : "Swap needs your response";
   })();
 
-  // Offer "Request Shift Swap" when the user owns a shift on a today-or-future
-  // day and it isn't already mid-swap. (The target must accept and then a
-  // manager must approve — this only creates the pending request.)
+  // Offer "Request Shift Swap" when the user owns a shift on a day after today
+  // (a request expires once its day arrives — lib/request-expiry.ts) and it
+  // isn't already mid-swap. (The target must accept and then a manager must
+  // approve — this only creates the pending request.)
   const canRequestSwap =
     selectedSchedule !== null &&
-    selectedDateKey >= todayKey &&
+    selectedDateKey > todayKey &&
     employeeId !== null &&
     !selectedShiftSwap;
 

@@ -62,7 +62,7 @@ export default function RequestsPageClient() {
   const { me, sharedLoading, settings } = useAppData();
   const { timezone } = settings;
   const size = useBreakpoint();
-  const requests = useManagerRequests(me.isManager);
+  const requests = useManagerRequests(me.isManager, timezone);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);

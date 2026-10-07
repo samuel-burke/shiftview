@@ -36,6 +36,18 @@ export type RawSwap = {
   schedule_b?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
 };
 
+type DateEmbed = { date: string } | { date: string }[] | null | undefined;
+
+// The day a swap is for: the earlier of its two shifts' dates (they're normally
+// the same day). Null when neither shift's date is known.
+export function swapDate(raw: { schedule_a?: DateEmbed; schedule_b?: DateEmbed }): string | null {
+  const dates = [firstOf(raw.schedule_a)?.date, firstOf(raw.schedule_b)?.date]
+    .filter((d): d is string => typeof d === "string" && d !== "")
+    .map((d) => d.slice(0, 10))
+    .sort();
+  return dates[0] ?? null;
+}
+
 export function mapSwap(raw: RawSwap): Swap {
   const requester = firstOf(raw.requester);
   const target = firstOf(raw.target);

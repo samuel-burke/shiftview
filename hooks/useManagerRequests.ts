@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { mapSwap, type RawSwap, type Swap } from "@/lib/swaps";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 
 /** A pending time-off request as the manager's GET /api/time-off returns it. */
@@ -30,12 +31,15 @@ async function putStatus(url: string, status: string, fallback: string) {
 /**
  * Everything awaiting a manager's decision — time off, shift swaps the other
  * employee already accepted, and missed-punch corrections — kept live via
- * Supabase realtime and a refetch when the tab comes back into view.
+ * Supabase realtime and a refetch when the tab comes back into view. Time off
+ * and swaps expire once their day arrives, so the list is also refetched at
+ * the store's midnight (in `timezone`).
  *
  * `enabled` should be the caller's manager flag; nothing loads until it's true.
  * Approve/deny actions throw with a readable message on failure.
  */
-export function useManagerRequests(enabled: boolean) {
+export function useManagerRequests(enabled: boolean, timezone: string) {
+  const storeDay = useStoreTodayKey(timezone);
   const [timeOff, setTimeOff] = useState<ManagerTimeOff[]>([]);
   const [swaps, setSwaps] = useState<Swap[]>([]);
   const [corrections, setCorrections] = useState<PunchCorrection[]>([]);
@@ -75,7 +79,7 @@ export function useManagerRequests(enabled: boolean) {
       document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
-  }, [enabled, load]);
+  }, [enabled, load, storeDay]);
 
   // Only swaps the target already accepted wait on a manager.
   const managerSwaps = useMemo(() => swaps.filter((s) => s.status === "accepted"), [swaps]);

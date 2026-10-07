@@ -13,6 +13,13 @@ function todayKey(): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+// Pending requests are always for a later day: one for today has expired.
+function tomorrowKey(): string {
+  const d = new Date(`${todayKey()}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 const EMPLOYEES = [
   { id: 1, name: "Alice Smith" },
   { id: 2, name: "Bob Jones" },
@@ -169,8 +176,8 @@ test.describe("Responsive layout", () => {
   test("the requests inbox approves a request and moves to the next", async ({ page }) => {
     await interceptAPIs(page, { isManager: true });
     let pending = [
-      { id: 5, employeeId: 1, employeeName: "Alice Smith", date: todayKey(), status: "pending", note: "Family wedding" },
-      { id: 6, employeeId: 3, employeeName: "Carol White", date: todayKey(), status: "pending" },
+      { id: 5, employeeId: 1, employeeName: "Alice Smith", date: tomorrowKey(), status: "pending", note: "Family wedding" },
+      { id: 6, employeeId: 3, employeeName: "Carol White", date: tomorrowKey(), status: "pending" },
     ];
     const decisions: string[] = [];
     await page.route("**/api/time-off", (route) => route.fulfill({ json: { requests: pending } }));

@@ -5,6 +5,7 @@ import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { isRequestExpired } from "@/lib/request-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,15 @@ export async function GET(request?: Request) {
   const { orgId, isManager, employeeId } = ctx!;
 
   if (isManager && !mine) {
-    // Fetch all pending requests for this org
+    // Fetch the org's pending requests that can still be decided: a request
+    // expires once its day arrives (see lib/request-expiry.ts).
+    const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
     const { data: requests, error: fetchError } = await supabase
       .from("time_off_requests")
       .select("id, employee_id, date, status, note")
       .eq("org_id", orgId)
       .eq("status", "pending")
+      .gt("date", today)
       .order("date", { ascending: true });
 
     if (fetchError) {
@@ -92,7 +96,10 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  const result = (requests ?? []).map((r) => ({
+  // Today's decisions still show; a request left pending until today expired.
+  const live = (requests ?? []).filter((r) => r.status !== "pending" || !isRequestExpired(r.date, today));
+
+  const result = live.map((r) => ({
     id: r.id,
     employeeId: r.employee_id,
     employeeName: emp.name,
@@ -122,10 +129,11 @@ export async function POST(request: Request) {
 
   const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
 
-  // "Today" is the store's calendar day, not UTC's.
+  // "Today" is the store's calendar day, not UTC's. A request for today would
+  // already have expired, so it must be for a later day.
   const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
+  if (isRequestExpired(date, today))
+    return NextResponse.json({ error: "date must be after today" }, { status: 400 });
 
   // Verify the employee belongs to the current user and is in the same org
   // (Only allow submitting for your own employee record)

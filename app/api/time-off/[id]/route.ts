@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
+import { isRequestExpired } from "@/lib/request-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +33,24 @@ export async function PUT(
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  // Fetch the request before updating so we can notify the employee
-  const { data: pto } = await supabase
+  // Fetch the request before updating so we can check its day and notify the employee
+  const { data: pto, error: fetchError } = await supabase
     .from("time_off_requests")
     .select("employee_id, date")
     .eq("org_id", orgId!)
     .eq("id", id)
     .maybeSingle();
+
+  if (fetchError) {
+    console.error("[api/time-off/[id]]", fetchError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  if (!pto)
+    return NextResponse.json({ error: "Time-off request not found" }, { status: 404 });
+
+  // Once its day has arrived the request can no longer be decided (lib/request-expiry.ts).
+  if (isRequestExpired(pto.date, todayKeyInTz(await getOrgTimezone(supabase, orgId!))))
+    return NextResponse.json({ error: "This time-off request has expired" }, { status: 409 });
 
   const { error } = await supabase
     .from("time_off_requests")

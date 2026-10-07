@@ -8,7 +8,7 @@ export const MOCK_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
 export function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gte", "lte", "order"]) {
+  for (const m of ["select", "insert", "update", "delete", "upsert", "eq", "gt", "gte", "lte", "order"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
