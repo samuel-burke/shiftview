@@ -14,11 +14,10 @@ import DraftHoursPanel from "../DraftHoursPanel";
 // The Week page's coverage tools, for whichever week the mode shows: the live
 // shifts in Live, the week after publishing in Draft. They take any shifts.
 
-// recharts is heavy; code-split both charts out of the route's initial bundle.
-// They sit below the editor, so a placeholder while the chunk loads is fine.
+// recharts is heavy; code-split the chart out of the route's initial bundle.
+// It sits below the editor, so a placeholder while the chunk loads is fine.
 const chartPlaceholder = () => <div className="h-[200px]" aria-hidden="true" />;
 const DraftCoverageChart = dynamic(() => import("../DraftCoverageChart"), { ssr: false, loading: chartPlaceholder });
-const DraftBudgetChart = dynamic(() => import("../DraftBudgetChart"), { ssr: false, loading: chartPlaceholder });
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -116,7 +115,7 @@ type Props = {
   onPickDay: () => void;
 };
 
-/** Coverage charts, understaffed alerts, the hour-by-hour heatmap and each person's hours. */
+/** Budget vs scheduled, understaffed alerts, the hour-by-hour heatmap and each person's hours. */
 export default function WeekInsights({
   shifts,
   dates,
@@ -141,9 +140,10 @@ export default function WeekInsights({
   );
 
   return (
-    // Tablets and up: the two charts side by side. Wide: heatmap and hours too.
+    // Tablets and up: the chart and everyone's hours side by side, then the
+    // alerts and the heatmap across the width. Phones: one column, hours last.
     <section aria-label="Coverage" className="tablet:grid tablet:grid-cols-2 tablet:gap-x-4 tablet:items-start">
-      <div className="min-w-0">
+      <div className="min-w-0 tablet:row-start-1 tablet:col-start-1">
         <DraftCoverageChart
           drafts={shifts}
           dates={dates}
@@ -152,10 +152,8 @@ export default function WeekInsights({
           selectedDate={selectedDate}
           onPickDay={onPickDay}
           timezone={timezone}
+          isManager
         />
-      </div>
-      <div className="min-w-0">
-        <DraftBudgetChart drafts={shifts} dates={dates} curves={curves} isManager timezone={timezone} />
       </div>
 
       {!loading && alerts.length > 0 && (
@@ -184,7 +182,7 @@ export default function WeekInsights({
 
       {!loading && (
         <>
-          <div className="min-w-0 tablet:col-span-2 wide:col-span-1">
+          <div className="min-w-0 tablet:col-span-2">
             <WeekCoverageHeatmap
               shifts={shifts}
               dates={dates}
@@ -193,7 +191,7 @@ export default function WeekInsights({
               onSelectDate={onSelectDate}
             />
           </div>
-          <div className="min-w-0 tablet:col-span-2 wide:col-span-1">
+          <div className="min-w-0 tablet:row-start-1 tablet:col-start-2">
             <DraftHoursPanel employees={employees} drafts={shifts} dates={dates} rules={rules} timezone={timezone} />
           </div>
         </>

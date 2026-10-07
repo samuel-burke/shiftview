@@ -82,8 +82,10 @@ test.describe("Responsive layout", () => {
       await interceptAPIs(page, { isManager: true });
       await page.goto(path);
       await page.waitForLoadState("networkidle");
-      const [scrollWidth, innerWidth] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
-      expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
+      // Against the device's width, not window.innerWidth: a phone zooms out to
+      // fit content that's too wide, and innerWidth grows with it.
+      const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+      expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
     });
   }
 

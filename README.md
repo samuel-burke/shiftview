@@ -82,7 +82,7 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 
 **Scheduling**
 - Week and month views with drag-free editing, reusable shift templates, and copy-week
-- Week page for managers — the whole team's week as a grid (a day list on phones) with a **Live | Draft** toggle. Live edits the published schedule. Draft plans privately on top of it, with coverage charts, an hour-by-hour heatmap and each person's hours showing the week as it will be after publishing, then publishes in one step
+- Week page for managers — the whole team's week as a grid (a day list on phones) with a **Live | Draft** toggle. Live edits the published schedule. Draft plans privately on top of it, with a budget-vs-scheduled chart, an hour-by-hour heatmap and each person's hours showing the week as it will be after publishing, then publishes in one step
 - Employee availability tracking with conflict detection against time-off and availability when scheduling
 - Shift swap requests with manager approval, and time-off requests with approval workflow
 - Employee call-outs — one tap to report "I can't make it in" for a day; managers are notified instantly and the person shows as **Called Out** across the dashboard, schedule, and team status

@@ -98,6 +98,23 @@ test.describe("Week page", () => {
     await expect(page.getByRole("radio", { name: /^Draft/ })).toHaveAccessibleName("Draft, 1 shift");
   });
 
+  test("one chart compares each day's scheduled hours with its budget", async ({ page }) => {
+    await mockWeek(page);
+    await page.goto(`/week?mode=draft&week=${NEXT_WEEK}`);
+    const chart = page.getByTestId("budget-chart");
+    await expect(chart).toHaveCount(1);
+    // Its numbers, as the table screen readers get.
+    const monday = chart
+      .getByRole("table", { name: "Scheduled hours against the budget, by day" })
+      .getByRole("row", { name: new RegExp(`^${longDay(NEXT_MON)}`) });
+    // Draft counts the week after publishing: Alice's live Monday and Bob's
+    // draft, but not Alice's draft that clashes with her live shift.
+    await expect(monday.getByRole("cell")).toHaveText(["16 hrs", "16 hrs", "On budget"]);
+
+    await page.getByRole("radio", { name: "Live" }).click();
+    await expect(monday.getByRole("cell")).toHaveText(["8 hrs", "16 hrs", "8 hrs under budget"]);
+  });
+
   test("old Planner links open Draft mode", async ({ page }) => {
     await mockWeek(page);
     await page.goto(`/draft?week=${NEXT_WEEK}`);
