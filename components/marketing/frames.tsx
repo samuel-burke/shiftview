@@ -2,9 +2,11 @@
 
 // Device frames for the marketing previews. Each screen is laid out at the
 // device's real viewport size, so the app's own components and size classes
-// apply as they do on that device, then scaled with CSS zoom (not transform,
-// so text re-lays out crisply). Screen contents are inert: the frame's label
-// describes the picture, and nothing inside can be focused or clicked.
+// apply as they do on that device, then scaled down with a transform. (Not
+// CSS zoom: Safari leaves rem lengths, such as Tailwind's corner radii,
+// unzoomed, so every box came out too rounded.) Screen contents are inert:
+// the frame's label describes the picture, and nothing inside can be focused
+// or clicked.
 
 import { useLayoutEffect, useRef, useState } from "react";
 
@@ -14,7 +16,7 @@ export const TABLET = { width: 820, height: 1180 };
 export const DESKTOP = { width: 1440, height: 900 };
 
 /**
- * Lays `children` out at width × height CSS px and zooms them to the box's
+ * Lays `children` out at width × height CSS px and scales them to the box's
  * width. Until it has measured (server render, first paint) it uses the
  * --screen-zoom custom property, set per breakpoint by the caller.
  */
@@ -42,7 +44,7 @@ export function Screen({
   }, [width]);
   return (
     <div ref={box} className={`relative isolate overflow-hidden bg-bg ${className}`} style={{ aspectRatio: `${width} / ${height}` }}>
-      <div inert className="absolute left-0 top-0 overflow-hidden" style={{ width, height, zoom: zoom ?? "var(--screen-zoom, 0.5)" }}>
+      <div inert className="absolute left-0 top-0 origin-top-left overflow-hidden" style={{ width, height, transform: `scale(${zoom ?? "var(--screen-zoom, 0.5)"})` }}>
         {children}
       </div>
     </div>
@@ -66,7 +68,7 @@ export function PhoneFrame({ label, className = "", children }: { label: string;
           className="relative overflow-hidden rounded-[calc(44px*var(--phone-zoom,0.72))] bg-bg"
           style={{ width: `calc(${PHONE.width}px * var(--phone-zoom,0.72))`, height: `calc(${PHONE.height}px * var(--phone-zoom,0.72))` }}
         >
-          <div inert className="absolute left-0 top-0 overflow-hidden" style={{ ...PHONE, zoom: "var(--phone-zoom,0.72)" }}>
+          <div inert className="absolute left-0 top-0 origin-top-left overflow-hidden" style={{ ...PHONE, transform: "scale(var(--phone-zoom,0.72))" }}>
             {children}
           </div>
         </div>
