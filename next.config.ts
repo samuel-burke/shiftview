@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // The product tour is part of the home page now; its #anchors carry over.
+  async redirects() {
+    return [{ source: "/product", destination: "/", permanent: true }];
+  },
   async headers() {
     return [
       {

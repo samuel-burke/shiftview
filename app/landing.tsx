@@ -1,27 +1,49 @@
 import Link from "next/link";
 import TryDemoButton from "@/components/TryDemoButton";
 import MarketingShell, { ClosingCta } from "@/components/marketing/MarketingShell";
-import { LiveClockPhone, LiveCoverageCard, LiveTeamPhone, LiveTimerCard, NextShiftCard, Reveal, WeekStrip } from "@/components/marketing/live";
-import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "@/components/marketing/ui";
+import { AutoScheduleDemo, DevicesDemo, HeroDemo, Reveal, TeamDemo } from "@/components/marketing/live";
+import { Arrow, Container, REPO_URL, SectionHeading, primaryBtn, secondaryBtn } from "@/components/marketing/ui";
+import {
+  AdminIcon,
+  ClockIcon,
+  ReportsIcon,
+  RequestsIcon,
+  WeekGridIcon,
+} from "@/components/SideNav";
+import { AlarmIcon, BellIcon, CalendarIcon, ChatBubbleIcon, MegaphoneIcon, TimeOffPendingIcon, WarningIcon } from "@/components/ShiftIcons";
+import { DEMO_SETTINGS } from "@/data/demo-fixtures";
+import { todayKeyInTz } from "@/lib/dates";
 
-// Home page for signed-out visitors. Kept deliberately short: the hero, three
-// product pillars that link into /product, a trust line that links into
-// the source on GitHub, and a call to action.
+// The home page for signed-out visitors, and the whole product tour: each
+// section is a heading, one line, and the real app showing it. The demos run
+// on the sample store's own today, so dates and weekdays line up with the live
+// demo's.
 export default function LandingPage() {
+  const today = todayKeyInTz(DEMO_SETTINGS.timezone);
   return (
     <MarketingShell>
-      <Hero />
-      <Pillars />
+      <Hero today={today} />
+      <AutoSchedule today={today} />
+      <AnyDevice today={today} />
+      <Team today={today} />
+      <Features />
       <TrustStrip />
       <ClosingCta />
     </MarketingShell>
   );
 }
 
-function Hero() {
+// Old /product links (/product#planning and so on) land on the matching section.
+function Anchor({ id }: { id: string }) {
+  return <span id={id} aria-hidden="true" className="block scroll-mt-16" />;
+}
+
+function Hero({ today }: { today: string }) {
   return (
-    <section className="border-b border-slate-800/60">
-      <Container className="grid items-center gap-14 pt-16 pb-20 lg:grid-cols-[1fr_auto] lg:gap-10 lg:pt-24 lg:pb-28">
+    <section className="overflow-hidden border-b border-slate-800/60">
+      <Anchor id="coverage" />
+      <Anchor id="time-clock" />
+      <Container className="grid items-center gap-12 pb-16 pt-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-8 lg:pb-24 lg:pt-20">
         <div className="max-w-xl">
           <p className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-400">
             <span className="relative flex h-2 w-2" aria-hidden="true">
@@ -34,19 +56,15 @@ function Hero() {
             Know who&rsquo;s on the floor. Right now.
           </h1>
           <p className="mt-6 max-w-md text-base leading-relaxed text-slate-400 sm:text-lg">
-            Build the week, watch coverage update as people clock in, and approve requests from your phone. One app for managers and staff.
+            Schedules, a time clock on every phone, and coverage that updates the moment someone clocks in.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-start">
             <Link href="/signup" className={primaryBtn}>
               Start free <Arrow />
             </Link>
-            <TryDemoButton className={`${secondaryBtn} w-full sm:w-auto`}>
-              Open the live demo
-            </TryDemoButton>
+            <TryDemoButton className={`${secondaryBtn} w-full sm:w-auto`}>Open the live demo</TryDemoButton>
           </div>
-          <p className="mt-5 text-xs text-slate-400">
-            No credit card. The demo is a real workspace with sample data that resets nightly.
-          </p>
+          <p className="mt-5 text-xs text-slate-400">No credit card. The demo is a real store with sample data that resets nightly.</p>
           <p className="mt-2 text-xs text-slate-400">
             ShiftView is in beta. Found a bug or missing something?{" "}
             <Link href="/contact?topic=feedback" className="font-medium text-slate-200 underline underline-offset-2 transition-colors hover:text-slate-50">
@@ -54,75 +72,117 @@ function Hero() {
             </Link>
           </p>
         </div>
+        <HeroDemo date={today} />
+      </Container>
+    </section>
+  );
+}
 
-        <div className="relative mx-auto flex justify-center lg:mx-0 lg:pr-4">
-          <div className="absolute right-[262px] top-20 hidden xl:block">
-            <LiveClockPhone />
-          </div>
-          <div className="relative">
-            <LiveTeamPhone />
-          </div>
+function AutoSchedule({ today }: { today: string }) {
+  return (
+    <section id="auto-schedule" className="scroll-mt-16 border-b border-slate-800/60">
+      <Anchor id="planning" />
+      <Anchor id="scheduling" />
+      <Container className="py-16 sm:py-20 lg:py-28">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<>Auto-schedule <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-px text-[11px] font-semibold text-violet-300">New</span></>}
+            title="Next week, scheduled in seconds."
+            body="It builds the week from your coverage targets, availability, time off and hour limits, and explains anything it can't cover. Nothing goes live until you publish."
+          />
+        </Reveal>
+        <Reveal className="mt-12 lg:mt-14">
+          <AutoScheduleDemo date={today} />
+        </Reveal>
+      </Container>
+    </section>
+  );
+}
+
+function AnyDevice({ today }: { today: string }) {
+  const devices = ["Phones: iPhone and Android", "Tablets: iPad and Android", "Computers: Mac, Windows, Chromebook"];
+  return (
+    <section id="any-device" className="scroll-mt-16 border-b border-slate-800/60">
+      <Container className="py-16 sm:py-20 lg:py-28">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Any device"
+            title="On every screen your team already has."
+            body="Phone, tablet or laptop, everyone sees the same live schedule. It installs straight from the browser, no app store needed."
+          />
+        </Reveal>
+        <Reveal className="mt-12 lg:mt-16">
+          <DevicesDemo date={today} />
+        </Reveal>
+        <ul className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+          {devices.map((d) => <li key={d}>{d}</li>)}
+        </ul>
+      </Container>
+    </section>
+  );
+}
+
+function Team({ today }: { today: string }) {
+  return (
+    <section id="team" className="scroll-mt-16 border-b border-slate-800/60">
+      <Anchor id="requests" />
+      <Container className="py-16 sm:py-20 lg:py-28">
+        <Reveal>
+          <SectionHeading
+            eyebrow="For the whole team"
+            title="Fewer texts, more covered shifts."
+            body="Staff check their week, swap shifts and ask for time off from their phones. You approve with a tap."
+          />
+        </Reveal>
+        <div className="mt-12 lg:mt-16">
+          <TeamDemo date={today} />
         </div>
       </Container>
     </section>
   );
 }
 
-function Pillars() {
-  const pillars = [
-    {
-      href: "/product#coverage",
-      eyebrow: "Coverage",
-      title: "See gaps as they happen",
-      body: "Planned staffing and real clock-ins on one timeline, updated live.",
-      preview: <LiveCoverageCard />,
-    },
-    {
-      href: "/product#scheduling",
-      eyebrow: "Scheduling",
-      title: "A week in minutes",
-      body: "Templates, copy-week and availability checks. Staff see it on their phones.",
-      preview: <><WeekStrip /><NextShiftCard /></>,
-    },
-    {
-      href: "/product#time-clock",
-      eyebrow: "Time clock",
-      title: "Clock in from anywhere on site",
-      body: "Geofenced punches, one-tap breaks and payroll-ready exports.",
-      preview: <LiveTimerCard />,
-    },
+function Features() {
+  const icon = (d: string) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d={d} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+  const features: { label: string; icon: React.ReactNode }[] = [
+    { label: "Live coverage alerts", icon: <WarningIcon size={18} /> },
+    { label: "Late clock-in alerts", icon: <AlarmIcon size={18} /> },
+    { label: "Geofenced clock-in", icon: icon("M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z") },
+    { label: "Breaks and missed punches", icon: <ClockIcon size={18} /> },
+    { label: "Templates and copy week", icon: <WeekGridIcon size={18} /> },
+    { label: "Availability", icon: <CalendarIcon size={18} /> },
+    { label: "Time-off requests", icon: <TimeOffPendingIcon size={18} /> },
+    { label: "Two-step shift swaps", icon: icon("M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7") },
+    { label: "Open shifts to pick up", icon: <RequestsIcon size={18} /> },
+    { label: "One-tap call-outs", icon: <MegaphoneIcon size={18} /> },
+    { label: "Encrypted messages", icon: <ChatBubbleIcon size={18} /> },
+    { label: "Push shift reminders", icon: <BellIcon size={18} /> },
+    { label: "Labor budget and cost", icon: icon("M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3") },
+    { label: "Payroll CSV export", icon: icon("M12 4v11m0 0-4-4m4 4 4-4M5 20h14") },
+    { label: "Payroll and punctuality reports", icon: <ReportsIcon size={18} /> },
+    { label: "Audit log of every change", icon: <AdminIcon size={18} /> },
   ];
   return (
-    <section className="border-b border-slate-800/60">
+    <section id="features" className="scroll-mt-16 border-b border-slate-800/60">
+      <Anchor id="everything" />
       <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
-          <h2 className="max-w-xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-4xl">
-            Everything a shift team runs on, in one place.
+          <h2 className="max-w-xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-[2.75rem]">
+            Everything a shift team runs on.
           </h2>
         </Reveal>
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {pillars.map((p, i) => (
-            <Reveal key={p.href} delay={i * 0.08} className="h-full">
-              <Link
-                href={p.href}
-                className="group flex h-full flex-col rounded-2xl border border-slate-800 p-5 transition-colors hover:border-slate-700 hover:bg-slate-900/40 sm:p-6"
-              >
-                <div className="min-h-[240px] flex-1">{p.preview}</div>
-                <p className="mt-6 text-sm font-medium text-blue-400">{p.eyebrow}</p>
-                <h3 className="mt-1.5 text-lg font-semibold tracking-tight text-slate-100">{p.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{p.body}</p>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-300 transition-colors group-hover:text-slate-100">
-                  Learn more <span className="transition-transform group-hover:translate-x-0.5"><Arrow /></span>
-                </span>
-              </Link>
-            </Reveal>
+        <ul className="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-800/80 lg:grid-cols-4">
+          {features.map((f) => (
+            <li key={f.label} className="flex items-center gap-3 bg-bg px-3 py-3.5 text-[13px] leading-snug text-slate-300 sm:px-5 sm:py-4 sm:text-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-card text-blue-400">{f.icon}</span>
+              {f.label}
+            </li>
           ))}
-        </div>
-        <Reveal className="mt-10">
-          <Link href="/product" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-200 transition-colors hover:text-slate-50">
-            Tour the whole product: planning, approvals, messaging and reports <Arrow />
-          </Link>
-        </Reveal>
+        </ul>
       </Container>
     </section>
   );
@@ -131,7 +191,7 @@ function Pillars() {
 function TrustStrip() {
   const facts = [
     "Row-level security on every table",
-    "1,100+ automated tests on every change",
+    "1,600+ automated tests on every change",
     "Messages encrypted at rest",
     "Open source",
   ];

@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://shiftview.app"><strong>shiftview.app</strong></a> ·
   <a href="https://shiftview.app">Try the live demo</a> ·
-  <a href="https://shiftview.app/product">Product tour</a> ·
+  <a href="https://shiftview.app/#features">Features</a> ·
   <a href="https://shiftview.app/contact">Contact</a>
 </p>
 
@@ -26,12 +26,12 @@
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
-  <img alt="ShiftView home page: the manager dashboard updating live as an employee clocks in, next to an employee's clock screen" src="docs/screenshots/hero-dark.png" />
+  <img alt="ShiftView home page: an employee clocks in ten minutes late and the store manager's dashboard gets the Late Clock-In alert" src="docs/screenshots/hero-dark.png" />
 </picture>
 
 ### The app
 
-Every screen below is the real UI rendered from the demo organization's seed data.
+Every screen below is captured from the home page's product demos, which are built from the app's own components and the demo organization's seed data.
 
 <table>
   <tr>
@@ -52,14 +52,14 @@ Every screen below is the real UI rendered from the demo organization's seed dat
     <td align="center" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-requests-light.png" />
-        <img alt="Manager requests inbox with time-off and shift swap approvals" src="docs/screenshots/phone-requests-dark.png" />
+        <img alt="A time-off request open in the manager's Requests inbox, next to that day's schedule" src="docs/screenshots/phone-requests-dark.png" />
       </picture>
       <br /><sub><b>Approvals</b><br />Time off and two-step shift swaps</sub>
     </td>
     <td align="center" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-clock-light.png" />
-        <img alt="Employee time clock on break with punch history" src="docs/screenshots/phone-clock-dark.png" />
+        <img alt="Employee time clock just after clocking in, with today's punches" src="docs/screenshots/phone-clock-dark.png" />
       </picture>
       <br /><sub><b>Time clock</b><br />Geofenced punches and breaks</sub>
     </td>
@@ -67,11 +67,18 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 </table>
 
 <picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/planner-light.png" />
-  <img alt="Draft schedule planner comparing recommended vs. scheduled staffing by hour and daily labor budget vs. scheduled hours" src="docs/screenshots/planner-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/auto-schedule-light.png" />
+  <img alt="The Week page in Draft mode after Auto-schedule: next week drafted to the coverage target, with the run's summary of coverage, hours, overtime, labor cost and preferences" src="docs/screenshots/auto-schedule-dark.png" />
 </picture>
 
-<sub>Draft planning: staff to an hourly coverage target and a daily labor-hours budget before publishing.</sub>
+<sub>Auto-schedule: next week drafted from the coverage targets, availability, time off and hour limits, ready to review and publish. This is a real run of the engine on the demo store.</sub>
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/devices-light.png" />
+  <img alt="The same dashboard on a laptop with the sidebar, a tablet with the navigation rail and a phone with bottom tabs" src="docs/screenshots/devices-dark.png" />
+</picture>
+
+<sub>Any device: one responsive layout per size class, from phones to desktop monitors.</sub>
 
 ## Features
 
@@ -101,7 +108,7 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 - Installable PWA with service worker, offline-aware shell, and home-screen prompts
 - Demo mode — one click signs you in anonymously to a seeded Demo organization with full read/write access; sample data resets nightly
 - Nightly shift reminders for tomorrow's schedule via a Vercel cron job
-- Public marketing site (`/`, `/product`, `/contact`) whose product previews are built from the real UI components and demo data, with a bot-protected contact form delivered via Resend
+- Public marketing site (`/` and `/contact`) whose product demos run on the app's own UI components and the demo store's data, including a real Auto-schedule run (`components/marketing/`), with a bot-protected contact form delivered via Resend
 
 ## Tech Stack
 
