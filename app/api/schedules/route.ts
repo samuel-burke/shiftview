@@ -12,17 +12,37 @@ import { isDemoOrgId } from "@/lib/demo-org";
 import { getCurveForDate } from "@/lib/coverage-server";
 import { findUnderstaffedFromCurves } from "@/lib/coverage";
 import { findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
+import { isDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Longest range one request may read (from..to inclusive).
+const MAX_RANGE_DAYS = 42;
 
+const isDate = (v: string | null): v is string => v !== null && DATE_RE.test(v) && isDateKey(v);
+
+// GET /api/schedules?date=YYYY-MM-DD — one day's shifts.
+// GET /api/schedules?from=YYYY-MM-DD&to=YYYY-MM-DD — every shift in the range
+// (inclusive, at most six weeks), e.g. a whole week in one request.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  const ranged = from !== null || to !== null;
 
-  if (!date) return NextResponse.json({ error: "date param required" }, { status: 400 });
-  if (!DATE_RE.test(date)) return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
+  if (ranged) {
+    if (!isDate(from) || !isDate(to))
+      return NextResponse.json({ error: "from and to must both be YYYY-MM-DD" }, { status: 400 });
+    const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000;
+    if (days < 0) return NextResponse.json({ error: "from must not be after to" }, { status: 400 });
+    if (days >= MAX_RANGE_DAYS)
+      return NextResponse.json({ error: `A range can cover at most ${MAX_RANGE_DAYS} days` }, { status: 400 });
+  } else {
+    if (!date) return NextResponse.json({ error: "date param required" }, { status: 400 });
+    if (!DATE_RE.test(date)) return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
+  }
 
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
@@ -36,12 +56,10 @@ export async function GET(request: Request) {
 
   const { orgId } = ctx!;
 
-  const { data, error: dbError } = await supabase
-    .from("schedules")
-    .select("*")
-    .eq("org_id", orgId)
-    .eq("date", date)
-    .order("start_minutes");
+  const query = supabase.from("schedules").select("*").eq("org_id", orgId);
+  const { data, error: dbError } = await (ranged
+    ? query.gte("date", from!).lte("date", to!).order("date").order("start_minutes")
+    : query.eq("date", date!).order("start_minutes"));
 
   if (dbError) {
     console.error("[api/schedules]", dbError);

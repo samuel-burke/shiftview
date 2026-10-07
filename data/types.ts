@@ -29,6 +29,8 @@ export type Schedule = {
   date: string;
   startMinutes: number;
   endMinutes: number;
+  // Drafts only: the Auto-schedule run that created it, if any.
+  generationRunId?: number | null;
 };
 
 // Derived — computed from clock-in/out times and store hours

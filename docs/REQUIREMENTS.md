@@ -88,6 +88,11 @@ ShiftView is a mobile-first shift scheduling dashboard for retail and hospitalit
 | FR-5.6 | The API shall reject shifts shorter than 1 hour or longer than 16 hours. | System |
 | FR-5.7 | The API shall reject invalid date formats or minute values outside 0–1440. | System |
 | FR-5.8 | After a successful save or delete, the schedule list shall update without requiring a full page reload. | System |
+| FR-5.9 | A manager shall be able to view and edit the team's week on one Week page, in Live mode (the published schedule) or Draft mode (private drafts), and switch between them without leaving the week. The mode and week shall be kept in the URL. | Manager |
+| FR-5.10 | In Draft mode the Week page shall show the week as it will be after publishing (live shifts, read-only, plus drafts), and its coverage numbers shall count both. | System |
+| FR-5.11 | A draft shall not be saved for an employee on a day they already have a live shift, or overlapping one. Publishing shall skip any such draft, keep it as a draft, and say whose and which day. | System |
+| FR-5.12 | After publishing, the Week page shall show the published week in Live mode. | System |
+| FR-5.13 | On phones the Week page shall edit one day at a time (a list of everyone that day); on larger screens it shall show a team × day grid. | System |
 
 ---
 
@@ -121,6 +126,29 @@ ShiftView is a mobile-first shift scheduling dashboard for retail and hospitalit
 | FR-8.1 | The live clock shall update the current time every 60 seconds without a page reload. | System |
 | FR-8.2 | The user shall be able to pull down on mobile to force-refresh employees and schedules. | All |
 | FR-8.3 | Skeleton loading states shall be displayed while schedule data is being fetched. | System |
+
+---
+
+### FR-9 Auto-schedule (Manager Only)
+
+See [AUTO_SCHEDULER.md](AUTO_SCHEDULER.md).
+
+| ID | Requirement | Actor |
+|---|---|---|
+| FR-9.1 | A manager shall be able to generate draft shifts for a week in one action (Auto-schedule, in the Week page's Draft mode). | Manager |
+| FR-9.2 | Generated shifts shall be saved as drafts only; nothing shall be published or sent to employees until the manager publishes the week. | System |
+| FR-9.3 | The scheduler shall never schedule an employee on approved time off or a call-out day; outside their availability; in two overlapping shifts or two shifts on one day; beyond their weekly hours or days; with less than the minimum rest between shifts; or for more consecutive days than allowed, counting the previous week's published shifts. | System |
+| FR-9.4 | The scheduler shall not schedule anyone past 40 hours in the week unless the manager allows overtime for that run or raises that employee's hours for the week. | System |
+| FR-9.5 | The scheduler shall aim, in this order, to meet the coverage target in every 15-minute slot, give full-timers their minimum hours, avoid overstaffing, avoid days with pending time off, and honor shift-type, day and weekly-hours preferences. | System |
+| FR-9.6 | When the week already has drafts, the manager shall be able to keep them and fill around them, or replace them. | Manager |
+| FR-9.7 | The manager shall be able to add adjustments for the week only: more or fewer people for a time range, keeping someone off a day, and someone's maximum hours. | Manager |
+| FR-9.8 | After generating, the Week page shall show coverage before and after, scheduled hours against the budget, overtime hours, labor cost and preferences honored, and shall list each remaining gap with the reasons nobody could cover it. | System |
+| FR-9.9 | The manager shall be able to generate another version (replacing only that run's drafts), apply a suggested fix, or undo the week's latest run, which restores the drafts it replaced. | Manager |
+| FR-9.10 | The same inputs and seed shall produce the same schedule. | System |
+| FR-9.11 | If the week's drafts change while a schedule is being generated, nothing shall be saved and the manager shall be asked to try again. | System |
+| FR-9.12 | A manager shall be able to set each employee's employment type (full-time or part-time) and weekly hour and day limits; unset limits shall fall back to the organization's defaults. | Manager |
+| FR-9.13 | An employee shall be able to set shift preferences (shift types, preferred and "rather not" days, desired weekly hours); a manager shall be able to edit anyone's. | Employee / Manager |
+| FR-9.14 | Schedules shall be generated on ShiftView's own servers without any third-party AI service. | System |
 
 ---
 

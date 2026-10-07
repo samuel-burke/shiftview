@@ -9,7 +9,6 @@ import {
   TeamIcon,
   ScheduleIcon,
   ClockIcon,
-  PlannerIcon,
   AdminIcon,
   SettingsIcon,
   ReportsIcon,
@@ -62,9 +61,6 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
           )}
           {isManager && (
             <RailLink href="/requests" label="Requests" isActive={active === "requests"}><RequestsIcon size={20} /></RailLink>
-          )}
-          {isManager && (
-            <RailLink href="/draft" label="Planner" isActive={active === "planner"}><PlannerIcon size={20} /></RailLink>
           )}
           {isManager && (
             <RailLink href="/admin" label="Admin" isActive={active === "admin"}><AdminIcon size={20} /></RailLink>

@@ -1,6 +1,7 @@
 import { fmtMinutes } from "@/data/types";
 import { addDaysToKey, dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 import { shiftParts, shiftsOverlap } from "@/lib/shift-times";
+import { fitsAvailability, isUnavailableAllDay } from "@/lib/availability-rules";
 
 type QueryClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -42,20 +43,20 @@ export async function findShiftConflict(
       .eq("day_of_week", dayOfWeekForKey(part.date))
       .maybeSingle();
     if (!avail) continue;
+    const rule = { startMinutes: avail.start_minutes, endMinutes: avail.end_minutes };
+    if (fitsAvailability(rule, part.start, part.end)) continue;
 
     const weekday = formatDateKey(part.date, { weekday: "long" });
-    if (avail.start_minutes === null || avail.end_minutes === null) {
+    if (isUnavailableAllDay(rule)) {
       return { conflict: "availability", window: null, message: `Employee is unavailable on ${weekday}s` };
     }
-    if (part.start < avail.start_minutes || part.end > avail.end_minutes) {
-      return {
-        conflict: "availability",
-        window: { startMinutes: avail.start_minutes, endMinutes: avail.end_minutes },
-        message: part.date === date
-          ? `Shift falls outside employee's availability window (${fmtMinutes(avail.start_minutes)} – ${fmtMinutes(avail.end_minutes)})`
-          : `The after-midnight part of this shift falls outside employee's ${weekday} availability (${fmtMinutes(avail.start_minutes)} – ${fmtMinutes(avail.end_minutes)})`,
-      };
-    }
+    return {
+      conflict: "availability",
+      window: { startMinutes: avail.start_minutes, endMinutes: avail.end_minutes },
+      message: part.date === date
+        ? `Shift falls outside employee's availability window (${fmtMinutes(avail.start_minutes)} – ${fmtMinutes(avail.end_minutes)})`
+        : `The after-midnight part of this shift falls outside employee's ${weekday} availability (${fmtMinutes(avail.start_minutes)} – ${fmtMinutes(avail.end_minutes)})`,
+    };
   }
   return null;
 }

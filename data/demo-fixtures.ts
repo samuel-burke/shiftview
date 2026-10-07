@@ -74,6 +74,46 @@ export const DEMO_AVAILABILITY: Record<number, AvailabilityRecord[]> = {
   ],
 };
 
+// Employment type and weekly limits for the Planner's Auto-schedule (Settings →
+// Team → Scheduling). Limits left out use the org defaults for the type
+// (full-time 32–40 h, part-time 0–29 h). Riley has no type, so the Planner's
+// readiness check has something to point out.
+export const DEMO_EMPLOYMENT: Record<
+  number,
+  { type: "full_time" | "part_time" | null; minHours?: number; maxHours?: number; maxDays?: number }
+> = {
+  1:  { type: "full_time" },
+  2:  { type: "full_time" },
+  3:  { type: "full_time" },
+  4:  { type: "full_time" },
+  5:  { type: "full_time", minHours: 30, maxHours: 38 },
+  6:  { type: "part_time", maxHours: 24 },
+  7:  { type: null },
+  8:  { type: "part_time" },
+  9:  { type: "part_time", minHours: 16 },
+  10: { type: "part_time", maxHours: 20, maxDays: 4 },
+  11: { type: "part_time", maxHours: 24 },
+  12: { type: "part_time", maxHours: 16, maxDays: 2 },
+};
+
+// Shift preferences (what each person would like). Days are 0 = Sunday.
+export const DEMO_PREFERENCES: Record<
+  number,
+  { shiftTypes: Array<"opener" | "mid" | "closer">; preferredDays?: number[]; avoidDays?: number[]; desiredHours?: number; note?: string }
+> = {
+  1:  { shiftTypes: ["opener"], preferredDays: [1, 2, 3, 4, 5] },
+  2:  { shiftTypes: ["mid"], desiredHours: 40 },
+  3:  { shiftTypes: ["closer"], avoidDays: [0] },
+  4:  { shiftTypes: ["opener", "mid"] },
+  5:  { shiftTypes: ["mid"], preferredDays: [4, 5, 6] },
+  6:  { shiftTypes: ["closer"], desiredHours: 22 },
+  8:  { shiftTypes: ["closer"], avoidDays: [6] },
+  9:  { shiftTypes: ["opener"], desiredHours: 24, note: "Happy to pick up extra mornings" },
+  10: { shiftTypes: ["mid"], desiredHours: 18, note: "School pickup at 5:30 PM on weekdays" },
+  11: { shiftTypes: ["closer"], preferredDays: [4, 5] },
+  12: { shiftTypes: [], preferredDays: [0, 6], desiredHours: 16 },
+};
+
 export const DEMO_SETTINGS = {
   coverageAlertsEnabled: true,
   firstDayOfWeek: 1,

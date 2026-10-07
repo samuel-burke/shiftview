@@ -82,9 +82,11 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 
 **Scheduling**
 - Week and month views with drag-free editing, reusable shift templates, and copy-week
+- Week page for managers — the whole team's week as a grid (a day list on phones) with a **Live | Draft** toggle. Live edits the published schedule. Draft plans privately on top of it, with a budget-vs-scheduled chart, an hour-by-hour heatmap and each person's hours showing the week as it will be after publishing, then publishes in one step
 - Employee availability tracking with conflict detection against time-off and availability when scheduling
 - Shift swap requests with manager approval, and time-off requests with approval workflow
 - Employee call-outs — one tap to report "I can't make it in" for a day; managers are notified instantly and the person shows as **Called Out** across the dashboard, schedule, and team status
+- Auto-schedule — one tap in the Week page's Draft mode drafts the week from the coverage targets, availability, time off, full-time/part-time hours, overtime rules and shift preferences, and explains any gap it couldn't fill; try another version, apply a one-tap fix or undo before publishing. Runs on ShiftView's own deterministic optimization engine, with no chatbot or third-party AI ([docs/AUTO_SCHEDULER.md](docs/AUTO_SCHEDULER.md))
 
 **Time clock**
 - Clock in/out with optional geofence enforcement (server-validated, not just client-side)
@@ -221,6 +223,7 @@ data/
   types.ts        # shared domain types + pure schedule/coverage utilities
   demo-fixtures.ts# seed-source data for the demo organization
 lib/              # Supabase clients, encryption, audit log, web push, payroll
+  scheduler/      # Auto-schedule engine (pure TypeScript, no I/O)
 e2e/              # Playwright specs
 docs/             # functional requirements spec
 ```
@@ -233,11 +236,13 @@ docs/             # functional requirements spec
 
 | Table | Columns |
 |---|---|
-| `employees` | `id`, `name`, `email`, `user_id` |
+| `employees` | `id`, `name`, `email`, `user_id`, `employment_type`, `min_weekly_hours`, `max_weekly_hours`, `max_days_per_week` |
 | `schedules` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
 | `callouts` | `id`, `org_id`, `employee_id`, `date`, `reason`, `created_by`, `created_at` |
 | `store_hours` | `day_of_week` (0–6), `open_minutes`, `close_minutes` |
 | `managers` | `user_id` |
+| `employee_preferences` | `org_id`, `employee_id`, `preferred_shift_types`, `preferred_days`, `avoid_days`, `desired_weekly_hours`, `note`, `updated_at` |
+| `schedule_generation_runs` | `id`, `org_id`, `week_start`, `mode`, `seed`, `rules`, `adjustments`, `metrics`, `previous_drafts`, `created_by`, `created_at`, `undone_at`, `published_at` |
 
 Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
 
@@ -262,6 +267,9 @@ RLS is enabled on all live tables. The following policies are in effect:
 | `store_hours` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
 | `app_settings` | SELECT | All users (including unauthenticated) |
 | `app_settings` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
+| `employee_preferences` | SELECT / INSERT / UPDATE / DELETE | The employee themself, or a manager of the row's organization |
+| `schedule_generation_runs` | SELECT / UPDATE | Managers of the row's organization |
+| `schedule_generation_runs` | INSERT / DELETE | Denied for all (written by the `apply_generated_drafts` and `undo_generation_run` functions) |
 
 > The demo organization is isolated by the same org-scoped RLS policies as any other tenant; demo visitors are anonymous Supabase users with membership rows in the demo org.
 

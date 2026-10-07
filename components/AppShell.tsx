@@ -7,7 +7,7 @@ import TopBar from "./TopBar";
 import KeyboardShortcuts from "./KeyboardShortcuts";
 import { useSidebarExpanded } from "@/hooks/useSidebarExpanded";
 
-export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner" | "week" | "requests";
+export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "week" | "requests";
 
 type Props = {
   active: NavItem;

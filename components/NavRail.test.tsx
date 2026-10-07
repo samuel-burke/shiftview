@@ -16,13 +16,15 @@ describe("NavRail", () => {
     expect(screen.getByRole("link", { name: "Team" })).not.toHaveAttribute("aria-current");
   });
 
-  it("shows Planner and Admin only to managers", () => {
+  it("shows Week and Admin only to managers", () => {
     const { rerender } = render(<NavRail active="team" />);
-    expect(screen.queryByRole("link", { name: "Planner" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Week" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
 
     rerender(<NavRail active="team" isManager />);
-    expect(screen.getByRole("link", { name: "Planner" })).toHaveAttribute("href", "/draft");
+    // The Week page holds both the live schedule and drafts; there's no separate Planner.
+    expect(screen.getByRole("link", { name: "Week" })).toHaveAttribute("href", "/week");
+    expect(screen.queryByRole("link", { name: "Planner" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
   });
 

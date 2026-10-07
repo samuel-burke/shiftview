@@ -83,6 +83,33 @@ describe("GET /api/schedules", () => {
     )?.value;
     expect(schedulesBuilder?.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
   });
+
+  it("reads a whole range in one query", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_SCHEDULES_DB });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/schedules?from=2026-05-24&to=2026-05-30"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(MOCK_SCHEDULES);
+    const i = (client.from as any).mock.calls.findIndex((c: string[]) => c[0] === "schedules");
+    const builder = (client.from as any).mock.results[i].value;
+    expect(builder.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
+    expect(builder.gte).toHaveBeenCalledWith("date", "2026-05-24");
+    expect(builder.lte).toHaveBeenCalledWith("date", "2026-05-30");
+    expect(builder.eq).not.toHaveBeenCalledWith("date", expect.anything());
+  });
+
+  it.each([
+    ["from=2026-05-24", "from and to must both be YYYY-MM-DD"],
+    ["from=2026-05-24&to=30-05-2026", "from and to must both be YYYY-MM-DD"],
+    ["from=2026-02-30&to=2026-03-02", "from and to must both be YYYY-MM-DD"],
+    ["from=2026-05-30&to=2026-05-24", "from must not be after to"],
+    ["from=2026-01-01&to=2026-03-01", "A range can cover at most 42 days"],
+  ])("rejects a bad range (%s)", async (query, error) => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await GET(new Request(`http://localhost/api/schedules?${query}`));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error });
+  });
 });
 
 // ── POST ────────────────────────────────────────────────────────────────────

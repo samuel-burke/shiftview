@@ -3,6 +3,7 @@ import { GET, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 import { DEFAULT_PUNCH_POLICY } from "@/lib/punch-policy";
+import { DEFAULT_SCHEDULING_RULES } from "@/lib/scheduling-rules";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -53,9 +54,29 @@ describe("GET /api/settings", () => {
       geofenceRadius: 100,
       geofenceAddress: null,
       punchPolicy: DEFAULT_PUNCH_POLICY,
+      schedulingRules: DEFAULT_SCHEDULING_RULES,
     });
     expect(body).not.toHaveProperty("optimalCoverage");
     expect(body).not.toHaveProperty("minCoverage");
+  });
+
+  it("returns the scheduling rules parsed from sched_* settings", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        queryData: [
+          { key: "sched_min_rest_minutes", value: "720" },
+          { key: "sched_pt_max_hours", value: "24" },
+        ],
+      }) as any
+    );
+    const res = await GET();
+    expect((await res.json()).schedulingRules).toEqual({
+      ...DEFAULT_SCHEDULING_RULES,
+      minRestMinutes: 720,
+      partTimeMaxHours: 24,
+    });
   });
 
   it("returns default timezone when not set in database", async () => {
@@ -87,6 +108,7 @@ describe("GET /api/settings", () => {
       geofenceRadius: 100,
       geofenceAddress: null,
       punchPolicy: DEFAULT_PUNCH_POLICY,
+      schedulingRules: DEFAULT_SCHEDULING_RULES,
     });
     expect(body).not.toHaveProperty("optimalCoverage");
     expect(body).not.toHaveProperty("minCoverage");
@@ -256,6 +278,52 @@ describe("PUT /api/settings", () => {
     const res = await PUT(putReq({ gpsRequired: 1 }));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("gpsRequired") });
+  });
+
+  // ── Scheduling rules ─────────────────────────────────────────────────────────
+
+  function upsertedRows(client: ReturnType<typeof makeSupabaseClient>) {
+    const results = (client.from as ReturnType<typeof vi.fn>).mock.results;
+    for (const r of results) {
+      const calls = (r.value.upsert as ReturnType<typeof vi.fn>).mock.calls;
+      if (calls.length) return calls[0][0] as { key: string; value: string }[];
+    }
+    return [];
+  }
+
+  it("saves a valid schedulingRules patch as sched_* rows", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: [] });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PUT(putReq({ schedulingRules: { maxShiftMinutes: 600, overtimePolicy: "when_needed" } }));
+    expect(res.status).toBe(200);
+    expect(upsertedRows(client)).toEqual([
+      { key: "sched_max_shift_minutes", value: "600", org_id: MOCK_ORG_ID },
+      { key: "sched_overtime_policy", value: "when_needed", org_id: MOCK_ORG_ID },
+    ]);
+  });
+
+  it("returns 400 for a malformed schedulingRules field", async () => {
+    const res = await PUT(putReq({ schedulingRules: { startGranularityMinutes: 45 } }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/startGranularityMinutes/);
+  });
+
+  it("returns 400 when schedulingRules is not an object", async () => {
+    const res = await PUT(putReq({ schedulingRules: "fast" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when the patch would invert a stored min/max range", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        queryData: [{ key: "sched_max_shift_minutes", value: "300" }],
+      }) as any
+    );
+    const res = await PUT(putReq({ schedulingRules: { minShiftMinutes: 360 } }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("minShiftMinutes cannot exceed maxShiftMinutes");
   });
 
   // ── DB error ─────────────────────────────────────────────────────────────────

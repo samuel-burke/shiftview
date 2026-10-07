@@ -17,6 +17,8 @@ import {
   DEMO_STORE_HOURS,
   DEMO_COVERAGE_PROFILES,
   DEMO_COVERAGE_DEFAULTS,
+  DEMO_EMPLOYMENT,
+  DEMO_PREFERENCES,
 } from "@/data/demo-fixtures";
 
 const PAST_DAYS = 7;    // published history (timesheets, reports)
@@ -43,6 +45,41 @@ function dateKey(d: Date): string {
 // `date` + minutes-since-midnight as wall-clock time in `timeZone` → UTC ISO.
 function zonedToUtcIso(date: string, minutes: number, timeZone: string): string {
   return zonedTimeToUtc(date, minutes, timeZone).toISOString();
+}
+
+// The 0034 schema isn't there yet: Postgres "undefined column" / "undefined
+// table", or PostgREST's schema-cache misses for a column it's asked to write
+// (PGRST204) and, from PostgREST 13, a table (PGRST205).
+const MISSING_SCHEMA = new Set(["42703", "42P01", "PGRST204", "PGRST205"]);
+
+async function seedSchedulingProfiles(admin: SupabaseClient, empId: Map<number, number>): Promise<void> {
+  for (const [fixtureId, e] of Object.entries(DEMO_EMPLOYMENT)) {
+    const { error } = await admin
+      .from("employees")
+      .update({
+        employment_type: e.type,
+        min_weekly_hours: e.minHours ?? null,
+        max_weekly_hours: e.maxHours ?? null,
+        max_days_per_week: e.maxDays ?? null,
+      })
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("id", empId.get(Number(fixtureId))!);
+    if (error && MISSING_SCHEMA.has(error.code ?? "")) return;
+    if (error) throw new Error(`[demo-seed] employment update failed: ${error.message}`);
+  }
+
+  const preferenceRows = Object.entries(DEMO_PREFERENCES).map(([fixtureId, p]) => ({
+    org_id: DEMO_ORG_ID,
+    employee_id: empId.get(Number(fixtureId))!,
+    preferred_shift_types: p.shiftTypes,
+    preferred_days: p.preferredDays ?? [],
+    avoid_days: p.avoidDays ?? [],
+    desired_weekly_hours: p.desiredHours ?? null,
+    note: p.note ?? null,
+  }));
+  const { error } = await admin.from("employee_preferences").insert(preferenceRows);
+  if (error && !MISSING_SCHEMA.has(error.code ?? ""))
+    throw new Error(`[demo-seed] employee_preferences insert failed: ${error.message}`);
 }
 
 export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult> {
@@ -86,6 +123,11 @@ export async function seedDemoOrg(admin: SupabaseClient): Promise<DemoSeedResult
     const { error } = await admin.from("availability").insert(availabilityRows);
     if (error) throw new Error(`[demo-seed] availability insert failed: ${error.message}`);
   }
+
+  // 2b. Employment types, weekly limits and shift preferences (migration 0034).
+  //     Skipped, not fatal, on a database that predates it, so the nightly
+  //     reset keeps working whichever of code and migration ships first.
+  await seedSchedulingProfiles(admin, empId);
 
   // 3. Settings. email_notifications stays "false" as an extra layer on top of
   //    the demo-org email suppression.

@@ -80,4 +80,50 @@ describe("WeekGrid", () => {
     expect(screen.getByRole("button", { name: /Bob Jones, Wednesday, October 7: off, time off requested/ })).toHaveTextContent("Time off requested");
     expect(screen.getByRole("button", { name: /Alice Smith, Monday, October 5/ })).toHaveAttribute("aria-pressed", "true");
   });
+
+  describe("in Draft mode", () => {
+    // Alice's Monday and Bob's Monday are live; drafts fill the rest.
+    const LIVE = SCHEDULES.map((s) => ({ ...s, source: "live" as const }));
+    const DRAFTS = [
+      { id: 50, employeeId: 2, date: "2026-10-06", startMinutes: 540, endMinutes: 1020, source: "draft" as const, generationRunId: 3 }, // Tue, auto
+      { id: 51, employeeId: 2, date: "2026-10-07", startMinutes: 360, endMinutes: 840, source: "draft" as const, generationRunId: null }, // Wed, by hand
+      { id: 52, employeeId: 1, date: "2026-10-05", startMinutes: 600, endMinutes: 900, source: "draft" as const, generationRunId: null }, // clashes with live Mon
+    ];
+
+    it("tags drafts and shows live shifts as read-only context", () => {
+      renderGrid({ mode: "draft", schedules: [...LIVE, ...DRAFTS] });
+      expect(screen.getByRole("button", { name: "Bob Jones, Tuesday, October 6: Mid 9a to 5p, auto draft" })).toHaveTextContent("Auto · Mid");
+      expect(screen.getByRole("button", { name: "Bob Jones, Wednesday, October 7: Opener 6a to 2p, draft" })).toHaveTextContent("Draft · Opener");
+      expect(screen.getByRole("button", { name: "Bob Jones, Monday, October 5: Mid 9a to 5p, live shift (change it in Live mode)" })).toHaveTextContent("Live");
+      expect(screen.getByRole("button", { name: /Bob Jones, Thursday, October 8: off\. Add a draft shift/ })).toBeInTheDocument();
+    });
+
+    it("keeps the live shift where an older draft clashes, and opens the draft", async () => {
+      const { onSelect } = renderGrid({ mode: "draft", schedules: [...LIVE, ...DRAFTS] });
+      const cell = screen.getByRole("button", { name: /Alice Smith, Monday, October 5: Opener 6a to 2p, live shift; a draft for this day won't publish/ });
+      expect(cell).toHaveTextContent("Clash");
+      await userEvent.click(cell);
+      expect(onSelect).toHaveBeenCalledWith(EMPLOYEES[0], "2026-10-05", DRAFTS[2]);
+    });
+
+    it("totals the week as it will be after publishing", () => {
+      renderGrid({ mode: "draft", schedules: [...LIVE, ...DRAFTS] });
+      const footer = screen.getByRole("rowheader", { name: /After publishing/ }).closest("tr")!;
+      // Live 8 + 9 + 8, plus Bob's drafts 8 + 8; the clashing draft doesn't count.
+      expect(within(footer).getByText("41 hrs")).toBeInTheDocument();
+    });
+
+    it("ignores drafts in Live mode", () => {
+      renderGrid({ schedules: [...LIVE, ...DRAFTS] });
+      expect(screen.getByRole("button", { name: /Bob Jones, Tuesday, October 6: off\. Add a shift/ })).toBeInTheDocument();
+    });
+  });
+
+  it("lets the day headers pick the selected day", async () => {
+    const onSelectDate = vi.fn();
+    renderGrid({ selectedDate: "2026-10-06", onSelectDate });
+    expect(screen.getByRole("button", { name: "Tuesday, October 6" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Monday, October 5, today" }));
+    expect(onSelectDate).toHaveBeenCalledWith("2026-10-05");
+  });
 });

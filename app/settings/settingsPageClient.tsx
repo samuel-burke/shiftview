@@ -11,12 +11,17 @@ import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
+import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
+import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
+import SchedulingRulesSection from "../../components/SchedulingRulesSection";
+import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
+import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
 
 // Templates are applied to the 7 days starting at a chosen date: default to
@@ -67,19 +72,7 @@ const FIRST_DAY_OPTIONS = [
   { label: "Saturday", value: 6 },
 ];
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-type Employee = { id: number; name: string; email: string | null; user_id: string | null };
-
-function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string }) {
-  return (
-    <div data-testid={testId} aria-live="polite">
-      {status === "saving" && <div className="text-xs text-slate-400 mt-2 text-right">Saving…</div>}
-      {status === "saved"  && <div className="text-xs text-emerald-400 mt-2 text-right">Saved ✓</div>}
-      {status === "error"  && <div role="alert" className="text-xs text-red-400 mt-2 text-right">Failed to save</div>}
-    </div>
-  );
-}
+type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null };
 
 // Top-level grouping divider — sits above a cluster of related settings
 // sections to give the page a clear two-tier hierarchy (group → section → card).
@@ -440,6 +433,7 @@ export default function SettingsPageClient({
 
   // ── Punch Violations ─────────────────────────────────────────────────────────
   const [punchPolicy, setPunchPolicy] = useState<PunchPolicy>(DEFAULT_PUNCH_POLICY);
+  const [schedulingRules, setSchedulingRules] = useState<SchedulingRules>(DEFAULT_SCHEDULING_RULES);
   const [punchPolicyStatus, setPunchPolicyStatus] = useState<SaveStatus>("idle");
 
   // Optimistically apply a policy patch, then persist it. Reverts on failure.
@@ -671,6 +665,7 @@ export default function SettingsPageClient({
           setAddressInput(s.geofenceAddress);
         }
         if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
+        if (s.schedulingRules) setSchedulingRules({ ...DEFAULT_SCHEDULING_RULES, ...s.schedulingRules });
       })
       .catch(() => {});
     fetch("/api/employees")
@@ -854,6 +849,11 @@ export default function SettingsPageClient({
             weeklyHours={weeklyHours}
             firstDayOfWeek={firstDayOfWeek}
           />
+        )}
+
+        {/* Shift preferences — what the employee would like; used by Auto-schedule */}
+        {employeeId !== null && (
+          <ShiftPreferencesSection employeeId={employeeId} firstDayOfWeek={firstDayOfWeek} />
         )}
 
         {/* Appearance — all users */}
@@ -1087,6 +1087,14 @@ export default function SettingsPageClient({
             </button>
           </div>
         </section>}
+
+        {/* Scheduling Rules — manager only. What Auto-schedule (Week page, Draft mode) works within. */}
+        {isManager && (
+          <SchedulingRulesSection
+            rules={schedulingRules}
+            onSaved={(next) => { setSchedulingRules(next); refreshSettings(); }}
+          />
+        )}
 
         {/* Time Clock — manager only */}
         {isManager && <section>
@@ -1558,6 +1566,14 @@ export default function SettingsPageClient({
                   </div>
                   {isManager && (
                     <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
+                  )}
+                  {isManager && (
+                    <EmployeeSchedulingRow
+                      employee={emp}
+                      rules={schedulingRules}
+                      firstDayOfWeek={firstDayOfWeek}
+                      onSaved={(fields) => setEmployees((prev) => prev.map((e) => (e.id === emp.id ? { ...e, ...fields } : e)))}
+                    />
                   )}
                 </motion.div>
               ))

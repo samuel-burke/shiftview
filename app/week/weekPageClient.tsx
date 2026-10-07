@@ -1,203 +1,498 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import EmployeeDrawer from "../../components/EmployeeDrawer";
 import WeekGrid, { type PendingTimeOff } from "../../components/WeekGrid";
+import AutoScheduleSheet, { type PlannerEmployee } from "../../components/AutoScheduleSheet";
+import AutoScheduleSummary from "../../components/AutoScheduleSummary";
+import WeekHeader, { Sparkle } from "../../components/week/WeekHeader";
+import WeekInsights, { WeekStats } from "../../components/week/WeekInsights";
+import { DayChips, DayList, DayToolbar } from "../../components/week/DayPanel";
+import PublishDialog from "../../components/week/PublishDialog";
 import { useAppData } from "@/lib/AppDataContext";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { throwApiError, useWeekShifts } from "@/hooks/useWeekShifts";
+import { useAutoSchedule } from "@/hooks/useAutoSchedule";
 import { addDaysToKey, dayOfWeekForKey, formatDateKey, nowMinutesInTz, weekStartForKey } from "@/lib/dates";
-import type { Employee, Schedule } from "@/data/types";
+import { weekDates } from "@/lib/draft-metrics";
+import { curveForDate, type CoverageBlock, type CoverageDefaults, type CoverageOverrides, type CoverageProfile } from "@/lib/coverage";
+import type { EmploymentType } from "@/lib/scheduling-rules";
+import { cellKey, clashingDrafts, projectedShifts, weekCells, type SourcedShift } from "@/lib/week-cells";
+import { parseWeekParams, weekHref, type WeekMode } from "@/lib/week-params";
+import { fmtMinutes, formatDisplayName } from "@/data/types";
 
-type Selected = { emp: Employee; date: string; sch: Schedule | null };
+// The Week page: the team's week, in one of two modes (kept in the URL).
+// Live shows and edits the published schedule. Draft shows the week as it will
+// be after publishing (live shifts, read-only, plus drafts) and edits drafts,
+// with Auto-schedule and Publish. The coverage tools follow the mode.
 
-/** True when a key press is meant for a form control rather than the page. */
+type PublishResult = { weekStart: string; published: number; skipped: { employeeId: number; date: string }[] };
+
+/** True when a key press is meant for a control rather than the page. */
 function typingInField(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el) return false;
-  return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
+  return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.getAttribute("role") === "radio";
 }
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export default function WeekPageClient() {
   const router = useRouter();
-  const { me, sharedLoading, storeHours, settings } = useAppData();
+  const searchParams = useSearchParams();
+  const apiFetch = useMemo(() => createApiFetch(() => router.push("/login")), [router]);
+  const { me, sharedLoading, storeHours, settings, employees: cachedEmployees, cacheEmployees } = useAppData();
   const { timezone, firstDayOfWeek } = settings;
   const todayKey = useStoreTodayKey(timezone);
-  const apiFetch = useMemo(() => createApiFetch(() => router.push("/login")), [router]);
 
+  const { mode, weekStart } = parseWeekParams(searchParams, todayKey, firstDayOfWeek);
+  const isDraftMode = mode === "draft";
   const thisWeek = weekStartForKey(todayKey, firstDayOfWeek);
-  const [weekStart, setWeekStart] = useState<string | null>(null);
-  const start = weekStart ?? thisWeek;
-  const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysToKey(start, i)), [start]);
+  const dates = useMemo(() => weekDates(weekStart), [weekStart]);
 
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [employees, setEmployees] = useState<PlannerEmployee[]>(() => cachedEmployees);
   const [timeOff, setTimeOff] = useState<PendingTimeOff[]>([]);
-  // The week whose shifts are on screen; while it differs from `start` the grid is loading.
-  const [loadedWeek, setLoadedWeek] = useState<string | null>(null);
-  const loading = loadedWeek !== start;
-  const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Selected | null>(null);
+  const [profiles, setProfiles] = useState<CoverageProfile[]>([]);
+  const [defaults, setDefaults] = useState<CoverageDefaults>({});
+  const [overrides, setOverrides] = useState<CoverageOverrides>({});
+  const [coverageUnavailable, setCoverageUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  // The day the charts and day list follow, as a weekday so it carries across
+  // weeks (and survives the week's start day arriving with the settings).
+  const [pickedDay, setPickedDay] = useState<number | null>(null);
+  // The cell open in the editor.
+  const [picked, setPicked] = useState<{ employeeId: number; date: string } | null>(null);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<PublishResult | null>(null);
 
-  // Managers only — everyone else goes back to the dashboard.
+  // Managers only; everyone else goes back to the dashboard.
   useEffect(() => {
     if (!sharedLoading && !me.isManager) router.replace("/");
   }, [sharedLoading, me.isManager, router]);
 
   useEffect(() => {
-    apiFetch("/api/employees")
+    const controller = new AbortController();
+    apiFetch("/api/employees", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data) => { if (Array.isArray(data)) setEmployees(data); })
-      .catch(() => setError("Couldn't load the team. Refresh to try again."));
-    apiFetch("/api/time-off")
+      .then((data: PlannerEmployee[]) => {
+        if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); }
+      })
+      .catch(() => { if (!controller.signal.aborted) setLoadError("Couldn't load the team. Refresh to try again."); });
+    apiFetch("/api/time-off", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data && Array.isArray(data.requests)) setTimeOff(data.requests); })
       .catch(() => {});
-  }, [apiFetch]);
+    return () => controller.abort();
+  }, [apiFetch, cacheEmployees]);
 
-  const loadWeek = useCallback(async (keys: string[]) => {
-    const days = await Promise.all(
-      keys.map((d) => apiFetch(`/api/schedules?date=${d}`).then((r) => (r.ok ? r.json() : Promise.reject())))
-    );
-    // One entry per shift, limited to this week's days.
-    const inWeek = new Set(keys);
-    const byId = new Map<number, Schedule>();
-    for (const s of days.flatMap((d) => (Array.isArray(d) ? (d as Schedule[]) : []))) {
-      if (inWeek.has(s.date.slice(0, 10))) byId.set(s.id, s);
-    }
-    return [...byId.values()];
-  }, [apiFetch]);
-
+  // Coverage targets for the week: each date's profile override, else its weekday default.
   useEffect(() => {
+    if (sharedLoading) return;
     let cancelled = false;
-    loadWeek(dates)
-      .then((all) => { if (!cancelled) { setSchedules(all); setError(null); } })
-      .catch(() => { if (!cancelled) setError("Couldn't load this week's shifts. Refresh to try again."); })
-      .finally(() => { if (!cancelled) setLoadedWeek(dates[0]); });
+    Promise.all([
+      apiFetch("/api/coverage-profiles").then((r) => (r.ok ? r.json() : Promise.reject())),
+      apiFetch(`/api/coverage-assignments?from=${dates[0]}&to=${dates[6]}`).then((r) => (r.ok ? r.json() : Promise.reject())),
+    ])
+      .then(([profileRows, assignments]) => {
+        if (cancelled) return;
+        if (Array.isArray(profileRows)) setProfiles(profileRows);
+        setDefaults(assignments?.defaults ?? {});
+        setOverrides(assignments?.overrides ?? {});
+        setCoverageUnavailable(false);
+      })
+      .catch(() => { if (!cancelled) setCoverageUnavailable(true); });
     return () => { cancelled = true; };
-  }, [dates, loadWeek]);
+  }, [apiFetch, sharedLoading, dates]);
 
-  const reload = useCallback(async () => {
-    const all = await loadWeek(dates);
-    setSchedules(all);
-    // Keep the open pane pointing at the fresh copy of its shift.
-    setSelected((cur) => cur && { ...cur, sch: all.find((s) => s.employeeId === cur.emp.id && s.date.slice(0, 10) === cur.date) ?? null });
-  }, [dates, loadWeek]);
+  const week = useWeekShifts({ enabled: !sharedLoading, dates, apiFetch });
+  const { live, drafts } = week;
+  const loading = week.loading || sharedLoading;
+  const auto = useAutoSchedule({
+    enabled: !sharedLoading && isDraftMode,
+    weekStart,
+    apiFetch,
+    onDraftsChanged: week.reloadDrafts,
+  });
+
+  // Drafts whose person already has a live shift that day: publishing skips them.
+  const clashes = useMemo(() => clashingDrafts(live, drafts), [live, drafts]);
+  const publishCount = drafts.length - clashes.length;
+  // What the grid and day list show: live shifts, plus drafts in Draft mode.
+  const gridShifts = useMemo(() => (isDraftMode ? [...live, ...drafts] : live), [isDraftMode, live, drafts]);
+  // What the numbers count: the live week, or the week after publishing.
+  const counted = useMemo(() => (isDraftMode ? projectedShifts(live, drafts) : live), [isDraftMode, live, drafts]);
+  const cells = useMemo(() => weekCells(gridShifts, mode), [gridShifts, mode]);
+
+  const curves = useMemo(
+    (): Record<string, CoverageBlock[]> =>
+      Object.fromEntries(dates.map((d) => [d, curveForDate(d, overrides, defaults, profiles)])),
+    [dates, overrides, defaults, profiles]
+  );
+
+  // Until a day is picked: today in this week, else the week's first day.
+  const selectedDate =
+    (pickedDay === null ? undefined : dates.find((d) => dayOfWeekForKey(d) === pickedDay)) ??
+    (dates.includes(todayKey) ? todayKey : dates[0]);
+  const selectDate = (date: string) => setPickedDay(dayOfWeekForKey(date));
+
+  // ---- Navigation: the mode and week live in the URL ----
+  function go(nextMode: WeekMode, nextWeek: string) {
+    // The week's start day comes with the settings; a week picked before
+    // then could snap back to the one it was picked from.
+    if (sharedLoading) return;
+    setPublishResult(null);
+    if (nextWeek !== weekStart) setPicked(null);
+    router.replace(weekHref(nextMode, nextWeek), { scroll: false });
+  }
+  const goToWeek = (next: string) => go(mode, next);
 
   // ←/→ change the week, T jumps to this week. Ignored while typing or while
-  // the shift pane is open (its own controls take the keys).
+  // the editor, Auto-schedule or the publish dialog is open.
+  const pickedCell = picked && dates.includes(picked.date) ? picked : null;
+  const overlayOpen = pickedCell !== null || auto.sheetOpen || confirmPublish;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (selected || e.metaKey || e.ctrlKey || e.altKey || typingInField(e.target)) return;
-      if (e.key === "ArrowLeft") setWeekStart(addDaysToKey(start, -7));
-      else if (e.key === "ArrowRight") setWeekStart(addDaysToKey(start, 7));
-      else if (e.key === "t" || e.key === "T") setWeekStart(null);
+      if (overlayOpen || e.metaKey || e.ctrlKey || e.altKey || typingInField(e.target)) return;
+      if (e.key === "ArrowLeft") goToWeek(addDaysToKey(weekStart, -7));
+      else if (e.key === "ArrowRight") goToWeek(addDaysToKey(weekStart, 7));
+      else if (e.key === "t" || e.key === "T") goToWeek(thisWeek);
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [start, selected]);
+  });
 
-  async function mutate(init: RequestInit, fallback: string) {
-    const res = await apiFetch("/api/schedules", { ...init, headers: { "Content-Type": "application/json" } });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      if (body.conflict) {
-        throw Object.assign(new Error(body.message ?? "Conflict"), { conflict: body.conflict, window: body.window ?? null });
+  // ---- The editor ----
+  // Live: the live shift. Draft: the draft (a clash opens the draft, so it can
+  // be removed); a live shift is view only, with a way back to Live.
+  const pickedEmp = pickedCell ? employees.find((e) => e.id === pickedCell.employeeId) ?? null : null;
+  const cell = pickedCell ? cells.get(cellKey(pickedCell.employeeId, pickedCell.date)) : undefined;
+  const editor: { source: WeekMode; shift: SourcedShift | null; readOnly: boolean; notice?: string } = !isDraftMode
+    ? { source: "live", shift: cell?.live ?? null, readOnly: false }
+    : cell?.draft
+    ? {
+        source: "draft",
+        shift: cell.draft,
+        readOnly: false,
+        notice: cell.live
+          ? `This draft won't publish: there's already a live shift that day (${fmtMinutes(cell.live.startMinutes)} – ${fmtMinutes(cell.live.endMinutes)}). Remove the draft, or change the live shift in Live mode.`
+          : undefined,
       }
-      throw new Error(body.error ?? fallback);
-    }
-    await reload();
+    : cell?.live
+    ? { source: "live", shift: cell.live, readOnly: true }
+    : { source: "draft", shift: null, readOnly: false };
+
+  function openCell(employeeId: number, date: string) {
+    setPicked({ employeeId, date });
+    selectDate(date);
   }
 
-  const weekLabel = `${formatDateKey(dates[0], { month: "short", day: "numeric" })} – ${formatDateKey(dates[6], { month: "short", day: "numeric", year: "numeric" })}`;
-  const isThisWeek = start === thisWeek;
-  const selDow = selected ? dayOfWeekForKey(selected.date) : 0;
+  // ---- Coverage, team and publishing ----
+  async function handleAssignProfile(date: string, profileId: number | null) {
+    setActionError(null);
+    try {
+      const res = await apiFetch("/api/coverage-assignments", {
+        method: profileId === null ? "DELETE" : "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(profileId === null ? { date } : { date, profileId }),
+      });
+      if (!res.ok) await throwApiError(res, "Failed to update coverage assignment");
+      setOverrides((prev) => {
+        const next = { ...prev };
+        if (profileId === null) delete next[date];
+        else next[date] = profileId;
+        return next;
+      });
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to update coverage assignment");
+    }
+  }
 
-  const navButton = "size-10 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors";
+  async function handleSetEmploymentType(employeeId: number, type: EmploymentType) {
+    const res = await apiFetch("/api/employees", {
+      method: "PATCH",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ id: employeeId, employmentType: type }),
+    });
+    if (!res.ok) return;
+    setEmployees((prev) => prev.map((e) => (e.id === employeeId ? { ...e, employment_type: type } : e)));
+  }
+
+  async function handlePublish() {
+    setPublishing(true);
+    setActionError(null);
+    try {
+      const res = await apiFetch("/api/drafts/publish", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ weekStart }),
+      });
+      if (!res.ok) await throwApiError(res, "Failed to publish schedule");
+      const result = await res.json().catch(() => ({}));
+      auto.clearRun();
+      setConfirmPublish(false);
+      // Show the published week, live.
+      router.replace(weekHref("live", weekStart), { scroll: false });
+      setPublishResult({
+        weekStart,
+        published: Number(result.published) || 0,
+        skipped: Array.isArray(result.skippedDrafts) ? result.skippedDrafts : [],
+      });
+      week.reloadAll().catch(() => setActionError("Published. Refresh to see the week's shifts."));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to publish schedule");
+      setConfirmPublish(false);
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  // The day picker for the charts' "Change day": the chips on phones, the
+  // grid's day headers from tablets up. Bring it into view on the selected day.
+  function focusDayPicker() {
+    const picker = [
+      document.getElementById("week-day-picker"),
+      document.querySelector<HTMLElement>('[data-testid="week-grid"] thead'),
+    ].find((el) => el && el.offsetParent !== null);
+    picker?.scrollIntoView({ behavior: "smooth", block: "center" });
+    picker?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
+  }
+
+  const nameOf = (id: number) => {
+    const emp = employees.find((e) => e.id === id);
+    return emp ? formatDisplayName(emp.name) : "Someone";
+  };
+  const banner = publishResult && !isDraftMode && publishResult.weekStart === weekStart ? publishResult : null;
+  const skippedText = !banner || banner.skipped.length === 0
+    ? null
+    : banner.skipped.length === 1
+    ? `1 draft stayed in Draft: ${nameOf(banner.skipped[0].employeeId)} already has a live shift on ${formatDateKey(banner.skipped[0].date, { weekday: "short", month: "short", day: "numeric" })}.`
+    : `${banner.skipped.length} drafts stayed in Draft; those people already have a live shift that day: ${banner.skipped
+        .slice(0, 3)
+        .map((s) => `${nameOf(s.employeeId)} (${formatDateKey(s.date, { weekday: "short" })})`)
+        .join(", ")}${banner.skipped.length > 3 ? `, and ${banner.skipped.length - 3} more` : ""}.`;
+
+  const missingTables = [
+    isDraftMode && week.draftsUnavailable && "draft schedules",
+    coverageUnavailable && "coverage profiles",
+  ].filter(Boolean);
+  const errorText = actionError ?? week.error ?? loadError;
+  const weekLabel = `${formatDateKey(dates[0], { month: "short", day: "numeric" })} – ${formatDateKey(dates[6], { month: "short", day: "numeric", year: "numeric" })}`;
+  const pickedDow = pickedCell ? dayOfWeekForKey(pickedCell.date) : 0;
 
   return (
     <AppShell active="week" isManager>
       <main
         className={`max-w-[480px] mx-auto pb-28 bg-bg min-h-screen tablet:max-w-none tablet:pb-10 wide:transition-[padding] wide:duration-300 ${
-          selected ? "wide:pr-[420px]" : ""
+          pickedCell ? "wide:pr-[420px]" : ""
         }`}
       >
-        {/* Header */}
-        <div
-          className="px-4 pb-3 flex flex-wrap items-center gap-3 border-b border-slate-800 bg-bg tablet:px-6 desk:py-[14px]"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-        >
-          <button onClick={() => router.back()} aria-label="Back" className={`${navButton} size-11 tablet:hidden`}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Week</div>
-            <h1 className="text-xl font-extrabold text-slate-100 tracking-tight tabular-nums">{weekLabel}</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setWeekStart(addDaysToKey(start, -7))} aria-label="Previous week" className={navButton}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-            <button
-              onClick={() => setWeekStart(null)}
-              disabled={isThisWeek}
-              className="h-10 px-3.5 rounded-xl bg-card border border-slate-800 text-sm font-semibold text-slate-200 cursor-pointer hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-default"
-            >
-              This week
-            </button>
-            <button onClick={() => setWeekStart(addDaysToKey(start, 7))} aria-label="Next week" className={navButton}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-            <Link
-              href="/draft"
-              className="h-10 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 flex items-center hover:brightness-110 transition-all"
-            >
-              Plan next week
-            </Link>
-          </div>
-        </div>
+        <WeekHeader
+          mode={mode}
+          weekLabel={weekLabel}
+          isThisWeek={weekStart === thisWeek}
+          ready={!sharedLoading}
+          draftCount={drafts.length}
+          publishCount={publishCount}
+          busy={loading}
+          onModeChange={(next) => go(next, weekStart)}
+          onPrevWeek={() => goToWeek(addDaysToKey(weekStart, -7))}
+          onNextWeek={() => goToWeek(addDaysToKey(weekStart, 7))}
+          onThisWeek={() => goToWeek(thisWeek)}
+          onAutoSchedule={auto.openSheet}
+          onPublish={() => setConfirmPublish(true)}
+          onBack={() => router.back()}
+        />
 
-        {error && (
-          <div role="alert" className="mx-4 tablet:mx-6 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">
-            {error}
+        {/* Banners */}
+        {missingTables.length > 0 && (
+          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 tablet:mx-6">
+            Database tables are missing ({missingTables.join(" and ")}). Apply the migrations in{" "}
+            <code className="font-mono">supabase/migrations/</code> in the Supabase SQL editor.
+          </div>
+        )}
+        {errorText && (
+          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 tablet:mx-6">
+            {errorText}
+          </div>
+        )}
+        <AnimatePresence>
+          {banner && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              role="status"
+              data-testid="publish-result"
+              className="mx-4 mt-3 px-4 py-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl tablet:mx-6"
+            >
+              <div className="text-sm font-semibold text-emerald-400">
+                Published {banner.published} shift{banner.published === 1 ? "" : "s"}. The team can see {banner.published === 1 ? "it" : "them"} now.
+              </div>
+              {skippedText && <div className="text-xs text-amber-400 mt-1">{skippedText}</div>}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isDraftMode && auto.showSummary && auto.currentRun && (
+          <AutoScheduleSummary
+            run={auto.currentRun}
+            employees={employees}
+            busy={auto.summaryBusy}
+            error={auto.summaryError}
+            onUndo={auto.undo}
+            onTryAnother={auto.tryAnother}
+            onApplySuggestion={auto.applySuggestion}
+            onDismiss={auto.dismissSummary}
+          />
+        )}
+
+        {isDraftMode && !loading && !week.draftsUnavailable && drafts.length === 0 && !auto.currentRun && employees.length > 0 && (
+          <div
+            data-testid="auto-schedule-empty"
+            className="mx-4 mt-3 tablet:mx-6 px-4 py-3.5 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] flex items-center gap-3"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
+              </div>
+            </div>
+            {/* Phones have the header's button right above. */}
+            <button
+              type="button"
+              onClick={auto.openSheet}
+              className="hidden tablet:flex px-3.5 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/35 text-violet-100 font-bold text-xs cursor-pointer hover:bg-violet-500/30 transition-colors shrink-0 items-center gap-1.5"
+            >
+              <Sparkle />
+              Auto-schedule
+            </button>
           </div>
         )}
 
-        <div className={`px-4 pt-4 tablet:px-6 wide:max-w-[1680px] wide:mx-auto transition-opacity ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
-          <WeekGrid
-            employees={employees}
-            schedules={schedules}
-            dates={dates}
-            weeklyHours={storeHours}
-            todayKey={todayKey}
-            timeOff={timeOff}
-            selected={selected ? { employeeId: selected.emp.id, date: selected.date } : null}
-            onSelect={(emp, date, sch) => setSelected({ emp, date, sch })}
+        <div className="px-4 pt-4 tablet:px-6 wide:max-w-[1680px] wide:mx-auto">
+          <div className="mb-4">
+            <WeekStats shifts={counted} dates={dates} curves={curves} timezone={timezone} loading={loading} />
+          </div>
+
+          {/* The editor. Phones: pick a day, see everyone. Tablets and up: the team grid. */}
+          <div className="tablet:hidden">
+            <DayChips dates={dates} selectedDate={selectedDate} onSelectDate={selectDate} shifts={counted} curves={curves} timezone={timezone} />
+          </div>
+          <DayToolbar
+            date={selectedDate}
+            shifts={counted}
+            curves={curves}
+            timezone={timezone}
+            profiles={profiles}
+            defaults={defaults}
+            overrides={overrides}
+            onAssignProfile={handleAssignProfile}
           />
-          <p className="hidden desk:block mt-3 text-xs text-slate-500">
-            Click a cell to edit or add a shift. <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> change the week, <kbd className="font-mono">T</kbd> returns to this week.
-          </p>
+          <div className="tablet:hidden">
+            <DayList
+              mode={mode}
+              date={selectedDate}
+              dates={dates}
+              employees={employees}
+              shifts={gridShifts}
+              storeHours={storeHours}
+              timeOff={timeOff}
+              rules={settings.schedulingRules}
+              timezone={timezone}
+              loading={loading}
+              selected={pickedCell}
+              onSelect={(emp, date) => openCell(emp.id, date)}
+            />
+          </div>
+          <div className={`hidden tablet:block mb-4 transition-opacity ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+            <WeekGrid
+              employees={employees}
+              schedules={gridShifts}
+              dates={dates}
+              weeklyHours={storeHours}
+              todayKey={todayKey}
+              mode={mode}
+              timezone={timezone}
+              timeOff={timeOff}
+              selected={pickedCell}
+              onSelect={(emp, date) => openCell(emp.id, date)}
+              selectedDate={selectedDate}
+              onSelectDate={selectDate}
+            />
+            <p className="hidden desk:block mt-3 text-xs text-slate-500">
+              Click a cell to {isDraftMode ? "draft" : "edit or add"} a shift, or a day to see its coverage.{" "}
+              <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> change the week, <kbd className="font-mono">T</kbd> returns to this week.
+            </p>
+          </div>
+
+          <WeekInsights
+            shifts={counted}
+            dates={dates}
+            curves={curves}
+            storeHours={storeHours}
+            employees={employees}
+            rules={settings.schedulingRules}
+            timezone={timezone}
+            loading={loading}
+            selectedDate={selectedDate}
+            onSelectDate={selectDate}
+            onPickDay={focusDayPicker}
+          />
         </div>
 
         <EmployeeDrawer
-          open={!!selected}
-          employee={selected?.emp ?? null}
-          schedule={selected?.sch ?? null}
-          storeHours={storeHours[selDow]}
+          open={pickedEmp !== null}
+          employee={pickedEmp}
+          schedule={editor.shift}
+          storeHours={storeHours[pickedDow] ?? { open: 0, close: 1440 }}
           nowMinutes={nowMinutesInTz(timezone)}
-          isToday={selected?.date === todayKey}
-          date={selected?.date}
+          isToday={!isDraftMode && pickedCell?.date === todayKey}
+          date={pickedCell?.date}
           isManager
-          onClose={() => setSelected(null)}
-          onSave={(id, startMinutes, endMinutes, override = false) =>
-            mutate({ method: "PUT", body: JSON.stringify({ id, startMinutes, endMinutes, override }) }, "Failed to save shift")}
+          source={editor.source}
+          readOnly={editor.readOnly}
+          notice={editor.notice}
+          onSwitchToLive={() => go("live", weekStart)}
+          onClose={() => setPicked(null)}
+          onSave={(id, startMinutes, endMinutes, override = false) => week.save(editor.source, id, startMinutes, endMinutes, override)}
           onCreate={(employeeId, startMinutes, endMinutes, override = false) =>
-            mutate({ method: "POST", body: JSON.stringify({ employeeId, date: selected!.date, startMinutes, endMinutes, override }) }, "Failed to add shift")}
-          onMarkOff={(id) => mutate({ method: "DELETE", body: JSON.stringify({ id }) }, "Failed to mark as off")}
+            week.create(editor.source, employeeId, pickedCell!.date, startMinutes, endMinutes, override)}
+          onMarkOff={(id) => week.remove(editor.source, id)}
+        />
+
+        {isDraftMode && (
+          <AutoScheduleSheet
+            open={auto.sheetOpen}
+            onClose={auto.closeSheet}
+            weekLabel={weekLabel}
+            dates={dates}
+            employees={employees}
+            draftCount={drafts.length}
+            curves={curves}
+            rules={settings.schedulingRules}
+            initialAdjustments={auto.currentRun?.adjustments ?? []}
+            generating={auto.generating}
+            error={auto.sheetError}
+            onGenerate={auto.generate}
+            onSetEmploymentType={handleSetEmploymentType}
+          />
+        )}
+
+        <PublishDialog
+          open={confirmPublish}
+          publishing={publishing}
+          weekLabel={weekLabel}
+          publishCount={publishCount}
+          clashCount={clashes.length}
+          onCancel={() => setConfirmPublish(false)}
+          onConfirm={handlePublish}
         />
 
         <BottomNav active="week" />
