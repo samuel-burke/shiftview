@@ -35,28 +35,28 @@ Every screen below is captured from the home page's product demos, which are bui
 
 <table>
   <tr>
-    <td align="center" width="25%">
+    <td align="center" valign="top" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-team-light.png" />
         <img alt="Manager dashboard with live coverage timeline and who is clocked in" src="docs/screenshots/phone-team-dark.png" />
       </picture>
       <br /><sub><b>Live coverage</b><br />Planned vs. clocked in, updated in real time</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" valign="top" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-schedule-light.png" />
         <img alt="Employee weekly schedule with shift types and today's shift" src="docs/screenshots/phone-schedule-dark.png" />
       </picture>
       <br /><sub><b>My schedule</b><br />The week at a glance, call-outs and swaps</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" valign="top" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-requests-light.png" />
         <img alt="A time-off request open in the manager's Requests inbox, next to that day's schedule" src="docs/screenshots/phone-requests-dark.png" />
       </picture>
       <br /><sub><b>Approvals</b><br />Time off and two-step shift swaps</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" valign="top" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-clock-light.png" />
         <img alt="Employee time clock just after clocking in, with today's punches" src="docs/screenshots/phone-clock-dark.png" />
