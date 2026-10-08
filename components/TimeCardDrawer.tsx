@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
+import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
 
 type Props = {
   open: boolean;
@@ -38,26 +39,15 @@ const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string
   ncns:        { label: "No Call No Show", className: "bg-red-600/20 text-red-300 border border-red-500/40" },
 };
 
-function todayKey(tz: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: tz });
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+const todayKey = todayKeyInTz;
+const addDays = addDaysToKey;
 
 function formatDayHeader(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
-    weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
-  });
+  return formatDateKey(dateStr, { weekday: "short", month: "short", day: "numeric" });
 }
 
 function formatPunchTime(iso: string, tz: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: tz, hour: "numeric", minute: "2-digit",
-  });
+  return formatTimeInTz(iso, tz);
 }
 
 export default function TimeCardDrawer({ open, employee, timezone, onClose }: Props) {
@@ -124,8 +114,6 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
     a.click();
   }
 
-  const counts = data?.violationCounts;
-
   return (
     <>
       <div
@@ -143,207 +131,258 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div
-          className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: 16 }}
+        <TimeCardPanel
+          employee={employee}
+          from={from}
+          to={to}
+          onFromChange={setFrom}
+          onToChange={setTo}
+          onApply={applyRange}
+          onClose={onClose}
+          onExport={exportCSV}
+          data={data}
+          loading={loading}
+          error={error}
+        />
+      </div>
+    </>
+  );
+}
+
+/**
+ * The time card itself: header, date range, the summary and each day's
+ * punches, and the export. The drawer above supplies its state; the home
+ * page's demo renders it with sample data. Returns the column's children, so
+ * the caller's flex column lays them out.
+ */
+export function TimeCardPanel({
+  employee,
+  from,
+  to,
+  onFromChange,
+  onToChange,
+  onApply,
+  onClose,
+  onExport,
+  data,
+  loading,
+  error,
+}: {
+  employee: { id: number; name: string } | null;
+  from: string;
+  to: string;
+  onFromChange: (date: string) => void;
+  onToChange: (date: string) => void;
+  onApply: () => void;
+  onClose: () => void;
+  onExport: () => void;
+  data: Timecard | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const counts = data?.violationCounts;
+  return (
+    <>
+      {/* Header */}
+      <div
+        className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: 16 }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="text-base font-bold text-slate-100 truncate">
+            {employee?.name ?? "Time Card"}
+          </div>
+          <div className="text-[11px] text-slate-500">Time card · punches & violations</div>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors"
         >
-          <div className="flex-1 min-w-0">
-            <div className="text-base font-bold text-slate-100 truncate">
-              {employee?.name ?? "Time Card"}
-            </div>
-            <div className="text-[11px] text-slate-500">Time card · punches & violations</div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          >
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-            </svg>
-          </button>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Date range controls */}
+      <div className="px-5 py-3 border-b border-slate-800 shrink-0 flex items-end gap-2 flex-wrap">
+        <div className="flex-1 min-w-[120px]">
+          <label htmlFor="tc-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+          <input
+            id="tc-from"
+            type="date"
+            value={from}
+            max={to}
+            onChange={(e) => onFromChange(e.target.value)}
+            className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+          />
         </div>
-
-        {/* Date range controls */}
-        <div className="px-5 py-3 border-b border-slate-800 shrink-0 flex items-end gap-2 flex-wrap">
-          <div className="flex-1 min-w-[120px]">
-            <label htmlFor="tc-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
-            <input
-              id="tc-from"
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => setFrom(e.target.value)}
-              className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
-            />
-          </div>
-          <div className="flex-1 min-w-[120px]">
-            <label htmlFor="tc-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
-            <input
-              id="tc-to"
-              type="date"
-              value={to}
-              min={from}
-              onChange={(e) => setTo(e.target.value)}
-              className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
-            />
-          </div>
-          <button
-            onClick={applyRange}
-            disabled={loading || from > to}
-            className="py-1.5 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading ? "…" : "Apply"}
-          </button>
+        <div className="flex-1 min-w-[120px]">
+          <label htmlFor="tc-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+          <input
+            id="tc-to"
+            type="date"
+            value={to}
+            min={from}
+            onChange={(e) => onToChange(e.target.value)}
+            className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+          />
         </div>
+        <button
+          onClick={onApply}
+          disabled={loading || from > to}
+          className="py-1.5 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? "…" : "Apply"}
+        </button>
+      </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {error && (
-            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          {loading && !data && (
-            <div className="flex flex-col gap-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} aria-hidden="true" className="h-20 bg-slate-800 rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          )}
-
-          {!loading && data && (
-            <>
-              {/* Summary */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
-                  <div className="text-[20px] font-extrabold text-slate-100 tabular-nums leading-none">
-                    {data.totalWorkedHours.toFixed(1)}
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Hours</div>
-                </div>
-                <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
-                  <div className="text-[20px] font-extrabold text-slate-100 tabular-nums leading-none">
-                    {data.totalBreakHours.toFixed(1)}
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Break</div>
-                </div>
-                <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
-                  <div className={`text-[20px] font-extrabold tabular-nums leading-none ${data.totalViolations > 0 ? "text-red-400" : "text-slate-100"}`}>
-                    {data.totalViolations}
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Flags</div>
-                </div>
-              </div>
-
-              {/* Violation breakdown chips */}
-              {counts && data.totalViolations > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {(Object.keys(counts) as ViolationType[])
-                    .filter((t) => counts[t] > 0)
-                    .map((t) => (
-                      <span
-                        key={t}
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${VIOLATION_STYLES[t].className}`}
-                      >
-                        {VIOLATION_STYLES[t].label} · {counts[t]}
-                      </span>
-                    ))}
-                </div>
-              )}
-
-              {/* Per-day cards */}
-              {data.days.length === 0 ? (
-                <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
-                  <div className="text-slate-400 text-sm font-medium">Nothing recorded in this period</div>
-                  <div className="text-slate-500 text-xs mt-1">No shifts, punches, or call-outs for these dates</div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  {data.days.map((day) => (
-                    <div key={day.date} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="text-sm font-bold text-slate-100">{formatDayHeader(day.date)}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {day.schedule
-                            ? `${fmtMinutes(day.schedule.startMinutes)} – ${fmtMinutes(day.schedule.endMinutes)}`
-                            : "Unscheduled"}
-                        </div>
-                      </div>
-
-                      {/* Violations */}
-                      {day.violations.length > 0 && (
-                        <div className="flex flex-col gap-1 mb-2">
-                          {day.violations.map((v, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${VIOLATION_STYLES[v.type].className}`}>
-                                {v.label}
-                              </span>
-                              <span className="text-[11px] text-slate-400">{v.detail}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Punches */}
-                      {day.punches.length > 0 ? (
-                        <div className="flex flex-wrap gap-x-3 gap-y-1">
-                          {day.punches.map((p) => (
-                            <div key={p.id} className="flex items-center gap-1.5 text-[11px]">
-                              <span
-                                aria-hidden="true"
-                                className="size-1.5 rounded-full shrink-0"
-                                style={{ background: PUNCH_COLORS[p.punchType] }}
-                              />
-                              <span className="text-slate-400">{PUNCH_LABELS[p.punchType]}</span>
-                              <span className="text-slate-200 font-semibold tabular-nums">
-                                {formatPunchTime(p.punchedAt, data.timezone)}
-                              </span>
-                              {p.isManual && (
-                                <span className="text-[9px] text-amber-400/80 uppercase" title="Manual correction">✎</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        !day.callout && <div className="text-[11px] text-slate-500 italic">No punches</div>
-                      )}
-
-                      {/* Hours footer */}
-                      {(day.workedHours > 0 || day.breakHours > 0 || day.hasIncomplete) && (
-                        <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center gap-3 text-[11px] text-slate-400">
-                          <span className="font-semibold text-slate-300 tabular-nums">{day.workedHours.toFixed(2)}h worked</span>
-                          {day.breakHours > 0 && <span className="tabular-nums">{day.breakHours.toFixed(2)}h break</span>}
-                          {day.hasIncomplete && (
-                            <span className="text-amber-400" title="Missing a clock-out or break-end">⚠ incomplete</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer — export */}
-        {data && data.days.length > 0 && (
-          <div
-            className="px-5 border-t border-slate-800 shrink-0"
-            style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
-          >
-            <button
-              onClick={exportCSV}
-              className="w-full py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm cursor-pointer hover:bg-slate-700 transition-colors"
-            >
-              Export CSV
-            </button>
+      {/* Body */}
+      <div data-testid="timecard-body" className="flex-1 overflow-y-auto px-5 py-4">
+        {error && (
+          <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
+            {error}
           </div>
         )}
+
+        {loading && !data && (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} aria-hidden="true" className="h-20 bg-slate-800 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {!loading && data && (
+          <>
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
+                <div className="text-[20px] font-extrabold text-slate-100 tabular-nums leading-none">
+                  {data.totalWorkedHours.toFixed(1)}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Hours</div>
+              </div>
+              <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
+                <div className="text-[20px] font-extrabold text-slate-100 tabular-nums leading-none">
+                  {data.totalBreakHours.toFixed(1)}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Break</div>
+              </div>
+              <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
+                <div className={`text-[20px] font-extrabold tabular-nums leading-none ${data.totalViolations > 0 ? "text-red-400" : "text-slate-100"}`}>
+                  {data.totalViolations}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Flags</div>
+              </div>
+            </div>
+
+            {/* Violation breakdown chips */}
+            {counts && data.totalViolations > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {(Object.keys(counts) as ViolationType[])
+                  .filter((t) => counts[t] > 0)
+                  .map((t) => (
+                    <span
+                      key={t}
+                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${VIOLATION_STYLES[t].className}`}
+                    >
+                      {VIOLATION_STYLES[t].label} · {counts[t]}
+                    </span>
+                  ))}
+              </div>
+            )}
+
+            {/* Per-day cards */}
+            {data.days.length === 0 ? (
+              <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
+                <div className="text-slate-400 text-sm font-medium">Nothing recorded in this period</div>
+                <div className="text-slate-500 text-xs mt-1">No shifts, punches, or call-outs for these dates</div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {data.days.map((day) => (
+                  <div key={day.date} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="text-sm font-bold text-slate-100">{formatDayHeader(day.date)}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {day.schedule
+                          ? `${fmtMinutes(day.schedule.startMinutes)} – ${fmtMinutes(day.schedule.endMinutes)}`
+                          : "Unscheduled"}
+                      </div>
+                    </div>
+
+                    {/* Violations */}
+                    {day.violations.length > 0 && (
+                      <div className="flex flex-col gap-1 mb-2">
+                        {day.violations.map((v, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${VIOLATION_STYLES[v.type].className}`}>
+                              {v.label}
+                            </span>
+                            <span className="text-[11px] text-slate-400">{v.detail}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Punches */}
+                    {day.punches.length > 0 ? (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {day.punches.map((p) => (
+                          <div key={p.id} className="flex items-center gap-1.5 text-[11px]">
+                            <span
+                              aria-hidden="true"
+                              className="size-1.5 rounded-full shrink-0"
+                              style={{ background: PUNCH_COLORS[p.punchType] }}
+                            />
+                            <span className="text-slate-400">{PUNCH_LABELS[p.punchType]}</span>
+                            <span className="text-slate-200 font-semibold tabular-nums">
+                              {formatPunchTime(p.punchedAt, data.timezone)}
+                            </span>
+                            {p.isManual && (
+                              <span className="text-[9px] text-amber-400/80 uppercase" title="Manual correction">✎</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      !day.callout && <div className="text-[11px] text-slate-500 italic">No punches</div>
+                    )}
+
+                    {/* Hours footer */}
+                    {(day.workedHours > 0 || day.breakHours > 0 || day.hasIncomplete) && (
+                      <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center gap-3 text-[11px] text-slate-400">
+                        <span className="font-semibold text-slate-300 tabular-nums">{day.workedHours.toFixed(2)}h worked</span>
+                        {day.breakHours > 0 && <span className="tabular-nums">{day.breakHours.toFixed(2)}h break</span>}
+                        {day.hasIncomplete && (
+                          <span className="text-amber-400" title="Missing a clock-out or break-end">⚠ incomplete</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Footer — export */}
+      {data && data.days.length > 0 && (
+        <div
+          className="px-5 border-t border-slate-800 shrink-0"
+          style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+        >
+          <button
+            onClick={onExport}
+            className="w-full py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm cursor-pointer hover:bg-slate-700 transition-colors"
+          >
+            Export CSV
+          </button>
+        </div>
+      )}
     </>
   );
 }

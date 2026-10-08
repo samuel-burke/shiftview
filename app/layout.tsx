@@ -1,7 +1,6 @@
 import "./globals.css";
 import { Suspense } from "react";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
-import AddToHomeScreenBanner from "../components/AddToHomeScreenBanner";
 import InAppNotificationBanner from "../components/InAppNotificationBanner";
 import PresenceHeartbeat from "../components/PresenceHeartbeat";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -39,7 +38,7 @@ export default function RootLayout({
       <head>
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <link rel="apple-touch-icon" href="/icon-512.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icon-apple-180.png" />
         <meta name="theme-color" content="#0a1628" />
         <meta name="screen-orientation" content="portrait" />
         <meta
@@ -56,7 +55,6 @@ export default function RootLayout({
           </Suspense>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
-        <AddToHomeScreenBanner />
         <InAppNotificationBanner />
         <PresenceHeartbeat />
         <SpeedInsights />

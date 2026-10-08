@@ -87,3 +87,27 @@ describe("wouldExceedThreshold", () => {
     expect(wouldExceedThreshold(600, 480)).toBe(false);
   });
 });
+
+describe("DST-aware scheduled time", () => {
+  const tz = "America/New_York";
+
+  it("counts a shift spanning a DST change in real elapsed minutes", () => {
+    expect(shiftMinutes({ date: "2026-11-01", startMinutes: 0, endMinutes: 480 }, tz)).toBe(540);
+    expect(shiftMinutes({ date: "2026-03-08", startMinutes: 0, endMinutes: 480 }, tz)).toBe(420);
+    expect(shiftMinutes({ date: "2026-07-08", startMinutes: 0, endMinutes: 480 }, tz)).toBe(480);
+    // Without a timezone it stays plain wall-clock arithmetic.
+    expect(shiftMinutes({ date: "2026-11-01", startMinutes: 0, endMinutes: 480 })).toBe(480);
+  });
+
+  it("flags overtime that only the extra fall-back hour creates", () => {
+    const week = ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"];
+    const shifts: EmployeeShift[] = [
+      ...["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29"].map((date) => ({ employeeId: 1, date, startMinutes: 540, endMinutes: 1020 })),
+      { employeeId: 1, date: "2026-11-01", startMinutes: 0, endMinutes: 480 },
+    ];
+    expect(summarizeWeeklyHours(shifts, week)[0].isOvertime).toBe(false); // 40h by wall clock
+    const [row] = summarizeWeeklyHours(shifts, week, WEEKLY_OVERTIME_THRESHOLD_MINUTES, tz);
+    expect(row.totalMinutes).toBe(41 * 60);
+    expect(row.overtimeMinutes).toBe(60);
+  });
+});

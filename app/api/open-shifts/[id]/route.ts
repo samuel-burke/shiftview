@@ -4,6 +4,7 @@ import { requireManager } from "@/lib/require-manager";
 import { withOrg } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { findShiftOverlap } from "@/lib/shift-conflicts-server";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,13 @@ export async function PUT(
     return NextResponse.json({ error: "Claim not found" }, { status: 404 });
 
   const employeeId = claim.employee_id;
+
+  // Don't double-book: the claimant may have picked up an overlapping shift —
+  // possibly an overnight one on a neighbouring day — since claiming.
+  const overlap = await findShiftOverlap(
+    supabase, "schedules", orgId!, employeeId, String(shift.date).slice(0, 10), shift.start_minutes, shift.end_minutes
+  );
+  if (overlap) return NextResponse.json({ error: overlap }, { status: 409 });
 
   // Create the real schedule row for the claimant.
   const { error: scheduleError } = await supabase.from("schedules").insert(

@@ -94,3 +94,22 @@ describe("getPunchWarning — other punch types", () => {
     expect(getPunchWarning("break_end", 480, schedule)).toBeNull();
   });
 });
+
+describe("getPunchWarning — DST-aware timing", () => {
+  const fallBack: Schedule = { id: 2, employeeId: 1, date: "2026-11-01", startMinutes: 90, endMinutes: 540 };
+  const tz = "America/New_York";
+
+  it("warns at the repeated 1:30 AM on the fall-back night (an hour late in real time)", () => {
+    // Wall clock reads 1:30 both times; only real elapsed time tells them apart.
+    const second130 = Date.parse("2026-11-01T06:30:00Z");
+    expect(getPunchWarning("clock_in", 90, fallBack)).toBeNull(); // wall-clock fallback
+    const w = getPunchWarning("clock_in", 90, fallBack, { nowMs: second130, tz });
+    expect(w?.heading).toBe("Late Clock-In");
+    expect(w?.diffMinutes).toBe(60);
+  });
+
+  it("does not warn at the first 1:30 AM", () => {
+    const first130 = Date.parse("2026-11-01T05:30:00Z");
+    expect(getPunchWarning("clock_in", 90, fallBack, { nowMs: first130, tz })).toBeNull();
+  });
+});

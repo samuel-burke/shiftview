@@ -1,0 +1,311 @@
+{
+  "weekStart": "2026-10-12",
+  "seed": 6,
+  "timeOff": [
+    {
+      "employeeId": 2,
+      "day": 4,
+      "status": "approved"
+    },
+    {
+      "employeeId": 9,
+      "day": 5,
+      "status": "pending"
+    }
+  ],
+  "shifts": [
+    {
+      "employeeId": 1,
+      "date": "2026-10-12",
+      "startMinutes": 540,
+      "endMinutes": 900
+    },
+    {
+      "employeeId": 4,
+      "date": "2026-10-12",
+      "startMinutes": 540,
+      "endMinutes": 990
+    },
+    {
+      "employeeId": 10,
+      "date": "2026-10-12",
+      "startMinutes": 540,
+      "endMinutes": 1020
+    },
+    {
+      "employeeId": 2,
+      "date": "2026-10-12",
+      "startMinutes": 720,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 6,
+      "date": "2026-10-12",
+      "startMinutes": 900,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 8,
+      "date": "2026-10-12",
+      "startMinutes": 990,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 7,
+      "date": "2026-10-12",
+      "startMinutes": 1020,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 1,
+      "date": "2026-10-13",
+      "startMinutes": 540,
+      "endMinutes": 840
+    },
+    {
+      "employeeId": 9,
+      "date": "2026-10-13",
+      "startMinutes": 540,
+      "endMinutes": 870
+    },
+    {
+      "employeeId": 4,
+      "date": "2026-10-13",
+      "startMinutes": 540,
+      "endMinutes": 1020
+    },
+    {
+      "employeeId": 10,
+      "date": "2026-10-13",
+      "startMinutes": 720,
+      "endMinutes": 960
+    },
+    {
+      "employeeId": 2,
+      "date": "2026-10-13",
+      "startMinutes": 840,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 3,
+      "date": "2026-10-13",
+      "startMinutes": 870,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 11,
+      "date": "2026-10-13",
+      "startMinutes": 960,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 7,
+      "date": "2026-10-13",
+      "startMinutes": 1020,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 9,
+      "date": "2026-10-14",
+      "startMinutes": 540,
+      "endMinutes": 780
+    },
+    {
+      "employeeId": 1,
+      "date": "2026-10-14",
+      "startMinutes": 540,
+      "endMinutes": 870
+    },
+    {
+      "employeeId": 4,
+      "date": "2026-10-14",
+      "startMinutes": 540,
+      "endMinutes": 900
+    },
+    {
+      "employeeId": 5,
+      "date": "2026-10-14",
+      "startMinutes": 720,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 10,
+      "date": "2026-10-14",
+      "startMinutes": 780,
+      "endMinutes": 1020
+    },
+    {
+      "employeeId": 3,
+      "date": "2026-10-14",
+      "startMinutes": 870,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 6,
+      "date": "2026-10-14",
+      "startMinutes": 900,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 8,
+      "date": "2026-10-14",
+      "startMinutes": 1020,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 3,
+      "date": "2026-10-15",
+      "startMinutes": 540,
+      "endMinutes": 810
+    },
+    {
+      "employeeId": 9,
+      "date": "2026-10-15",
+      "startMinutes": 540,
+      "endMinutes": 870
+    },
+    {
+      "employeeId": 1,
+      "date": "2026-10-15",
+      "startMinutes": 540,
+      "endMinutes": 1020
+    },
+    {
+      "employeeId": 5,
+      "date": "2026-10-15",
+      "startMinutes": 720,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 2,
+      "date": "2026-10-15",
+      "startMinutes": 810,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 6,
+      "date": "2026-10-15",
+      "startMinutes": 870,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 7,
+      "date": "2026-10-15",
+      "startMinutes": 1020,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 9,
+      "date": "2026-10-16",
+      "startMinutes": 540,
+      "endMinutes": 840
+    },
+    {
+      "employeeId": 1,
+      "date": "2026-10-16",
+      "startMinutes": 540,
+      "endMinutes": 990
+    },
+    {
+      "employeeId": 4,
+      "date": "2026-10-16",
+      "startMinutes": 540,
+      "endMinutes": 1020
+    },
+    {
+      "employeeId": 5,
+      "date": "2026-10-16",
+      "startMinutes": 720,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 3,
+      "date": "2026-10-16",
+      "startMinutes": 840,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 11,
+      "date": "2026-10-16",
+      "startMinutes": 990,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 6,
+      "date": "2026-10-16",
+      "startMinutes": 1020,
+      "endMinutes": 1260
+    },
+    {
+      "employeeId": 4,
+      "date": "2026-10-17",
+      "startMinutes": 600,
+      "endMinutes": 840
+    },
+    {
+      "employeeId": 5,
+      "date": "2026-10-17",
+      "startMinutes": 600,
+      "endMinutes": 840
+    },
+    {
+      "employeeId": 2,
+      "date": "2026-10-17",
+      "startMinutes": 600,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 3,
+      "date": "2026-10-17",
+      "startMinutes": 600,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 12,
+      "date": "2026-10-17",
+      "startMinutes": 840,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 9,
+      "date": "2026-10-18",
+      "startMinutes": 600,
+      "endMinutes": 840
+    },
+    {
+      "employeeId": 2,
+      "date": "2026-10-18",
+      "startMinutes": 600,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 5,
+      "date": "2026-10-18",
+      "startMinutes": 600,
+      "endMinutes": 1080
+    },
+    {
+      "employeeId": 12,
+      "date": "2026-10-18",
+      "startMinutes": 600,
+      "endMinutes": 1080
+    }
+  ],
+  "metrics": {
+    "coverageScore": 100,
+    "coverageScoreBefore": 0,
+    "budgetHours": 266,
+    "scheduledHours": 266,
+    "generatedHours": 266,
+    "generatedShifts": 46,
+    "shortfallHours": 0,
+    "overstaffHours": 0,
+    "overtimeHours": 0,
+    "laborCost": 4791.39,
+    "employeesMissingRate": 0,
+    "preferenceScore": 82
+  },
+  "gaps": [],
+  "suggestions": [],
+  "warnings": []
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { localDateKey } from "@/lib/dates";
 import {
   Schedule,
   StoreHours,
@@ -40,9 +41,6 @@ type Props = {
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-function toDateKey(d: Date) {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
 
 export default function MonthView({
   schedules,
@@ -55,8 +53,8 @@ export default function MonthView({
   timeOffRequests = [],
   calloutDates = [],
 }: Props) {
-  const todayKey = toDateKey(today);
-  const selectedKey = toDateKey(selectedDate);
+  const todayKey = localDateKey(today);
+  const selectedKey = localDateKey(selectedDate);
   const DAY_LABELS = Array.from(
     { length: 7 },
     (_, i) => ALL_DAYS[(firstDayOfWeek + i) % 7],
@@ -160,7 +158,7 @@ export default function MonthView({
             {week.map((d, di) => {
               if (!d) return <div key={di} />;
 
-              const dateKey = toDateKey(d);
+              const dateKey = localDateKey(d);
               const isToday = dateKey === todayKey;
               const isSelected = dateKey === selectedKey;
               const schedule =

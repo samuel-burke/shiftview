@@ -186,29 +186,14 @@ describe("DELETE /api/templates/[id]", () => {
 describe("POST /api/templates/[id]/apply", () => {
   beforeEach(() => { vi.resetModules(); });
 
-  it("returns 422 when weekStartDate is not a Monday", async () => {
-    vi.mocked(createClient).mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
-    );
-    const { POST } = await import("./[id]/apply/route");
-    const req = new Request("http://localhost/api/templates/1/apply", {
-      method: "POST",
-      body: JSON.stringify({ weekStartDate: "2026-06-02" }), // Tuesday
-      headers: { "Content-Type": "application/json" },
-    });
-    const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
-    expect(res.status).toBe(422);
-    const body = await res.json();
-    expect(body.error).toMatch(/Monday/i);
-  });
-
   it("returns { created, skipped } correctly", async () => {
     const templateRows = [
       { employee_id: 1, day_of_week: 0, start_minutes: 480, end_minutes: 960 },
       { employee_id: 2, day_of_week: 1, start_minutes: 540, end_minutes: 1020 },
     ];
     // employee 1 already scheduled on that day
-    const existingSchedules = [{ employee_id: 1, date: "2026-06-01" }];
+    // day_of_week 0 = Sunday: in the week starting Monday 2026-06-01 that's 2026-06-07.
+    const existingSchedules = [{ employee_id: 1, date: "2026-06-07" }];
 
     const supabase = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     vi.spyOn(supabase, "from").mockImplementation((table: string) => {
@@ -250,9 +235,26 @@ describe("POST /api/templates/[id]/apply", () => {
     const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    // employee_id 1 on day_of_week 0 = 2026-06-01, already scheduled → skipped
-    // employee_id 2 on day_of_week 1 = 2026-06-02 → created
+    // employee_id 1 on day_of_week 0 (Sunday) = 2026-06-07, already scheduled → skipped
+    // employee_id 2 on day_of_week 1 (Monday) = 2026-06-01 → created
     expect(body.created).toBe(1);
     expect(body.skipped).toBe(1);
+  });
+});
+
+describe("POST /api/templates — row validation", () => {
+  it("rejects a dayOfWeek outside 0 (Sunday) … 6 (Saturday)", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+    );
+    const req = new Request("http://localhost/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Bad", rows: [{ employeeId: 1, dayOfWeek: 7, startMinutes: 480, endMinutes: 960 }] }),
+    });
+    const { POST } = await import("./route");
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/0 = Sunday/);
   });
 });

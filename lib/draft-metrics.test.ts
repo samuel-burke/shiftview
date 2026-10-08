@@ -162,3 +162,16 @@ describe("headcountAt", () => {
   });
 });
 
+
+describe("headcountAt — overnight shifts", () => {
+  const night: ShiftSpan = { date: "2026-06-01", startMinutes: 1320, endMinutes: 1800 }; // 10 PM – 6 AM
+
+  it("counts the shift late on its start day", () => {
+    expect(headcountAt([night], "2026-06-01", 1380)).toBe(1);
+  });
+
+  it("counts its after-midnight part on the next day", () => {
+    expect(headcountAt([night], "2026-06-02", 120)).toBe(1);
+    expect(headcountAt([night], "2026-06-02", 360)).toBe(0);
+  });
+});

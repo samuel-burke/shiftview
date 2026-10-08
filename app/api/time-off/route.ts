@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
+import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +75,8 @@ export async function GET(request?: Request) {
 
   if (!emp) return NextResponse.json({ requests: [] });
 
-  const today = new Date().toISOString().slice(0, 10);
-  const ninetyDaysOut = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  const ninetyDaysOut = addDaysToKey(today, 90);
 
   const { data: requests, error: fetchError } = await supabase
     .from("time_off_requests")
@@ -109,12 +109,8 @@ export async function POST(request: Request) {
 
   if (!employeeId || !Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
-  if (!date || !DATE_RE.test(date))
+  if (!date || !DATE_RE.test(date) || !isDateKey(date))
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
-
-  const today = new Date().toISOString().slice(0, 10);
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   const supabase = await createClient();
 
@@ -125,6 +121,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
+
+  // "Today" is the store's calendar day, not UTC's.
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  if (date < today)
+    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   // Verify the employee belongs to the current user and is in the same org
   // (Only allow submitting for your own employee record)

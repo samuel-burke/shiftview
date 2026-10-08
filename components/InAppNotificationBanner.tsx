@@ -34,6 +34,9 @@ const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string 
   pto_approved:       { Icon: TimeOffApprovedIcon, color: "#34d399" },
   pto_denied:         { Icon: TimeOffDeniedIcon,   color: "#f87171" },
   late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
+  punch_correction_requested: { Icon: WarningIcon,         color: "#fbbf24" },
+  punch_correction_approved:  { Icon: TimeOffApprovedIcon, color: "#34d399" },
+  punch_correction_denied:    { Icon: TimeOffDeniedIcon,   color: "#f87171" },
   schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
   message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
 };

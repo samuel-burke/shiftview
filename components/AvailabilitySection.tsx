@@ -291,7 +291,7 @@ export default function AvailabilitySection({
       </div>
       </div>
 
-      {/* Bottom sheet */}
+      {/* Bottom sheet on phones; centered dialog from the tablet size class up */}
       {activeDow !== null && (
         <>
           {/* Backdrop */}
@@ -307,14 +307,14 @@ export default function AvailabilitySection({
             aria-modal="true"
             aria-labelledby="avail-sheet-title"
             data-testid="availability-sheet"
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${sheetOpen ? "translate-y-0" : "translate-y-full"}`}
+            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
           >
             {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex justify-center pt-3 pb-1 tablet:hidden">
               <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
             </div>
 
-            <div className="px-5 pb-10 pt-2">
+            <div className="px-5 pb-10 pt-2 tablet:px-6 tablet:pt-6 tablet:pb-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <h3 id="avail-sheet-title" className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>

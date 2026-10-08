@@ -17,6 +17,7 @@ export default function BottomNav({ active }: Props) {
   return (
     <nav
       aria-label="Main navigation"
+      data-testid="bottom-nav"
       /*
        * Opaque background, no backdrop-filter: on iOS Safari an element that is
        * both `position: fixed` and has a backdrop-filter intermittently loses
@@ -24,12 +25,12 @@ export default function BottomNav({ active }: Props) {
        * already 95% opaque, so dropping the blur for a solid bg is a no-op
        * visually but keeps the nav reliably pinned to the bottom.
        */
-      className="[@media(min-width:900px)]:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800/80 max-w-[480px] mx-auto"
+      className="tablet:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800/80 max-w-[480px] mx-auto"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">
-        {/* Pill — snaps instantly to the active tab */}
-        <div
+        {/* Pill — snaps instantly to the active tab (none on pages without a tab) */}
+        {tabIndex >= 0 && <div
           aria-hidden="true"
           className="absolute top-0 h-[2px] pointer-events-none flex justify-center"
           style={{ width: "33.333%", left: `${tabIndex * 33.333}%` }}
@@ -41,7 +42,7 @@ export default function BottomNav({ active }: Props) {
               boxShadow: "0 0 10px #6366f1aa, 0 0 20px #6366f155",
             }}
           />
-        </div>
+        </div>}
 
         <NavTab href="/" label="Team" isActive={active === "team"}>
           <TeamIcon />

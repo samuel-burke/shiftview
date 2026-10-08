@@ -61,3 +61,23 @@ describe("upcomingAnniversaries", () => {
     expect(list).toEqual([]);
   });
 });
+
+describe("Feb 29 hire dates", () => {
+  it("observes the anniversary on Feb 28 in non-leap years", () => {
+    expect(nextAnniversary("2024-02-29", "2027-01-10")).toBe("2027-02-28");
+    expect(nextAnniversary("2024-02-29", "2028-01-10")).toBe("2028-02-29");
+    expect(nextAnniversary("2024-02-29", "2027-03-01")).toBe("2028-02-29");
+  });
+
+  it("counts the year as complete on Feb 28 of a non-leap year", () => {
+    expect(tenureYears("2024-02-29", "2025-02-27")).toBe(0);
+    expect(tenureYears("2024-02-29", "2025-02-28")).toBe(1);
+    expect(tenureYears("2024-02-29", "2028-02-28")).toBe(3);
+    expect(tenureYears("2024-02-29", "2028-02-29")).toBe(4);
+  });
+
+  it("never produces an invalid date in the upcoming list", () => {
+    const list = upcomingAnniversaries([{ employeeId: 1, hireDate: "2024-02-29" }], "2027-02-20", 30);
+    expect(list).toEqual([{ employeeId: 1, date: "2027-02-28", daysUntil: 8, years: 3 }]);
+  });
+});

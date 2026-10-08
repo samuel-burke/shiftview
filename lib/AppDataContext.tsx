@@ -3,6 +3,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { createClient } from "@/lib/supabase-browser";
 import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedule, type PunchRecord, type StoreHours } from "@/data/types";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
+import { DEFAULT_SCHEDULING_RULES, type SchedulingRules } from "@/lib/scheduling-rules";
+import { DEFAULT_TIMEZONE } from "@/lib/dates";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -17,6 +19,7 @@ export type AppSettings = {
   geofenceRadius: number;
   geofenceAddress: string | null;
   punchPolicy: PunchPolicy;
+  schedulingRules: SchedulingRules;
 };
 
 export type MeData = {
@@ -41,7 +44,7 @@ export const DEFAULT_STORE_HOURS: Record<number, StoreHours> = {
 export const DEFAULT_SETTINGS: AppSettings = {
   firstDayOfWeek: 6,
   coverageAlertsEnabled: true,
-  timezone: "America/New_York",
+  timezone: DEFAULT_TIMEZONE,
   emailNotifications: false,
   manualPunchesEnabled: true,
   gpsRequired: false,
@@ -51,7 +54,18 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geofenceRadius: 100,
   geofenceAddress: null,
   punchPolicy: DEFAULT_PUNCH_POLICY,
+  schedulingRules: DEFAULT_SCHEDULING_RULES,
 };
+
+// /api/settings fills every field, but a response from an older server (or a
+// test double) may predate newer ones; default anything missing.
+function withSettingsDefaults(data: Partial<AppSettings>): AppSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...data,
+    schedulingRules: { ...DEFAULT_SCHEDULING_RULES, ...data.schedulingRules },
+  };
+}
 
 type AppDataContextValue = {
   me: MeData;
@@ -222,18 +236,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const refreshSettings = useCallback(() => {
     fetch("/api/settings")
       .then(r => r.json())
-      .then((data: AppSettings) => setSettings(data))
+      .then((data: Partial<AppSettings>) => setSettings(withSettingsDefaults(data)))
       .catch(() => {});
   }, []);
 
-  // Fetch today's punches for the current user and derive the live attendance
+  // Fetch the current user's current shift and derive the live attendance
   // status. Only meaningful for users linked to an employee record; managers
-  // without one keep "not_clocked_in" (no ring). Reads me/timezone via refs so
-  // the callback identity stays stable across renders.
+  // without one keep "not_clocked_in" (no ring). Reads me via a ref so the
+  // callback identity stays stable across renders.
   const meRef = useRef(me);
   meRef.current = me;
-  const timezoneRef = useRef(settings.timezone);
-  timezoneRef.current = settings.timezone;
 
   const refreshLiveStatus = useCallback(() => {
     const empId = meRef.current.employeeId;
@@ -241,12 +253,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setLiveStatus("not_clocked_in");
       return;
     }
-    const tz = timezoneRef.current || "America/New_York";
-    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-    fetch(`/api/punches?date=${todayKey}`)
+    // The current shift — including one still open from before midnight —
+    // decides the status (see /api/punches/current).
+    fetch("/api/punches/current")
       .then(r => r.json())
-      .then((data: PunchRecord[]) => {
-        const mine = Array.isArray(data) ? data.filter(p => p.employeeId === empId) : [];
+      .then((data: { punches?: PunchRecord[] }) => {
+        const mine = Array.isArray(data?.punches) ? data.punches.filter(p => p.employeeId === empId) : [];
         setLiveStatus(getAttendanceStatus(mine));
       })
       .catch(() => {});
@@ -267,15 +279,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     ]).then(([meResult, hoursResult, settingsResult]) => {
       if (meResult.status === "fulfilled") applyMe(meResult.value);
       if (hoursResult.status === "fulfilled") setStoreHours(prev => ({ ...prev, ...hoursResult.value }));
-      if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
+      if (settingsResult.status === "fulfilled") setSettings(withSettingsDefaults(settingsResult.value));
     }).finally(() => setSharedLoading(false));
   }, []);
 
   // Refresh the live attendance status once we know which employee this is
-  // (and whenever that identity changes — e.g. after login or demo heal).
+  // (and whenever that identity changes — e.g. after login or demo heal), and
+  // again once the store timezone is known, since "today" depends on it.
   useEffect(() => {
     refreshLiveStatus();
-  }, [me.employeeId, refreshLiveStatus]);
+  }, [me.employeeId, settings.timezone, refreshLiveStatus]);
 
   // React to auth changes. A just-completed login navigates client-side
   // (router.push) without remounting this provider, so the mount-effect above

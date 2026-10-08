@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import SideNav from "./SideNav";
+import NavRail from "./NavRail";
 import TopBar from "./TopBar";
+import KeyboardShortcuts from "./KeyboardShortcuts";
+import AddToHomeScreenBanner from "./AddToHomeScreenBanner";
+import { useSidebarExpanded } from "@/hooks/useSidebarExpanded";
 
-export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "planner";
+export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "week" | "requests";
 
 type Props = {
   active: NavItem;
@@ -33,15 +38,31 @@ export default function AppShell({
   children,
 }: Props) {
   const showTopBar = onSignOut !== undefined || onSignIn !== undefined;
+  // Desk-size screens can swap the rail for the full sidebar; remembered per device.
+  const [sidebarExpanded, setSidebarExpanded] = useSidebarExpanded();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   return (
-    <div className="[@media(min-width:900px)]:flex min-h-screen bg-bg">
-      <div className="hidden [@media(min-width:900px)]:block">
-        <SideNav active={active} isManager={isManager} />
+    <div className="tablet:flex min-h-screen bg-bg">
+      {/*
+       * compact: BottomNav (rendered by each page) · tablet: icon rail ·
+       * desk: icon rail, or the full sidebar when expanded · wide: full sidebar
+       */}
+      <div className={`hidden tablet:block wide:hidden ${sidebarExpanded ? "desk:hidden" : ""}`}>
+        <NavRail active={active} isManager={isManager} onExpand={() => setSidebarExpanded(true)} />
       </div>
+      <div className={`hidden wide:block ${sidebarExpanded ? "desk:block" : ""}`}>
+        <SideNav
+          active={active}
+          isManager={isManager}
+          onCollapse={() => setSidebarExpanded(false)}
+          onShowShortcuts={() => setShortcutsOpen(true)}
+        />
+      </div>
+      <KeyboardShortcuts active={active} open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
-      {/* Wrapper keeps TopBar + content in a single flex column on desktop */}
-      <div className="[@media(min-width:900px)]:flex-1 [@media(min-width:900px)]:overflow-y-auto min-w-0">
+      {/* Wrapper keeps TopBar + content in a single flex column beside the nav */}
+      <div className="tablet:flex-1 desk:overflow-y-auto min-w-0">
         {/* TopBar sits outside the fade animation so it never visually reloads */}
         {showTopBar && (
           <TopBar
@@ -55,6 +76,7 @@ export default function AppShell({
 
         <div>{children}</div>
       </div>
+      <AddToHomeScreenBanner />
     </div>
   );
 }

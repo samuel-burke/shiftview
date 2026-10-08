@@ -14,6 +14,7 @@ import {
   fmtMinutes,
 } from "../data/types";
 import { ShiftIcon } from "./ShiftIcons";
+import { shiftWindowOn } from "@/lib/shift-times";
 
 type Props = {
   employee: Employee;
@@ -21,6 +22,9 @@ type Props = {
   storeHours: StoreHours;
   nowMinutes: number;
   isToday: boolean;
+  // The store-local day being viewed; a shift from the day before (an
+  // overnight shift) is placed relative to it.
+  dayKey?: string;
   attendanceStatus?: AttendanceStatus;
   onClick: () => void;
 };
@@ -38,17 +42,20 @@ export default function ShiftCard({
   storeHours,
   nowMinutes,
   isToday,
+  dayKey,
   attendanceStatus,
   onClick,
 }: Props) {
+  const fromPrevDay = !!dayKey && !!schedule.date && schedule.date.slice(0, 10) < dayKey;
+  const windowStart = dayKey && schedule.date ? shiftWindowOn(schedule, dayKey).start : schedule.startMinutes;
   const isWalkIn = schedule.startMinutes < 0;
   const shiftType = isWalkIn ? null : getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close);
-  const here = isToday && !isWalkIn && isHere(schedule, nowMinutes);
+  const here = isToday && !isWalkIn && isHere(schedule, nowMinutes, dayKey);
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
 
   let arrivalText: string | null = null;
-  if (!isWalkIn && isToday && !here && schedule.startMinutes > nowMinutes) {
-    const diff = schedule.startMinutes - nowMinutes;
+  if (!isWalkIn && isToday && !here && windowStart > nowMinutes) {
+    const diff = windowStart - nowMinutes;
     const h = Math.floor(diff / 60);
     const m = diff % 60;
     arrivalText = h > 0 ? (m > 0 ? `In ${h}h ${m}m` : `In ${h}h`) : `In ${m}m`;
@@ -58,7 +65,7 @@ export default function ShiftCard({
   if (isToday) {
     if (attendanceStatus) {
       if (attendanceStatus === "not_clocked_in") {
-        if (!isWalkIn && schedule.startMinutes <= nowMinutes) {
+        if (!isWalkIn && windowStart <= nowMinutes) {
           badge = ATTENDANCE_BADGES.not_clocked_in;
         }
       } else {
@@ -73,7 +80,7 @@ export default function ShiftCard({
 
   const glowShadow = `0 0 18px ${shiftColor}20, inset 0 1px 0 rgba(255,255,255,0.04)`;
 
-  const shiftTimeLabel = `${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
+  const shiftTimeLabel = `${fromPrevDay ? "from yesterday, " : ""}${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
   const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
 
   return (
@@ -115,6 +122,7 @@ export default function ShiftCard({
       <div className="text-right shrink-0">
         {!isWalkIn && (
           <div className="text-xs text-slate-400 whitespace-nowrap">
+            {fromPrevDay && <span className="text-slate-500">Yesterday </span>}
             {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
           </div>
         )}

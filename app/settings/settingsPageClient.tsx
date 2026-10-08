@@ -1,21 +1,36 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
+import AppShell from "../../components/AppShell";
 import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
+import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
+import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
+import SchedulingRulesSection from "../../components/SchedulingRulesSection";
+import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
+import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
+import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
+
+// Templates are applied to the 7 days starting at a chosen date: default to
+// the next start of the store's week (its "first day of week" setting) on or
+// after today, in the store's timezone.
+function upcomingWeekStartKey(tz: string, firstDayOfWeek: number): string {
+  const today = todayKeyInTz(tz);
+  return addDaysToKey(today, (firstDayOfWeek - dayOfWeekForKey(today) + 7) % 7);
+}
 
 type NominatimAddress = {
   house_number?: string; road?: string;
@@ -36,6 +51,8 @@ function shortAddress(r: NominatimResult): string {
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Common zones pinned to the top of the picker; every other IANA zone the
+// browser knows is listed below them.
 const TIMEZONE_OPTIONS = [
   { label: "Eastern (ET)",  value: "America/New_York" },
   { label: "Central (CT)",  value: "America/Chicago" },
@@ -55,25 +72,18 @@ const FIRST_DAY_OPTIONS = [
   { label: "Saturday", value: 6 },
 ];
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-type Employee = { id: number; name: string; email: string | null; user_id: string | null };
-
-function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string }) {
-  return (
-    <div data-testid={testId} aria-live="polite">
-      {status === "saving" && <div className="text-xs text-slate-400 mt-2 text-right">Saving…</div>}
-      {status === "saved"  && <div className="text-xs text-emerald-400 mt-2 text-right">Saved ✓</div>}
-      {status === "error"  && <div role="alert" className="text-xs text-red-400 mt-2 text-right">Failed to save</div>}
-    </div>
-  );
-}
+type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null };
 
 // Top-level grouping divider — sits above a cluster of related settings
 // sections to give the page a clear two-tier hierarchy (group → section → card).
+/** Anchor id for a settings group, used by the section nav on wide screens. */
+function groupId(label: string) {
+  return `settings-${label.toLowerCase()}`;
+}
+
 function SettingsGroupHeader({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 mt-3 first:mt-0 select-none">
+    <div id={groupId(label)} className="flex items-center gap-3 mt-3 first:mt-0 select-none scroll-mt-24">
       <span className="text-sm font-bold text-slate-100 tracking-tight">{label}</span>
       <div className="flex-1 h-px bg-slate-800" />
     </div>
@@ -207,7 +217,7 @@ export default function SettingsPageClient({
   const router = useRouter();
   const supabase = createClient();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
-  const { me } = useAppData();
+  const { me, refreshSettings } = useAppData();
   const isDemo = me.isDemo;
 
   // ── Sounds ────────────────────────────────────────────────────────────────
@@ -257,8 +267,9 @@ export default function SettingsPageClient({
   }
 
   // ── Timezone ────────────────────────────────────────────────────────────────
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [timezoneStatus, setTimezoneStatus] = useState<SaveStatus>("idle");
+  const allTimezoneOptions = useMemo(() => allTimezones(), []);
 
   async function saveTimezone(value: string) {
     setTimezone(value);
@@ -269,6 +280,9 @@ export default function SettingsPageClient({
       body: JSON.stringify({ timezone: value }),
     });
     if (res.ok) {
+      // Every screen derives "today" and local times from the shared settings —
+      // refresh them so the new zone applies without a reload.
+      refreshSettings();
       setTimezoneStatus("saved");
       setTimeout(() => setTimezoneStatus("idle"), 2000);
     } else {
@@ -419,6 +433,7 @@ export default function SettingsPageClient({
 
   // ── Punch Violations ─────────────────────────────────────────────────────────
   const [punchPolicy, setPunchPolicy] = useState<PunchPolicy>(DEFAULT_PUNCH_POLICY);
+  const [schedulingRules, setSchedulingRules] = useState<SchedulingRules>(DEFAULT_SCHEDULING_RULES);
   const [punchPolicyStatus, setPunchPolicyStatus] = useState<SaveStatus>("idle");
 
   // Optimistically apply a policy patch, then persist it. Reverts on failure.
@@ -650,6 +665,7 @@ export default function SettingsPageClient({
           setAddressInput(s.geofenceAddress);
         }
         if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
+        if (s.schedulingRules) setSchedulingRules({ ...DEFAULT_SCHEDULING_RULES, ...s.schedulingRules });
       })
       .catch(() => {});
     fetch("/api/employees")
@@ -758,16 +774,27 @@ export default function SettingsPageClient({
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  // Group headers in render order, for the section nav shown from the desk size up.
+  const groups = ["Preferences", ...(isManager ? ["Workplace", "Team"] : []), "Account"];
+
+  /*
+   * Phones: a full-screen sheet that slides in over the current page.
+   * Tablet and up: an ordinary page beside the nav rail / sidebar (the
+   * overlay, slide-in transform and shadow are switched off with tablet:
+   * overrides), with a sticky section nav from the desk size up.
+   */
   return (
+    <AppShell active="settings" isManager={isManager}>
     <motion.div
-      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm [@media(min-width:900px)]:items-center [@media(min-width:900px)]:justify-center"
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm
+                 tablet:static tablet:z-auto tablet:block tablet:bg-transparent tablet:backdrop-blur-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
     <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
-                 [@media(min-width:900px)]:max-w-2xl [@media(min-width:900px)]:max-h-[90vh] [@media(min-width:900px)]:rounded-2xl [@media(min-width:900px)]:shadow-2xl"
+                 tablet:max-w-none tablet:h-auto tablet:min-h-screen tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
       style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
@@ -775,12 +802,12 @@ export default function SettingsPageClient({
     >
       {/* Header */}
       <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0"
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0 tablet:px-6 desk:py-[14px]"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          className="tablet:hidden size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -791,11 +818,26 @@ export default function SettingsPageClient({
         {isDemo && <span className="ml-auto text-[11px] text-blue-400/80 font-medium">Demo Mode</span>}
       </div>
 
+      <div className="tablet:px-2 desk:grid desk:grid-cols-[180px_minmax(0,720px)] desk:justify-center desk:gap-10 desk:px-6">
+      {!loading && (
+        <nav aria-label="Settings sections" className="hidden desk:flex flex-col gap-0.5 sticky top-14 self-start pt-5">
+          {groups.map((g) => (
+            <a
+              key={g}
+              href={`#${groupId(g)}`}
+              className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            >
+              {g}
+            </a>
+          ))}
+        </nav>
+      )}
+
       {loading ? (
-        <div className="px-4 pt-5"><SkeletonSettingsBody isManager={isManager} /></div>
+        <div className="px-4 pt-5 desk:col-start-2"><SkeletonSettingsBody isManager={isManager} /></div>
       ) : null}
 
-      <div className={`px-4 pt-5 pb-12 flex flex-col gap-5${loading ? " hidden" : ""}`}>
+      <div className={`px-4 pt-5 pb-12 flex flex-col gap-5 min-w-0 tablet:max-w-[720px] tablet:mx-auto tablet:w-full desk:mx-0 desk:col-start-2${loading ? " hidden" : ""}`}>
 
         {/* ── Preferences (personal, all users) ── */}
         <SettingsGroupHeader label="Preferences" />
@@ -807,6 +849,11 @@ export default function SettingsPageClient({
             weeklyHours={weeklyHours}
             firstDayOfWeek={firstDayOfWeek}
           />
+        )}
+
+        {/* Shift preferences — what the employee would like; used by Auto-schedule */}
+        {employeeId !== null && (
+          <ShiftPreferencesSection employeeId={employeeId} firstDayOfWeek={firstDayOfWeek} />
         )}
 
         {/* Appearance — all users */}
@@ -1040,6 +1087,14 @@ export default function SettingsPageClient({
             </button>
           </div>
         </section>}
+
+        {/* Scheduling Rules — manager only. What Auto-schedule (Week page, Draft mode) works within. */}
+        {isManager && (
+          <SchedulingRulesSection
+            rules={schedulingRules}
+            onSaved={(next) => { setSchedulingRules(next); refreshSettings(); }}
+          />
+        )}
 
         {/* Time Clock — manager only */}
         {isManager && <section>
@@ -1387,10 +1442,20 @@ export default function SettingsPageClient({
               onChange={(e) => saveTimezone(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors"
             >
-              {TIMEZONE_OPTIONS.map(({ label, value }) => (
-                <option key={value} value={value}>{label} — {value}</option>
-              ))}
-              {!TIMEZONE_OPTIONS.some((o) => o.value === timezone) && (
+              <optgroup label="Common">
+                {TIMEZONE_OPTIONS.map(({ label, value }) => (
+                  <option key={value} value={value}>{label} — {value}</option>
+                ))}
+              </optgroup>
+              <optgroup label="All timezones">
+                {allTimezoneOptions
+                  .filter((o) => !TIMEZONE_OPTIONS.some((c) => c.value === o.value))
+                  .map(({ label, value }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+              </optgroup>
+              {!TIMEZONE_OPTIONS.some((o) => o.value === timezone) &&
+                !allTimezoneOptions.some((o) => o.value === timezone) && (
                 <option value={timezone}>{timezone}</option>
               )}
             </select>
@@ -1502,6 +1567,14 @@ export default function SettingsPageClient({
                   {isManager && (
                     <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
                   )}
+                  {isManager && (
+                    <EmployeeSchedulingRow
+                      employee={emp}
+                      rules={schedulingRules}
+                      firstDayOfWeek={firstDayOfWeek}
+                      onSaved={(fields) => setEmployees((prev) => prev.map((e) => (e.id === emp.id ? { ...e, ...fields } : e)))}
+                    />
+                  )}
                 </motion.div>
               ))
             )}
@@ -1527,7 +1600,7 @@ export default function SettingsPageClient({
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : new Date().toISOString().slice(0, 10) }))}
+                          onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingWeekStartKey(timezone, firstDayOfWeek) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
@@ -1552,6 +1625,7 @@ export default function SettingsPageClient({
                     </div>
                     {applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "" && (
                       <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 shrink-0">Week starting</span>
                         <input
                           type="date"
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
@@ -1664,7 +1738,7 @@ export default function SettingsPageClient({
           </section>
         )}
       </div>
-
+      </div>
 
       <InviteSheet
         open={showInvite}
@@ -1844,5 +1918,6 @@ export default function SettingsPageClient({
       )}
     </motion.div>
     </motion.div>
+    </AppShell>
   );
 }

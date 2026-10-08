@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/notify", () => ({ notify: vi.fn().mockResolvedValue(undefined) }));
@@ -21,6 +21,7 @@ function makeAdminClient({
   employees = [] as any[],
   empErr = null as any,
   demoOrgs = [] as any[],
+  timezones = [] as { org_id: string; value: string }[],
 } = {}) {
   return {
     from: vi.fn().mockImplementation((table: string) => {
@@ -33,7 +34,13 @@ function makeAdminClient({
       if (table === "schedules") {
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: schedules, error: schedErr }),
+          in: vi.fn().mockResolvedValue({ data: schedules, error: schedErr }),
+        };
+      }
+      if (table === "app_settings") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ data: timezones, error: null }),
         };
       }
       if (table === "employees") {
@@ -51,7 +58,16 @@ describe("GET /api/cron/reminders", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("CRON_SECRET", "test-secret");
+    vi.mocked(notify).mockReset();
     vi.mocked(notify).mockResolvedValue(undefined as any);
+    // The cron fires at 22:00 UTC; on 2026-01-01 that is 5 PM in New York, so
+    // "tomorrow" for a default-timezone org is 2026-01-02.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T22:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns 401 when x-cron-secret header missing", async () => {
@@ -180,5 +196,46 @@ describe("GET /api/cron/reminders", () => {
       expect.anything(),
       expect.objectContaining({ orgId: "org-abc" })
     );
+  });
+
+  it("uses each org's own timezone to decide what 'tomorrow' is", async () => {
+    // At 22:00 UTC on Jan 1 it is already 07:00 on Jan 2 in Tokyo, so a Tokyo
+    // store's "tomorrow" is Jan 3 — its Jan 2 shift is today, not tomorrow.
+    const schedules = [
+      { id: 1, employee_id: 1, org_id: "org-ny", date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+      { id: 2, employee_id: 1, org_id: "org-tokyo", date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+      { id: 3, employee_id: 2, org_id: "org-tokyo", date: "2026-01-03", start_minutes: 540, end_minutes: 1020 },
+    ];
+    const employees = [
+      { id: 1, org_id: "org-ny", name: "Alice", user_id: "user-1" },
+      { id: 1, org_id: "org-tokyo", name: "Kenji", user_id: "user-2" },
+      { id: 2, org_id: "org-tokyo", name: "Yuki", user_id: "user-3" },
+    ];
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdminClient({ schedules, employees, timezones: [{ org_id: "org-tokyo", value: "Asia/Tokyo" }] }) as any
+    );
+
+    const { GET } = await import("./route");
+    const res = await GET(new Request("http://localhost/api/cron/reminders", {
+      headers: { "x-cron-secret": "test-secret" },
+    }));
+    const body = await res.json();
+    expect(body.sent).toBe(2);
+    const sentScheduleIds = vi.mocked(notify).mock.calls.map((c) => (c[1] as any).data.scheduleId).sort();
+    expect(sentScheduleIds).toEqual([1, 3]);
+  });
+
+  it("formats the reminder date from the schedule's calendar date", async () => {
+    const schedules = [
+      { id: 1, employee_id: 1, org_id: "org-1", date: "2026-01-02", start_minutes: 480, end_minutes: 960 },
+    ];
+    const employees = [{ id: 1, org_id: "org-1", name: "Alice", user_id: "user-1" }];
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminClient({ schedules, employees }) as any);
+
+    const { GET } = await import("./route");
+    await GET(new Request("http://localhost/api/cron/reminders", {
+      headers: { "x-cron-secret": "test-secret" },
+    }));
+    expect((vi.mocked(notify).mock.calls[0][1] as any).body).toContain("Friday, January 2");
   });
 });

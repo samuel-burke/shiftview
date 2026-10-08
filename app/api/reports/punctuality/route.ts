@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { localDayBoundsUtc, getLocalMinutes } from "@/lib/punch-date-utils";
+import { getLocalMinutes, localDayBoundsUtc, minutesFromScheduled, resolveTimezone } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { classifyArrival, summarizePunctuality, type ArrivalStatus } from "@/lib/punctuality";
 
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     .select("key, value")
     .eq("org_id", orgId);
   const settings = Object.fromEntries((settingsRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]));
-  const tz = settings.timezone ?? "America/New_York";
+  const tz = resolveTimezone(settings.timezone);
   const grace = parsePunchPolicy(settings).lateInMinutes;
 
   // Earliest scheduled start per employee for the day.
@@ -68,12 +68,13 @@ export async function GET(request: Request) {
     .lte("punched_at", end.toISOString())
     .limit(10000);
 
-  const clockInByEmployee = new Map<number, number>();
+  // Earliest clock-in instant per employee.
+  const firstClockInMs = new Map<number, number>();
   for (const p of punchRows ?? []) {
     if (p.punch_type !== "clock_in") continue;
-    const mins = getLocalMinutes(new Date(p.punched_at), tz);
-    const cur = clockInByEmployee.get(p.employee_id);
-    clockInByEmployee.set(p.employee_id, cur == null ? mins : Math.min(cur, mins));
+    const t = new Date(p.punched_at).getTime();
+    const cur = firstClockInMs.get(p.employee_id);
+    firstClockInMs.set(p.employee_id, cur == null ? t : Math.min(cur, t));
   }
 
   const ids = [...startByEmployee.keys()];
@@ -87,8 +88,15 @@ export async function GET(request: Request) {
 
   const rows = ids.map((employeeId) => {
     const scheduledStart = startByEmployee.get(employeeId)!;
-    const clockIn = clockInByEmployee.has(employeeId) ? clockInByEmployee.get(employeeId)! : null;
-    const status: ArrivalStatus = classifyArrival(scheduledStart, clockIn, grace);
+    const clockInMs = firstClockInMs.get(employeeId) ?? null;
+    // Displayed as the store wall-clock time of the punch…
+    const clockIn = clockInMs == null ? null : getLocalMinutes(clockInMs, tz);
+    // …but judged on real elapsed minutes from the scheduled start.
+    const status: ArrivalStatus = classifyArrival(
+      scheduledStart,
+      clockInMs == null ? null : scheduledStart + minutesFromScheduled(clockInMs, date, scheduledStart, tz),
+      grace,
+    );
     return {
       employeeId,
       employeeName: nameById.get(employeeId) ?? "Unknown",

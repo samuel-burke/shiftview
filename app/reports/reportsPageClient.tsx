@@ -11,6 +11,9 @@ import AppShell from "../../components/AppShell";
 import PunctualityReport, { type PunctualityRow } from "../../components/PunctualityReport";
 import { CoverageProfile, curveForDate } from "../../lib/coverage";
 import type { PunctualitySummary } from "../../lib/punctuality";
+import { formatTimeInTz, previousPayWeek, weekStartForKey } from "@/lib/dates";
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { shiftMinutes } from "@/lib/schedule-hours";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -68,10 +71,6 @@ function addDays(dateStr: string, days: number): string {
 
 function subtractDays(dateStr: string, days: number): string {
   return addDays(dateStr, -days);
-}
-
-function toDateKey(d: Date): string {
-  return d.toLocaleDateString("en-CA", { timeZone: "UTC" });
 }
 
 function getWeekDates(weekStart: string): string[] {
@@ -136,6 +135,9 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.break_start":    return `Break started — ${empName}`;
     case "punch.break_end":      return `Break ended — ${empName}`;
     case "punch.correction":     return `Punch correction for ${empName}`;
+    case "punch.correction_requested": return `Punch correction requested — ${empName}`;
+    case "punch.correction_approve":   return `Approved punch correction for ${empName}`;
+    case "punch.correction_deny":      return `Denied punch correction for ${empName}`;
     case "punch.export":         return `Exported punch records`;
     case "timecard.export":      return `Exported time card`;
     case "payroll.export":       return `Exported payroll report`;
@@ -152,7 +154,7 @@ function auditTitle(entry: AuditEntry): string {
   }
 }
 
-function auditDetail(entry: AuditEntry): string | null {
+function auditDetail(entry: AuditEntry, tz: string): string | null {
   const m = entry.metadata ?? {};
   const b = entry.before ?? {};
   const a = entry.after ?? {};
@@ -202,11 +204,14 @@ function auditDetail(entry: AuditEntry): string | null {
       if (req && tgt) return `${req} and ${tgt}`;
       return null;
     }
-    case "punch.correction": {
+    case "punch.correction":
+    case "punch.correction_requested":
+    case "punch.correction_approve":
+    case "punch.correction_deny": {
       const pt = m.punchType as string | null;
       const pa = m.punchedAt as string | null;
       if (pt && pa) {
-        const time = new Date(pa).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        const time = formatTimeInTz(pa, tz, { hour: "2-digit", minute: "2-digit" });
         return `${pt.replace(/_/g, " ")} at ${time}`;
       }
       return null;
@@ -264,10 +269,12 @@ function auditBadgeLabel(action: string): string {
   return map[cat] ?? cat;
 }
 
-function formatAuditTime(iso: string): string {
+// Audit times are shown in the store's timezone (labelled), so every manager
+// reads the same clock regardless of where their device is.
+function formatAuditTime(iso: string, tz: string): string {
   return new Date(iso).toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit",
+    hour: "numeric", minute: "2-digit", timeZone: tz, timeZoneName: "short",
   });
 }
 
@@ -289,11 +296,12 @@ const CATEGORIES = [
 export default function ReportsPageClient() {
   const router = useRouter();
   const supabase = createClient();
-  const { me } = useAppData();
+  const { me, settings } = useAppData();
   const isDemo = me.isDemo;
+  const { timezone } = settings;
 
-  const today = new Date();
-  const todayKey = toDateKey(today);
+  // "Today" is the store's calendar day, not UTC's or the device's.
+  const todayKey = useStoreTodayKey(timezone);
 
   const [activeTab, setActiveTab] = useState<"coverage" | "activity" | "payroll" | "punctuality">("coverage");
 
@@ -324,20 +332,9 @@ export default function ReportsPageClient() {
   const [pendingActorId, setPendingActorId] = useState("");
 
   // ── Payroll state ──
-  const [payrollFrom, setPayrollFrom] = useState(() => {
-    const d = new Date(todayKey + "T12:00:00Z");
-    const day = d.getUTCDay();
-    // Monday of previous week
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -13 : -6 - (day - 1)));
-    return d.toISOString().slice(0, 10);
-  });
-  const [payrollTo, setPayrollTo] = useState(() => {
-    const d = new Date(todayKey + "T12:00:00Z");
-    const day = d.getUTCDay();
-    // Sunday of previous week
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -7 : -day));
-    return d.toISOString().slice(0, 10);
-  });
+  // Default payroll range: the previous full Monday–Sunday week.
+  const [payrollFrom, setPayrollFrom] = useState(() => previousPayWeek(todayKey).from);
+  const [payrollTo, setPayrollTo] = useState(() => previousPayWeek(todayKey).to);
   const [payrollFormat, setPayrollFormat] = useState("summary");
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
@@ -350,13 +347,29 @@ export default function ReportsPageClient() {
   const [punctualityLoading, setPunctualityLoading] = useState(false);
   const [punctualityError, setPunctualityError] = useState<string | null>(null);
 
-  const selectedWeekStart = useMemo(() => {
-    const base = new Date(todayKey + "T12:00:00Z");
-    const dayOfWeek = base.getUTCDay();
-    const diff = (dayOfWeek - firstDayOfWeek + 7) % 7;
-    const weekBase = addDays(todayKey, -diff);
-    return addDays(weekBase, weekOffset * 7);
-  }, [todayKey, firstDayOfWeek, weekOffset]);
+  const selectedWeekStart = useMemo(
+    () => addDays(weekStartForKey(todayKey, firstDayOfWeek), weekOffset * 7),
+    [todayKey, firstDayOfWeek, weekOffset],
+  );
+
+  // Date inputs default relative to today. If "today" changes before the user
+  // edits them (store timezone loaded, or the store's midnight passed), move
+  // the untouched defaults along with it.
+  const prevTodayKeyRef = useRef(todayKey);
+  useEffect(() => {
+    const prev = prevTodayKeyRef.current;
+    prevTodayKeyRef.current = todayKey;
+    if (prev === todayKey) return;
+    const follow = (set: (fn: (v: string) => string) => void, derive: (k: string) => string) =>
+      set((v) => (v === derive(prev) ? derive(todayKey) : v));
+    follow(setAuditFrom, (k) => subtractDays(k, 13));
+    follow(setAuditTo, (k) => k);
+    follow(setPendingFrom, (k) => subtractDays(k, 13));
+    follow(setPendingTo, (k) => k);
+    follow(setPayrollFrom, (k) => previousPayWeek(k).from);
+    follow(setPayrollTo, (k) => previousPayWeek(k).to);
+    follow(setPunctualityDate, (k) => k);
+  }, [todayKey]);
 
   // Mutable refs so realtime callbacks always see the latest navigation/filter state
   const selectedWeekStartRef = useRef(selectedWeekStart);
@@ -622,10 +635,10 @@ export default function ReportsPageClient() {
     for (const s of weekSchedules) {
       if (!map[s.employeeId]) map[s.employeeId] = {};
       map[s.employeeId][s.date.slice(0, 10)] =
-        (map[s.employeeId][s.date.slice(0, 10)] ?? 0) + (s.endMinutes - s.startMinutes) / 60;
+        (map[s.employeeId][s.date.slice(0, 10)] ?? 0) + shiftMinutes(s, timezone) / 60;
     }
     return map;
-  }, [weekSchedules]);
+  }, [weekSchedules, timezone]);
 
   async function exportCSV() {
     const rows: string[][] = [];
@@ -646,7 +659,7 @@ export default function ReportsPageClient() {
 
   return (
     <AppShell active="reports" isManager>
-    <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
+    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
       {/* Demo banner */}
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
@@ -658,21 +671,21 @@ export default function ReportsPageClient() {
       {/* Top bar — sticky on mobile, static on desktop */}
       <div
         className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
-                   [@media(min-width:900px)]:static [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-[14px] [@media(min-width:900px)]:pb-[14px] [@media(min-width:900px)]:gap-0"
+                   desk:static desk:px-6 desk:py-[14px] desk:pb-[14px] desk:gap-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors [@media(min-width:900px)]:hidden"
+          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors tablet:hidden"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight [@media(min-width:900px)]:text-xl">Reports</span>
+        <span className="text-2xl font-extrabold text-slate-100 tracking-tight desk:text-xl">Reports</span>
       </div>
 
       {/* Tab bar */}
-      <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex gap-2">
+      <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex gap-2">
         {(["coverage", "payroll", "punctuality", "activity"] as const).map((tab) => (
           <button
             key={tab}
@@ -691,7 +704,7 @@ export default function ReportsPageClient() {
 
       {/* ── Coverage tab ── */}
       {activeTab === "coverage" && (
-        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-5 flex flex-col gap-5">
+        <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-5 flex flex-col gap-5">
           {/* Coverage heatmap */}
           <section>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
@@ -946,7 +959,7 @@ export default function ReportsPageClient() {
 
       {/* ── Punctuality tab ── */}
       {activeTab === "punctuality" && (
-        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
+        <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex flex-col gap-4">
           {/* Date picker */}
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
             <label htmlFor="punctuality-date" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Date</label>
@@ -980,7 +993,7 @@ export default function ReportsPageClient() {
 
       {/* ── Activity Log tab ── */}
       {activeTab === "activity" && (
-        <div className="px-4 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:max-w-4xl [@media(min-width:900px)]:mx-auto pt-4 flex flex-col gap-4">
+        <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex flex-col gap-4">
           {/* Filters */}
           <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
@@ -1063,7 +1076,7 @@ export default function ReportsPageClient() {
               </div>
               <motion.div className="flex flex-col gap-2" variants={listContainer} initial="hidden" animate="show">
                 {auditEntries.map((entry) => {
-                  const detail = auditDetail(entry);
+                  const detail = auditDetail(entry, timezone);
                   return (
                     <motion.div key={entry.id} variants={listItem} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
@@ -1071,7 +1084,7 @@ export default function ReportsPageClient() {
                           {auditBadgeLabel(entry.action)}
                         </span>
                         <span className="text-[10px] text-slate-500 shrink-0">
-                          {formatAuditTime(entry.createdAt)}
+                          {formatAuditTime(entry.createdAt, timezone)}
                         </span>
                       </div>
                       <div className="text-sm font-semibold text-slate-100 leading-snug">

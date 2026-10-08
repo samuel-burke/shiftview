@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { Inter } from "next/font/google";
 import TryDemoButton from "@/components/TryDemoButton";
+import Logo from "@/components/Logo";
 import { CurrentYear, MotionProvider } from "./live";
-import { Arrow, Container, REPO_URL, Wordmark, primaryBtn, secondaryBtn } from "./ui";
+import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "./ui";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
-// Shared chrome for the public marketing pages (/, /product and /contact).
-export default function MarketingShell({ children, active }: { children: React.ReactNode; active?: "product" }) {
+// Shared chrome for the public marketing pages (/ and /contact).
+export default function MarketingShell({ children }: { children: React.ReactNode }) {
   return (
     <main className={`${inter.className} min-h-screen bg-bg text-slate-100 overflow-x-hidden antialiased`}>
       <MotionProvider>
-        <MarketingNav active={active} />
+        <MarketingNav />
         {children}
         <MarketingFooter />
       </MotionProvider>
@@ -19,23 +20,16 @@ export default function MarketingShell({ children, active }: { children: React.R
   );
 }
 
-function MarketingNav({ active }: { active?: "product" }) {
+function MarketingNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/60 bg-bg/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/" aria-label="ShiftView home"><Wordmark className="text-lg" /></Link>
-        <nav aria-label="Site navigation" className="flex items-center gap-1 sm:gap-4">
-          <Link
-            href="/product"
-            aria-current={active === "product" ? "page" : undefined}
-            className={`hidden whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors hover:text-slate-100 sm:block ${active === "product" ? "text-slate-100" : "text-slate-400"}`}
-          >
-            Product
-          </Link>
+        <Link href="/" aria-label="ShiftView home"><Logo className="h-[22px]" /></Link>
+        <nav aria-label="Site navigation" className="flex items-center gap-1 sm:gap-2">
           <Link href="/login" className="whitespace-nowrap px-2 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100 sm:px-3">
             Sign in
           </Link>
-          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-200">
+          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-gradient-to-r from-blue-500 to-violet-500 px-3.5 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110">
             Get started
           </Link>
         </nav>
@@ -70,11 +64,11 @@ function MarketingFooter() {
     <footer className="border-t border-slate-800/60">
       <Container className="flex flex-col gap-4 py-8 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Wordmark className="text-sm" />
+          <Logo className="h-4" />
           <CurrentYear />
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/product" className="transition-colors hover:text-slate-200">Product</Link>
+          <Link href="/#features" className="transition-colors hover:text-slate-200">Features</Link>
           <Link href="/login" className="transition-colors hover:text-slate-200">Sign in</Link>
           <Link href="/contact" className="transition-colors hover:text-slate-200">Contact</Link>
           <Link href="/privacy" className="transition-colors hover:text-slate-200">Privacy</Link>

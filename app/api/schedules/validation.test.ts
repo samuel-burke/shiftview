@@ -35,11 +35,15 @@ describe("validateShiftMinutes", () => {
   });
 
   it("rejects endMinutes of 0", () => {
-    expect(validateShiftMinutes(0, 0)).toBe("endMinutes must be between 1 and 1440");
+    expect(validateShiftMinutes(0, 0)).toMatch(/^startMinutes must be less than endMinutes/);
   });
 
-  it("rejects endMinutes above 1440", () => {
-    expect(validateShiftMinutes(480, 1441)).toBe("endMinutes must be between 1 and 1440");
+  it("accepts an overnight shift ending after midnight (10 PM – 6 AM)", () => {
+    expect(validateShiftMinutes(1320, 1800)).toBeNull();
+  });
+
+  it("still caps an overnight shift at 16 hours", () => {
+    expect(validateShiftMinutes(480, 1441)).toBe("shift cannot exceed 16 hours");
   });
 
   it("accepts endMinutes of exactly 1440 (midnight)", () => {
@@ -47,11 +51,11 @@ describe("validateShiftMinutes", () => {
   });
 
   it("rejects start equal to end", () => {
-    expect(validateShiftMinutes(480, 480)).toBe("startMinutes must be less than endMinutes");
+    expect(validateShiftMinutes(480, 480)).toMatch(/^startMinutes must be less than endMinutes/);
   });
 
   it("rejects start after end", () => {
-    expect(validateShiftMinutes(960, 480)).toBe("startMinutes must be less than endMinutes");
+    expect(validateShiftMinutes(960, 480)).toMatch(/^startMinutes must be less than endMinutes/);
   });
 
   it("rejects shifts shorter than 60 minutes", () => {

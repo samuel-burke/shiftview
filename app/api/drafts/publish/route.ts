@@ -54,7 +54,10 @@ export async function POST(request: Request) {
   const dateKey = (d: unknown) => (typeof d === "string" ? d.slice(0, 10) : String(d));
   const taken = new Set((existing ?? []).map((s) => `${s.employee_id}|${dateKey(s.date)}`));
 
+  // A draft for someone who already has a live shift that day is skipped and
+  // kept, so the manager can see it and decide; never silently dropped.
   const toPublish = drafts.filter((d) => !taken.has(`${d.employee_id}|${dateKey(d.date)}`));
+  const skipped = drafts.filter((d) => taken.has(`${d.employee_id}|${dateKey(d.date)}`));
 
   if (toPublish.length > 0) {
     const { error: insertError } = await supabase
@@ -72,14 +75,27 @@ export async function POST(request: Request) {
     }
   }
 
-  const { error: deleteError } = await supabase
-    .from("draft_schedules")
-    .delete()
-    .eq("org_id", orgId)
-    .in("id", drafts.map((d) => d.id));
+  if (toPublish.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("draft_schedules")
+      .delete()
+      .eq("org_id", orgId)
+      .in("id", toPublish.map((d) => d.id));
 
-  if (deleteError) {
-    console.error("[api/drafts/publish] cleanup failed", deleteError);
+    if (deleteError) {
+      console.error("[api/drafts/publish] cleanup failed", deleteError);
+    }
+
+    // Auto-schedule runs for the week can't be undone once their drafts are live.
+    const { error: runsError } = await supabase
+      .from("schedule_generation_runs")
+      .update({ published_at: new Date().toISOString() })
+      .eq("org_id", orgId)
+      .eq("week_start", dates[0])
+      .is("published_at", null);
+    if (runsError) {
+      console.error("[api/drafts/publish] marking generation runs published failed", runsError);
+    }
   }
 
   const publishedEmployeeIds = [...new Set(toPublish.map((d) => d.employee_id))];
@@ -108,9 +124,14 @@ export async function POST(request: Request) {
     actorId:      user?.id,
     resourceType: "draft_schedule",
     resourceId:   weekStart,
-    after: { published: toPublish.length, skipped: drafts.length - toPublish.length },
+    after: { published: toPublish.length, skipped: skipped.length },
     metadata: { weekStart: dates[0], weekEnd: dates[6] },
   }).catch(() => {});
 
-  return NextResponse.json({ published: toPublish.length, skipped: drafts.length - toPublish.length });
+  return NextResponse.json({
+    published: toPublish.length,
+    skipped: skipped.length,
+    // Still drafts: these people already have a live shift that day.
+    skippedDrafts: skipped.map((d) => ({ id: d.id, employeeId: d.employee_id, date: dateKey(d.date) })),
+  });
 }

@@ -1,4 +1,9 @@
-<h1 align="center">ShiftView</h1>
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/brand/shiftview-logo-on-light.svg" />
+    <img alt="ShiftView" src="docs/brand/shiftview-logo-on-dark.svg" height="56" />
+  </picture>
+</h1>
 
 <p align="center">
   <strong>Scheduling, time clock and live coverage for retail &amp; fulfillment teams.</strong><br />
@@ -8,7 +13,7 @@
 <p align="center">
   <a href="https://shiftview.app"><strong>shiftview.app</strong></a> ·
   <a href="https://shiftview.app">Try the live demo</a> ·
-  <a href="https://shiftview.app/product">Product tour</a> ·
+  <a href="https://shiftview.app/#features">Features</a> ·
   <a href="https://shiftview.app/contact">Contact</a>
 </p>
 
@@ -21,12 +26,12 @@
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
-  <img alt="ShiftView home page: the manager dashboard updating live as an employee clocks in, next to an employee's clock screen" src="docs/screenshots/hero-dark.png" />
+  <img alt="ShiftView home page: an employee clocks in ten minutes late and the store manager's dashboard gets the Late Clock-In alert" src="docs/screenshots/hero-dark.png" />
 </picture>
 
 ### The app
 
-Every screen below is the real UI rendered from the demo organization's seed data.
+Every screen below is captured from the home page's product demos, which are built from the app's own components and the demo organization's seed data.
 
 <table>
   <tr>
@@ -47,14 +52,14 @@ Every screen below is the real UI rendered from the demo organization's seed dat
     <td align="center" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-requests-light.png" />
-        <img alt="Manager requests inbox with time-off and shift swap approvals" src="docs/screenshots/phone-requests-dark.png" />
+        <img alt="A time-off request open in the manager's Requests inbox, next to that day's schedule" src="docs/screenshots/phone-requests-dark.png" />
       </picture>
       <br /><sub><b>Approvals</b><br />Time off and two-step shift swaps</sub>
     </td>
     <td align="center" width="25%">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/phone-clock-light.png" />
-        <img alt="Employee time clock on break with punch history" src="docs/screenshots/phone-clock-dark.png" />
+        <img alt="Employee time clock just after clocking in, with today's punches" src="docs/screenshots/phone-clock-dark.png" />
       </picture>
       <br /><sub><b>Time clock</b><br />Geofenced punches and breaks</sub>
     </td>
@@ -62,11 +67,25 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 </table>
 
 <picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/planner-light.png" />
-  <img alt="Draft schedule planner comparing recommended vs. scheduled staffing by hour and daily labor budget vs. scheduled hours" src="docs/screenshots/planner-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/time-card-light.png" />
+  <img alt="An employee's phone after they end their shift, with today's punches, and their time card open on the manager's desktop: two weeks of punches, hours and breaks, with a late clock-in flagged and a corrected clock-out marked" src="docs/screenshots/time-card-dark.png" />
 </picture>
 
-<sub>Draft planning: staff to an hourly coverage target and a daily labor-hours budget before publishing.</sub>
+<sub>Time cards: every punch from the employee's phone lands on their time card, with hours, breaks and late punches flagged, ready to export for payroll.</sub>
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/auto-schedule-light.png" />
+  <img alt="The Week page in Draft mode after Auto-schedule: next week drafted to the coverage target, with the run's summary of coverage, hours, overtime, labor cost and preferences" src="docs/screenshots/auto-schedule-dark.png" />
+</picture>
+
+<sub>Auto-schedule: next week drafted from the coverage targets, availability, time off and hour limits, ready to review and publish. This is a real run of the engine on the demo store.</sub>
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/devices-light.png" />
+  <img alt="The same dashboard on a laptop with the sidebar, a tablet with the navigation rail and a phone with bottom tabs" src="docs/screenshots/devices-dark.png" />
+</picture>
+
+<sub>Any device: one responsive layout per size class, from phones to desktop monitors.</sub>
 
 ## Features
 
@@ -77,9 +96,11 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 
 **Scheduling**
 - Week and month views with drag-free editing, reusable shift templates, and copy-week
+- Week page for managers — the whole team's week as a grid (a day list on phones) with a **Live | Draft** toggle. Live edits the published schedule. Draft plans privately on top of it, with a budget-vs-scheduled chart, an hour-by-hour heatmap and each person's hours showing the week as it will be after publishing, then publishes in one step
 - Employee availability tracking with conflict detection against time-off and availability when scheduling
 - Shift swap requests with manager approval, and time-off requests with approval workflow
 - Employee call-outs — one tap to report "I can't make it in" for a day; managers are notified instantly and the person shows as **Called Out** across the dashboard, schedule, and team status
+- Auto-schedule — one tap in the Week page's Draft mode drafts the week from the coverage targets, availability, time off, full-time/part-time hours, overtime rules and shift preferences, and explains any gap it couldn't fill; try another version, apply a one-tap fix or undo before publishing. Runs on ShiftView's own deterministic optimization engine, with no chatbot or third-party AI ([docs/AUTO_SCHEDULER.md](docs/AUTO_SCHEDULER.md))
 
 **Time clock**
 - Clock in/out with optional geofence enforcement (server-validated, not just client-side)
@@ -94,7 +115,7 @@ Every screen below is the real UI rendered from the demo organization's seed dat
 - Installable PWA with service worker, offline-aware shell, and home-screen prompts
 - Demo mode — one click signs you in anonymously to a seeded Demo organization with full read/write access; sample data resets nightly
 - Nightly shift reminders for tomorrow's schedule via a Vercel cron job
-- Public marketing site (`/`, `/product`, `/contact`) whose product previews are built from the real UI components and demo data, with a bot-protected contact form delivered via Resend
+- Public marketing site (`/` and `/contact`) whose product demos run on the app's own UI components and the demo store's data, including a real Auto-schedule run (`components/marketing/`), with a bot-protected contact form delivered via Resend
 
 ## Tech Stack
 
@@ -173,6 +194,7 @@ Optional variables enable additional features:
 | `SUPABASE_SERVICE_ROLE_KEY` | Manager role management and the employee invite flow |
 | `RESEND_API_KEY` | Invite, reminder and contact form emails (via Resend) |
 | `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until set |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web push notifications |
 | `CRON_SECRET` | Nightly shift-reminder cron endpoint |
 | `NEXT_PUBLIC_SITE_URL` | Absolute URLs in emails and auth redirects |
@@ -215,6 +237,7 @@ data/
   types.ts        # shared domain types + pure schedule/coverage utilities
   demo-fixtures.ts# seed-source data for the demo organization
 lib/              # Supabase clients, encryption, audit log, web push, payroll
+  scheduler/      # Auto-schedule engine (pure TypeScript, no I/O)
 e2e/              # Playwright specs
 docs/             # functional requirements spec
 ```
@@ -227,11 +250,13 @@ docs/             # functional requirements spec
 
 | Table | Columns |
 |---|---|
-| `employees` | `id`, `name`, `email`, `user_id` |
+| `employees` | `id`, `name`, `email`, `user_id`, `employment_type`, `min_weekly_hours`, `max_weekly_hours`, `max_days_per_week` |
 | `schedules` | `id`, `employee_id`, `date`, `start_minutes`, `end_minutes` |
 | `callouts` | `id`, `org_id`, `employee_id`, `date`, `reason`, `created_by`, `created_at` |
 | `store_hours` | `day_of_week` (0–6), `open_minutes`, `close_minutes` |
 | `managers` | `user_id` |
+| `employee_preferences` | `org_id`, `employee_id`, `preferred_shift_types`, `preferred_days`, `avoid_days`, `desired_weekly_hours`, `note`, `updated_at` |
+| `schedule_generation_runs` | `id`, `org_id`, `week_start`, `mode`, `seed`, `rules`, `adjustments`, `metrics`, `previous_drafts`, `created_by`, `created_at`, `undone_at`, `published_at` |
 
 Times are stored as minutes since midnight (e.g. `480` = 8:00 AM). Employees who are off on a given day have no row in `schedules` — they are derived by diffing the employee roster against that day's scheduled shifts.
 
@@ -256,6 +281,9 @@ RLS is enabled on all live tables. The following policies are in effect:
 | `store_hours` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
 | `app_settings` | SELECT | All users (including unauthenticated) |
 | `app_settings` | INSERT / UPDATE / DELETE | Users with a row in `managers` |
+| `employee_preferences` | SELECT / INSERT / UPDATE / DELETE | The employee themself, or a manager of the row's organization |
+| `schedule_generation_runs` | SELECT / UPDATE | Managers of the row's organization |
+| `schedule_generation_runs` | INSERT / DELETE | Denied for all (written by the `apply_generated_drafts` and `undo_generation_run` functions) |
 
 > The demo organization is isolated by the same org-scoped RLS policies as any other tenant; demo visitors are anonymous Supabase users with membership rows in the demo org.
 

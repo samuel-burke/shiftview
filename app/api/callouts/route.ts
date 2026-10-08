@@ -4,6 +4,9 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { notifyManagers } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
+import { addDaysToKey, isDateKey, localDayBoundsUtc, todayKeyInTz } from "@/lib/dates";
+import { calloutBlockReason } from "@/lib/callout-rules";
+import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -30,15 +33,13 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, employeeId } = ctx!;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   // Employee's own call-outs (next 90 days), mirroring the time-off "mine" path.
   if (mine) {
     if (!employeeId) return NextResponse.json({ callouts: [] });
 
-    const ninetyDaysOut = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const ninetyDaysOut = addDaysToKey(today, 90);
 
     const { data: emp } = await supabase
       .from("employees")
@@ -116,12 +117,8 @@ export async function POST(request: Request) {
 
   if (!employeeId || !Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
-  if (!date || !DATE_RE.test(date))
+  if (!date || !DATE_RE.test(date) || !isDateKey(date))
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
-
-  const today = new Date().toISOString().slice(0, 10);
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
   const supabase = await createClient();
 
@@ -151,6 +148,38 @@ export async function POST(request: Request) {
       { error: "Employee not found or not linked to your account" },
       { status: 403 }
     );
+
+  // Only for a shift scheduled today or tomorrow (the store's calendar days),
+  // and not for today's shift once clocked in for it (lib/callout-rules.ts).
+  const tz = await getOrgTimezone(supabase, orgId);
+  const today = todayKeyInTz(tz);
+  const [{ data: shifts }, { data: clockIns }] = await Promise.all([
+    supabase
+      .from("schedules")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("employee_id", employeeId)
+      .eq("date", date)
+      .limit(1),
+    date === today
+      ? supabase
+          .from("punch_records")
+          .select("id")
+          .eq("org_id", orgId)
+          .eq("employee_id", employeeId)
+          .eq("punch_type", "clock_in")
+          .gte("punched_at", localDayBoundsUtc(today, tz).start.toISOString())
+          .lte("punched_at", localDayBoundsUtc(today, tz).end.toISOString())
+          .limit(1)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const blockReason = calloutBlockReason({
+    date,
+    todayKey: today,
+    hasShift: Array.isArray(shifts) && shifts.length > 0,
+    clockedInToday: Array.isArray(clockIns) && clockIns.length > 0,
+  });
+  if (blockReason) return NextResponse.json({ error: blockReason }, { status: 400 });
 
   const trimmedReason =
     reason && typeof reason === "string" && reason.trim() ? reason.trim() : null;

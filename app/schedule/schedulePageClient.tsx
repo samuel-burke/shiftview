@@ -8,6 +8,7 @@ import {
   TimeOffRequest,
   Callout,
   Employee,
+  PunchRecord,
   getShiftType,
   fmtMinutes,
   SHIFT_COLORS,
@@ -36,6 +37,21 @@ import {
 import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
+import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
+import { shiftWindowOn } from "@/lib/shift-times";
+import { mapSwap, type Swap, type RawSwap } from "@/lib/swaps";
+import type { PunchCorrection } from "@/app/api/punch-corrections/route";
+
+const PUNCH_TYPE_LABELS: Record<PunchCorrection["punchType"], string> = {
+  clock_in:    "Clock In",
+  clock_out:   "Clock Out",
+  break_start: "Break Start",
+  break_end:   "Break End",
+};
+import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import { BREAKPOINTS } from "@/hooks/useBreakpoint";
+import { shiftMinutes } from "@/lib/schedule-hours";
+import { calloutBlockReason } from "@/lib/callout-rules";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -45,62 +61,6 @@ type ManagerTimeOffRequest = {
   status: string;
 };
 
-// Shape the SwapRequestsDrawer consumes (flat, display-ready). `schedule_a` is
-// the requester's shift, `schedule_b` is the target's.
-type Swap = {
-  id: number;
-  status: "pending" | "accepted" | "declined" | "approved" | "denied";
-  requesterId: number | null;
-  targetId: number | null;
-  requesterName: string;
-  targetName: string;
-  date: string;
-  scheduleAId: number | null;
-  scheduleBId: number | null;
-  scheduleATime: string;
-  scheduleBTime: string;
-};
-
-// GET /api/swaps returns nested employee/schedule joins; Supabase types them as
-// object-or-array depending on the relationship, so normalize defensively.
-function firstOf<T>(v: T | T[] | null | undefined): T | null {
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v ?? null;
-}
-
-type RawSwap = {
-  id: number;
-  status?: Swap["status"];
-  requester_id?: number;
-  target_id?: number;
-  schedule_a_id?: number;
-  schedule_b_id?: number;
-  requester?: { name: string } | { name: string }[] | null;
-  target?: { name: string } | { name: string }[] | null;
-  schedule_a?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
-  schedule_b?: { date: string; start_minutes: number; end_minutes: number } | { date: string; start_minutes: number; end_minutes: number }[] | null;
-};
-
-function mapSwap(raw: RawSwap): Swap {
-  const requester = firstOf(raw.requester);
-  const target = firstOf(raw.target);
-  const a = firstOf(raw.schedule_a);
-  const b = firstOf(raw.schedule_b);
-  return {
-    id: raw.id,
-    status: raw.status ?? "pending",
-    requesterId: raw.requester_id ?? null,
-    targetId: raw.target_id ?? null,
-    requesterName: requester?.name ?? "Unknown",
-    targetName: target?.name ?? "Unknown",
-    date: a?.date ?? "",
-    scheduleAId: raw.schedule_a_id ?? null,
-    scheduleBId: raw.schedule_b_id ?? null,
-    scheduleATime: a ? `${fmtMinutes(a.start_minutes)} – ${fmtMinutes(a.end_minutes)}` : "",
-    scheduleBTime: b ? `${fmtMinutes(b.start_minutes)} – ${fmtMinutes(b.end_minutes)}` : "",
-  };
-}
-
 type View = "week" | "month";
 
 export function isShiftUpcoming(
@@ -108,27 +68,19 @@ export function isShiftUpcoming(
   todayKey: string,
   nowMinutes: number,
 ): boolean {
-  return shift.date > todayKey || (shift.date === todayKey && shift.endMinutes > nowMinutes);
+  // An overnight shift from yesterday is still upcoming until it ends this morning.
+  return shiftWindowOn(shift, todayKey).end > nowMinutes;
 }
 
 export function formatNextShiftDate(dateStr: string, todayKey: string): string {
   if (dateStr === todayKey) return "Today";
-  const d = new Date(todayKey + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + 1);
-  const tomorrowKey = d.toISOString().slice(0, 10);
-  if (dateStr === tomorrowKey) return "Tomorrow";
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+  if (dateStr === addDaysToKey(todayKey, -1)) return "Since last night";
+  if (dateStr === addDaysToKey(todayKey, 1)) return "Tomorrow";
+  return formatDateKey(dateStr, { weekday: "long", month: "long", day: "numeric" });
 }
 
 export function getDaysUntil(dateStr: string, todayKey: string): number {
-  const a = new Date(dateStr + "T12:00:00Z").getTime();
-  const b = new Date(todayKey + "T12:00:00Z").getTime();
-  return Math.round((a - b) / 86400000);
-}
-
-
-function toDateKey(d: Date, tz = "America/New_York") {
-  return d.toLocaleDateString("en-CA", { timeZone: tz });
+  return daysBetweenKeys(todayKey, dateStr);
 }
 
 function offsetDays(d: Date, n: number): Date {
@@ -156,7 +108,12 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SchedulePageClient() {
-  const [today] = useState(() => new Date());
+  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading, cacheEmployees } = useAppData();
+  const { firstDayOfWeek, timezone } = settings;
+  // Dates on this page are store-local calendar days held as local-noon Date
+  // objects (see lib/dates.ts); "today" is the store's today, not the device's.
+  const todayKey = useStoreTodayKey(timezone);
+  const today = useMemo(() => dateFromKey(todayKey), [todayKey]);
   const router = useRouter();
   const supabase = createClient();
 
@@ -166,19 +123,21 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { me, storeHours: weeklyHours, settings, myScheduleCache, setMyScheduleCache, sharedLoading, cacheEmployees } = useAppData();
   const { isManager, employeeId, employeeName, isDemo } = me;
-  const { firstDayOfWeek, timezone } = settings;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
   const [myCallouts, setMyCallouts] = useState<Callout[]>([]);
+  // Whether the user has clocked in at any point today (store day) — today's
+  // shift can't be called out after that.
+  const [clockedInToday, setClockedInToday] = useState(false);
   const [calloutStatus, setCalloutStatus] = useState<"idle" | "loading">("idle");
   const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  const [pendingPunchCorrections, setPendingPunchCorrections] = useState<PunchCorrection[]>([]);
   // Every in-flight swap the caller can see (their own as employee; all of the
   // org's as a manager). Categorized below into manager-approval vs. incoming.
   const [allSwaps, setAllSwaps] = useState<Swap[]>([]);
@@ -201,10 +160,20 @@ export default function SchedulePageClient() {
   viewRef.current = view;
   const firstDayOfWeekRef = useRef(firstDayOfWeek);
   firstDayOfWeekRef.current = firstDayOfWeek;
-  const timezoneRef = useRef(timezone);
-  timezoneRef.current = timezone;
   const isManagerRef = useRef(isManager);
   isManagerRef.current = isManager;
+
+  // When the store's "today" changes (settings loaded with the store timezone,
+  // or the store's midnight passed), keep a selection that was on the old
+  // today pinned to the new one.
+  const prevTodayKeyRef = useRef(todayKey);
+  useEffect(() => {
+    const prev = prevTodayKeyRef.current;
+    prevTodayKeyRef.current = todayKey;
+    if (prev === todayKey) return;
+    setSelectedDate((sd) => (localDateKey(sd) === prev ? dateFromKey(todayKey) : sd));
+    setNavDate((nd) => (localDateKey(nd) === prev ? dateFromKey(todayKey) : nd));
+  }, [todayKey]);
 
   async function handleApproveManagerTimeOff(id: number) {
     const res = await fetch(`/api/time-off/${id}`, {
@@ -230,6 +199,26 @@ export default function SchedulePageClient() {
       throw new Error(error ?? "Failed to deny request");
     }
     setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  const loadPunchCorrections = useCallback(() => {
+    fetch("/api/punch-corrections")
+      .then((r) => r.json())
+      .then(({ corrections }) => { if (Array.isArray(corrections)) setPendingPunchCorrections(corrections); })
+      .catch(() => {});
+  }, []);
+
+  async function reviewPunchCorrection(id: number, status: "approved" | "denied") {
+    const res = await fetch(`/api/punch-corrections/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({}));
+      throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} correction`);
+    }
+    setPendingPunchCorrections((prev) => prev.filter((r) => r.id !== id));
   }
 
   const loadSwaps = useCallback(() => {
@@ -363,6 +352,31 @@ export default function SchedulePageClient() {
     window.location.href = "/login";
   }
 
+  const loadClockedInToday = useCallback(() => {
+    if (employeeId === null) return;
+    fetch(`/api/punches?date=${todayKey}`)
+      .then((r) => r.json())
+      .then((punches: PunchRecord[]) => {
+        if (!Array.isArray(punches)) return;
+        setClockedInToday(punches.some((p) => p.employeeId === employeeId && p.punchType === "clock_in"));
+      })
+      .catch(() => {});
+  }, [employeeId, todayKey]);
+
+  // Refresh on load, at the store's midnight (todayKey changes), and when the
+  // tab comes back — e.g. after clocking in on the Clock screen or another device.
+  useEffect(() => {
+    loadClockedInToday();
+    const onVisible = () => { if (document.visibilityState === "visible") loadClockedInToday(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadClockedInToday]);
+
+  // Load pending punch corrections once manager status is known
+  useEffect(() => {
+    if (isManager) loadPunchCorrections();
+  }, [isManager, loadPunchCorrections]);
+
   // Load pending time-off once manager status is known
   useEffect(() => {
     if (isManager) {
@@ -456,8 +470,8 @@ export default function SchedulePageClient() {
       from = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
       to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
     }
-    const fromKey = toDateKey(from, timezone);
-    const toKey = toDateKey(to, timezone);
+    const fromKey = localDateKey(from);
+    const toKey = localDateKey(to);
     const rangeKey = `${fromKey}:${toKey}`;
     setScheduleError(null);
 
@@ -478,7 +492,7 @@ export default function SchedulePageClient() {
         setLoading(false);
       })
       .catch(() => { if (!cached) { setScheduleError("Failed to load schedule"); setLoading(false); } });
-  }, [view, navDate, firstDayOfWeek, timezone]);
+  }, [view, navDate, firstDayOfWeek]);
 
   // Reset time-off request status when selected date changes
   useEffect(() => {
@@ -522,24 +536,20 @@ export default function SchedulePageClient() {
   // navigation never affects it.
   useEffect(() => {
     let cancelled = false;
-    const now = new Date();
-    const todayKey = toDateKey(now, timezone);
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const to = new Date(now);
-    to.setDate(now.getDate() + 30);
-    const toKey = toDateKey(to, timezone);
-    fetch(`/api/my-schedule?from=${todayKey}&to=${toKey}`)
+    const nowMinutes = nowMinutesInTz(timezone);
+    const toKey = addDaysToKey(todayKey, 30);
+    fetch(`/api/my-schedule?from=${addDaysToKey(todayKey, -1)}&to=${toKey}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         if (cancelled) return;
         const upcoming = (data.schedules ?? [])
-          .filter((s: Schedule) => s.date > todayKey || (s.date === todayKey && s.endMinutes > nowMinutes))
+          .filter((s: Schedule) => isShiftUpcoming(s, todayKey, nowMinutes))
           .sort((a: Schedule, b: Schedule) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.startMinutes - b.startMinutes));
         setNextShift(upcoming[0] ?? null);
       })
       .catch(() => { if (!cancelled) setNextShift(null); });
     return () => { cancelled = true; };
-  }, [employeeId, timezone]);
+  }, [employeeId, timezone, todayKey]);
 
   // Supabase Realtime — live updates for schedule, time-off, store hours, settings
   useEffect(() => {
@@ -547,7 +557,6 @@ export default function SchedulePageClient() {
       const nd = navDateRef.current;
       const v = viewRef.current;
       const fdw = firstDayOfWeekRef.current;
-      const tz = timezoneRef.current;
       let from: Date, to: Date;
       if (v === "week") {
         const ws = getWeekStart(nd, fdw);
@@ -557,8 +566,8 @@ export default function SchedulePageClient() {
         from = new Date(nd.getFullYear(), nd.getMonth(), 1);
         to = new Date(nd.getFullYear(), nd.getMonth() + 1, 0);
       }
-      const fk = toDateKey(from, tz);
-      const tk = toDateKey(to, tz);
+      const fk = localDateKey(from);
+      const tk = localDateKey(to);
       fetch(`/api/my-schedule?from=${fk}&to=${tk}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
         .then((data) => {
@@ -595,6 +604,10 @@ export default function SchedulePageClient() {
       loadSwaps();
     }
 
+    function refetchPunchCorrections() {
+      if (isManagerRef.current) loadPunchCorrections();
+    }
+
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") {
@@ -603,6 +616,7 @@ export default function SchedulePageClient() {
         refetchSchedule();
         refetchTimeOff();
         refetchSwaps();
+        refetchPunchCorrections();
       }
     }
     document.addEventListener("visibilitychange", onVisibility);
@@ -620,6 +634,7 @@ export default function SchedulePageClient() {
       .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, refetchTimeOff)
       .on("postgres_changes", { event: "*", schema: "public", table: "callouts" }, refetchCallouts)
       .on("postgres_changes", { event: "*", schema: "public", table: "shift_swaps" }, refetchSwaps)
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, refetchPunchCorrections)
       .subscribe();
 
     return () => {
@@ -676,10 +691,9 @@ export default function SchedulePageClient() {
   const weekStart = useMemo(() => getWeekStart(navDate, firstDayOfWeek), [navDate, firstDayOfWeek]);
   const weekEnd = useMemo(() => offsetDays(weekStart, 6), [weekStart]);
 
-  const todayKey = toDateKey(today, timezone);
   const isAtToday =
     view === "week"
-      ? todayKey >= toDateKey(weekStart, timezone) && todayKey <= toDateKey(weekEnd, timezone)
+      ? todayKey >= localDateKey(weekStart) && todayKey <= localDateKey(weekEnd)
       : navDate.getFullYear() === today.getFullYear() && navDate.getMonth() === today.getMonth();
 
   const rangeLabel =
@@ -687,7 +701,7 @@ export default function SchedulePageClient() {
       ? formatWeekRange(weekStart, weekEnd)
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const selectedDateKey = toDateKey(selectedDate, timezone);
+  const selectedDateKey = localDateKey(selectedDate);
   const selectedSchedule =
     schedules.find((s) => s.date.slice(0, 10) === selectedDateKey) ?? null;
 
@@ -697,11 +711,9 @@ export default function SchedulePageClient() {
     : null;
   const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : null;
   const shiftLabel = shiftType ? SHIFT_TYPE_LABELS[shiftType] : null;
-  const shiftHours = selectedSchedule
-    ? (selectedSchedule.endMinutes - selectedSchedule.startMinutes) / 60
-    : null;
+  const shiftHours = selectedSchedule ? shiftMinutes(selectedSchedule, timezone) / 60 : null;
 
-  const isSelectedToday = selectedDateKey === toDateKey(today, timezone);
+  const isSelectedToday = selectedDateKey === todayKey;
   const selectedDayLabel = isSelectedToday
     ? "Today"
     : selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
@@ -711,13 +723,18 @@ export default function SchedulePageClient() {
   const calloutDates = useMemo(() => myCallouts.map((c) => c.date), [myCallouts]);
   const selectedCallout = myCallouts.find((c) => c.date === selectedDateKey) ?? null;
 
-  // Show "Call Out" when: the selected day is today or later, the user has an
-  // employee record, and they haven't already called out for it. (You can call
-  // out whether or not a shift is posted yet.)
+  // Show "Call Out" only for the user's own shift today or tomorrow, not once
+  // they've clocked in for today's shift, and not if already called out — the
+  // same rule the server enforces (lib/callout-rules.ts).
   const canCallOut =
     !selectedCallout &&
-    selectedDateKey >= todayKey &&
-    employeeId !== null;
+    employeeId !== null &&
+    calloutBlockReason({
+      date: selectedDateKey,
+      todayKey,
+      hasShift: !!selectedSchedule,
+      clockedInToday,
+    }) === null;
 
   // Show "Request Day Off" when: no shift, future date, has employeeId, no existing pending/approved request
   const canRequestDayOff =
@@ -734,9 +751,21 @@ export default function SchedulePageClient() {
     [allSwaps],
   );
 
-  // Total pending items a manager must act on (swaps + time off), badged on the
-  // Requests button.
-  const pendingRequestsCount = managerSwaps.length + pendingManagerTimeOff.length;
+  // Total pending items a manager must act on (swaps, time off, punch
+  // corrections), badged on the Requests button.
+  const pendingRequestsCount = managerSwaps.length + pendingManagerTimeOff.length + pendingPunchCorrections.length;
+
+  // Display-ready punch corrections, in the store's timezone.
+  const punchCorrectionItems = useMemo(
+    () => pendingPunchCorrections.map((c) => ({
+      id: c.id,
+      employeeName: c.employeeName,
+      punchLabel: PUNCH_TYPE_LABELS[c.punchType],
+      when: `${formatDateKey(dateKeyInTz(c.punchedAt, timezone), { weekday: "short", month: "short", day: "numeric" })} at ${formatTimeInTz(c.punchedAt, timezone)}`,
+      note: c.note,
+    })),
+    [pendingPunchCorrections, timezone],
+  );
 
   // Swaps the current user is personally part of, as requester or target.
   const mySwaps = useMemo(
@@ -776,10 +805,7 @@ export default function SchedulePageClient() {
 
   // Stats
   const totalShifts = schedules.length;
-  const totalHours = schedules.reduce(
-    (acc, s) => acc + (s.endMinutes - s.startMinutes) / 60,
-    0,
-  );
+  const totalHours = schedules.reduce((acc, s) => acc + shiftMinutes(s, timezone) / 60, 0);
   const daysInRange =
     view === "week"
       ? 7
@@ -930,14 +956,14 @@ export default function SchedulePageClient() {
       ) : nextShift ? (
         <>
           <div className="text-slate-300 font-semibold text-sm">
-            {formatNextShiftDate(nextShift.date, toDateKey(today))}
+            {formatNextShiftDate(nextShift.date, todayKey)}
           </div>
           <div className="text-2xl font-extrabold text-slate-100 mt-1">
             {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
           </div>
-          {getDaysUntil(nextShift.date, toDateKey(today)) > 1 && (
+          {getDaysUntil(nextShift.date, todayKey) > 1 && (
             <div className="text-xs text-slate-400 mt-1">
-              in {getDaysUntil(nextShift.date, toDateKey(today))} days
+              in {getDaysUntil(nextShift.date, todayKey)} days
             </div>
           )}
         </>
@@ -1055,7 +1081,7 @@ export default function SchedulePageClient() {
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-red-500/30 text-red-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-500/10 transition-colors"
             >
               <MegaphoneIcon size={15} color="rgb(248 113 113)" />
-              {calloutStatus === "loading" ? "Submitting…" : selectedSchedule ? "Can't make this shift? Call out" : "Call out"}
+              {calloutStatus === "loading" ? "Submitting…" : "Can't make this shift? Call out"}
             </button>
             {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
@@ -1115,7 +1141,7 @@ export default function SchedulePageClient() {
 
       {isManager && (
         <motion.button
-          onClick={() => router.push("/draft")}
+          onClick={() => router.push("/week?mode=draft")}
           whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
           className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
@@ -1126,7 +1152,8 @@ export default function SchedulePageClient() {
 
       {isManager && (
         <button
-          onClick={() => setSwapDrawerOpen(true)}
+          // Phones review requests in the drawer; wider screens get the full inbox page.
+          onClick={() => (window.matchMedia(`(min-width: ${BREAKPOINTS.tablet}px)`).matches ? router.push("/requests") : setSwapDrawerOpen(true))}
           className="w-full mt-3 py-3 text-sm font-bold text-slate-200 bg-card border border-slate-800/60 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors flex items-center justify-center gap-2"
         >
           Requests
@@ -1148,9 +1175,9 @@ export default function SchedulePageClient() {
       isDemo={isDemo}
       onSignOut={handleSignOut}
     >
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen [@media(min-width:900px)]:max-w-none [@media(min-width:900px)]:pb-0">
+      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
         {/* Desktop header (hidden on mobile) */}
-        <div className="hidden [@media(min-width:900px)]:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
+        <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
             <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
@@ -1168,21 +1195,22 @@ export default function SchedulePageClient() {
         {/*
          * Content: single DOM tree, CSS-responsive layout.
          * Mobile: vertical stack (nextShift → calendar → detail).
+         * Tablet: next shift full width, then calendar | day detail.
          * Desktop: 2-column grid — explicit col/row placement reorders without
          * duplicating React elements (which would cause double state/effects).
          * nextShiftCard and detailSection go in col 2; calendarSection fills col 1.
          */}
-        <div className="flex flex-col px-4 pt-4 [@media(min-width:900px)]:grid [@media(min-width:900px)]:grid-cols-[1fr_320px] [@media(min-width:900px)]:gap-6 [@media(min-width:900px)]:px-6 [@media(min-width:900px)]:py-6 [@media(min-width:900px)]:items-start">
+        <div className="flex flex-col px-4 pt-4 tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:px-6 tablet:items-start desk:grid desk:grid-cols-[1fr_320px] desk:gap-6 desk:px-6 desk:py-6 desk:items-start wide:grid-cols-[minmax(0,1fr)_380px] wide:max-w-[1680px] wide:mx-auto">
           {/* Mobile: 1st. Desktop: col 2, row 1 (sticky) */}
-          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:sticky [@media(min-width:900px)]:top-6">
+          <div className="tablet:col-span-2 desk:col-span-1 desk:col-start-2 desk:row-start-1 desk:sticky desk:top-6">
             {nextShiftCard}
           </div>
           {/* Mobile: 2nd. Desktop: col 1, rows 1–2 */}
-          <div className="[@media(min-width:900px)]:col-start-1 [@media(min-width:900px)]:row-start-1 [@media(min-width:900px)]:row-span-2">
+          <div className="min-w-0 desk:col-start-1 desk:row-start-1 desk:row-span-2">
             {calendarSection}
           </div>
           {/* Mobile: 3rd. Desktop: col 2, row 2 */}
-          <div className="[@media(min-width:900px)]:col-start-2 [@media(min-width:900px)]:row-start-2">
+          <div className="min-w-0 desk:col-start-2 desk:row-start-2">
             {detailSection}
           </div>
         </div>
@@ -1202,10 +1230,13 @@ export default function SchedulePageClient() {
             onClose={() => setSwapDrawerOpen(false)}
             swaps={managerSwaps}
             timeOff={pendingManagerTimeOff}
+            punchCorrections={punchCorrectionItems}
             onApproveSwap={handleApproveSwap}
             onDenySwap={handleDenySwap}
             onApproveTimeOff={handleApproveManagerTimeOff}
             onDenyTimeOff={handleDenyManagerTimeOff}
+            onApprovePunchCorrection={(id) => reviewPunchCorrection(id, "approved")}
+            onDenyPunchCorrection={(id) => reviewPunchCorrection(id, "denied")}
           />
         )}
 

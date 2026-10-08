@@ -37,6 +37,7 @@ function makeClient({
   employeeId = 5 as number | null,
   employeeName = "Alex P",
   scheduleRows = [] as any[],
+  settingsRows = [] as any[],
 } = {}) {
   const employeeRow = employeeId != null ? { id: employeeId, org_id: MOCK_ORG_ID, name: employeeName } : null;
   const managerRow = isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID, is_owner: false } : null;
@@ -46,6 +47,7 @@ function makeClient({
       if (table === "managers") return builder({ single: managerRow });
       if (table === "employees") return builder({ single: employeeRow });
       if (table === "schedules") return builder({ thenData: scheduleRows });
+      if (table === "app_settings") return builder({ thenData: settingsRows });
       return builder();
     }),
     rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -86,9 +88,37 @@ describe("GET /api/my-schedule/calendar", () => {
     const body = await res.text();
     expect(body).toContain("BEGIN:VCALENDAR");
     expect(body.match(/BEGIN:VEVENT/g)).toHaveLength(2);
-    expect(body).toContain("DTSTART:20260706T080000");
+    // Times are absolute UTC instants of the store's wall clock — default
+    // store zone is America/New_York (EDT, UTC−4 in July): 8:00 AM → 12:00Z.
+    expect(body).toContain("DTSTART:20260706T120000Z");
+    expect(body).toContain("DTEND:20260706T210000Z");
     // Stable per-shift UID so re-importing updates rather than duplicates.
     expect(body).toContain("UID:shiftview-1-");
+  });
+
+  it("converts shift times with the org's configured timezone", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeClient({
+        scheduleRows: [{ id: 1, employee_id: 5, date: "2026-07-06", start_minutes: 480, end_minutes: 1020 }],
+        settingsRows: [{ key: "timezone", value: "Asia/Tokyo" }],
+      }) as any
+    );
+    const body = await (await GET(req())).text();
+    // 8:00 AM in Tokyo (UTC+9) is 23:00Z the previous day.
+    expect(body).toContain("DTSTART:20260705T230000Z");
+    expect(body).toContain("DTEND:20260706T080000Z");
+  });
+
+  it("gives a shift spanning a DST change its real length", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeClient({
+        // Midnight–8 AM on the US fall-back night (2026-11-01) is 9 real hours.
+        scheduleRows: [{ id: 1, employee_id: 5, date: "2026-11-01", start_minutes: 0, end_minutes: 480 }],
+      }) as any
+    );
+    const body = await (await GET(req())).text();
+    expect(body).toContain("DTSTART:20261101T040000Z"); // 00:00 EDT
+    expect(body).toContain("DTEND:20261101T130000Z");   // 08:00 EST
   });
 
   it("returns an empty but valid calendar when there are no shifts", async () => {

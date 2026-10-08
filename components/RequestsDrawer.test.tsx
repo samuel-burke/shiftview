@@ -126,3 +126,57 @@ describe("RequestsDrawer", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });
+
+describe("RequestsDrawer — punch corrections", () => {
+  const CORRECTIONS = [
+    { id: 11, employeeName: "Riley Chen", punchLabel: "Clock Out", when: "Sat, Oct 31 at 5:00 PM", note: "Phone died" },
+  ];
+
+  it("lists punch corrections with what, when and the employee's reason", () => {
+    render(
+      <RequestsDrawer
+        {...BASE}
+        punchCorrections={CORRECTIONS}
+        onApprovePunchCorrection={() => Promise.resolve()}
+        onDenyPunchCorrection={() => Promise.resolve()}
+      />
+    );
+    expect(screen.getByText("Punch Corrections")).toBeInTheDocument();
+    const card = screen.getByTestId("punch-correction-card");
+    expect(within(card).getByText("Riley Chen")).toBeInTheDocument();
+    expect(within(card).getByText("clock out")).toBeInTheDocument();
+    expect(within(card).getByText(/Sat, Oct 31 at 5:00 PM/)).toBeInTheDocument();
+    expect(within(card).getByText(/Phone died/)).toBeInTheDocument();
+    expect(screen.getByText("3 awaiting approval")).toBeInTheDocument();
+  });
+
+  it("approves and denies by id", async () => {
+    const onApprove = vi.fn().mockResolvedValue(undefined);
+    const onDeny = vi.fn().mockResolvedValue(undefined);
+    render(
+      <RequestsDrawer
+        {...BASE}
+        punchCorrections={CORRECTIONS}
+        onApprovePunchCorrection={onApprove}
+        onDenyPunchCorrection={onDeny}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approve Riley Chen's punch correction" }));
+    await waitFor(() => expect(onApprove).toHaveBeenCalledWith(11));
+    fireEvent.click(screen.getByRole("button", { name: "Deny Riley Chen's punch correction" }));
+    await waitFor(() => expect(onDeny).toHaveBeenCalledWith(11));
+  });
+
+  it("shows the server's reason when approval fails", async () => {
+    render(
+      <RequestsDrawer
+        {...BASE}
+        punchCorrections={CORRECTIONS}
+        onApprovePunchCorrection={() => Promise.reject(new Error("Can't approve: punches changed"))}
+        onDenyPunchCorrection={() => Promise.resolve()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approve Riley Chen's punch correction" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Can't approve: punches changed");
+  });
+});

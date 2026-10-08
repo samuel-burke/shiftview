@@ -1,3 +1,5 @@
+import { isWorkingAt } from "@/lib/shift-times";
+
 export type ShiftType = "opener" | "mid" | "closer";
 
 export type Employee = {
@@ -27,6 +29,8 @@ export type Schedule = {
   date: string;
   startMinutes: number;
   endMinutes: number;
+  // Drafts only: the Auto-schedule run that created it, if any.
+  generationRunId?: number | null;
 };
 
 // Derived — computed from clock-in/out times and store hours
@@ -37,7 +41,11 @@ export function getShiftType(startMinutes: number, endMinutes: number, openMinut
   return "mid";
 }
 
-export function isHere(s: Schedule, nowMinutes: number): boolean {
+// Whether the shift is in progress at `nowMinutes`. With `dayKey` (the day
+// `nowMinutes` is on), a shift from another day — last night's overnight shift —
+// is measured relative to that day.
+export function isHere(s: Schedule, nowMinutes: number, dayKey?: string): boolean {
+  if (dayKey && s.date) return isWorkingAt(s, dayKey, nowMinutes);
   return nowMinutes >= s.startMinutes && nowMinutes < s.endMinutes;
 }
 
@@ -57,11 +65,13 @@ export const TIME_OFF_COLORS: Record<TimeOffRequest["status"], string> = {
 export type CoverageStatus = "optimal" | "low" | "critical" | "closed";
 export type StoreHours = { open: number; close: number };
 
+// Minutes since midnight as a clock time. Values past 1440 (the end of an
+// overnight shift) read as the next day's time: 1800 → "6:00 AM".
 export function fmtMinutes(m: number): string {
   if (m < 0) return "";
   const h = Math.floor(m / 60);
   const min = m % 60;
-  const ampm = h >= 12 && h < 24 ? "PM" : "AM";
+  const ampm = h % 24 >= 12 ? "PM" : "AM";
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return min === 0
     ? `${h12}:00 ${ampm}`
