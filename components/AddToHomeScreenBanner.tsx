@@ -2,8 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppData } from "@/lib/AppDataContext";
 
+// The "Add to Home Screen" tip for iPhone Safari. It lives in the signed-in
+// app (AppShell), never on the marketing pages or in the demo, and stays out
+// of the way: at most once a week, and never again once dismissed.
 const DISMISSED_KEY = "aths-dismissed";
+const SHOWN_AT_KEY = "aths-shown-at";
+const SHOW_EVERY_MS = 7 * 24 * 60 * 60 * 1000;
+const DELAY_MS = 2000;
+
+function read(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function write(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* storage unavailable: it just shows again */ }
+}
 
 function ShareIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
   return (
@@ -33,22 +47,28 @@ function ShareIcon({ size = 18, className = "" }: { size?: number; className?: s
 }
 
 export default function AddToHomeScreenBanner() {
+  const { me, sharedLoading } = useAppData();
   const [visible, setVisible] = useState(false);
+  const isDemo = me.isDemo;
 
   useEffect(() => {
+    if (sharedLoading || isDemo) return;
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone =
       (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    const dismissed = localStorage.getItem(DISMISSED_KEY) === "1";
+    const dismissed = read(DISMISSED_KEY) === "1";
+    const shownAt = Number(read(SHOWN_AT_KEY) ?? 0);
+    if (!isIos || isStandalone || dismissed || Date.now() - shownAt < SHOW_EVERY_MS) return;
 
-    if (isIos && !isStandalone && !dismissed) {
-      const t = setTimeout(() => setVisible(true), 1000);
-      return () => clearTimeout(t);
-    }
-  }, []);
+    const t = setTimeout(() => {
+      write(SHOWN_AT_KEY, String(Date.now()));
+      setVisible(true);
+    }, DELAY_MS);
+    return () => clearTimeout(t);
+  }, [sharedLoading, isDemo]);
 
   function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, "1");
+    write(DISMISSED_KEY, "1");
     setVisible(false);
   }
 

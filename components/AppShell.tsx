@@ -5,6 +5,7 @@ import SideNav from "./SideNav";
 import NavRail from "./NavRail";
 import TopBar from "./TopBar";
 import KeyboardShortcuts from "./KeyboardShortcuts";
+import AddToHomeScreenBanner from "./AddToHomeScreenBanner";
 import { useSidebarExpanded } from "@/hooks/useSidebarExpanded";
 
 export type NavItem = "team" | "schedule" | "clock" | "admin" | "settings" | "reports" | "week" | "requests";
@@ -75,6 +76,7 @@ export default function AppShell({
 
         <div>{children}</div>
       </div>
+      <AddToHomeScreenBanner />
     </div>
   );
 }

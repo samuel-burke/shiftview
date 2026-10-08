@@ -434,6 +434,8 @@ describe("SettingsPageClient — employee view", () => {
       if (method === "GET") {
         if (url.includes("/api/me"))
           return { ok: true, json: async () => ({ isManager: false, employeeId: 5 }) } as Response;
+        if (url.includes("/api/preferences"))
+          return { ok: true, json: async () => ({ employeeId: 5, preferredShiftTypes: [], preferredDays: [], avoidDays: [], desiredWeeklyHours: null, note: null, updatedAt: null }) } as Response;
         if (url.includes("/api/availability"))
           return { ok: true, json: async () => [] } as Response;
         if (url.includes("/api/settings"))

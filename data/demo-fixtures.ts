@@ -18,22 +18,25 @@ export const DEMO_EMPLOYEES: Employee[] = [
   { id: 12, name: "Harper Singh",                                  user_id: null             },
 ];
 
-// Weekly shift pattern per employee: day-of-week (0=Sun) → [startMinutes, endMinutes] | null.
-// Staggered openers/mids/closers so the coverage timeline reads like a real
-// store: early starts, lunchtime overlap, and closers running to the end of day.
+// The published week, per employee: day-of-week (0=Sun) → [startMinutes, endMinutes] | null.
+// Built like a real schedule for this store: inside store hours, exactly on
+// the coverage target every 15 minutes (266 h, the budget), and within each
+// person's availability, weekly hours and days (data/demo-fixtures.test.ts
+// checks all of it). Weekdays run two 9–5 openers, a 9–1 opener, a 12–6 mid,
+// a 1–9 closer and two 5–9 closers; weekends three 10–6 shifts and a 10–2.
 export const EMPLOYEE_PATTERNS: Record<number, Array<[number, number] | null>> = {
-  1:  [null,        [360, 840],  [360, 840],  [360, 840],  [360, 840],  [360, 840],  null       ], // Mon–Fri 6am–2pm (opener)
-  2:  [null,        [540, 1020], [540, 1020], null,        [540, 1020], [540, 1020], [540, 1020]], // Mon/Tue/Thu/Fri/Sat 9am–5pm
-  3:  [[720, 1200], null,        [720, 1200], [720, 1200], [720, 1200], [720, 1200], [720, 1200]], // Sun/Tue–Sat 12pm–8pm (closer)
-  4:  [null,        [480, 960],  [480, 960],  [480, 960],  null,        [480, 960],  [480, 960] ], // Mon/Tue/Wed/Fri/Sat 8am–4pm
-  5:  [[600, 1080], null,        null,        [600, 1080], [600, 1080], [600, 1080], [600, 1080]], // Sun/Wed–Sat 10am–6pm
-  6:  [null,        null,        [660, 1140], [660, 1140], [660, 1140], [660, 1140], [660, 1140]], // Tue–Sat 11am–7pm
-  7:  [[510, 990],  [510, 990],  null,        [510, 990],  [510, 990],  null,        [510, 990] ], // Sun/Mon/Wed/Thu/Sat 8:30am–4:30pm
-  8:  [[780, 1260], [780, 1260], [780, 1260], [780, 1260], null,        null,        [780, 1260]], // Sun–Wed/Sat 1pm–9pm (closer)
-  9:  [[420, 900],  null,        [420, 900],  [420, 900],  null,        [420, 900],  [420, 900] ], // Sun/Tue/Wed/Fri/Sat 7am–3pm (opener)
-  10: [null,        [570, 1050], null,        [570, 1050], [570, 1050], [570, 1050], null       ], // Mon/Wed/Thu/Fri 9:30am–5:30pm
-  11: [[840, 1260], null,        null,        null,        [840, 1260], [840, 1260], [840, 1260]], // Thu–Sun 2pm–9pm (closer)
-  12: [[600, 1080], null,        null,        null,        null,        [960, 1260], [600, 1080]], // weekends 10am–6pm + Fri 4pm–9pm
+  1:  [null,        [540, 1020], [540, 1020], [540, 1020], [540, 1020], [540, 1020], null       ], // Mon–Fri 9am–5pm (manager)
+  2:  [null,        [720, 1080], [720, 1080], null,        [720, 1080], [720, 1080], [600, 1080]], // Mon/Tue/Thu/Fri 12–6pm, Sat 10am–6pm
+  3:  [null,        null,        [780, 1260], [780, 1260], [780, 1260], [780, 1260], null       ], // Tue–Fri 1–9pm (closer)
+  4:  [null,        [540, 1020], [540, 1020], [540, 1020], null,        [540, 1020], null       ], // Mon/Tue/Wed/Fri 9am–5pm
+  5:  [[600, 1080], null,        null,        [720, 1080], [540, 1020], null,        [600, 1080]], // Wed 12–6pm, Thu 9am–5pm, weekends 10am–6pm
+  6:  [null,        null,        null,        [1020, 1260], [1020, 1260], [1020, 1260], null      ], // Wed–Fri 5–9pm
+  7:  [[600, 1080], [1020, 1260], null,       null,        null,        null,        null       ], // Sun 10am–6pm, Mon 5–9pm
+  8:  [null,        [1020, 1260], [1020, 1260], [1020, 1260], null,      null,        null       ], // Mon–Wed 5–9pm
+  9:  [[600, 840],  null,        [540, 780],  null,        null,        [540, 780],  [600, 840] ], // Tue/Fri 9am–1pm, weekends 10am–2pm
+  10: [null,        [540, 780],  null,        [540, 780],  [540, 780],  null,        null       ], // Mon/Wed/Thu 9am–1pm
+  11: [null,        [780, 1260], [1020, 1260], null,       [1020, 1260], [1020, 1260], null      ], // Mon 1–9pm, Tue/Thu/Fri 5–9pm
+  12: [[600, 1080], null,        null,        null,        null,        null,        [600, 1080]], // weekends 10am–6pm
 };
 
 export const DEMO_AVAILABILITY: Record<number, AvailabilityRecord[]> = {
@@ -54,8 +57,8 @@ export const DEMO_AVAILABILITY: Record<number, AvailabilityRecord[]> = {
   ],
   5: [],
   6: [
-    { id: 9008, dayOfWeek: 1, startMinutes: 600, endMinutes: 1080, note: "School mornings Mon" },
-    { id: 9009, dayOfWeek: 2, startMinutes: 600, endMinutes: 1080, note: "School mornings Tue" },
+    { id: 9008, dayOfWeek: 1, startMinutes: 780, endMinutes: 1260, note: "School mornings Mon" },
+    { id: 9009, dayOfWeek: 2, startMinutes: 780, endMinutes: 1260, note: "School mornings Tue" },
   ],
   8: [
     { id: 9010, dayOfWeek: 4, startMinutes: null, endMinutes: null, note: "Band practice Thursdays" },
@@ -64,36 +67,47 @@ export const DEMO_AVAILABILITY: Record<number, AvailabilityRecord[]> = {
   9: [
     { id: 9012, dayOfWeek: 1, startMinutes: null, endMinutes: null, note: "Unavailable Mondays" },
   ],
+  10: [
+    { id: 9017, dayOfWeek: 1, startMinutes: 480, endMinutes: 1020, note: "School pickup at 5:30 PM" },
+    { id: 9018, dayOfWeek: 2, startMinutes: 480, endMinutes: 1020, note: "School pickup at 5:30 PM" },
+    { id: 9019, dayOfWeek: 3, startMinutes: 480, endMinutes: 1020, note: "School pickup at 5:30 PM" },
+    { id: 9020, dayOfWeek: 4, startMinutes: 480, endMinutes: 1020, note: "School pickup at 5:30 PM" },
+    { id: 9021, dayOfWeek: 5, startMinutes: 480, endMinutes: 1020, note: "School pickup at 5:30 PM" },
+  ],
   11: [
     { id: 9013, dayOfWeek: 1, startMinutes: 780, endMinutes: 1320, note: "Afternoons only" },
     { id: 9014, dayOfWeek: 2, startMinutes: 780, endMinutes: 1320, note: "Afternoons only" },
   ],
   12: [
     { id: 9015, dayOfWeek: 1, startMinutes: null, endMinutes: null, note: "Weekends only" },
+    { id: 9022, dayOfWeek: 2, startMinutes: null, endMinutes: null, note: "Weekends only" },
     { id: 9016, dayOfWeek: 3, startMinutes: null, endMinutes: null, note: "Weekends only" },
+    { id: 9023, dayOfWeek: 4, startMinutes: null, endMinutes: null, note: "Weekends only" },
+    { id: 9024, dayOfWeek: 5, startMinutes: null, endMinutes: null, note: "Weekends only" },
   ],
 };
 
-// Employment type and weekly limits for the Planner's Auto-schedule (Settings →
-// Team → Scheduling). Limits left out use the org defaults for the type
-// (full-time 32–40 h, part-time 0–29 h). Riley has no type, so the Planner's
-// readiness check has something to point out.
+// Employment type, weekly limits and hourly pay for the Week page's
+// Auto-schedule (Settings → Team → Scheduling) and labor cost. Limits left out
+// use the org defaults for the type (full-time 32–40 h, part-time 0–29 h).
+// Riley has no type, so Auto-schedule's readiness check has something to
+// point out.
 export const DEMO_EMPLOYMENT: Record<
   number,
-  { type: "full_time" | "part_time" | null; minHours?: number; maxHours?: number; maxDays?: number }
+  { type: "full_time" | "part_time" | null; minHours?: number; maxHours?: number; maxDays?: number; payRate: number }
 > = {
-  1:  { type: "full_time" },
-  2:  { type: "full_time" },
-  3:  { type: "full_time" },
-  4:  { type: "full_time" },
-  5:  { type: "full_time", minHours: 30, maxHours: 38 },
-  6:  { type: "part_time", maxHours: 24 },
-  7:  { type: null },
-  8:  { type: "part_time" },
-  9:  { type: "part_time", minHours: 16 },
-  10: { type: "part_time", maxHours: 20, maxDays: 4 },
-  11: { type: "part_time", maxHours: 24 },
-  12: { type: "part_time", maxHours: 16, maxDays: 2 },
+  1:  { type: "full_time", payRate: 22.5 },
+  2:  { type: "full_time", payRate: 19 },
+  3:  { type: "full_time", payRate: 18.5 },
+  4:  { type: "full_time", payRate: 18 },
+  5:  { type: "full_time", minHours: 30, maxHours: 38, payRate: 18.75 },
+  6:  { type: "part_time", maxHours: 24, payRate: 16.25 },
+  7:  { type: null, payRate: 16 },
+  8:  { type: "part_time", payRate: 15.75 },
+  9:  { type: "part_time", minHours: 16, payRate: 16.5 },
+  10: { type: "part_time", maxHours: 20, maxDays: 4, payRate: 15.5 },
+  11: { type: "part_time", maxHours: 24, payRate: 15.75 },
+  12: { type: "part_time", maxHours: 16, maxDays: 2, payRate: 15.25 },
 };
 
 // Shift preferences (what each person would like). Days are 0 = Sunday.
@@ -107,6 +121,7 @@ export const DEMO_PREFERENCES: Record<
   4:  { shiftTypes: ["opener", "mid"] },
   5:  { shiftTypes: ["mid"], preferredDays: [4, 5, 6] },
   6:  { shiftTypes: ["closer"], desiredHours: 22 },
+  7:  { shiftTypes: ["closer"], preferredDays: [0, 1], desiredHours: 12 },
   8:  { shiftTypes: ["closer"], avoidDays: [6] },
   9:  { shiftTypes: ["opener"], desiredHours: 24, note: "Happy to pick up extra mornings" },
   10: { shiftTypes: ["mid"], desiredHours: 18, note: "School pickup at 5:30 PM on weekdays" },
