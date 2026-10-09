@@ -26,6 +26,8 @@ export function makeQueryBuilder(result: { data: any; error: any }) {
 export function makeSupabaseClient({
   user = null as any,
   isManager = false,
+  // The org the caller's membership rows belong to (e.g. DEMO_ORG_ID).
+  orgId = MOCK_ORG_ID,
   // The org's owner (managers.is_owner), when one exists. Queries that filter
   // on is_owner resolve to this row instead of the caller's membership row.
   ownerUserId = null as string | null,
@@ -40,15 +42,15 @@ export function makeSupabaseClient({
 } = {}) {
   const managerRow =
     isManager && user
-      ? { user_id: user.id, org_id: MOCK_ORG_ID, is_owner: ownerUserId === user.id }
+      ? { user_id: user.id, org_id: orgId, is_owner: ownerUserId === user.id }
       : null;
   const ownerRow = ownerUserId
-    ? { user_id: ownerUserId, org_id: MOCK_ORG_ID, is_owner: true }
+    ? { user_id: ownerUserId, org_id: orgId, is_owner: true }
     : null;
   // Org-aware code resolves the caller's org from the employees row; default
   // org_id in so existing tests don't have to specify it.
   const employeeRow =
-    linkedEmployee != null ? { org_id: MOCK_ORG_ID, ...linkedEmployee } : linkedEmployee;
+    linkedEmployee != null ? { org_id: orgId, ...linkedEmployee } : linkedEmployee;
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),

@@ -112,7 +112,6 @@ export async function POST(
   }
 
   notifyManagers(
-    supabase,
     orgId,
     "open_shift_available",
     "Shift Claimed",

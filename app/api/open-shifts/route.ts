@@ -231,7 +231,7 @@ export async function POST(request: Request) {
   }
 
   // Broadcast to the org's in-app feed that a shift is up for grabs.
-  notify(supabase, {
+  notify({
     orgId: orgId!,
     userId: null,
     type: "open_shift_available",

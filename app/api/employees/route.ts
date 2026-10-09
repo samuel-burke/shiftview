@@ -37,6 +37,12 @@ function normalizeHours<T extends Record<string, unknown>>(row: T): T {
   return out as T;
 }
 
+function withoutPayRate<T extends Record<string, unknown>>(row: T): T {
+  const copy: Record<string, unknown> = { ...row };
+  delete copy.pay_rate;
+  return copy as T;
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
@@ -64,7 +70,9 @@ export async function GET(request: Request) {
     console.error("[api/employees]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  return NextResponse.json(sortByName((data ?? []).map(normalizeHours)));
+  // Pay rates are for managers (labor cost); coworkers get the roster without them.
+  const rows = (data ?? []).map(normalizeHours);
+  return NextResponse.json(sortByName(ctx!.isManager ? rows : rows.map(withoutPayRate)));
 }
 
 export async function PATCH(request: Request) {
@@ -100,15 +108,12 @@ export async function PATCH(request: Request) {
       { status: authError === "Not authenticated" ? 401 : 403 }
     );
 
-  // Demo org: visitors may rename employees or unlink/claim a row for
-  // themselves, but must not attach arbitrary real user ids to demo rows.
-  if (
-    isDemoOrgId(orgId!) &&
-    typeof userId === "string" &&
-    userId !== user!.id
-  )
+  // A manager may unlink a row or claim it for themselves, never attach
+  // someone else's account: that would make the person a member of this org
+  // without their say. The database enforces the same rule (migration 0035).
+  if (typeof userId === "string" && userId !== user!.id)
     return NextResponse.json(
-      { error: "Linking other accounts is disabled in the demo organization" },
+      { error: "You can only link an employee record to your own account" },
       { status: 403 }
     );
 
@@ -252,11 +257,21 @@ export async function DELETE(request: Request) {
   if (!deleted || deleted.length === 0)
     return NextResponse.json({ error: "Employee not found or permission denied" }, { status: 404 });
 
-  // Delete auth account and manager role if the employee had a linked user
-  if (employee.user_id) {
+  // A linked user loses their manager role here too. Their account is shared
+  // by every organization they belong to, so it is deleted only when this was
+  // their last membership. In the demo org the linked user is another
+  // visitor in the middle of a session: leave them be; the nightly reset
+  // removes demo accounts.
+  if (employee.user_id && !isDemoOrgId(orgId!)) {
     const admin = createAdminClient();
     await admin.from("managers").delete().eq("org_id", orgId!).eq("user_id", employee.user_id);
-    await admin.auth.admin.deleteUser(employee.user_id);
+    const [managerRows, employeeRows] = await Promise.all([
+      admin.from("managers").select("org_id", { count: "exact", head: true }).eq("user_id", employee.user_id),
+      admin.from("employees").select("id", { count: "exact", head: true }).eq("user_id", employee.user_id),
+    ]);
+    const lastMembership =
+      !managerRows.error && !employeeRows.error && managerRows.count === 0 && employeeRows.count === 0;
+    if (lastMembership) await admin.auth.admin.deleteUser(employee.user_id);
   }
 
   writeAuditLog({

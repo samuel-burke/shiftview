@@ -225,7 +225,7 @@ The plan in §6 is implemented. Map of the moving parts:
 | Nightly reset + reseed + anonymous-user purge | `GET /api/cron/demo-reset` (08:00 UTC via `vercel.json`) |
 | `isDemo` plumbing | `OrgContext` → `/api/me` → `AppDataContext.me.isDemo` → banners |
 | Side-effect guards | `lib/notify.ts` (no push), `app/api/invites` (blocked), `app/api/schedules` DELETE (no email), `app/api/cron/reminders` (skips demo orgs), `app/api/push/subscribe` (no anonymous users) |
-| Abuse guards | `app/api/employees` PATCH (no linking arbitrary user ids in demo), `app/api/managers/[userId]` (promote only demo members) |
+| Abuse guards | `app/api/employees` PATCH (no linking other users' accounts, in any org) and DELETE (never removes another visitor's account or role), `app/api/managers/[userId]` (promote only demo members; no demoting), migration `0035` (no direct writes to `managers`, employee rows link only to the caller's own account) |
 | Contract | All fixture fallbacks removed; unauthenticated API access now returns 401 |
 | E2E | `?demo=true` server bypass replaced by `E2E_BYPASS_AUTH=1` set in `playwright.config.ts` webServer env |
 

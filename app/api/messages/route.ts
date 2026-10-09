@@ -153,7 +153,7 @@ export async function POST(request: Request) {
   } catch {}
 
   if (isChessMove) {
-    await notifyChessMove(supabase, {
+    await notifyChessMove({
       orgId,
       toUserId,
       fromUserId: user!.id,
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
       chessStatus,
     }).catch(() => {});
   } else {
-    await notify(supabase, {
+    await notify({
       orgId,
       userId: toUserId,
       type: "message",

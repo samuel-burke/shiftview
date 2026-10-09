@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       .in("id", publishedEmployeeIds);
     for (const emp of emps ?? []) {
       if (!emp.user_id) continue;
-      notify(supabase, {
+      notify({
         orgId:  orgId!,
         userId: emp.user_id,
         type:   "shift_change",

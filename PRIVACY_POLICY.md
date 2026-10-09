@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**ShiftView** · Last updated: October 5, 2026
+**ShiftView** · Last updated: October 9, 2026
 
 This policy describes what information ShiftView collects, how it is used, and how it is protected.
 
@@ -54,9 +54,11 @@ We do not sell, rent, or share your personal information with third parties for 
 
 ## 4. Message Encryption
 
-All messages are encrypted at rest using **AES-256-GCM** before being stored in the database. The server decrypts messages only when delivering them to an authorized recipient (i.e., the sender or the intended receiver) or when generating push notification previews. The database itself never stores plaintext message content.
+Message text is encrypted at rest using **AES-256-GCM** before it is stored with the message. The server decrypts it only to show the message to its sender or its recipient.
 
-Messages in transit are protected by TLS (HTTPS).
+When you receive a message, ShiftView also creates a notification for you, shown in the app and, if you allow it, as a push notification. That notification includes the message text as a preview, and it is stored in the database **without** this encryption. Clearing a notification hides it from you but does not delete it (see Data Retention).
+
+Messages and notifications in transit are protected by TLS (HTTPS).
 
 ---
 
@@ -73,6 +75,7 @@ Messages in transit are protected by TLS (HTTPS).
 
 - **Schedule and employee data** is retained for as long as you have an active account.
 - **Messages** are retained indefinitely unless deleted by an administrator.
+- **Notifications**, including message previews, are kept until the organization is deleted. Clearing a notification hides it from you but does not delete it, and deleting your account does not remove the notifications you received.
 - **Push subscriptions** are automatically removed when a device unsubscribes or the subscription becomes stale.
 - **Account deletion:** you can delete your account at any time from **Settings → Delete Account**. This permanently removes your login, push subscriptions, and notification preferences. Your name and your past schedule and clock records are retained by your organization as part of its business records (for example, payroll); ask your administrator to remove your employee record if you want those deleted as well.
 - **Organization deletion:** an organization owner can permanently delete the entire organization from **Settings → Delete Organization**. This removes all of the organization's data — employee records, schedules, clock records, messages, settings, and audit logs. Members' accounts are not deleted; they keep their logins and can join or create other organizations.
@@ -102,10 +105,10 @@ ShiftView uses browser storage (cookies and `localStorage`) only to maintain you
 
 | Service | Purpose | Privacy policy |
 |---|---|---|
-| Supabase | Database, authentication, and real-time | [supabase.com/privacy](https://supabase.com/privacy) |
+| Supabase | Database, authentication (including sign-in and invite emails), and real-time | [supabase.com/privacy](https://supabase.com/privacy) |
 | Vercel | Hosting and edge delivery | [vercel.com/legal/privacy-policy](https://vercel.com/legal/privacy-policy) |
 | Web Push (browser API) | Push notifications | Handled by your browser/OS vendor |
-| Resend | Delivery of invite, reminder and contact form emails | [resend.com/legal/privacy-policy](https://resend.com/legal/privacy-policy) |
+| Resend | Delivery of contact form emails and low-coverage alerts to managers | [resend.com/legal/privacy-policy](https://resend.com/legal/privacy-policy) |
 | Cloudflare Turnstile | Bot protection on the demo, sign-up and contact forms | [cloudflare.com/privacypolicy](https://www.cloudflare.com/privacypolicy/) |
 
 ---

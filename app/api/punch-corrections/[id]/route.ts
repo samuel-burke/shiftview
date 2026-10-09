@@ -118,7 +118,7 @@ export async function PUT(
       dateKeyInTz(correction.punched_at, tz), { weekday: "short", month: "short", day: "numeric" }
     )}`;
     const what = `${correction.punch_type.replace("_", " ")} at ${when}`;
-    notify(supabase, {
+    notify({
       orgId: orgId!,
       userId: emp.user_id,
       type: status === "approved" ? "punch_correction_approved" : "punch_correction_denied",
