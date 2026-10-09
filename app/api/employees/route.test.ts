@@ -62,17 +62,23 @@ describe("GET /api/employees", () => {
   });
 
   it("includes pay rates for managers only", async () => {
-    const withRates = MOCK_EMPLOYEES.map((e) => ({ ...e, pay_rate: 18 }));
-    mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: withRates }) as any
-    );
+    // Managers get rates from employee_pay_rates; the roster query never selects them.
+    const manager = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      queryData: MOCK_EMPLOYEES,
+      rpcData: [{ employee_id: 1, pay_rate: "18.50" }],
+    });
+    mockCreateClient.mockResolvedValue(manager as any);
     const managerView = await (await GET(new Request("http://localhost/api/employees"))).json();
-    expect(managerView[0]).toHaveProperty("pay_rate", 18);
+    expect(manager.rpc).toHaveBeenCalledWith("employee_pay_rates", { p_org: MOCK_ORG_ID });
+    expect(managerView.find((e: any) => e.id === 1)).toHaveProperty("pay_rate", 18.5);
+    expect(managerView.find((e: any) => e.id === 2)).toHaveProperty("pay_rate", null);
 
     // An employee: their own membership row resolves the org, the roster
     // query returns the list.
     const employee = makeSupabaseClient({ user: MOCK_USER, isManager: false });
-    const roster = makeQueryBuilder({ data: withRates, error: null });
+    const roster = makeQueryBuilder({ data: MOCK_EMPLOYEES, error: null });
     roster.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1, org_id: MOCK_ORG_ID }, error: null });
     const fallback = employee.from.getMockImplementation()!;
     employee.from.mockImplementation((table: string) => (table === "employees" ? roster : fallback(table)));
@@ -82,13 +88,32 @@ describe("GET /api/employees", () => {
     const employeeView = await res.json();
     expect(employeeView).toHaveLength(2);
     expect(employeeView[0]).not.toHaveProperty("pay_rate");
+    expect(employee.rpc).not.toHaveBeenCalled();
+  });
+
+  it("never selects pay_rate from employees", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/employees"));
+    const builders = client.from.mock.results.map((r: any) => r.value);
+    for (const b of builders)
+      for (const [cols] of b.select.mock.calls) expect(String(cols)).not.toContain("pay_rate");
+  });
+
+  it("returns 500 when manager pay rates can't be read", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES, rpcError: { message: "boom" },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/employees"));
+    expect(res.status).toBe(500);
   });
 
   it("returns the employee list sorted by last name", async () => {
     const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
-    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED);
+    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED.map((e) => ({ ...e, pay_rate: null })));
   });
 
   it("returns 500 on database error", async () => {
@@ -107,7 +132,7 @@ describe("GET /api/employees", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(await res.json()).toEqual([
-      { id: 1, name: "Alice Smith", employment_type: "part_time", min_weekly_hours: 12, max_weekly_hours: 24.5, max_days_per_week: 4 },
+      { id: 1, name: "Alice Smith", employment_type: "part_time", min_weekly_hours: 12, max_weekly_hours: 24.5, max_days_per_week: 4, pay_rate: null },
     ]);
   });
 
@@ -129,7 +154,7 @@ describe("GET /api/employees", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED);
+    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED.map((e) => ({ ...e, pay_rate: null })));
   });
 });
 

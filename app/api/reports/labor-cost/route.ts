@@ -5,6 +5,7 @@ import { weekDates } from "@/lib/draft-metrics";
 import { summarizeWeeklyCost, type EmployeeCostInput } from "@/lib/labor-cost";
 import { getOrgTimezone } from "@/lib/org-timezone";
 import { shiftMinutes } from "@/lib/schedule-hours";
+import { loadPayRates } from "@/lib/pay-rates";
 
 export const dynamic = "force-dynamic";
 
@@ -62,18 +63,17 @@ export async function GET(request: Request) {
   }
 
   const employeeIds = [...minutesByEmployee.keys()];
-  const { data: employees } = await supabase
-    .from("employees")
-    .select("id, name, pay_rate")
-    .eq("org_id", orgId)
-    .in("id", employeeIds);
+  const [{ data: employees }, { rates: rateById, error: rateError }] = await Promise.all([
+    supabase.from("employees").select("id, name").eq("org_id", orgId).in("id", employeeIds),
+    loadPayRates(supabase, orgId!),
+  ]);
+  if (rateError) {
+    console.error("[api/reports/labor-cost] pay rates", rateError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const nameById = new Map<number, string>();
-  const rateById = new Map<number, number | null>();
-  for (const e of employees ?? []) {
-    nameById.set(e.id, e.name);
-    rateById.set(e.id, e.pay_rate == null ? null : Number(e.pay_rate));
-  }
+  for (const e of employees ?? []) nameById.set(e.id, e.name);
 
   const inputs: EmployeeCostInput[] = employeeIds.map((id) => ({
     employeeId: id,

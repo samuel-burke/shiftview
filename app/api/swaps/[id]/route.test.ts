@@ -213,6 +213,16 @@ describe("PUT /api/swaps/:id — manager decision", () => {
     expect(res.status).toBe(409);
   });
 
+  it("reports a swap whose shifts changed hands since it was requested", async () => {
+    const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP, approveResult: "approved" });
+    client.rpc = vi.fn().mockResolvedValue({ data: "stale", error: null });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq("1", { status: "approved" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("reassigned") });
+  });
+
   it("denies an accepted swap without touching schedules", async () => {
     const client = makeClient({ isManager: true, swapData: ACCEPTED_SWAP });
     mockCreateClient.mockResolvedValue(client as any);

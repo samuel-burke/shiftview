@@ -223,6 +223,12 @@ async function resolveAsManager(
         return NextResponse.json({ error: "Shift not found" }, { status: 400 });
       if (result === "forbidden")
         return NextResponse.json({ error: "Manager access required" }, { status: 403 });
+      // One of the shifts changed hands after the swap was requested.
+      if (result === "stale")
+        return NextResponse.json(
+          { error: "These shifts have been reassigned since the swap was requested" },
+          { status: 409 }
+        );
       // pending / approved / denied / declined — no longer approvable.
       return NextResponse.json({ error: "Swap is already resolved" }, { status: 409 });
     }
