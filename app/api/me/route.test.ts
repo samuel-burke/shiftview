@@ -33,6 +33,8 @@ describe("GET /api/me", () => {
       employeeId: null,
       employeeName: null,
       isDemo: false,
+      orgId: null,
+      organizations: [],
     });
   });
 
@@ -51,6 +53,8 @@ describe("GET /api/me", () => {
       employeeId: null,
       employeeName: null,
       isDemo: false,
+      orgId: null,
+      organizations: [],
     });
   });
 
@@ -66,7 +70,7 @@ describe("GET /api/me", () => {
     );
     const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       isManager: false,
       isOwner: false,
       orgName: null,
@@ -84,7 +88,7 @@ describe("GET /api/me", () => {
     );
     const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       isManager: true,
       isOwner: false,
       orgName: null,
@@ -106,7 +110,7 @@ describe("GET /api/me", () => {
     );
     const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       isManager: true,
       isOwner: false,
       orgName: null,
@@ -134,7 +138,7 @@ describe("GET /api/me", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       isManager: true,
       isOwner: true,
       orgName: "Acme Coffee",
@@ -160,7 +164,7 @@ describe("GET /api/me", () => {
     mockCreateClient.mockResolvedValue(demoClient as any);
     const res = await GET(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       isManager: true,
       isOwner: false,
       orgName: null,

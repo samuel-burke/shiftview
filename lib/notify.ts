@@ -22,7 +22,8 @@ export type NotificationType =
   | "open_shift_available"
   | "open_shift_filled"
   | "message"
-  | "chess_move";
+  | "chess_move"
+  | "added_to_organization";
 
 type PushPrefKey =
   | "late_punch_alerts"
@@ -54,6 +55,7 @@ const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
   swap_approved:      "swap_alerts",
   swap_denied:        "swap_alerts",
   shift_reminder:     "shift_reminder_alerts",
+  added_to_organization: "new_shift_alerts",
 };
 
 export type NotifyOptions = {

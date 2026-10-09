@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ComposedChart,
@@ -134,7 +134,10 @@ export default function CoverageTimeline({
     width: number;
     top: number;
     height: number;
+    containerWidth: number;
   } | null>(null);
+  const badgeRef = useRef<HTMLDivElement>(null);
+  const [badgeWidth, setBadgeWidth] = useState(0);
 
   const hasTarget = !!targetBlocks && targetBlocks.length > 0;
 
@@ -176,6 +179,7 @@ export default function CoverageTimeline({
         width: svgRect.width - plotLeft - plotRight,
         top: svgRect.top - elRect.top,
         height: svgRect.height,
+        containerWidth: elRect.width,
       });
     }
     measure();
@@ -195,14 +199,26 @@ export default function CoverageTimeline({
     };
   }, []);
 
+  const timeStr = fmtMinutes(nowMinutes);
+
+  // The badge's width depends on the time and the font, so measure it (before
+  // paint) to keep it inside the chart below.
+  useLayoutEffect(() => {
+    if (badgeRef.current) setBadgeWidth(badgeRef.current.offsetWidth);
+  }, [timeStr, chartRect]);
+
   if (range === 0) return null;
 
   const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
-  const timeStr = fmtMinutes(nowMinutes);
-
   // Pixel position of the badge within the container
   const lineLeft = chartRect ? chartRect.left + nowPct * chartRect.width : null;
   const lineTop = chartRect ? chartRect.top + 28 : null; // 28 = margin.top
+  // Centred on the now line, but held inside the chart: before opening and
+  // after closing the line sits at an edge, and a centred badge would hang
+  // off the card (on a phone, off the screen).
+  const badgeLeft = chartRect && lineLeft !== null
+    ? Math.min(Math.max(lineLeft, badgeWidth / 2), chartRect.containerWidth - badgeWidth / 2)
+    : null;
 
   return (
     <motion.div
@@ -365,11 +381,13 @@ export default function CoverageTimeline({
         </ResponsiveContainer>
 
         {/* Time badge — positioned above the now line */}
-        {isToday && lineLeft !== null && lineTop !== null && (
+        {isToday && badgeLeft !== null && lineTop !== null && (
           <div
+            ref={badgeRef}
+            data-testid="now-badge"
             aria-hidden="true"
             className="absolute bg-slate-800 border border-slate-700 rounded-md px-[7px] py-[2px] text-[11px] font-bold text-slate-200 whitespace-nowrap pointer-events-none -translate-x-1/2"
-            style={{ left: lineLeft, top: lineTop - 24 }}
+            style={{ left: badgeLeft, top: lineTop - 24 }}
           >
             {timeStr}
           </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { getOrgContext } from "@/lib/org-context";
+import { getOrgContext, listMemberships } from "@/lib/org-context";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       isManager: false, isOwner: false, orgName: null,
       employeeId: null, employeeName: null, isDemo: false,
+      orgId: null, organizations: [],
     });
   }
 
@@ -43,6 +44,9 @@ export async function GET(request: Request) {
     orgName = org?.name ?? null;
   }
 
+  // Every organization the user belongs to, for the organization switcher.
+  const organizations = await listMemberships(supabase, ctx.user.id);
+
   return NextResponse.json({
     isManager: ctx.isManager,
     isOwner: ctx.isOwner,
@@ -50,5 +54,7 @@ export async function GET(request: Request) {
     employeeId,
     employeeName,
     isDemo: ctx.isDemo,
+    orgId: ctx.orgId,
+    organizations,
   });
 }
