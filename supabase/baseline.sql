@@ -20,6 +20,7 @@
 -- schedules.start_minutes must be > 0 (a shift can't start at exactly
 -- midnight), some coverage tables still default org_id to the default
 -- organization, and schedules.employee_id has two equivalent foreign keys.
+-- 0041 removes all three, in production and here alike.
 --
 -- Known differences from production, neither of which changes behaviour:
 -- the four *_shift_times checks are validated here (production added them
