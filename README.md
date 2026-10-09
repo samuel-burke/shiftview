@@ -216,13 +216,17 @@ Optional variables enable additional features:
 
 ### 3. Set up the database
 
-1. In Supabase, enable **Authentication → Sign In / Up → Allow anonymous sign-ins**. The demo needs it.
-2. In the SQL editor, run the migrations in this order:
-   1. `supabase/migrations/0001` to `0004` (multi-tenancy)
-   2. `db/migrations/2026-06-10-draft-schedules.sql`, then `db/migrations/2026-06-10-coverage-profiles.sql`
-   3. `supabase/migrations/0005` onward, in filename order. Both `0009_*` files are needed; `0017`, `0018` and `0021`–`0025` don't exist.
+**New Supabase project**
 
-The migrations upgrade ShiftView's original single-tenant schema, which predates this repository's migration history and isn't checked in. They expect its tables (`employees`, `schedules`, `managers`, `availability`, `time_off_requests`, `punch_records`, `store_hours`, `app_settings`, `messages`, `notifications`, `shift_swaps`, `schedule_templates`, `schedule_template_rows`, `audit_logs`, `push_subscriptions`, `user_notification_preferences`) and its `notify_get_push_subs` / `notify_get_push_prefs` / `notify_delete_subs` functions to exist already. For a brand-new project, copy that baseline from an existing environment first (for example with `supabase db dump`). `supabase db push` can't apply the folder as-is either: two files share version `0009`, and the baseline is missing.
+1. Enable **Authentication → Sign In / Up → Allow anonymous sign-ins**. The demo needs it.
+2. In the SQL editor, run `supabase/baseline.sql`. It creates the whole schema as of migration `0037` (tables, functions, triggers, RLS policies, Realtime) and the default and demo organizations.
+3. Run every migration numbered after `0037` (`0038_*` onward), in filename order.
+
+**Existing database**
+
+Apply the numbered migrations you haven't run yet, in filename order. Don't run the baseline. The full order is `supabase/migrations/0001` to `0004`, then `db/migrations/2026-06-10-draft-schedules.sql` and `db/migrations/2026-06-10-coverage-profiles.sql`, then `supabase/migrations/0005` onward. Both `0009_*` files are needed; `0017`, `0018` and `0021`–`0025` don't exist.
+
+The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`.
 
 ### 4. Run the dev server
 
@@ -273,8 +277,9 @@ data/
 lib/                # Supabase clients, org scoping, encryption, audit log, web push, payroll
   scheduler/        # Auto-schedule engine (pure TypeScript, no I/O)
 supabase/
-  migrations/       # SQL migrations (see Set up the database)
-  manual-tests/     # behavioural SQL tests for triggers and policies
+  baseline.sql      # whole schema as of 0037, for new projects (see Set up the database)
+  migrations/       # SQL migrations
+  manual-tests/     # behavioural SQL tests for the baseline, triggers and policies
 db/migrations/      # two earlier migrations, run between 0004 and 0005
 e2e/                # Playwright specs
 docs/               # requirements spec and design notes: multi-tenancy, demo org, auto-scheduler, contact form
@@ -416,7 +421,7 @@ Times are stored as minutes since midnight (e.g. `480` = 8:00 AM); an overnight 
 
 ## Row Level Security
 
-RLS is enabled on every tenant table. Policies use three helper functions: `is_org_member(org)` (you have a `managers` or `employees` row in the org), `is_org_manager(org)`, and `is_own_employee(org, employee)` (the employee row is linked to your account). With migrations through `0039` applied:
+RLS is enabled on every tenant table. Policies use three helper functions: `is_org_member(org)` (you have a `managers` or `employees` row in the org), `is_org_manager(org)`, and `is_own_employee(org, employee)` (the employee row is linked to your account). With migrations through `0040` applied:
 
 | Table | Read | Write |
 |---|---|---|
