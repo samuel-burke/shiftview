@@ -1,5 +1,5 @@
 -- Behavioural tests for supabase/migrations/0035_authorization_hardening.sql
--- (applied on top of 0030 and 0031).
+-- and 0038_notify_service_role_only.sql (applied on top of 0030 and 0031).
 --
 -- Self-contained: builds a minimal stand-in schema with the pre-0035 policies
 -- (members write the member-writable tables, managers write managers), applies
@@ -124,6 +124,7 @@ insert into managers (org_id, user_id) values (:org, :mia);
 \ir ../migrations/0030_punch_timestamp_integrity.sql
 \ir ../migrations/0031_punch_correction_requests.sql
 \ir ../migrations/0035_authorization_hardening.sql
+\ir ../migrations/0038_notify_service_role_only.sql
 
 grant usage on schema public, auth to anon, authenticated, service_role;
 grant select, insert, update, delete on all tables in schema public to authenticated, service_role;

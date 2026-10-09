@@ -7,9 +7,8 @@
 -- time off, mark a coworker's swap as accepted, post or delete announcements,
 -- cancel open shifts, or edit positions; any org manager (every demo visitor
 -- is one) could add or remove managers rows and link any user id to an
--- employee row. Separately, the notify_* functions were executable by every
--- role, so any session (an anonymous demo visitor included) could write
--- notifications into any organization and read any user's push subscriptions.
+-- employee row. (The notify_* functions, callable by every role, are locked
+-- down separately in 0038, which has to wait for the app change it needs.)
 --
 --   1. Member-writable tables: managers write; employees write only their own
 --      rows, in the states the API allows.
@@ -26,11 +25,13 @@
 --   6. Live punches are serialized per employee and re-checked against the
 --      latest punch, so a double tap, a retry or two devices racing through
 --      the API's check-then-insert can't record the same step twice.
---   7. notify_* functions: service role only. lib/notify.ts calls them with
---      the admin client.
+--
+-- Works with the app code from before this branch: nothing here depends on
+-- a deploy.
 --
 -- Same conventions as 0034: no begin/commit around the file, and every
--- statement is safe to repeat. Needs 0031 (is_own_employee) applied first.
+-- statement is safe to repeat. Needs 0020 (announcements) and 0031
+-- (is_own_employee) applied first.
 
 -- ---------------------------------------------------------------------------
 -- 1. Member-writable tables.
@@ -314,33 +315,5 @@ begin
   return new;
 end;
 $$;
-
--- ---------------------------------------------------------------------------
--- 7. notify_* functions: service role only.
---
--- They are SECURITY DEFINER and take any org or user id, so they must not be
--- callable from a browser session. notify_get_push_subs, notify_get_push_prefs
--- and notify_delete_subs predate this repo's migrations, so every overload is
--- found by name rather than by signature.
--- ---------------------------------------------------------------------------
-do $$
-declare
-  r record;
-begin
-  for r in
-    select p.oid::regprocedure as fn
-      from pg_proc p
-      join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public'
-       and p.proname in (
-         'notify_insert', 'notify_get_manager_ids', 'notify_upsert_chess',
-         'notify_get_active_endpoints', 'notify_get_push_subs',
-         'notify_get_push_prefs', 'notify_delete_subs'
-       )
-  loop
-    execute format('revoke all on function %s from public, anon, authenticated', r.fn);
-    execute format('grant execute on function %s to service_role', r.fn);
-  end loop;
-end $$;
 
 notify pgrst, 'reload schema';

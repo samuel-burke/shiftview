@@ -69,7 +69,7 @@ export type NotifyOptions = {
 
 // Insert a notification and fire push to all subscriptions for that user.
 // The notify_* functions write to any org and read any user's push
-// subscriptions, so only the service role may call them (migration 0035):
+// subscriptions, so only the service role may call them (migration 0038):
 // every call here goes through the admin client. Callers must resolve orgId
 // and the recipient server-side.
 export async function notify(options: NotifyOptions): Promise<void> {

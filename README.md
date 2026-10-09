@@ -414,7 +414,7 @@ Times are stored as minutes since midnight (e.g. `480` = 8:00 AM); an overnight 
 
 ## Row Level Security
 
-RLS is enabled on every tenant table. Policies use three helper functions: `is_org_member(org)` (you have a `managers` or `employees` row in the org), `is_org_manager(org)`, and `is_own_employee(org, employee)` (the employee row is linked to your account). With migrations through `0036` applied:
+RLS is enabled on every tenant table. Policies use three helper functions: `is_org_member(org)` (you have a `managers` or `employees` row in the org), `is_org_manager(org)`, and `is_own_employee(org, employee)` (the employee row is linked to your account). With migrations through `0038` applied:
 
 | Table | Read | Write |
 |---|---|---|
