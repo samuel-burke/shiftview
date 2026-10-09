@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "./supabase-admin";
 import { sendPush, type PushPayload } from "./webpush";
 import { isDemoOrgId } from "./demo-org";
 
@@ -21,7 +22,8 @@ export type NotificationType =
   | "open_shift_available"
   | "open_shift_filled"
   | "message"
-  | "chess_move";
+  | "chess_move"
+  | "added_to_organization";
 
 type PushPrefKey =
   | "late_punch_alerts"
@@ -53,6 +55,7 @@ const TYPE_TO_PREF: Record<NotificationType, PushPrefKey> = {
   swap_approved:      "swap_alerts",
   swap_denied:        "swap_alerts",
   shift_reminder:     "shift_reminder_alerts",
+  added_to_organization: "new_shift_alerts",
 };
 
 export type NotifyOptions = {
@@ -67,12 +70,12 @@ export type NotifyOptions = {
 };
 
 // Insert a notification and fire push to all subscriptions for that user.
-// Caller supplies their own supabase client (RLS applies; SECURITY DEFINER
-// functions narrow the blast radius to the minimum required operations).
-export async function notify(
-  supabase: SupabaseClient,
-  options: NotifyOptions
-): Promise<void> {
+// The notify_* functions write to any org and read any user's push
+// subscriptions, so only the service role may call them (migration 0038):
+// every call here goes through the admin client. Callers must resolve orgId
+// and the recipient server-side.
+export async function notify(options: NotifyOptions): Promise<void> {
+  const supabase = createAdminClient();
   const { error: insertError } = await supabase.rpc("notify_insert", {
     p_org_id:  options.orgId,
     p_user_id: options.userId,
@@ -99,13 +102,13 @@ export async function notify(
 // Inserts one broadcast notification (user_id = null) for the in-app feed,
 // then sends a push to each manager's devices individually.
 export async function notifyManagers(
-  supabase: SupabaseClient,
   orgId: string,
   type: NotificationType,
   title: string,
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
+  const supabase = createAdminClient();
   const { error: mgrInsertError } = await supabase.rpc("notify_insert", {
     p_org_id:  orgId,
     p_user_id: null,
@@ -209,7 +212,6 @@ function chessCopyFromStatus(
 // showing its current state, and the Realtime banner pipeline covers users
 // without a push subscription. Push then follows the standard pref-gated path.
 export async function notifyChessMove(
-  supabase: SupabaseClient,
   options: {
     orgId: string;
     toUserId: string;
@@ -219,6 +221,7 @@ export async function notifyChessMove(
     chessStatus: string;
   }
 ): Promise<void> {
+  const supabase = createAdminClient();
   const { title, body } = chessCopyFromStatus(options.chessStatus, options.fromName);
   const data = {
     type:       "chess_move",

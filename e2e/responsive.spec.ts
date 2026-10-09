@@ -89,6 +89,24 @@ test.describe("Responsive layout", () => {
     });
   }
 
+  // Before opening and after closing the now line sits at the chart's edge;
+  // the time badge used to stay centred on it and hang off the card (on a
+  // phone, past the screen edge late in the evening, depending on the font).
+  for (const at of ["2026-10-08T05:30:00-04:00", "2026-10-08T22:36:00-04:00"]) {
+    test(`keeps the timeline's time badge on the card at ${at.slice(11, 16)}`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(at));
+      await interceptAPIs(page);
+      await page.goto("/");
+      const card = page.getByRole("img", { name: /^Coverage timeline/ }).filter({ visible: true }).first();
+      const badge = card.getByTestId("now-badge");
+      await expect(badge).toBeVisible();
+      const c = (await card.boundingBox())!;
+      const b = (await badge.boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(c.x);
+      expect(b.x + b.width).toBeLessThanOrEqual(c.x + c.width);
+    });
+  }
+
   test("uses the width for the dashboard's team lists", async ({ page }) => {
     await interceptAPIs(page);
     await page.goto("/");

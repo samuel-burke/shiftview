@@ -32,7 +32,7 @@ export async function GET(request?: Request) {
   if (error)
     return NextResponse.json({ error }, { status: 403 });
 
-  const { orgId, employeeId } = ctx!;
+  const { orgId, employeeId, isManager } = ctx!;
   const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   // Employee's own call-outs (next 90 days), mirroring the time-off "mine" path.
@@ -100,13 +100,15 @@ export async function GET(request?: Request) {
     for (const emp of employees ?? []) employeeMap[emp.id] = emp.name;
   }
 
+  // Everyone sees who called out; the reason (often medical) is for managers
+  // and the person who called out.
   return NextResponse.json({
     callouts: (rows ?? []).map((r) => ({
       id: r.id,
       employeeId: r.employee_id,
       employeeName: employeeMap[r.employee_id] ?? "Unknown",
       date: r.date,
-      reason: r.reason ?? undefined,
+      reason: isManager || r.employee_id === employeeId ? (r.reason ?? undefined) : undefined,
     })),
   });
 }
@@ -206,7 +208,6 @@ export async function POST(request: Request) {
 
   // Let the managers know right away (in-app + push, pref-gated).
   notifyManagers(
-    supabase,
     orgId,
     "callout",
     "Call-Out",

@@ -1,6 +1,11 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM = "ShiftView <noreply@shiftview.app>";
 
+// For putting user-supplied text (names, messages) into an email's HTML.
+export function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 export async function sendEmail({
   to,
   subject,

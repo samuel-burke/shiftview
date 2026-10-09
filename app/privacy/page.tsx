@@ -48,7 +48,7 @@ export default function PrivacyPage() {
         </div>
 
         <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-500 mb-8">Last updated: October 5, 2026</p>
+        <p className="text-xs text-slate-500 mb-8">Last updated: October 9, 2026</p>
 
         <div className="bg-card border border-slate-800/60 rounded-2xl px-5 py-6 [@media(min-width:640px)]:px-7 [@media(min-width:640px)]:py-7 text-sm text-slate-400 leading-relaxed space-y-1">
           <Section title="1. Who We Are">
@@ -92,11 +92,17 @@ export default function PrivacyPage() {
 
           <Section title="4. Message Encryption">
             <p>
-              All messages are encrypted at rest using <span className="text-slate-300 font-medium">AES-256-GCM</span> before
-              being stored in the database. The server decrypts messages only when delivering them to an authorized
-              recipient or when generating push notification previews. The database never stores plaintext message
-              content. Messages in transit are protected by TLS (HTTPS).
+              Message text is encrypted at rest using <span className="text-slate-300 font-medium">AES-256-GCM</span> before
+              it is stored with the message. The server decrypts it only to show the message to its sender or its
+              recipient.
             </p>
+            <p className="mt-3">
+              When you receive a message, ShiftView also creates a notification for you, shown in the app and, if you
+              allow it, as a push notification. That notification includes the message text as a preview, and it is
+              stored in the database <span className="text-slate-300 font-medium">without</span> this encryption.
+              Clearing a notification hides it from you but does not delete it (see Data Retention).
+            </p>
+            <p className="mt-3">Messages and notifications in transit are protected by TLS (HTTPS).</p>
           </Section>
 
           <Section title="5. Data Storage and Security">
@@ -111,6 +117,11 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-1">
               <li>Schedule and employee data is retained for as long as you have an active account.</li>
               <li>Messages are retained indefinitely unless deleted by an administrator.</li>
+              <li>
+                Notifications, including message previews, are kept until the organization is deleted. Clearing a
+                notification hides it from you but does not delete it, and deleting your account does not remove the
+                notifications you received.
+              </li>
               <li>Push subscriptions are removed automatically when a device unsubscribes or the subscription becomes stale.</li>
               <li>
                 <span className="text-slate-300">Account deletion:</span> you can delete your account at any time from
@@ -154,10 +165,10 @@ export default function PrivacyPage() {
           <Section title="9. Third-Party Services">
             <Table
               rows={[
-                ["Supabase", "Database, authentication, and real-time"],
+                ["Supabase", "Database, authentication (including sign-in and invite emails), and real-time"],
                 ["Vercel", "Hosting and edge delivery"],
                 ["Web Push (browser API)", "Push notifications, handled by your browser/OS vendor"],
-                ["Resend", "Delivery of invite, reminder and contact form emails"],
+                ["Resend", "Delivery of contact form emails and low-coverage alerts to managers"],
                 ["Cloudflare Turnstile", "Bot protection on the demo, sign-up and contact forms"],
               ]}
             />

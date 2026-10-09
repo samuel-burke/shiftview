@@ -124,7 +124,6 @@ describe("POST /api/notify-employee", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     expect(notify).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({ orgId: MOCK_ORG_ID, userId: "emp-user-id" })
     );
   });

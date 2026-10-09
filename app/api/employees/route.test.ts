@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, PATCH, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { makeQueryBuilder, makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeQueryBuilder, makeSupabaseClient, MOCK_ORG_ID, MOCK_USER } from "../__tests__/helpers";
+import { DEMO_ORG_ID } from "@/lib/demo-org";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
@@ -19,11 +20,13 @@ vi.mock("next/server", () => ({
 const mockCreateClient = vi.mocked(createClient);
 const mockCreateAdminClient = vi.mocked(createAdminClient);
 
-function makeAdminClient() {
+// `memberships`: the deleted user's remaining managers/employees rows in
+// other orgs, as each count query reports them.
+function makeAdminClient({ memberships = 0 } = {}) {
   const builder: any = {};
-  for (const m of ["delete", "eq"]) builder[m] = vi.fn().mockReturnValue(builder);
+  for (const m of ["delete", "select", "eq"]) builder[m] = vi.fn().mockReturnValue(builder);
   builder.then = (resolve: any, reject: any) =>
-    Promise.resolve({ error: null }).then(resolve, reject);
+    Promise.resolve({ error: null, count: memberships }).then(resolve, reject);
   return {
     from: vi.fn().mockReturnValue(builder),
     auth: { admin: { deleteUser: vi.fn().mockResolvedValue({ error: null }) } },
@@ -56,6 +59,29 @@ describe("GET /api/employees", () => {
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(200);
     expect(client.from).toHaveBeenCalledWith("employees");
+  });
+
+  it("includes pay rates for managers only", async () => {
+    const withRates = MOCK_EMPLOYEES.map((e) => ({ ...e, pay_rate: 18 }));
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: withRates }) as any
+    );
+    const managerView = await (await GET(new Request("http://localhost/api/employees"))).json();
+    expect(managerView[0]).toHaveProperty("pay_rate", 18);
+
+    // An employee: their own membership row resolves the org, the roster
+    // query returns the list.
+    const employee = makeSupabaseClient({ user: MOCK_USER, isManager: false });
+    const roster = makeQueryBuilder({ data: withRates, error: null });
+    roster.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1, org_id: MOCK_ORG_ID }, error: null });
+    const fallback = employee.from.getMockImplementation()!;
+    employee.from.mockImplementation((table: string) => (table === "employees" ? roster : fallback(table)));
+    mockCreateClient.mockResolvedValue(employee as any);
+    const res = await GET(new Request("http://localhost/api/employees"));
+    expect(res.status).toBe(200);
+    const employeeView = await res.json();
+    expect(employeeView).toHaveLength(2);
+    expect(employeeView[0]).not.toHaveProperty("pay_rate");
   });
 
   it("returns the employee list sorted by last name", async () => {
@@ -159,13 +185,21 @@ describe("PATCH /api/employees", () => {
 
   // ── Success ─────────────────────────────────────────────────────────────────
 
-  it("links a user to an employee and returns 200", async () => {
+  it("links the manager's own account to an employee and returns 200", async () => {
     const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
     mockCreateClient.mockResolvedValue(client as any);
-    const res = await PATCH(patchReq({ id: 1, userId: "user-abc" }));
+    const res = await PATCH(patchReq({ id: 1, userId: MOCK_USER.id }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     expect(client.from).toHaveBeenCalledWith("employees");
+  });
+
+  it("returns 403 when linking someone else's account", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PATCH(patchReq({ id: 1, userId: "someone-else" }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("your own account") });
   });
 
   it("unlinks a user from an employee when userId is null", async () => {
@@ -293,7 +327,7 @@ describe("PATCH /api/employees", () => {
       queryError: { message: "db error" },
     });
     mockCreateClient.mockResolvedValue(client as any);
-    const res = await PATCH(patchReq({ id: 1, userId: "user-abc" }));
+    const res = await PATCH(patchReq({ id: 1, name: "Alice Smith" }));
     expect(res.status).toBe(500);
   });
 });
@@ -420,6 +454,39 @@ describe("DELETE /api/employees", () => {
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(200);
     expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledWith("other-user-456");
+  });
+
+  it("keeps the account when the user still belongs to another organization", async () => {
+    const adminClient = makeAdminClient({ memberships: 1 });
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: "other-user-456" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(200);
+    expect(adminClient.from).toHaveBeenCalledWith("managers");
+    expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("never removes another demo visitor's account or role", async () => {
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        orgId: DEMO_ORG_ID,
+        linkedEmployee: { id: 1, user_id: "other-visitor" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(200);
+    expect(adminClient.from).not.toHaveBeenCalledWith("managers");
+    expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 
   it("does not call the admin client when employee has no linked user", async () => {

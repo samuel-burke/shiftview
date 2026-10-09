@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
+import { DEMO_ORG_ID } from "@/lib/demo-org";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -76,6 +77,15 @@ describe("PUT /api/managers/:userId", () => {
     const [req, ctx] = putReq(MOCK_USER.id, { action: "promote" });
     const res = await PUT(req, ctx);
     expect(res.status).toBe(200);
+  });
+
+  it("returns 403 when a demo visitor tries to demote another visitor", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, orgId: DEMO_ORG_ID });
+    mockCreateClient.mockResolvedValue(client as any);
+    const [req, ctx] = putReq(TARGET_USER, { action: "demote" });
+    const res = await PUT(req, ctx);
+    expect(res.status).toBe(403);
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   // ── Owner policy ───────────────────────────────────────────────────────────

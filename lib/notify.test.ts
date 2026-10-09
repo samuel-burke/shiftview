@@ -4,12 +4,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 vi.mock("./webpush", () => ({
   sendPush: vi.fn().mockResolvedValue("ok"),
 }));
+vi.mock("./supabase-admin", () => ({
+  createAdminClient: vi.fn(),
+}));
 vi.mock("./demo-org", () => ({
   isDemoOrgId: (id: string) => id === "00000000-0000-0000-0000-00000000demo",
 }));
 
 import { notify, notifyManagers, notifyChessMove } from "./notify";
 import { sendPush } from "./webpush";
+import { createAdminClient } from "./supabase-admin";
 
 const mockSendPush = vi.mocked(sendPush);
 
@@ -35,7 +39,9 @@ function makeSupabase({ prefs = {}, subs = [SUB], managers = [], activeEndpoints
       return Promise.resolve({ data: activeEndpoints.map((endpoint) => ({ endpoint })), error: null });
     return Promise.resolve({ data: null, error: null });
   });
-  return { client: { rpc } as unknown as SupabaseClient, rpc };
+  // notify.ts makes its RPC calls with the admin client.
+  vi.mocked(createAdminClient).mockReturnValue({ rpc } as unknown as SupabaseClient);
+  return { rpc };
 }
 
 beforeEach(() => {
@@ -44,8 +50,8 @@ beforeEach(() => {
 
 describe("notify", () => {
   it("inserts the notification row and pushes when the pref is enabled", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { message_alerts: true } });
-    await notify(client, {
+    const { rpc } = makeSupabase({ prefs: { message_alerts: true } });
+    await notify({
       orgId: ORG_ID,
       userId: USER_ID,
       type: "message",
@@ -63,8 +69,8 @@ describe("notify", () => {
   });
 
   it("still inserts the row but skips the push entirely when the pref is disabled", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { message_alerts: false } });
-    await notify(client, {
+    const { rpc } = makeSupabase({ prefs: { message_alerts: false } });
+    await notify({
       orgId: ORG_ID,
       userId: USER_ID,
       type: "message",
@@ -77,8 +83,8 @@ describe("notify", () => {
   });
 
   it("treats a missing pref row as enabled", async () => {
-    const { client } = makeSupabase({ prefs: {} });
-    await notify(client, {
+    makeSupabase({ prefs: {} });
+    await notify({
       orgId: ORG_ID,
       userId: USER_ID,
       type: "pto_approved",
@@ -89,8 +95,8 @@ describe("notify", () => {
   });
 
   it("inserts the row but never pushes for the demo org", async () => {
-    const { client, rpc } = makeSupabase();
-    await notify(client, {
+    const { rpc } = makeSupabase();
+    await notify({
       orgId: DEMO_ORG_ID,
       userId: USER_ID,
       type: "message",
@@ -102,8 +108,8 @@ describe("notify", () => {
   });
 
   it("still inserts the row but skips the push to a device that has the app open", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { message_alerts: true }, activeEndpoints: [SUB.endpoint] });
-    await notify(client, {
+    const { rpc } = makeSupabase({ prefs: { message_alerts: true }, activeEndpoints: [SUB.endpoint] });
+    await notify({
       orgId: ORG_ID,
       userId: USER_ID,
       type: "message",
@@ -117,12 +123,12 @@ describe("notify", () => {
 
   it("still pushes to other devices when only one of them has the app open", async () => {
     const OTHER = { endpoint: "https://push.example/other", p256dh: "key2", auth_key: "auth2" };
-    const { client } = makeSupabase({
+    makeSupabase({
       prefs: { message_alerts: true },
       subs: [SUB, OTHER],
       activeEndpoints: [SUB.endpoint],
     });
-    await notify(client, {
+    await notify({
       orgId: ORG_ID,
       userId: USER_ID,
       type: "message",
@@ -137,11 +143,11 @@ describe("notify", () => {
 
 describe("notifyManagers", () => {
   it("inserts one broadcast row and pushes to each manager with the pref enabled", async () => {
-    const { client, rpc } = makeSupabase({
+    const { rpc } = makeSupabase({
       prefs: { late_punch_alerts: true },
       managers: [{ user_id: "mgr-1" }, { user_id: "mgr-2" }],
     });
-    await notifyManagers(client, ORG_ID, "late_clock_in", "Late clock-in", "Bob is late");
+    await notifyManagers(ORG_ID, "late_clock_in", "Late clock-in", "Bob is late");
 
     expect(rpc).toHaveBeenCalledWith("notify_insert", expect.objectContaining({
       p_org_id: ORG_ID,
@@ -151,11 +157,11 @@ describe("notifyManagers", () => {
   });
 
   it("skips pushes when the managers have the pref disabled", async () => {
-    const { client } = makeSupabase({
+    makeSupabase({
       prefs: { late_punch_alerts: false },
       managers: [{ user_id: "mgr-1" }],
     });
-    await notifyManagers(client, ORG_ID, "late_clock_in", "Late clock-in", "Bob is late");
+    await notifyManagers(ORG_ID, "late_clock_in", "Late clock-in", "Bob is late");
     expect(mockSendPush).not.toHaveBeenCalled();
   });
 });
@@ -171,8 +177,8 @@ describe("notifyChessMove", () => {
   };
 
   it("upserts the self-replacing notification row and pushes when the pref is enabled", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: true } });
-    await notifyChessMove(client, MOVE);
+    const { rpc } = makeSupabase({ prefs: { chess_alerts: true } });
+    await notifyChessMove(MOVE);
 
     expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.objectContaining({
       p_org_id: ORG_ID,
@@ -189,24 +195,24 @@ describe("notifyChessMove", () => {
   });
 
   it("still upserts the row but skips the push when the chess pref is disabled", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: false } });
-    await notifyChessMove(client, MOVE);
+    const { rpc } = makeSupabase({ prefs: { chess_alerts: false } });
+    await notifyChessMove(MOVE);
 
     expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.anything());
     expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("upserts the row but never pushes for the demo org", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: true } });
-    await notifyChessMove(client, { ...MOVE, orgId: DEMO_ORG_ID });
+    const { rpc } = makeSupabase({ prefs: { chess_alerts: true } });
+    await notifyChessMove({ ...MOVE, orgId: DEMO_ORG_ID });
 
     expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.anything());
     expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("uses end-of-game copy for a finished game", async () => {
-    const { client, rpc } = makeSupabase({ prefs: { chess_alerts: true } });
-    await notifyChessMove(client, { ...MOVE, chessStatus: "white_wins" });
+    const { rpc } = makeSupabase({ prefs: { chess_alerts: true } });
+    await notifyChessMove({ ...MOVE, chessStatus: "white_wins" });
 
     expect(rpc).toHaveBeenCalledWith("notify_upsert_chess", expect.objectContaining({
       p_title: "Checkmate!",

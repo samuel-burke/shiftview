@@ -60,9 +60,14 @@ Key constraint decisions:
 - **Current-org resolution** happens in `lib/org-context.ts`:
   `getOrgContext(supabase, request)` authenticates the user, looks up their
   memberships, and returns `{ user, orgId, isManager, employeeId }`.
-  Multi-org users pin a specific org with the `x-organization-id` header
-  (`ORG_HEADER`); the header is only honored if it matches one of the user's
-  memberships — it selects among the user's orgs, it can never grant access.
+  Multi-org users pick an org in the organization switcher (user menu), which
+  stores it in the `sv_org` cookie (`ORG_COOKIE`, set by
+  `POST /api/me/organization`); API clients can pin one per request with the
+  `x-organization-id` header (`ORG_HEADER`), which wins over the cookie. Both
+  are only honored when they match one of the user's memberships — they
+  select among the user's orgs and can never grant access. A stale cookie
+  falls back to the default: the first org (by id) the user manages, else the
+  first they work in.
 - `requireManager(supabase, request)` now returns `{ user, orgId, error }`,
   so every manager-gated route receives its tenant scope from the same place
   it gets its authorization.
@@ -172,10 +177,10 @@ row's own org.
 5. **Phase 4 — contract (run 0004):** drop the column defaults so unscoped
    writes fail loudly. From here, onboarding a new organization is just an
    `organizations` insert plus a manager row.
-6. **Phase 5 — productize:** org sign-up/provisioning flow, org switcher UI
-   for multi-org users (send `x-organization-id` from `lib/api-fetch.ts`),
-   per-org realtime channel filtering, and RLS policy tightening (e.g.
-   punch-record writes restricted to the row's own employee).
+6. **Phase 5 — productize:** org sign-up/provisioning flow, the org switcher
+   for multi-org users, and RLS policy tightening (0035) are done. Still open:
+   per-org realtime channel filtering (a multi-org user's subscriptions hear
+   changes from all of their orgs and refetch).
 
 Rollback: phases 1–2 are additive and rollback-safe (drop constraints/columns).
 After phase 3, roll back by redeploying the previous app version **and**

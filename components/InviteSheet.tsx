@@ -18,6 +18,9 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  // The person already had a ShiftView account, so they were added rather
+  // than emailed an invite.
+  const [existingAccount, setExistingAccount] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -30,6 +33,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
       setEmail("");
       setError(null);
       setSent(false);
+      setExistingAccount(false);
     }
   }, [open]);
 
@@ -58,6 +62,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
         });
         const json = await res.json();
         if (!res.ok) { setError(json.error ?? "Failed to send invite"); return; }
+        setExistingAccount(Boolean(json.existingAccount));
       }
       setSent(true);
       onSuccess();
@@ -138,10 +143,14 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
 
         {sent ? (
           <div className="text-center py-6">
-            <div className="text-[32px] mb-3">✉️</div>
-            <div className="text-base font-semibold text-slate-100 mb-2">Invite sent!</div>
+            <div className="text-[32px] mb-3">{existingAccount ? "👋" : "✉️"}</div>
+            <div className="text-base font-semibold text-slate-100 mb-2">
+              {existingAccount ? "Added to your team" : "Invite sent!"}
+            </div>
             <div className="text-[13px] text-slate-400 mb-6">
-              {name} will receive an email to set up their account.
+              {existingAccount
+                ? `${name} already has a ShiftView account. They can switch to your organization from the menu under their profile picture.`
+                : `${name} will receive an email to set up their account.`}
             </div>
             <button
               onClick={onClose}

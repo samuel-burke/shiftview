@@ -22,6 +22,8 @@ export type AppSettings = {
   schedulingRules: SchedulingRules;
 };
 
+export type OrgSummary = { id: string; name: string; isManager: boolean };
+
 export type MeData = {
   isManager: boolean;
   employeeId: number | null;
@@ -29,6 +31,14 @@ export type MeData = {
   // True when the session belongs to the demo organization (resolved
   // server-side by /api/me — demo is a real authenticated session now).
   isDemo: boolean;
+  // The organization the app is showing, and every one the user belongs to
+  // (the organization switcher appears when there's more than one).
+  orgId: string | null;
+  organizations: OrgSummary[];
+};
+
+const NO_ME: MeData = {
+  isManager: false, employeeId: null, employeeName: null, isDemo: false, orgId: null, organizations: [],
 };
 
 export const DEFAULT_STORE_HOURS: Record<number, StoreHours> = {
@@ -73,6 +83,9 @@ type AppDataContextValue = {
   settings: AppSettings;
   sharedLoading: boolean;
   refreshMe: () => void;
+  // Switch to another of the user's organizations; reloads the app on success,
+  // resolves with an error message otherwise.
+  switchOrganization: (orgId: string) => Promise<string | null>;
   refreshStoreHours: () => void;
   refreshSettings: () => void;
   // Current user's live attendance status, derived from today's punches. Shared
@@ -95,11 +108,12 @@ type AppDataContextValue = {
 };
 
 const AppDataContext = createContext<AppDataContextValue>({
-  me: { isManager: false, employeeId: null, employeeName: null, isDemo: false },
+  me: NO_ME,
   storeHours: DEFAULT_STORE_HOURS,
   settings: DEFAULT_SETTINGS,
   sharedLoading: true,
   refreshMe: () => {},
+  switchOrganization: async () => null,
   refreshStoreHours: () => {},
   refreshSettings: () => {},
   liveStatus: "not_clocked_in",
@@ -133,6 +147,8 @@ function readMeCache(): MeData | null {
       employeeId: parsed.employeeId ?? null,
       employeeName: parsed.employeeName ?? null,
       isDemo: parsed.isDemo ?? false,
+      orgId: parsed.orgId ?? null,
+      organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
     };
   } catch {
     return null;
@@ -158,7 +174,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   // cache and render the manager nav — a hydration mismatch on every load. The
   // cache is applied in the mount effect below, after hydration, so the server
   // and first client render agree.
-  const [me, setMe] = useState<MeData>({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
+  const [me, setMe] = useState<MeData>(NO_ME);
   const [storeHours, setStoreHours] = useState<Record<number, StoreHours>>(DEFAULT_STORE_HOURS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [sharedLoading, setSharedLoading] = useState(true);
@@ -168,12 +184,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [myScheduleCache, setMyScheduleCacheState] = useState<Record<string, Schedule[]>>({});
   const [liveStatus, setLiveStatus] = useState<AttendanceStatus>("not_clocked_in");
 
-  const applyMe = (data: { isManager?: boolean; employeeId?: number | null; employeeName?: string | null; isDemo?: boolean }) => {
+  const applyMe = (data: Partial<MeData>) => {
     const newMe: MeData = {
       isManager: !!data.isManager,
       employeeId: data.employeeId ?? null,
       employeeName: data.employeeName ?? null,
       isDemo: !!data.isDemo,
+      orgId: data.orgId ?? null,
+      organizations: Array.isArray(data.organizations) ? data.organizations : [],
     };
     setMe(newMe);
     if (newMe.employeeId !== null || newMe.isManager) writeMeCache(newMe);
@@ -208,6 +226,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .then(r => r.json())
       .then(applyMe)
       .catch(() => {});
+  }, []);
+
+  // Every cache in this provider belongs to the current organization, so a
+  // switch reloads the app rather than patching state in place.
+  const switchOrganization = useCallback(async (orgId: string): Promise<string | null> => {
+    const res = await fetch("/api/me/organization", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const body = await res?.json().catch(() => null);
+      return body?.error ?? "Couldn't switch organizations. Please try again.";
+    }
+    clearMeCache();
+    window.location.assign("/");
+    return null;
   }, []);
 
   const cacheEmployees = useCallback((data: Employee[]) => {
@@ -302,7 +337,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         refreshSettings();
         refreshLiveStatus();
       } else if (event === "SIGNED_OUT") {
-        applyMe({ isManager: false, employeeId: null, employeeName: null, isDemo: false });
+        applyMe(NO_ME);
         setLiveStatus("not_clocked_in");
       }
     });
@@ -340,7 +375,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppDataContext.Provider value={{
       me, storeHours, settings, sharedLoading,
-      refreshMe, refreshStoreHours, refreshSettings,
+      refreshMe, switchOrganization, refreshStoreHours, refreshSettings,
       liveStatus, setLiveStatus, refreshLiveStatus,
       employees, cacheEmployees,
       scheduleCache, setScheduleCache,

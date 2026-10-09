@@ -156,7 +156,7 @@ async function respondAsTarget(
 
   if (requesterEmp?.user_id) {
     const accepted = status === "accepted";
-    notify(supabase, {
+    notify({
       orgId,
       userId: requesterEmp.user_id,
       type: accepted ? "swap_accepted" : "swap_declined",
@@ -256,7 +256,7 @@ async function resolveAsManager(
     .maybeSingle();
 
   if (requesterEmp?.user_id) {
-    notify(supabase, {
+    notify({
       orgId,
       userId: requesterEmp.user_id,
       type: status === "approved" ? "swap_approved" : "swap_denied",

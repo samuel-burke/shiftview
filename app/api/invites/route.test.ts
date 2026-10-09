@@ -2,9 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { notify } from "@/lib/notify";
+import { sendEmail } from "@/lib/email";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("@/lib/notify", () => ({ notify: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/email", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/email")>()),
+  sendEmail: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: any, init?: { status?: number }) =>
@@ -25,7 +32,7 @@ const MOCK_NEW_EMPLOYEE = { id: 5 };
 
 function makeQueryBuilder(result: { data: any; error: any }) {
   const b: any = {};
-  for (const m of ["select", "insert", "update", "delete", "eq", "order", "limit"]) {
+  for (const m of ["select", "insert", "update", "delete", "eq", "ilike", "order", "limit"]) {
     b[m] = vi.fn().mockReturnValue(b);
   }
   b.maybeSingle = vi.fn().mockResolvedValue(result);
@@ -48,18 +55,26 @@ function makeServerClient({
   };
 }
 
+// `sameEmail`: rows the "already on this team" check finds (first query).
+// `linked`: what link_employee_account returns (an existing account, if any).
 function makeAdminClient({
   inviteError = null as any,
   insertData = MOCK_NEW_EMPLOYEE as any,
   insertError = null as any,
+  sameEmail = undefined as any[] | undefined,
+  linked = [] as { user_id: string; confirmed: boolean }[],
+  linkError = null as any,
 } = {}) {
+  const from = vi.fn().mockReturnValue(makeQueryBuilder({ data: insertData, error: insertError }));
+  if (sameEmail) from.mockReturnValueOnce(makeQueryBuilder({ data: sameEmail, error: null }));
   return {
     auth: {
       admin: {
         inviteUserByEmail: vi.fn().mockResolvedValue({ data: {}, error: inviteError }),
       },
     },
-    from: vi.fn().mockReturnValue(makeQueryBuilder({ data: insertData, error: insertError })),
+    from,
+    rpc: vi.fn().mockResolvedValue({ data: linked, error: linkError }),
   };
 }
 
@@ -185,6 +200,49 @@ describe("POST /api/invites — business logic", () => {
       "alice@example.com",
       expect.objectContaining({ redirectTo: expect.stringContaining("/auth/callback") })
     );
+  });
+
+  it("returns 409 when someone with that email is already on the team", async () => {
+    const adminClient = makeAdminClient({ sameEmail: [{ id: 2 }] });
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await POST(postReq({ name: "Alice Smith", email: "Alice@Example.com" }));
+    expect(res.status).toBe(409);
+    expect(adminClient.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+  });
+
+  it("links an existing account instead of inviting it, and tells them", async () => {
+    vi.mocked(notify).mockClear();
+    vi.mocked(sendEmail).mockClear();
+    const adminClient = makeAdminClient({ linked: [{ user_id: "existing-user", confirmed: true }] });
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+
+    const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ ok: true, employeeId: MOCK_NEW_EMPLOYEE.id, existingAccount: true });
+    expect(adminClient.rpc).toHaveBeenCalledWith("link_employee_account", {
+      p_org: MOCK_ORG_ID,
+      p_employee: MOCK_NEW_EMPLOYEE.id,
+    });
+    expect(adminClient.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ userId: "existing-user", orgId: MOCK_ORG_ID }));
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "alice@example.com" }));
+  });
+
+  it("re-sends the invite to an account that never confirmed its email", async () => {
+    const adminClient = makeAdminClient({ linked: [{ user_id: "pending-user", confirmed: false }] });
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
+    expect(res.status).toBe(201);
+    expect(adminClient.auth.admin.inviteUserByEmail).toHaveBeenCalled();
+  });
+
+  it("still invites when the linking function isn't available", async () => {
+    const adminClient = makeAdminClient({ linkError: { code: "PGRST202", message: "not found" } });
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await POST(postReq({ name: "Alice Smith", email: "alice@example.com" }));
+    expect(res.status).toBe(201);
+    expect(adminClient.auth.admin.inviteUserByEmail).toHaveBeenCalled();
   });
 });
 
