@@ -6,6 +6,7 @@ import { getOrgContext } from "@/lib/org-context";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { writeAuditLog } from "@/lib/audit";
 import { validateEmployeeSchedulingPatch } from "@/lib/scheduling-rules";
+import { loadPayRates } from "@/lib/pay-rates";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ function sortByName<T extends { name: string }>(rows: T[]): T[] {
   });
 }
 
-const BASE_COLUMNS = "id, name, email, user_id, pay_rate";
+const BASE_COLUMNS = "id, name, email, user_id";
 // Employment type and weekly limits (migration 0034).
 const SCHEDULING_COLUMNS = "employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week";
 // Postgres "undefined column": the database predates migration 0034.
@@ -35,12 +36,6 @@ function normalizeHours<T extends Record<string, unknown>>(row: T): T {
     if (out[key] != null) out[key] = Number(out[key]);
   }
   return out as T;
-}
-
-function withoutPayRate<T extends Record<string, unknown>>(row: T): T {
-  const copy: Record<string, unknown> = { ...row };
-  delete copy.pay_rate;
-  return copy as T;
 }
 
 export async function GET(request: Request) {
@@ -70,9 +65,16 @@ export async function GET(request: Request) {
     console.error("[api/employees]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  // Pay rates are for managers (labor cost); coworkers get the roster without them.
   const rows = (data ?? []).map(normalizeHours);
-  return NextResponse.json(sortByName(ctx!.isManager ? rows : rows.map(withoutPayRate)));
+  if (!ctx!.isManager) return NextResponse.json(sortByName(rows));
+
+  // Pay rates are for managers (labor cost); coworkers get the roster without them.
+  const { rates, error: rateError } = await loadPayRates(supabase, ctx!.orgId);
+  if (rateError) {
+    console.error("[api/employees] pay rates", rateError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  return NextResponse.json(sortByName(rows.map((r) => ({ ...r, pay_rate: rates.get(Number(r.id)) ?? null }))));
 }
 
 export async function PATCH(request: Request) {

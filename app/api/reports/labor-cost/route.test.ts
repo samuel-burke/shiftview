@@ -36,6 +36,8 @@ function makeClient({
   isManager = true,
   scheduleRows = [] as any[],
   employeeRows = [] as any[],
+  payRates = [] as any[],
+  payRatesError = null as any,
 } = {}) {
   const managerRow = isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID, is_owner: false } : null;
   return {
@@ -46,7 +48,11 @@ function makeClient({
       if (table === "schedules") return builder({ thenData: scheduleRows });
       return builder();
     }),
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    rpc: vi.fn().mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === "employee_pay_rates" ? { data: payRates, error: payRatesError } : { data: null, error: null }
+      )
+    ),
   };
 }
 
@@ -86,8 +92,12 @@ describe("GET /api/reports/labor-cost", () => {
       makeClient({
         scheduleRows,
         employeeRows: [
-          { id: 1, name: "Alex P", pay_rate: 20 },
-          { id: 2, name: "Jordan K", pay_rate: 15 },
+          { id: 1, name: "Alex P" },
+          { id: 2, name: "Jordan K" },
+        ],
+        payRates: [
+          { employee_id: 1, pay_rate: 20 },
+          { employee_id: 2, pay_rate: "15.00" },
         ],
       }) as any
     );
@@ -108,13 +118,25 @@ describe("GET /api/reports/labor-cost", () => {
     mockCreateClient.mockResolvedValue(
       makeClient({
         scheduleRows: [{ date: "2026-07-06", employee_id: 3, start_minutes: 480, end_minutes: 960 }],
-        employeeRows: [{ id: 3, name: "Sam B", pay_rate: null }],
+        employeeRows: [{ id: 3, name: "Sam B" }],
+        payRates: [{ employee_id: 3, pay_rate: null }],
       }) as any
     );
     const res = await GET(req("2026-07-06"));
     const body = await res.json();
     expect(body.employeesMissingRate).toBe(1);
     expect(body.employees[0].cost).toBeNull();
+  });
+
+  it("returns 500 when pay rates can't be read", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeClient({
+        scheduleRows: [{ date: "2026-07-06", employee_id: 3, start_minutes: 480, end_minutes: 960 }],
+        employeeRows: [{ id: 3, name: "Sam B" }],
+        payRatesError: { message: "boom" },
+      }) as any
+    );
+    expect((await GET(req("2026-07-06"))).status).toBe(500);
   });
 
   it("returns an empty summary when nothing is scheduled", async () => {

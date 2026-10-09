@@ -23,8 +23,8 @@ const WEEK_START = "2026-10-12"; // Monday
 function tables(overrides: Record<string, { data: any; error: any }> = {}) {
   return {
     employees: { data: [
-      { id: 1, name: "Alice Smith", pay_rate: 16, employment_type: "full_time", min_weekly_hours: null, max_weekly_hours: null, max_days_per_week: null },
-      { id: 2, name: "Bob Jones", pay_rate: 15, employment_type: "part_time", min_weekly_hours: null, max_weekly_hours: "20.0", max_days_per_week: null },
+      { id: 1, name: "Alice Smith", employment_type: "full_time", min_weekly_hours: null, max_weekly_hours: null, max_days_per_week: null },
+      { id: 2, name: "Bob Jones", employment_type: "part_time", min_weekly_hours: null, max_weekly_hours: "20.0", max_days_per_week: null },
     ], error: null },
     availability: { data: [{ employee_id: 2, day_of_week: 0, start_minutes: null, end_minutes: null }], error: null },
     time_off_requests: { data: [{ employee_id: 1, date: "2026-10-14", status: "approved" }], error: null },
@@ -52,6 +52,14 @@ function client({
   rpcError = null as any,
 } = {}) {
   const c = makeSupabaseClient({ user: MOCK_USER, isManager, tableOverrides, rpcData, rpcError });
+  // Pay rates come from employee_pay_rates; every other RPC gets rpcData / rpcError.
+  c.rpc.mockImplementation((fn: string) =>
+    Promise.resolve(
+      fn === "employee_pay_rates"
+        ? { data: [{ employee_id: 1, pay_rate: 16 }, { employee_id: 2, pay_rate: "15.00" }], error: null }
+        : { data: rpcData, error: rpcError }
+    )
+  );
   mockCreateClient.mockResolvedValue(c as any);
   return c;
 }
@@ -65,7 +73,8 @@ function postReq(body: unknown) {
 }
 
 function rpcArgs(c: ReturnType<typeof makeSupabaseClient>) {
-  const [name, args] = (c.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+  const calls = (c.rpc as ReturnType<typeof vi.fn>).mock.calls.filter(([name]) => name !== "employee_pay_rates");
+  const [name, args] = calls[0];
   expect(name).toBe("apply_generated_drafts");
   return args;
 }
