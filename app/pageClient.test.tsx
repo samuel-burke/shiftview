@@ -11,7 +11,8 @@ vi.mock("next/navigation", () => ({
 // Mock AppDataContext — shared data comes from context in real app
 vi.mock("../lib/AppDataContext", () => ({
   useAppData: () => ({
-    me: { isManager: true, employeeId: null, employeeName: "Alice" },
+    me: { isManager: true, employeeId: null, employeeName: "Alice", isDemo: false, orgId: null, organizations: [] },
+    switchOrganization: vi.fn(),
     storeHours: { 0: { open: 480, close: 1200 }, 1: { open: 540, close: 1260 }, 2: { open: 360, close: 1320 }, 3: { open: 360, close: 1320 }, 4: { open: 360, close: 1320 }, 5: { open: 360, close: 1320 }, 6: { open: 360, close: 1320 } },
     settings: { firstDayOfWeek: 1, optimalCoverage: 3, minCoverage: 2, coverageAlertsEnabled: true, timezone: "America/New_York", emailNotifications: false, manualPunchesEnabled: true, gpsRequired: false, geofenceEnabled: false, geofenceLat: null, geofenceLng: null, geofenceRadius: 100, geofenceAddress: null },
     sharedLoading: false,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { escapeHtml, sendEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { CONTACT_LIMITS as LIMITS, TOPIC_LABELS, isContactTopic } from "@/lib/contact";
 
@@ -31,10 +31,6 @@ function rateLimited(ip: string): boolean {
   }
   entry.count++;
   return entry.count > RATE_LIMIT;
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 type Body = {

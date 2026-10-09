@@ -112,7 +112,8 @@ Every screen below is captured from the home page's product demos, which are bui
 **Team**
 - Direct messaging, encrypted at rest with AES-256-GCM, and team announcements from managers
 - Web push notifications with per-user preferences, plus in-app banners
-- Email invites for onboarding, manager role management, and a full audit log of every mutation
+- Email invites for onboarding (someone who already has an account is added directly), manager role management, and a full audit log of every mutation
+- One account across several stores, with an organization switcher in the user menu
 
 **Platform**
 - Installable PWA with service worker, offline-aware shell, and home-screen prompts
@@ -153,7 +154,7 @@ Browser (React 19, PWA + service worker)
 Key design decisions:
 
 - **API routes as the single write path.** All mutations go through route handlers that check auth, verify manager status where required, validate input, and write an audit log entry. Row Level Security enforces the same tenant and role boundaries a second time: the browser holds the anon key and the user's session, so a request that skips the API and calls Supabase directly still can't do more than the API allows.
-- **Every tenant row carries `org_id`.** Route handlers take the organization from `getOrgContext()` / `requireManager()`, never from the request, and scope every query by it. Composite foreign keys keep a child row in its parent's organization (see [docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md)).
+- **Every tenant row carries `org_id`.** Route handlers take the organization from `getOrgContext()` / `requireManager()`, which only ever picks among the caller's own memberships (the organization switcher's cookie says which), and scope every query by it. Composite foreign keys keep a child row in its parent's organization (see [docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md)).
 - **Times are minutes since midnight** (`480` = 8:00 AM), and a shift belongs to the date it starts on. An overnight shift ends past `1440` (10 PM–6 AM is `1320`–`1800`), up to 16 hours long. Dates are plain `YYYY-MM-DD` strings in the store's timezone (`app_settings.timezone`), so the browser's timezone never decides what "today" is.
 - **"Off" is derived, not stored.** Employees with no schedule row for a date are off that day — computed by diffing the roster against the day's shifts, so there's no second source of truth to keep in sync.
 - **Privileged operations use a service-role client.** Nobody writes the `managers` table directly: roles change through the `manager_promote` / `manager_demote` database functions, and invites, sign-up, the demo, cron jobs, notifications and the audit log write through the Supabase admin client after the API has checked the caller.
@@ -288,7 +289,8 @@ Routes that touch organization data resolve the caller's organization on the ser
 
 | Route | Methods | Access |
 |---|---|---|
-| `/api/me` | GET | Member (a blank identity when signed out) |
+| `/api/me` | GET | Member (a blank identity when signed out); includes every organization you belong to |
+| `/api/me/organization` | POST | Signed in: switch to another of your organizations (stored in the `sv_org` cookie) |
 | `/api/organizations` | POST, DELETE | POST: signed in with an email (not a demo session) creates an org; DELETE: the owner |
 | `/api/account` | DELETE | Signed in (deletes your own account) |
 | `/api/auth/signup-otp` | POST | Public, Turnstile-gated |
@@ -414,7 +416,7 @@ Times are stored as minutes since midnight (e.g. `480` = 8:00 AM); an overnight 
 
 ## Row Level Security
 
-RLS is enabled on every tenant table. Policies use three helper functions: `is_org_member(org)` (you have a `managers` or `employees` row in the org), `is_org_manager(org)`, and `is_own_employee(org, employee)` (the employee row is linked to your account). With migrations through `0038` applied:
+RLS is enabled on every tenant table. Policies use three helper functions: `is_org_member(org)` (you have a `managers` or `employees` row in the org), `is_org_manager(org)`, and `is_own_employee(org, employee)` (the employee row is linked to your account). With migrations through `0039` applied:
 
 | Table | Read | Write |
 |---|---|---|
@@ -440,6 +442,6 @@ RLS is enabled on every tenant table. Policies use three helper functions: `is_o
 
 **Notes**
 
-- The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`; `presence_set` only writes the caller's own device) or can only be called with the service role (`notify_*`, `org_signup_create`, `org_delete`, `reset_demo_org`).
+- The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`; `presence_set` only writes the caller's own device) or can only be called with the service role (`notify_*`, `link_employee_account`, `org_signup_create`, `org_delete`, `reset_demo_org`).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.
 - `push_subscriptions` and `user_notification_preferences` come from the original schema, so their policies aren't in this repository; the API only ever reads and writes the signed-in user's rows.

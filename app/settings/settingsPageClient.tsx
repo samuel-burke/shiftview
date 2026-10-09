@@ -1744,7 +1744,7 @@ export default function SettingsPageClient({
         open={showInvite}
         onClose={() => setShowInvite(false)}
         onSuccess={() => {
-          setShowInvite(false);
+          // The sheet stays open on its confirmation until Done.
           fetch("/api/employees")
             .then((r) => r.ok ? r.json() : Promise.reject())
             .then(setEmployees)

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { getMonogram } from "../data/types";
+import { useAppData } from "../lib/AppDataContext";
 
 type Props = {
   name: string | null;
@@ -13,8 +14,25 @@ type Props = {
 
 export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
   const [open, setOpen] = useState(false);
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const settingsHref = "/settings";
+  const { me, switchOrganization } = useAppData();
+  // The switcher only appears for people in more than one organization.
+  const organizations = onSignOut && me.organizations.length > 1 ? me.organizations : [];
+
+  async function pickOrganization(orgId: string) {
+    if (orgId === me.orgId || switchingTo) return;
+    setSwitchingTo(orgId);
+    setSwitchError(null);
+    const error = await switchOrganization(orgId);
+    // On success the app reloads into the new organization.
+    if (error) {
+      setSwitchError(error);
+      setSwitchingTo(null);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -64,9 +82,37 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.96 }}
           transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="absolute right-0 top-11 w-44 bg-card border border-slate-700 rounded-xl z-50 overflow-hidden"
+          className={`absolute right-0 top-11 ${organizations.length ? "w-60" : "w-44"} bg-card border border-slate-700 rounded-xl z-50 overflow-hidden`}
           style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)" }}
         >
+          {organizations.length > 0 && (
+            <div role="group" aria-label="Organization" className="border-b border-slate-700/70 py-1">
+              <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Organization</div>
+              {organizations.map((org) => {
+                const current = org.id === me.orgId;
+                return (
+                  <button
+                    key={org.id}
+                    role="menuitemradio"
+                    aria-checked={current}
+                    disabled={switchingTo !== null}
+                    onClick={() => pickOrganization(org.id)}
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-700/50 cursor-pointer transition-colors disabled:cursor-default disabled:opacity-60"
+                  >
+                    <span className="flex-1 min-w-0 truncate" title={org.name}>{org.name}</span>
+                    {switchingTo === org.id ? (
+                      <span className="text-xs text-slate-500">Switching…</span>
+                    ) : current ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-indigo-400">
+                        <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : null}
+                  </button>
+                );
+              })}
+              {switchError && <div role="alert" className="px-4 pb-2 text-xs text-red-400">{switchError}</div>}
+            </div>
+          )}
           <Link
             href={settingsHref}
             role="menuitem"
