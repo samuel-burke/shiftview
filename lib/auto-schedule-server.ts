@@ -9,9 +9,11 @@ import { parseSchedulingRules, type EmploymentType, type SchedulingRules } from 
 import { SHIFT_TYPES } from "@/lib/preferences";
 import type { ShiftType } from "@/data/types";
 import type { ExistingShift, SchedulerEmployee } from "@/lib/scheduler";
+import { payRatesQuery, toPayRateMap } from "@/lib/pay-rates";
 
 type QueryClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc: (fn: string, args?: Record<string, unknown>) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
 // The database predates migration 0034: Postgres "undefined column" /
@@ -59,7 +61,7 @@ export async function loadWeek(
 
   const results = await Promise.all([
     supabase.from("employees")
-      .select("id, name, pay_rate, employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week")
+      .select("id, name, employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week")
       .eq("org_id", orgId),
     supabase.from("availability").select("employee_id, day_of_week, start_minutes, end_minutes").eq("org_id", orgId),
     supabase.from("time_off_requests").select("employee_id, date, status")
@@ -77,6 +79,7 @@ export async function loadWeek(
     supabase.from("schedules").select("employee_id, date, start_minutes, end_minutes").eq("org_id", orgId).gte("date", from).lte("date", to),
     supabase.from("draft_schedules").select("id, employee_id, date, start_minutes, end_minutes, generation_run_id")
       .eq("org_id", orgId).gte("date", from).lte("date", to),
+    payRatesQuery(supabase, orgId),
   ]);
   const failed = results.find((r) => r.error);
   if (failed) {
@@ -88,6 +91,7 @@ export async function loadWeek(
     employees, availability, timeOff, callouts, preferences,
     profiles, blocks, dayDefaults, overrides, storeHours, settings, schedules, drafts,
   ] = results.map((r) => (r.data ?? []) as Row[]);
+  const payRates = toPayRateMap(results[results.length - 1].data);
 
   const settingsMap = Object.fromEntries(settings.map((r) => [String(r.key), String(r.value)]));
 
@@ -122,7 +126,7 @@ export async function loadWeek(
       minWeeklyHours: num(e.min_weekly_hours),
       maxWeeklyHours: num(e.max_weekly_hours),
       maxDaysPerWeek: num(e.max_days_per_week),
-      payRate: num(e.pay_rate),
+      payRate: payRates.get(id) ?? null,
       availability: Object.fromEntries(
         availability
           .filter((a) => Number(a.employee_id) === id)
