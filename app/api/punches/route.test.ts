@@ -303,6 +303,16 @@ describe("POST /api/punches — state-machine guard", () => {
     const body = await res.json();
     expect(body.error).toBe("Internal server error");
   });
+
+  it("returns 409 when the database rejects a punch that lost a race (23P01)", async () => {
+    mockNotifyManagers.mockClear();
+    mockCreateClient.mockResolvedValue(
+      makePunchClient({ insertData: null, insertError: { code: "23P01", message: "Punch conflicts" } }) as any
+    );
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(409);
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
 });
 
 // ── POST /api/punches — late clock-in notification timezone correctness ───────
@@ -395,8 +405,8 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
     await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
     expect(mockNotifyManagers).toHaveBeenCalledOnce();
     const callArgs = mockNotifyManagers.mock.calls[0];
-    expect(callArgs[5]).toMatchObject({ lateMinutes: 15 });
-    expect(callArgs[4]).toContain("15m late");
+    expect(callArgs[4]).toMatchObject({ lateMinutes: 15 });
+    expect(callArgs[3]).toContain("15m late");
   });
 
   it("does NOT fire notification when within the 5-minute grace window", async () => {
@@ -445,7 +455,7 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
     );
     await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
     expect(mockNotifyManagers).toHaveBeenCalledOnce();
-    const msg = mockNotifyManagers.mock.calls[0][4] as string;
+    const msg = mockNotifyManagers.mock.calls[0][3] as string;
     expect(msg).toContain("Bob");
     expect(msg).toContain("12m late");
     expect(msg).toContain("9:00 AM");

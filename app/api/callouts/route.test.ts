@@ -102,6 +102,15 @@ describe("GET /api/callouts", () => {
     expect(Array.isArray(body.callouts)).toBe(true);
   });
 
+  it("shows a coworker's call-out without its reason", async () => {
+    const rows = [...MOCK_CALLOUTS, { id: 2, employee_id: 6, date: "2099-06-15", reason: "Doctor" }];
+    mockCreateClient.mockResolvedValue(makeEmployeeClient(undefined, rows) as any);
+    const res = await GET(new Request("http://localhost/api/callouts?date=2099-06-15"));
+    const { callouts } = await res.json();
+    expect(callouts.find((c: any) => c.employeeId === 5)).toMatchObject({ reason: "Sick" });
+    expect(callouts.find((c: any) => c.employeeId === 6)).not.toHaveProperty("reason");
+  });
+
   it("returns 400 for a malformed date param", async () => {
     mockCreateClient.mockResolvedValue(makeEmployeeClient() as any);
     const res = await GET(new Request("http://localhost/api/callouts?date=15-06-2099"));

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!emp?.user_id)
     return NextResponse.json({ error: "Employee not found or has no account" }, { status: 404 });
 
-  await notify(supabase, {
+  await notify({
     orgId: orgId!,
     userId: emp.user_id,
     type: "message",

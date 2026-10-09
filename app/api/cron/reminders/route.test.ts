@@ -173,7 +173,6 @@ describe("GET /api/cron/reminders", () => {
     expect(body.sent).toBe(1);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({ orgId: "org-1" })
     );
   });
@@ -193,7 +192,6 @@ describe("GET /api/cron/reminders", () => {
     });
     await GET(req);
     expect(notify).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({ orgId: "org-abc" })
     );
   });
@@ -221,7 +219,7 @@ describe("GET /api/cron/reminders", () => {
     }));
     const body = await res.json();
     expect(body.sent).toBe(2);
-    const sentScheduleIds = vi.mocked(notify).mock.calls.map((c) => (c[1] as any).data.scheduleId).sort();
+    const sentScheduleIds = vi.mocked(notify).mock.calls.map((c) => (c[0] as any).data.scheduleId).sort();
     expect(sentScheduleIds).toEqual([1, 3]);
   });
 
@@ -236,6 +234,6 @@ describe("GET /api/cron/reminders", () => {
     await GET(new Request("http://localhost/api/cron/reminders", {
       headers: { "x-cron-secret": "test-secret" },
     }));
-    expect((vi.mocked(notify).mock.calls[0][1] as any).body).toContain("Friday, January 2");
+    expect((vi.mocked(notify).mock.calls[0][0] as any).body).toContain("Friday, January 2");
   });
 });

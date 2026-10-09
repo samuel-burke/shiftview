@@ -205,7 +205,7 @@ describe("PUT /api/punches — employee manual punch rules", () => {
     expect(client.inserted).toHaveLength(0); // no punch until a manager approves
     expect(client.requested[0]).toMatchObject({ employee_id: 5, note: "Forgot", requested_by: MOCK_USER.id });
     expect(notifyManagers).toHaveBeenCalledWith(
-      expect.anything(), MOCK_ORG_ID, "punch_correction_requested", expect.any(String),
+      MOCK_ORG_ID, "punch_correction_requested", expect.any(String),
       expect.stringContaining("clock out at 5:00 PM on Sat, Oct 31"), expect.objectContaining({ correctionId: 99 })
     );
   });

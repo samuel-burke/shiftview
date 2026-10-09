@@ -93,7 +93,7 @@ export async function GET(request: Request) {
     const startTime = fmtMinutes(schedule.start_minutes);
     const endTime = fmtMinutes(schedule.end_minutes);
 
-    await notify(supabase, {
+    await notify({
       orgId: schedule.org_id,
       userId: employee.user_id,
       type: "shift_reminder",

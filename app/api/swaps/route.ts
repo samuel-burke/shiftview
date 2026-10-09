@@ -178,7 +178,7 @@ export async function POST(request: Request) {
   // Let the target employee know they've been asked to swap — the request sits
   // in 'pending' until they accept or decline, and only then can a manager act.
   if (targetEmployee?.user_id) {
-    notify(supabase, {
+    notify({
       orgId,
       userId: targetEmployee.user_id,
       type:   "swap_requested",

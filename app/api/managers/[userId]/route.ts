@@ -28,6 +28,14 @@ export async function PUT(
   if (action === "demote" && userId === user!.id)
     return NextResponse.json({ error: "You cannot demote yourself" }, { status: 400 });
 
+  // Demo org: every other manager is another visitor mid-session, and
+  // demoting them would lock them out of the demo.
+  if (action === "demote" && isDemoOrgId(orgId!))
+    return NextResponse.json(
+      { error: "Demoting managers is disabled in the demo organization" },
+      { status: 403 }
+    );
+
   // Owner policy: when the org has an owner (orgs created through sign-up),
   // only the owner may promote or demote, and the owner can never be demoted.
   // Orgs predating the sign-up flow have no owner; any manager may change

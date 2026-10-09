@@ -246,6 +246,14 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError) {
+    // The database re-checks the step under a per-employee lock (migration
+    // 0035): another punch landed between the check above and this insert —
+    // a double tap, a retry, or a second device.
+    if (insertError.code === "23P01")
+      return NextResponse.json(
+        { error: "Your punch changed on another request — refresh and try again" },
+        { status: 409 }
+      );
     console.error("[api/punches]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -262,7 +270,6 @@ export async function POST(request: Request) {
       const lateMinutes = minutesFromScheduled(data.punched_at, sched.date, sched.start_minutes, tz);
       if (lateMinutes > 5) {
         notifyManagers(
-          supabase,
           orgId,
           "late_clock_in",
           "Late Clock-In",
@@ -416,7 +423,6 @@ export async function PUT(request: Request) {
     }
 
     notifyManagers(
-      supabase,
       orgId,
       "punch_correction_requested",
       "Punch Correction Request",

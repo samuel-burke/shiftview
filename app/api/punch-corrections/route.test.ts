@@ -182,7 +182,7 @@ describe("PUT /api/punch-corrections/[id]", () => {
     expect(client.calls.correctionFilters).toContainEqual(["status", "pending"]);
     expect(client.calls.correctionUpdates).toContainEqual(expect.objectContaining({ status: "approved", reviewed_by: MOCK_USER.id }));
     expect(client.calls.correctionUpdates).toContainEqual({ punch_id: 501 });
-    expect(mockNotify).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({
       type: "punch_correction_approved",
       body: "Your clock out at 5:00 PM on Sat, Oct 31 was approved.",
     }));
@@ -194,7 +194,7 @@ describe("PUT /api/punch-corrections/[id]", () => {
     const res = await review(7, { status: "denied", reviewNote: "You left at 3" });
     expect(res.status).toBe(200);
     expect(client.calls.punchInserts).toHaveLength(0);
-    expect(mockNotify).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({
       type: "punch_correction_denied",
       body: expect.stringContaining("You left at 3"),
     }));

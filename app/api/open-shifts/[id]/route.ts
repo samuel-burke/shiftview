@@ -165,7 +165,7 @@ export async function PUT(
     .maybeSingle();
 
   if (emp?.user_id) {
-    notify(supabase, {
+    notify({
       orgId: orgId!,
       userId: emp.user_id,
       type: "open_shift_filled",

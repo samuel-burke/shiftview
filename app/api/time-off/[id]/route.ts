@@ -60,7 +60,7 @@ export async function PUT(
       .maybeSingle();
     empName = emp?.name ?? null;
     if (emp?.user_id) {
-      notify(supabase, {
+      notify({
         orgId: orgId!,
         userId: emp.user_id,
         type: status === "approved" ? "pto_approved" : "pto_denied",
