@@ -97,6 +97,22 @@ test.describe("Dashboard — schedule view", () => {
     await expect(page.getByText("Coverage Timeline")).toBeVisible();
   });
 
+  // Safari draws nothing for a chart area whose clip-path points at an element
+  // that isn't in the page (Chrome draws it anyway). The "here now" area went
+  // missing on a first load that way once its draw-in was cut short.
+  test("draws both coverage areas with every clip path they point at", async ({ page }) => {
+    await expect(page.locator(".recharts-area")).toHaveCount(2);
+    // Once the draw-in ends, the areas' animation clip paths are gone.
+    await expect.poll(() => page.locator(".recharts-area clipPath").count(), { timeout: 10_000 }).toBe(0);
+    const missing = await page.evaluate(() =>
+      [...document.querySelectorAll(".recharts-area, .recharts-area [clip-path]")]
+        .map((el) => el.getAttribute("clip-path"))
+        .filter((ref): ref is string => !!ref)
+        .filter((ref) => !document.getElementById(ref.replace(/^url\(["']?#|["']?\)$/g, "")))
+    );
+    expect(missing).toEqual([]);
+  });
+
   test("shows the Scheduled section with count", async ({ page }) => {
     await expect(page.getByText("Scheduled", { exact: true }).first()).toBeVisible();
   });
