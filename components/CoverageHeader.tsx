@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
@@ -237,41 +237,40 @@ export default function CoverageHeader({
 
       {showStatusLine && (
         <div className="mt-3 tablet:mx-6 min-h-[38px]">
-          <AnimatePresence mode="wait" initial={false}>
-            {statusPending ? (
-              <motion.div
-                key="pending"
-                role="status"
-                aria-label="Loading coverage status"
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="skeleton h-[38px] rounded-[10px]"
-              />
-            ) : (
-              <motion.div
-                key={alertKey}
-                role={alertConfig.calm ? "status" : undefined}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="min-h-[38px] px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
-                style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
-              >
-                {alertConfig.icon}
-                <span className="flex-1 min-w-0">{alertConfig.message}</span>
-                {todayInStatusLine && (
-                  <button
-                    onClick={onNow}
-                    // A 22px chip inside the 38px line, with a 44px tap target.
-                    className="relative -my-[3px] shrink-0 rounded-md bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-xs font-bold leading-4 text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors after:absolute after:-inset-y-[11px] after:-inset-x-1 after:content-['']"
-                  >
-                    Back to Today
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* A new status replaces the old one at once and fades in. No exit
+              animation: AnimatePresence's "wait" mode could stall on one when
+              the status changed twice in quick succession (today's status
+              landing just as the user stepped to another day), leaving the
+              old message on screen and no Back to Today. */}
+          {statusPending ? (
+            <div
+              role="status"
+              aria-label="Loading coverage status"
+              className="skeleton h-[38px] rounded-[10px]"
+            />
+          ) : (
+            <motion.div
+              key={alertKey}
+              role={alertConfig.calm ? "status" : undefined}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="min-h-[38px] px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
+              style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
+            >
+              {alertConfig.icon}
+              <span className="flex-1 min-w-0">{alertConfig.message}</span>
+              {todayInStatusLine && (
+                <button
+                  onClick={onNow}
+                  // A 22px chip inside the 38px line, with a 44px tap target.
+                  className="relative -my-[3px] shrink-0 rounded-md bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-xs font-bold leading-4 text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors after:absolute after:-inset-y-[11px] after:-inset-x-1 after:content-['']"
+                >
+                  Back to Today
+                </button>
+              )}
+            </motion.div>
+          )}
         </div>
       )}
 
