@@ -4,9 +4,9 @@ import { useAppData } from "@/lib/AppDataContext";
 import type { AttendanceStatus } from "@/data/types";
 
 /*
- * Clock-status indicator for the app header and nav: a status dot (pulsing
- * while you're on the clock) and an icon for the state: a clock when clocked
- * in, a cup on break, a crossed-out clock when off. Reads the shared live
+ * Clock-status indicator for the app header and nav: a status dot in the
+ * state's color and an icon for the state: a clock when clocked in, a cup on
+ * break, the same clock crossed out when off. Reads the shared live
  * attendance status (kept in sync across devices by AppDataContext). The
  * state's name is the indicator's accessible name and its tooltip.
  *
@@ -43,11 +43,11 @@ function OffIcon({ color }: { color: string }) {
   );
 }
 
-const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boolean; Icon: typeof ClockIcon }> = {
-  clocked_in:     { color: "var(--status-ok)",    label: "Clocked In", live: true,  Icon: ClockIcon },
-  on_break:       { color: "var(--status-warn)",  label: "On Break",   live: true,  Icon: BreakIcon },
-  clocked_out:    { color: "var(--status-muted)", label: "Off",        live: false, Icon: OffIcon },
-  not_clocked_in: { color: "var(--status-muted)", label: "Off",        live: false, Icon: OffIcon },
+const STATUS: Record<AttendanceStatus, { color: string; label: string; Icon: typeof ClockIcon }> = {
+  clocked_in:     { color: "var(--status-ok)",    label: "Clocked In", Icon: ClockIcon },
+  on_break:       { color: "var(--status-warn)",  label: "On Break",   Icon: BreakIcon },
+  clocked_out:    { color: "var(--status-muted)", label: "Off",        Icon: OffIcon },
+  not_clocked_in: { color: "var(--status-muted)", label: "Off",        Icon: OffIcon },
 };
 
 export default function ClockStatusBadge() {
@@ -56,13 +56,7 @@ export default function ClockStatusBadge() {
 
   return (
     <div role="status" aria-label={s.label} title={s.label} className="flex items-center gap-1.5 h-4">
-      <span aria-hidden="true" className="relative flex size-2 shrink-0">
-        {/* The pulse: transform and opacity only, and none with reduced motion. */}
-        {s.live && (
-          <span className="absolute inline-flex size-full rounded-full opacity-60 motion-safe:animate-ping" style={{ background: s.color }} />
-        )}
-        <span className="relative inline-flex size-2 rounded-full" style={{ background: s.color }} />
-      </span>
+      <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: s.color }} />
       <s.Icon color={s.color} />
     </div>
   );
