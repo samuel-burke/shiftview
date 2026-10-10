@@ -166,12 +166,15 @@ export function SkeletonBudgetChart() {
 }
 
 export function SkeletonTimeline() {
-  // The same box as CoverageTimeline: its header (two lines tall on phones,
-  // one legend pill tall from tablets up) and its chart area (3:1, 150-300px).
+  // The same box as CoverageTimeline: its header (the title, then a row of
+  // legend pills on phones; one line from tablets up) and its chart area
+  // (3:1, 150-300px).
   return (
     <div role="status" aria-label="Loading coverage timeline" className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
-      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1 min-h-9 tablet:min-h-0">
-        <div className="skeleton h-[11px] w-40 rounded" />
+      <div aria-hidden="true" className="flex flex-col gap-1 mb-3 pl-1.5 pr-1 tablet:flex-row tablet:items-center tablet:justify-between">
+        <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-transparent">
+          <span className="skeleton rounded">Coverage Timeline</span>
+        </p>
         <div className="h-[21px]" />
       </div>
       <div aria-hidden="true" className="w-full min-w-0 aspect-[3/1] min-h-[150px] max-h-[300px] flex flex-col justify-end gap-1 pb-[10px]">

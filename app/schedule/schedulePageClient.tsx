@@ -116,10 +116,16 @@ function stepNav(view: View, navDate: Date, step: -1 | 1): Date {
     : new Date(navDate.getFullYear(), navDate.getMonth() + step, 1);
 }
 
-function formatWeekRange(start: Date, end: Date): string {
-  const startStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${startStr} – ${endStr}`;
+const RANGE_DAYS = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const RANGE_DAYS_YEARS = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+// A week as "Oct 11 – 17" plus its year, or "Dec 27, 2026 – Jan 2, 2027"
+// when it spans two (year is then empty). Kept apart so the year can give
+// way on the narrowest phones, where the range shares its row with Today
+// and the arrows.
+function weekRangeParts(start: Date, end: Date): { range: string; year: string } {
+  if (start.getFullYear() !== end.getFullYear()) return { range: RANGE_DAYS_YEARS.formatRange(start, end), year: "" };
+  return { range: RANGE_DAYS.formatRange(start, end), year: String(end.getFullYear()) };
 }
 
 const SHIFT_TYPE_LABELS: Record<string, string> = {
@@ -712,9 +718,10 @@ export default function SchedulePageClient() {
       ? todayKey >= localDateKey(weekStart) && todayKey <= localDateKey(weekEnd)
       : navDate.getFullYear() === today.getFullYear() && navDate.getMonth() === today.getMonth();
 
+  const weekRange = weekRangeParts(weekStart, weekEnd);
   const rangeLabel =
     view === "week"
-      ? formatWeekRange(weekStart, weekEnd)
+      ? weekRange.year ? `${weekRange.range}, ${weekRange.year}` : weekRange.range
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const selectedDateKey = localDateKey(selectedDate);
@@ -885,9 +892,16 @@ export default function SchedulePageClient() {
           whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 py-2.5 cursor-pointer"
+          className="flex items-center gap-1.5 min-h-11 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 max-[399px]:px-3 cursor-pointer"
         >
-          <span className="text-base font-bold text-slate-100 tracking-tight">{rangeLabel}</span>
+          <span className="text-base font-bold text-slate-100 tracking-tight">
+            {view === "week" ? (
+              <>
+                {weekRange.range}
+                {weekRange.year && <span className="max-[399px]:hidden">, {weekRange.year}</span>}
+              </>
+            ) : rangeLabel}
+          </span>
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 22 }}

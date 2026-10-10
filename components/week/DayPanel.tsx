@@ -303,7 +303,8 @@ export function DayList({
                 <div className={`text-sm font-semibold truncate ${s ? "text-slate-200" : "text-slate-400"}`}>{formatDisplayName(emp.name)}</div>
                 <div className={`text-xs tabular-nums ${s ? "text-slate-400" : "text-slate-500"}`}>
                   {s ? `${fmtMinutes(s.startMinutes)} – ${fmtMinutes(s.endMinutes)} · ${round1(shiftHours(s, timezone))} hrs` : "Off"}
-                  <span className={week.over ? "text-red-400" : "text-slate-500"}> · {week.text}</span>
+                  {/* The week's hours wrap as one piece, never "56/40 h" | "week". */}
+                  {" "}<span className={`whitespace-nowrap ${week.over ? "text-red-400" : "text-slate-500"}`}>· {week.text}</span>
                 </div>
                 {clash && cell.draft && (
                   <div className="text-xs text-amber-400 mt-0.5">

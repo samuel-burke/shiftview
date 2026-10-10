@@ -250,14 +250,15 @@ function CoverageTimeline({
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
-      {/* On a phone the title and three legend pills don't fit on one line, so
-          the header is two lines tall there whichever pills are showing (the
-          "Clocked In" one arrives with the punches); SkeletonTimeline matches. */}
-      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1 min-h-9 tablet:min-h-0">
+      {/* On a phone the title and three legend pills don't fit side by side
+          (squeezed, the pills broke their own labels), so the legend has its
+          own row under the title there, whichever pills are showing. From
+          tablets up they share one line. SkeletonTimeline matches. */}
+      <div aria-hidden="true" className="flex flex-col gap-1 mb-3 pl-1.5 pr-1 tablet:flex-row tablet:items-center tablet:justify-between">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           {hasTarget && (
             <motion.span
               initial={{ opacity: 0, scale: 0.9 }}
