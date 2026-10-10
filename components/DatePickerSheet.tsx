@@ -27,12 +27,17 @@ function sameDay(a: Date, b: Date) {
     a.getDate() === b.getDate();
 }
 
+// Always six weeks (42 cells), blank after the month's last day: a month
+// spans four to six week rows, and a picker that grew and shrank with it
+// moved its top edge (anchored at the bottom on phones, centred on desktop)
+// every time the month changed.
 function getCalendarDays(year: number, month: number, firstDayOfWeek: number): (Date | null)[] {
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const offset = (firstDow - firstDayOfWeek + 7) % 7;
   const days: (Date | null)[] = Array(offset).fill(null);
   for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
+  while (days.length < 42) days.push(null);
   return days;
 }
 
@@ -156,10 +161,11 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
           ))}
         </div>
 
-        {/* Day grid */}
-        <div className="grid grid-cols-7 gap-y-1">
+        {/* Day grid: every row the height of one with today's dot under a
+            date (44 + 3 + 4px), so the dot doesn't make its week taller. */}
+        <div className="grid grid-cols-7 gap-y-1 auto-rows-[51px]">
           {days.map((day, i) => {
-            if (!day) return <div key={i} />;
+            if (!day) return <div key={i} aria-hidden="true" />;
 
             const isSelected = sameDay(day, selected);
             const isToday_ = sameDay(day, today);
