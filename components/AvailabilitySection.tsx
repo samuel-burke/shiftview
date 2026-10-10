@@ -246,9 +246,9 @@ export default function AvailabilitySection({
           </div>
         )}
       </div>
-      <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-1">
+      <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
 
-      {/* Compact day rows */}
+      {/* Day rows, the same as Store Hours' */}
       <div className="flex flex-col divide-y divide-slate-800/60">
         {orderedDays.map((dow) => {
           const cfg = days[dow];
@@ -271,7 +271,7 @@ export default function AvailabilitySection({
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
               aria-label={`Edit availability for ${DAY_FULL[dow]}`}
-              className="flex items-center w-full py-3 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
+              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
             >
               <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
                 {DAY_SHORT[dow]}

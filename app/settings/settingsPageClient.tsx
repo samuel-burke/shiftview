@@ -85,6 +85,14 @@ function groupId(label: string) {
   return `settings-${label.toLowerCase()}`;
 }
 
+// A row that opens another page or a sheet: the same as Store Hours' and
+// Availability's day rows, edge to edge in its card, with a chevron.
+const linkRow =
+  "flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors";
+const chevron = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+);
+
 function SettingsGroupHeader({ label }: { label: string }) {
   return (
     <div id={groupId(label)} className="flex items-center gap-3 mt-3 first:mt-0 select-none scroll-mt-24">
@@ -1049,9 +1057,9 @@ export default function SettingsPageClient({
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Coverage Thresholds
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
             {/* Parent toggle */}
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-800">
+            <div className="flex items-center justify-between gap-3 px-4 py-4">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Coverage Alerts</div>
                 <div className="text-xs text-slate-500 mt-0.5">Show banners when staffing is low</div>
@@ -1079,15 +1087,13 @@ export default function SettingsPageClient({
             <button
               data-testid="coverage-profiles-link"
               onClick={() => router.push("/coverage")}
-              className="w-full flex items-center justify-between bg-bg border border-slate-700 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-500/50 transition-colors text-left"
+              className={linkRow}
             >
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-200">Coverage Profiles</div>
                 <div className="text-xs text-slate-500 mt-0.5">Target staffing curves per day, in 15-minute steps</div>
               </div>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0">
-                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {chevron}
             </button>
           </div>
         </section>}
@@ -1108,7 +1114,7 @@ export default function SettingsPageClient({
             </div>
           </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-800/60">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Allow Manual Punch Corrections</div>
                 <div className="text-xs text-slate-500 mt-0.5">Employees can report missed punches</div>
@@ -1135,7 +1141,7 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
-            <div className="flex items-center justify-between">
+            <div className={`flex items-center justify-between gap-3 ${gpsRequired ? "pb-4 border-b border-slate-800/60" : ""}`}>
               <div>
                 <div className="text-sm font-semibold text-slate-200">Require GPS for Clock-In</div>
                 <div className="text-xs text-slate-500 mt-0.5">Block clock-in if location is denied</div>
@@ -1165,9 +1171,8 @@ export default function SettingsPageClient({
 
             {/* Geofence enforcement — only visible when GPS is required */}
             {gpsRequired && (
-              <div className="space-y-4 pt-1">
-                <div className="h-px bg-slate-800" />
-                <div className="flex items-center justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-200">Enforce Geofence</div>
                     <div className="text-xs text-slate-500 mt-0.5">Only allow clock-in within a set radius</div>
@@ -1670,18 +1675,14 @@ export default function SettingsPageClient({
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Admin
           </div>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => router.push("/reports")}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-            >
-              View Reports
+          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+            <button onClick={() => router.push("/reports")} className={linkRow}>
+              <span className="flex-1 text-sm font-semibold text-slate-200">View Reports</span>
+              {chevron}
             </button>
-            <button
-              onClick={() => router.push("/admin")}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
-            >
-              Manage Roles
+            <button onClick={() => router.push("/admin")} className={linkRow}>
+              <span className="flex-1 text-sm font-semibold text-slate-200">Manage Roles</span>
+              {chevron}
             </button>
           </div>
         </section>

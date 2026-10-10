@@ -151,7 +151,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
               aria-label={`Edit ${DAY_FULL[dow]} store hours`}
               className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
             >
-              <span className="text-sm font-semibold text-slate-400 w-9 shrink-0">
+              <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
               <span className="flex-1 text-sm text-slate-200">
