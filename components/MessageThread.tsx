@@ -379,7 +379,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         role="dialog"
         aria-modal="true"
         aria-label={`Message thread with ${otherName}`}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >

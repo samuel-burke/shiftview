@@ -97,7 +97,7 @@ function AnimatedStatCard({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{
         border: `1px solid ${color}33`,
@@ -874,7 +874,7 @@ export default function Page() {
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
+      transition={{ duration: 0.25, delay: 0.1, ease: "easeOut" }}
       className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-white/[0.05]"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
@@ -1091,7 +1091,7 @@ export default function Page() {
        * against inherited horizontal padding.
        */}
       <main
-        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
+        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8 ${
           // Wide screens show employee detail as a side pane beside the dashboard (EmployeeDrawer)
           selected ? "wide:pr-[420px]" : ""
         }`}

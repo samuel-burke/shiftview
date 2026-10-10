@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MotionConfig } from "framer-motion";
 import SideNav from "./SideNav";
 import NavRail from "./NavRail";
 import TopBar from "./TopBar";
@@ -40,7 +41,11 @@ export default function AppShell({
   const [sidebarExpanded, setSidebarExpanded] = useSidebarExpanded();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
+  // reducedMotion="user": with the system's reduce-motion setting on, every
+  // framer animation in the app drops its movement (CSS ones are handled in
+  // globals.css).
   return (
+    <MotionConfig reducedMotion="user">
     <div className="tablet:flex min-h-dvh bg-bg">
       {/*
        * compact: BottomNav (rendered by each page) · tablet: icon rail ·
@@ -75,5 +80,6 @@ export default function AppShell({
       </div>
       <AddToHomeScreenBanner />
     </div>
+    </MotionConfig>
   );
 }

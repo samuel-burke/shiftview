@@ -82,7 +82,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
 
   function closeSheet() {
     setSheetOpen(false);
-    setTimeout(() => setActiveDow(null), 300);
+    setTimeout(() => setActiveDow(null), 250);
   }
 
   const handleEscape = useCallback((e: KeyboardEvent) => {
@@ -173,7 +173,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
         <>
           <div
             aria-hidden="true"
-            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
+            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
@@ -182,7 +182,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
             aria-modal="true"
             aria-labelledby="store-hours-sheet-title"
             data-testid="store-hours-sheet"
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
+            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
           >
             <div className="flex justify-center pt-3 pb-1 tablet:hidden">
               <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />

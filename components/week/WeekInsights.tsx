@@ -42,7 +42,7 @@ function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{ border: `1px solid ${color}33` }}
     >
