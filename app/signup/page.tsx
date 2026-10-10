@@ -215,7 +215,7 @@ export default function SignupPage() {
                   <button
                     onClick={handleCreateSignedIn}
                     disabled={loading}
-                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
                   >
                     {loading ? "Creating…" : "Create Organization"}
                   </button>
@@ -244,7 +244,7 @@ export default function SignupPage() {
                   <button
                     onClick={handleSendCode}
                     disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
-                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
                   >
                     {loading ? "Sending…" : "Send Code"}
                   </button>
@@ -283,7 +283,7 @@ export default function SignupPage() {
               <button
                 onClick={handleVerify}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? (verified ? "Creating…" : "Verifying…") : verified ? "Retry" : "Verify & Create"}
               </button>
