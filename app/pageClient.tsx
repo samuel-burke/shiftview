@@ -30,6 +30,7 @@ import AppShell from "../components/AppShell";
 import { Toast, ToastStack } from "../components/Toast";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
+import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 import {
@@ -170,6 +171,9 @@ export default function Page() {
   const [timeCardEmp, setTimeCardEmp] = useState<Employee | null>(null);
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
+  // Realtime changes and background refreshes keep the card being looked at
+  // in place (lib/scroll-anchor.ts) rather than pushing it.
+  const keepScroll = useScrollAnchor();
 
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
@@ -255,7 +259,7 @@ export default function Page() {
   // still-clocked-in closers run into the viewed day) and the day after, which
   // is cached so stepping forward renders at once. Applied only while `dk` is
   // still the viewed day, so a slow response can't overwrite a newer one.
-  function loadScheduleDays(dk: string) {
+  function loadScheduleDays(dk: string, background = false) {
     const from = addDaysToKey(dk, -1);
     const to = addDaysToKey(dk, 1);
     return apiFetch(`/api/schedules?from=${from}&to=${to}`)
@@ -267,6 +271,7 @@ export default function Page() {
         if (!Array.isArray(data)) throw new Error("schedules fetch failed");
         const byDay: Record<string, Schedule[]> = { [from]: [], [dk]: [], [to]: [] };
         for (const s of data as Schedule[]) byDay[s.date.slice(0, 10)]?.push(s);
+        if (background) keepScroll();
         for (const [day, list] of Object.entries(byDay)) setScheduleCache(day, list);
         if (dateKeyRef.current === dk) {
           setSchedules(byDay[dk]);
@@ -396,6 +401,7 @@ export default function Page() {
           const p = payload.new as Record<string, unknown>;
           const punchDate = dateKeyInTz(p.punched_at as string, timezone);
           if (punchDate !== todayKey) return;
+          keepScroll();
           setPunchRecords((prev) => [...prev, rowToPunch(p)]);
           setPunchesLoaded(true);
         }
@@ -406,6 +412,7 @@ export default function Page() {
         (payload) => {
           const p = payload.new as Record<string, unknown>;
           const punch = rowToPunch(p);
+          keepScroll();
           setPunchRecords((prev) => prev.map((r) => r.id === punch.id ? punch : r));
         }
       )
@@ -415,7 +422,7 @@ export default function Page() {
     const t = setInterval(() => {
       apiFetch(`/api/punches?date=${dateKey}&carried=1`)
         .then((r) => r.json())
-        .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
+        .then((data) => { keepScroll(); setPunchRecords(Array.isArray(data) ? data : []); })
         .catch(() => {});
     }, 300000);
 
@@ -428,18 +435,18 @@ export default function Page() {
   // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
   useEffect(() => {
     function refetchSchedules() {
-      loadScheduleDays(dateKeyRef.current).catch(() => {});
+      loadScheduleDays(dateKeyRef.current, true).catch(() => {});
     }
 
     function refetchEmployees() {
       apiFetch("/api/employees")
         .then(r => r.json())
-        .then((data: Employee[]) => { if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); } })
+        .then((data: Employee[]) => { if (Array.isArray(data)) { keepScroll(); setEmployees(data); cacheEmployees(data); } })
         .catch(() => {});
     }
 
     function refetchCallouts() {
-      loadCallouts(dateKeyRef.current);
+      loadCallouts(dateKeyRef.current, true);
     }
 
     let hiddenAt = 0;
@@ -576,10 +583,14 @@ export default function Page() {
 
   // Call-outs ("Called Out" section) for a day. Failing counts as none, so the
   // day isn't held on its placeholder.
-  function loadCallouts(day: string) {
+  function loadCallouts(day: string, background = false) {
     return apiFetch(`/api/callouts?date=${day}`)
       .then((r) => r.json())
-      .then((d) => { if (Array.isArray(d?.callouts)) setCalloutsByDay((prev) => ({ ...prev, [day]: d.callouts })); else throw new Error(); })
+      .then((d) => {
+        if (!Array.isArray(d?.callouts)) throw new Error();
+        if (background) keepScroll();
+        setCalloutsByDay((prev) => ({ ...prev, [day]: d.callouts }));
+      })
       .catch(() => setCalloutsByDay((prev) => (day in prev ? prev : { ...prev, [day]: [] })));
   }
 

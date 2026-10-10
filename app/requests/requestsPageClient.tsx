@@ -8,6 +8,7 @@ import BottomNav from "../../components/BottomNav";
 import { useAppData } from "@/lib/AppDataContext";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useManagerRequests } from "@/hooks/useManagerRequests";
+import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { dateKeyInTz, formatDateKey, formatTimeInTz } from "@/lib/dates";
 import { fmtMinutes, getMonogram, type Employee, type Schedule } from "@/data/types";
 
@@ -63,7 +64,9 @@ export default function RequestsPageClient() {
   const { me, sharedLoading, settings } = useAppData();
   const { timezone } = settings;
   const size = useBreakpoint();
-  const requests = useManagerRequests(me.isManager);
+  // Requests arriving live keep the one being read in place (lib/scroll-anchor.ts).
+  const keepScroll = useScrollAnchor();
+  const requests = useManagerRequests(me.isManager, keepScroll);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -275,7 +278,7 @@ export default function RequestsPageClient() {
               {visible.map((item) => {
                 const isSel = selected?.key === item.key;
                 return (
-                  <li key={item.key}>
+                  <li key={item.key} data-scroll-anchor={item.key}>
                     <button
                       onClick={() => setSelectedKey(item.key)}
                       aria-current={isSel ? "true" : undefined}

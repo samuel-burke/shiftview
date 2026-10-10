@@ -143,7 +143,7 @@ export default function TeamSection({
             : { borderLeftColor: "rgb(51 65 85 / 0.5)" };
           const selectable = onSelectOff && (!canSelectOff || canSelectOff(emp));
           return (
-            <motion.div key={emp.id} variants={cardItem}>
+            <motion.div key={emp.id} variants={cardItem} data-scroll-anchor={`${label}-${emp.id}`}>
               {selectable ? (
                 <motion.button
                   onClick={() => onSelectOff(emp)}

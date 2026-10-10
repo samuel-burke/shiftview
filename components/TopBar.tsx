@@ -15,7 +15,7 @@ type Props = {
 
 export default function TopBar({ userName, onBack, onSignOut, onSignIn }: Props) {
   return (
-    <div className="desk:hidden sticky top-0 z-30 bg-bg border-b border-slate-800">
+    <div data-sticky-header className="desk:hidden sticky top-0 z-30 bg-bg border-b border-slate-800">
       {/* The demo strip takes the safe-area inset when it shows (CSS, so the
           header is right from the first frame; see DemoBanner). */}
       <DemoBanner style={{ paddingTop: "calc(env(safe-area-inset-top) + 6px)" }} />

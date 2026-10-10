@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { mapSwap, type RawSwap, type Swap } from "@/lib/swaps";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
@@ -56,16 +56,21 @@ export function removeOptimistically<T extends { id: number }>(
  *
  * `enabled` should be the caller's manager flag; nothing loads until it's true.
  * Approve/deny actions throw with a readable message on failure.
+ * `beforeRefresh` runs just before a background refresh (realtime, return to
+ * the tab) changes the lists — e.g. a scroll anchor's preserve().
  */
-export function useManagerRequests(enabled: boolean) {
+export function useManagerRequests(enabled: boolean, beforeRefresh?: () => void) {
+  const beforeRefreshRef = useRef(beforeRefresh);
+  useEffect(() => { beforeRefreshRef.current = beforeRefresh; });
   const [timeOff, setTimeOff] = useState<ManagerTimeOff[]>([]);
   const [swaps, setSwaps] = useState<Swap[]>([]);
   const [corrections, setCorrections] = useState<PunchCorrection[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
     const get = (url: string) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     const [t, s, c] = await Promise.all([get("/api/time-off"), get("/api/swaps"), get("/api/punch-corrections")]);
+    if (background) beforeRefreshRef.current?.();
     if (t && Array.isArray(t.requests)) setTimeOff(t.requests);
     if (Array.isArray(s)) setSwaps((s as RawSwap[]).map(mapSwap));
     if (c && Array.isArray(c.corrections)) setCorrections(c.corrections);
@@ -81,16 +86,16 @@ export function useManagerRequests(enabled: boolean) {
     let hiddenAt = 0;
     function onVisibility() {
       if (document.visibilityState === "hidden") hiddenAt = Date.now();
-      else if (Date.now() - hiddenAt > 5_000) load();
+      else if (Date.now() - hiddenAt > 5_000) load(true);
     }
     document.addEventListener("visibilitychange", onVisibility);
 
     const supabase = createClient();
     const channel = supabase
       .channel("manager-requests")
-      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "shift_swaps" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_off_requests" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "shift_swaps" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, () => load(true))
       .subscribe();
 
     return () => {

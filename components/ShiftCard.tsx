@@ -90,6 +90,7 @@ export default function ShiftCard({
       whileHover={{ y: -1, boxShadow: `0 4px 24px ${shiftColor}30` }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       aria-label={cardAriaLabel}
+      data-scroll-anchor={`shift-${schedule.id}`}
       className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
       style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >

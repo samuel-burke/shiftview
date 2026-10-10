@@ -15,6 +15,7 @@ import { formatTimeInTz, previousPayWeek, weekStartForKey } from "@/lib/dates";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import DemoBanner from "@/components/DemoBanner";
+import { useScrollAnchor } from "@/lib/scroll-anchor";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -295,6 +296,8 @@ const CATEGORIES = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReportsPageClient() {
+  // Live audit entries keep the one being read in place (lib/scroll-anchor.ts).
+  const keepScroll = useScrollAnchor();
   const router = useRouter();
   const supabase = createClient();
   const { me, settings } = useAppData();
@@ -434,12 +437,17 @@ export default function ReportsPageClient() {
       const params = new URLSearchParams({ from: auditFromRef.current, to: auditToRef.current, page: "1" });
       if (auditCategoryRef.current) params.set("category", auditCategoryRef.current);
       if (auditActorIdRef.current)  params.set("actorId", auditActorIdRef.current);
+      // New entries join the top of what's loaded (any further pages the
+      // reader loaded stay), and the entry being read stays in place.
       fetch(`/api/audit-log?${params}`)
         .then((r) => r.json())
-        .then(({ entries, hasMore, total }) => {
-          setAuditEntries(entries ?? []);
-          setAuditHasMore(hasMore ?? false);
-          setAuditPage(1);
+        .then(({ entries, total }) => {
+          if (!Array.isArray(entries)) return;
+          keepScroll();
+          setAuditEntries((prev) => {
+            const seen = new Set(prev.map((e) => e.id));
+            return [...entries.filter((e: AuditEntry) => !seen.has(e.id)), ...prev];
+          });
           setAuditTotal(total ?? 0);
         })
         .catch(() => {});
@@ -1107,7 +1115,7 @@ export default function ReportsPageClient() {
                 {auditEntries.map((entry) => {
                   const detail = auditDetail(entry, timezone);
                   return (
-                    <motion.div key={entry.id} variants={listItem} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
+                    <motion.div key={entry.id} variants={listItem} data-scroll-anchor={`audit-${entry.id}`} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${auditBadgeClass(entry.action)}`}>
                           {auditBadgeLabel(entry.action)}
