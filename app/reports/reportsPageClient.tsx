@@ -300,7 +300,7 @@ export default function ReportsPageClient() {
   const keepScroll = useScrollAnchor();
   const router = useRouter();
   const supabase = createClient();
-  const { me, settings } = useAppData();
+  const { settings } = useAppData();
   const { timezone } = settings;
 
   // "Today" is the store's calendar day, not UTC's or the device's.

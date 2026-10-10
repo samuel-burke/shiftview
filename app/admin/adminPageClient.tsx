@@ -8,7 +8,6 @@ import BottomNav from "../../components/BottomNav";
 import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import { motion } from "framer-motion";
-import { useAppData } from "../../lib/AppDataContext";
 import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
@@ -23,7 +22,6 @@ export default function AdminPageClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const { me } = useAppData();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [ownerUserIds, setOwnerUserIds] = useState<Set<string>>(new Set());
