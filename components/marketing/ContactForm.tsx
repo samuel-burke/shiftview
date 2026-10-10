@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CONTACT_LIMITS, CONTACT_TOPICS, TOPIC_LABELS, isContactTopic, type ContactTopic } from "@/lib/contact";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 import { Arrow, primaryBtn } from "./ui";
@@ -10,14 +9,20 @@ const field =
   "w-full rounded-lg border border-slate-700 bg-card px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30";
 const label = "mb-1.5 block text-sm font-medium text-slate-200";
 
+const noSubscribe = () => () => {};
+
 // Posts to /api/contact. ?topic=bug|feature|question|other preselects the
-// topic (the beta notice links here with ?topic=feedback → "feature").
+// topic (the beta notice links here with ?topic=feedback → "feature"). The
+// query is read from the location rather than useSearchParams, so the form is
+// in the server HTML instead of appearing (and pushing the page) after
+// hydration; the preselected topic is applied as soon as it hydrates.
 export default function ContactForm() {
-  const params = useSearchParams();
-  const initialTopic = params.get("topic");
-  const [topic, setTopic] = useState<ContactTopic>(
-    initialTopic === "feedback" ? "feature" : isContactTopic(initialTopic) ? initialTopic : "question"
-  );
+  const search = useSyncExternalStore(noSubscribe, () => window.location.search, () => "");
+  const initialTopic = new URLSearchParams(search).get("topic");
+  const urlTopic: ContactTopic =
+    initialTopic === "feedback" ? "feature" : isContactTopic(initialTopic) ? initialTopic : "question";
+  const [pickedTopic, setTopic] = useState<ContactTopic | null>(null);
+  const topic = pickedTopic ?? urlTopic;
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
