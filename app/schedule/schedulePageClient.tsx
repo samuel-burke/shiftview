@@ -63,6 +63,8 @@ type ManagerTimeOffRequest = {
 
 type View = "week" | "month";
 
+const NO_SCHEDULES: Schedule[] = [];
+
 export function isShiftUpcoming(
   shift: { date: string; endMinutes: number; startMinutes: number },
   todayKey: string,
@@ -95,6 +97,24 @@ function getWeekStart(d: Date, firstDay: number): Date {
   return result;
 }
 
+// The date range the calendar shows: the week containing navDate, or its month.
+function rangeOf(view: View, navDate: Date, firstDay: number): { fromKey: string; toKey: string } {
+  const from = view === "week"
+    ? getWeekStart(navDate, firstDay)
+    : new Date(navDate.getFullYear(), navDate.getMonth(), 1);
+  const to = view === "week"
+    ? offsetDays(from, 6)
+    : new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
+  return { fromKey: localDateKey(from), toKey: localDateKey(to) };
+}
+
+// navDate one step back or forward in the view.
+function stepNav(view: View, navDate: Date, step: -1 | 1): Date {
+  return view === "week"
+    ? offsetDays(navDate, 7 * step)
+    : new Date(navDate.getFullYear(), navDate.getMonth() + step, 1);
+}
+
 function formatWeekRange(start: Date, end: Date): string {
   const startStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -120,11 +140,10 @@ export default function SchedulePageClient() {
   const [view, setView] = useState<View>("week");
   const [selectedDate, setSelectedDate] = useState(today);
   const [navDate, setNavDate] = useState(today);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The range whose load failed (with nothing cached to show instead).
+  const [failedRange, setFailedRange] = useState<string | null>(null);
 
   const { isManager, employeeId, employeeName } = me;
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
@@ -474,39 +493,44 @@ export default function SchedulePageClient() {
     }
   }
 
+  // The calendar reads the shown range straight from the cache, so a range
+  // that's there (the one before, or one prefetched below) renders in the
+  // same frame as the tap; one that isn't shows its placeholder until it is.
+  // The range waits for the store's week start, rather than loading the
+  // default week first and then the right one.
+  const { fromKey: rangeFrom, toKey: rangeTo } = rangeOf(view, navDate, firstDayOfWeek);
+  const rangeKey = `${rangeFrom}:${rangeTo}`;
+  const cachedRange = sharedLoading ? undefined : myScheduleCache[rangeKey];
+  const schedules = cachedRange ?? NO_SCHEDULES;
+  const scheduleError = !cachedRange && failedRange === rangeKey ? "Failed to load schedule" : null;
+  const loading = !cachedRange && !scheduleError;
+
+  // The previous and next range load once the shown one has, so stepping
+  // through weeks (or months) renders straight from the cache.
+  const prefetched = useRef(new Set<string>());
   useEffect(() => {
-    let from: Date, to: Date;
-    if (view === "week") {
-      const ws = getWeekStart(navDate, firstDayOfWeek);
-      from = ws;
-      to = offsetDays(ws, 6);
-    } else {
-      from = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
-      to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
-    }
-    const fromKey = localDateKey(from);
-    const toKey = localDateKey(to);
-    const rangeKey = `${fromKey}:${toKey}`;
-    setScheduleError(null);
-
-    const cached = myScheduleCache[rangeKey];
-    if (cached) {
-      setSchedules(cached);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
-
+    if (sharedLoading) return;
+    const { fromKey, toKey } = rangeOf(view, navDate, firstDayOfWeek);
+    const key = `${fromKey}:${toKey}`;
     fetch(`/api/my-schedule?from=${fromKey}&to=${toKey}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
-        const scheds = data.schedules ?? [];
-        setSchedules(scheds);
-        setMyScheduleCache(rangeKey, scheds);
-        setLoading(false);
+        setMyScheduleCache(key, data.schedules ?? []);
+        setFailedRange((f) => (f === key ? null : f));
+        for (const step of [-1, 1] as const) {
+          const near = rangeOf(view, stepNav(view, navDate, step), firstDayOfWeek);
+          const nearKey = `${near.fromKey}:${near.toKey}`;
+          if (prefetched.current.has(nearKey) || myScheduleCache[nearKey]) continue;
+          prefetched.current.add(nearKey);
+          fetch(`/api/my-schedule?from=${near.fromKey}&to=${near.toKey}`)
+            .then((r) => (r.ok ? r.json() : Promise.reject()))
+            .then((d) => setMyScheduleCache(nearKey, d.schedules ?? []))
+            .catch(() => prefetched.current.delete(nearKey));
+        }
       })
-      .catch(() => { if (!cached) { setScheduleError("Failed to load schedule"); setLoading(false); } });
-  }, [view, navDate, firstDayOfWeek]);
+      .catch(() => setFailedRange(key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, navDate, firstDayOfWeek, sharedLoading]);
 
   // Reset time-off request status when selected date changes
   useEffect(() => {
@@ -584,11 +608,7 @@ export default function SchedulePageClient() {
       const tk = localDateKey(to);
       fetch(`/api/my-schedule?from=${fk}&to=${tk}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((data) => {
-          const scheds = data.schedules ?? [];
-          setSchedules(scheds);
-          setMyScheduleCache(`${fk}:${tk}`, scheds);
-        })
+        .then((data) => setMyScheduleCache(`${fk}:${tk}`, data.schedules ?? []))
         .catch(() => {});
     }
 

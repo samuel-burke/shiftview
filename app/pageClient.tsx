@@ -55,6 +55,8 @@ const CoverageTimeline = dynamic(() => import("../components/CoverageTimeline"),
 });
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const NO_CALLOUTS: Callout[] = [];
+const NO_BLOCKS: CoverageBlock[] = [];
 
 // Cap the team export so it stays a manageable grid.
 const MAX_EXPORT_DAYS = 62;
@@ -165,7 +167,6 @@ export default function Page() {
   const [showExport, setShowExport] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
-  const [callouts, setCallouts] = useState<Callout[]>([]);
   const [timeCardEmp, setTimeCardEmp] = useState<Employee | null>(null);
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
@@ -174,11 +175,16 @@ export default function Page() {
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
   const { isManager, employeeName: userName } = me;
   const weeklyHours = weeklyHoursCtx;
-  // The viewed day's target curve, tagged with its day so the coverage status
-  // line can tell "not loaded yet" from "no target".
-  const [curve, setCurve] = useState<{ day: string; blocks: CoverageBlock[] } | null>(null);
-  const curveReady = curve?.day === dateKey;
-  const dayCurve = useMemo(() => (curve?.day === dateKey ? curve.blocks : []), [curve, dateKey]);
+  // Call-outs and the target curve, kept per day like the shifts: the viewed
+  // day's neighbours load with it, so stepping a day renders at once from
+  // what's here rather than changing the page when they land. A day missing
+  // from these hasn't loaded yet (as opposed to having none).
+  const [calloutsByDay, setCalloutsByDay] = useState<Record<string, Callout[]>>({});
+  const [curvesByDay, setCurvesByDay] = useState<Record<string, CoverageBlock[]>>({});
+  const callouts = calloutsByDay[dateKey] ?? NO_CALLOUTS;
+  const calloutsReady = dateKey in calloutsByDay;
+  const dayCurve = curvesByDay[dateKey] ?? NO_BLOCKS;
+  const curveReady = dateKey in curvesByDay;
 
   // Mutable ref so subscription callbacks always see the latest viewed date.
   // Updated on commit: day changes render as transitions, which can be
@@ -433,11 +439,7 @@ export default function Page() {
     }
 
     function refetchCallouts() {
-      const dk = dateKeyRef.current;
-      apiFetch(`/api/callouts?date=${dk}`)
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d?.callouts)) setCallouts(d.callouts); })
-        .catch(() => {});
+      loadCallouts(dateKeyRef.current);
     }
 
     let hiddenAt = 0;
@@ -551,37 +553,46 @@ export default function Page() {
     return profilesRef.current;
   }
 
-  // Target coverage curve for the viewed date (override → day-of-week default)
+  // Target coverage curves (override → day-of-week default) for the viewed day
+  // and its neighbours, from one ranged request, like the shifts.
   useEffect(() => {
-    const dk = dateKey;
-    let cancelled = false;
+    const days = [addDaysToKey(dateKey, -1), dateKey, addDaysToKey(dateKey, 1)];
     Promise.all([
       coverageProfiles(),
-      apiFetch(`/api/coverage-assignments?from=${dk}&to=${dk}`).then((r) => r.json()),
+      apiFetch(`/api/coverage-assignments?from=${days[0]}&to=${days[2]}`).then((r) => r.json()),
     ])
       .then(([profiles, assignments]) => {
-        if (cancelled) return;
-        setCurve({ day: dk, blocks: curveForDate(
-          dk,
+        const curves = Object.fromEntries(days.map((d) => [d, curveForDate(
+          d,
           assignments?.overrides ?? {},
           assignments?.defaults ?? {},
           profiles
-        ) });
+        )]));
+        setCurvesByDay((prev) => ({ ...prev, ...curves }));
       })
-      .catch(() => { if (!cancelled) setCurve({ day: dk, blocks: [] }); });
-    return () => { cancelled = true; };
+      .catch(() => setCurvesByDay((prev) => ({ ...prev, [dateKey]: prev[dateKey] ?? [] })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
-  // Call-outs for the viewed date — drives the "Called Out" team section.
-  useEffect(() => {
-    const dk = dateKey;
-    let cancelled = false;
-    apiFetch(`/api/callouts?date=${dk}`)
+  // Call-outs ("Called Out" section) for a day. Failing counts as none, so the
+  // day isn't held on its placeholder.
+  function loadCallouts(day: string) {
+    return apiFetch(`/api/callouts?date=${day}`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) setCallouts(Array.isArray(d?.callouts) ? d.callouts : []); })
-      .catch(() => { if (!cancelled) setCallouts([]); });
-    return () => { cancelled = true; };
+      .then((d) => { if (Array.isArray(d?.callouts)) setCalloutsByDay((prev) => ({ ...prev, [day]: d.callouts })); else throw new Error(); })
+      .catch(() => setCalloutsByDay((prev) => (day in prev ? prev : { ...prev, [day]: [] })));
+  }
+
+  // The viewed day's call-outs, refreshed on every visit; its neighbours'
+  // once, ahead of a step to them.
+  const calloutsRequested = useRef(new Set<string>());
+  useEffect(() => {
+    for (const day of [dateKey, addDaysToKey(dateKey, -1), addDaysToKey(dateKey, 1)]) {
+      if (day !== dateKey && calloutsRequested.current.has(day)) continue;
+      calloutsRequested.current.add(day);
+      loadCallouts(day);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
   const isToday = dateKey === todayKey;
@@ -751,7 +762,9 @@ export default function Page() {
 
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
   // employees has its own local state so it no longer blocks the skeleton.
-  const isLoading = loading || sharedLoading;
+  // A day is shown once its shifts and its call-outs are in (call-outs move
+  // people into their own section).
+  const isLoading = loading || sharedLoading || !calloutsReady;
   // The manager buttons sit under the team list, whose length isn't known
   // until the first day has loaded; they wait for it rather than being pushed
   // down (or, for an empty day, pulled up) when it lands.

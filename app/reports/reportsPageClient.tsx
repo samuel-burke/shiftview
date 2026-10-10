@@ -393,10 +393,10 @@ export default function ReportsPageClient() {
 
   // Supabase Realtime — live updates for schedules, employees, and audit log
   useEffect(() => {
+    // A change elsewhere refreshes the table in place (no placeholder).
     function refetchWeekSchedules() {
       const ws = selectedWeekStartRef.current;
       const weekDates = getWeekDates(ws);
-      setWeekLoading(true);
       Promise.allSettled(
         weekDates.map((d) =>
           fetch(`/api/schedules?date=${d}`)
@@ -773,8 +773,9 @@ export default function ReportsPageClient() {
               </div>
             </div>
 
-            {weekLoading ? (
-              // The table's header and one row per person, at the real rows' height.
+            {weekLoading && !hoursShown ? (
+              // First load: the table's header and one row per person, at the
+              // real rows' height. Later weeks keep the table up (below).
               // Its own key: otherwise React would reuse these placeholder rows
               // (keyed 0..n) for the employees with those ids, and move them.
               <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
@@ -788,7 +789,13 @@ export default function ReportsPageClient() {
                 ))}
               </div>
             ) : (
-              <div key="table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+              // While another week loads, this one stays up, dimmed, until the new
+              // numbers replace it.
+              <div
+                key="table"
+                aria-busy={weekLoading || undefined}
+                className={`bg-card rounded-2xl border border-slate-800/60 overflow-hidden transition-opacity ${weekLoading ? "opacity-60" : ""}`}
+              >
                 <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
                   {weekDates.map((d) => (
