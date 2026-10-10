@@ -939,7 +939,7 @@ export default function SettingsPageClient({
                 data-testid="toggle-sound-effects"
                 onClick={toggleSound}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  soundEnabled ? "bg-indigo-500" : "bg-slate-700"
+                  soundEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
@@ -973,7 +973,7 @@ export default function SettingsPageClient({
                   aria-busy={pushSaving}
                   onClick={togglePush}
                   className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                    pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
+                    pushSubscribed ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                   }`}
                 >
                   <span
@@ -1022,7 +1022,7 @@ export default function SettingsPageClient({
                         disabled={!!notifPrefsSaving[key]}
                         onClick={() => toggleNotifPref(key)}
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ml-4 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                          notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700"
+                          notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                         }`}
                       >
                         <span
@@ -1075,7 +1075,7 @@ export default function SettingsPageClient({
                   saveCoverageAlerts(next);
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700"
+                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
@@ -1131,7 +1131,7 @@ export default function SettingsPageClient({
                   saveTimeclockSetting({ manualPunchesEnabled: next });
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700"
+                  manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
@@ -1158,7 +1158,7 @@ export default function SettingsPageClient({
                   saveTimeclockSetting({ gpsRequired: next });
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  gpsRequired ? "bg-indigo-500" : "bg-slate-700"
+                  gpsRequired ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
@@ -1190,7 +1190,7 @@ export default function SettingsPageClient({
                       if (next && geofenceLat === null) captureCurrentLocation();
                     }}
                     className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
+                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                     }`}
                   >
                     <span
@@ -1365,7 +1365,7 @@ export default function SettingsPageClient({
                         aria-checked={enabled}
                         onClick={() => savePunchPolicy({ [enabledKey]: !enabled } as Partial<PunchPolicy>)}
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                          enabled ? "bg-indigo-500" : "bg-slate-700"
+                          enabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                         }`}
                       >
                         <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
