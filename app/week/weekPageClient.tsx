@@ -147,13 +147,20 @@ export default function WeekPageClient() {
   const selectDate = (date: string) => setPickedDay(dayOfWeekForKey(date));
 
   // ---- Navigation: the mode and week live in the URL ----
+  // Written with history.replaceState, which Next.js applies to
+  // useSearchParams on the spot. router.replace would ask the server for the
+  // page again first, so the week on screen changed a round trip after the
+  // tap (well over a second on a slow connection), all at once.
+  function showWeek(nextMode: WeekMode, nextWeek: string) {
+    window.history.replaceState(null, "", weekHref(nextMode, nextWeek));
+  }
   function go(nextMode: WeekMode, nextWeek: string) {
     // The week's start day comes with the settings; a week picked before
     // then could snap back to the one it was picked from.
     if (sharedLoading) return;
     setPublishResult(null);
     if (nextWeek !== weekStart) setPicked(null);
-    router.replace(weekHref(nextMode, nextWeek), { scroll: false });
+    showWeek(nextMode, nextWeek);
   }
   const goToWeek = (next: string) => go(mode, next);
 
@@ -242,7 +249,7 @@ export default function WeekPageClient() {
       auto.clearRun();
       setConfirmPublish(false);
       // Show the published week, live.
-      router.replace(weekHref("live", weekStart), { scroll: false });
+      showWeek("live", weekStart);
       setPublishResult({
         weekStart,
         published: Number(result.published) || 0,
