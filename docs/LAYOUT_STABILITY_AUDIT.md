@@ -229,6 +229,9 @@ reachable without a Supabase session.
 | "Apply to Weekdays / Weekends / All days" a list in one sheet, separate buttons in the other | Settings: availability and store hours sheets | Separate buttons in both |
 | Text buttons 38 px beside 40 px icon buttons; one hours field wider than the rest | Settings: employee rows, templates, shift preferences | 40 px; 64 px fields |
 | Rows without an account showed a disabled delete ("Cannot remove yourself") until the signed-in user loaded | Settings → Employees | Only a row whose account is yours |
+| The clock status showed twice, in the rail and the top bar | Tablets (600–1023 px) | Only the rail shows it there; phones keep the top bar's, wide screens the sidebar's |
+| Selects as wide as their longest option ("10 h" 132 px, "6 days" 88, "5 d" 62), each starting somewhere different | Settings: Scheduling Rules, an employee's limits | Each row's controls fill one column (full width on phones, 260 px from tablets up; 160 px in an employee's limits) and selects fill what's left |
+| Day chips' labels ran into their borders | An employee's preferences, 360 px | Centred labels, 4 px side padding |
 
 ## Not fixed, and why
 
