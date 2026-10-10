@@ -121,8 +121,7 @@ const RANGE_DAYS_YEARS = new Intl.DateTimeFormat("en-US", { month: "short", day:
 
 // A week as "Oct 11 – 17" plus its year, or "Dec 27, 2026 – Jan 2, 2027"
 // when it spans two (year is then empty). Kept apart so the year can give
-// way on the narrowest phones, where the range shares its row with Today
-// and the arrows.
+// way where the range shares a narrow row with Today and the arrows.
 function weekRangeParts(start: Date, end: Date): { range: string; year: string } {
   if (start.getFullYear() !== end.getFullYear()) return { range: RANGE_DAYS_YEARS.formatRange(start, end), year: "" };
   return { range: RANGE_DAYS.formatRange(start, end), year: String(end.getFullYear()) };
@@ -882,8 +881,10 @@ export default function SchedulePageClient() {
         </LayoutGroup>
       </div>
 
-      {/* Range label + prev/next */}
-      <div className="flex items-center justify-between mt-5 mb-4">
+      {/* Range label + prev/next. A container, so the label can drop its year
+          wherever this row is too narrow for it (small phones; the side
+          column on tablets). */}
+      <div className="@container flex items-center justify-between mt-5 mb-4">
         <motion.button
           onClick={() => setPickerOpen(true)}
           aria-label={`${rangeLabel}. Open date picker`}
@@ -892,13 +893,13 @@ export default function SchedulePageClient() {
           whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className="flex items-center gap-1.5 min-h-11 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 max-[399px]:px-3 cursor-pointer"
+          className="flex items-center gap-1.5 min-h-11 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 @max-[23.25rem]:px-3 cursor-pointer"
         >
           <span className="text-base font-bold text-slate-100 tracking-tight">
             {view === "week" ? (
               <>
                 {weekRange.range}
-                {weekRange.year && <span className="max-[399px]:hidden">, {weekRange.year}</span>}
+                {weekRange.year && <span className="@max-[23.25rem]:hidden">, {weekRange.year}</span>}
               </>
             ) : rangeLabel}
           </span>
