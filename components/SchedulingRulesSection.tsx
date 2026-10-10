@@ -21,13 +21,18 @@ const SHIFT_LENGTHS = Array.from({ length: 31 }, (_, i) => 60 + i * 30);
 const REST_OPTIONS = Array.from({ length: 17 }, (_, i) => i * 60);
 const DAY_COUNTS = [1, 2, 3, 4, 5, 6, 7];
 
+// Every rule's controls fill one column (see Row), and a select takes what's
+// left of it: a row's only select is the column's width, two share it.
 const selectClass =
-  "bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500 cursor-pointer";
+  "flex-1 min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500 cursor-pointer";
 const hoursInputClass =
-  "w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500";
+  "w-16 shrink-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500";
 
-// A rule: its name and description, and its controls. A problem with the
-// row's values takes the description's place, beside the fields it's about.
+// A rule: its name and description, and its controls. The controls fill a
+// column of one width on every row (the row's width on phones, 260px beside
+// the name from the tablet size class up), so selects and segmented controls
+// line up from row to row. A problem with the row's values takes the
+// description's place, beside the fields it's about.
 function Row({ title, desc, error, children }: { title: string; desc?: string; error?: string | null; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 tablet:flex-row tablet:items-center tablet:justify-between tablet:gap-4">
@@ -39,7 +44,7 @@ function Row({ title, desc, error, children }: { title: string; desc?: string; e
           desc && <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
         )}
       </div>
-      <div className="shrink-0 tablet:min-w-[220px] tablet:max-w-[260px] flex items-center gap-2 tablet:justify-end">{children}</div>
+      <div className="w-full shrink-0 tablet:w-[260px] flex items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -155,7 +160,7 @@ export default function SchedulingRulesSection({
                 <option key={m} value={m}>{fmtHours(m)}</option>
               ))}
             </select>
-            <span className="text-xs text-slate-500">to</span>
+            <span className="shrink-0 text-xs text-slate-500">to</span>
             <select
               aria-label="Longest shift"
               value={draft.maxShiftMinutes}
@@ -252,13 +257,13 @@ export default function SchedulingRulesSection({
                 value={draft[minKey]}
                 onCommit={(h) => save({ [minKey]: h })}
               />
-              <span className="text-xs text-slate-500">–</span>
+              <span className="shrink-0 text-xs text-slate-500">–</span>
               <HoursField
                 ariaLabel={`${label} maximum weekly hours`}
                 value={draft[maxKey]}
                 onCommit={(h) => save({ [maxKey]: h })}
               />
-              <span className="text-xs text-slate-500">h ·</span>
+              <span className="shrink-0 text-xs text-slate-500">h ·</span>
               <select
                 aria-label={`${label} most days per week`}
                 value={draft[daysKey]}
