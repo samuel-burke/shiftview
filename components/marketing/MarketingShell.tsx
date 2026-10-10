@@ -5,7 +5,10 @@ import Logo from "@/components/Logo";
 import { CurrentYear, MotionProvider } from "./live";
 import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "./ui";
 
-const inter = Inter({ subsets: ["latin"], display: "swap" });
+// font-display: optional: the font is preloaded, and if it isn't in by first
+// paint the page keeps the (metric-matched) fallback rather than re-wrapping
+// its text when Inter arrives.
+const inter = Inter({ subsets: ["latin"], display: "optional" });
 
 // Shared chrome for the public marketing pages (/ and /contact).
 export default function MarketingShell({ children }: { children: React.ReactNode }) {
