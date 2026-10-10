@@ -75,7 +75,7 @@ second overlay).
 
 | Shift | Cause | Fix |
 |---|---|---|
-| Bell and avatar shoved 43 px left ~1 s after load (measured) | `components/ClockStatusBadge.tsx`: the header pill's label grows from "Off" to "Clocked In" when the status arrives | The pill reserves its longest label's width (CSS pseudo-elements, no extra DOM text) |
+| Bell and avatar shoved 43 px left ~1 s after load (measured) | `components/ClockStatusBadge.tsx`: the header pill's label grows from "Off" to "Clocked In" when the status arrives | The pill reserved its longest label's width; it's now a status dot and a 16 px icon per state, the same size in every state (the state's name is its accessible name and tooltip) |
 | Demo strip arrives with `/api/me` and pushes the screen down (audit) | `TopBar`, `CoverageHeader`, Clock, Admin, Reports rendered it from `me.isDemo` | `components/DemoBanner.tsx`: always in the HTML, shown by CSS from `<html data-demo>`, which the inline script in `app/layout.tsx` sets before first paint from the cached identity (or a hint `TryDemoButton` leaves) |
 | Load errors and action results as banners in the page flow push everything under them down (measured: dashboard 100 px, 0.40) | Banners rendered inline on Dashboard, Week, Clock, Coverage, Admin, Requests, Schedule, Settings | `components/Toast.tsx`: `ToastStack` is fixed above the bottom tabs (bottom of the window on larger screens), portaled to `<body>` |
 | Page width jumps by the scrollbar when content passes the fold or a sheet locks scrolling (audit, desktop) | No reserved gutter | `html { scrollbar-gutter: stable }` (`app/globals.css`) |
@@ -210,12 +210,25 @@ title) draw their words with CSS-generated content (`SkeletonText`), so the
 words take the same space without being in the page's text.
 
 Left as they are: compact secondary controls of 32–40 px (chart view
-toggles, segmented controls, small selects) meet the 24 px minimum of WCAG
-2.2 and growing them would change the screens' density; week arrows are 44
+toggles, small selects) meet the 24 px minimum of WCAG 2.2 and growing
+them would change the screens' density; week arrows are 44
 px on Schedule, 40 on Week (matching that header's 40 px toggle and This
 week) and 36 in the Reports card; on a 360 px phone Admin's emails and the
 availability note end in an ellipsis; the notification bell's panel wasn't
 reachable without a Supabase session.
+
+### Later fixes
+
+| Found | Where | Fix |
+|---|---|---|
+| The date picker grew and shrank between four- and six-week months, so its top edge jumped as you changed months | Dashboard, Schedule (bottom sheet on phones, centred dialog on desktop) | Always six week rows (blank after the month's end), each row as tall as one with today's dot: one size and position for every month |
+| The role ("Manager") was a bordered box the size of Promote / Demote beside it, and read as a second button | Admin | A small borderless tag beside the name; the action column holds only the action |
+| Cards ended in uneven blank strips: a line kept for "Saved ✓" (and one for Scheduling Rules' error) | Settings: Scheduling Rules, Time Clock, Punch Violations, Week Start, Timezone | The status sits at the right of the section's name; the min-over-max error replaces that row's description; forms with a Save button show it beside the button |
+| Segmented controls in three sizes (40 px with 12 px labels; 44 px with 14 px; a darker track) | Settings: Appearance, Week Start, Scheduling Rules, a day's availability | One size: 44 px segments, 14 px labels, 3 px inset |
+| The same kind of row drawn four ways: inset vs edge-to-edge day rows, a bordered card inside a card (Coverage Profiles), centred coloured text (View Reports, Manage Roles), switches without dividers (Time Clock) | Settings | Edge-to-edge link rows with a chevron; dividers between every list of switches |
+| "Apply to Weekdays / Weekends / All days" a list in one sheet, separate buttons in the other | Settings: availability and store hours sheets | Separate buttons in both |
+| Text buttons 38 px beside 40 px icon buttons; one hours field wider than the rest | Settings: employee rows, templates, shift preferences | 40 px; 64 px fields |
+| Rows without an account showed a disabled delete ("Cannot remove yourself") until the signed-in user loaded | Settings → Employees | Only a row whose account is yours |
 
 ## Not fixed, and why
 
