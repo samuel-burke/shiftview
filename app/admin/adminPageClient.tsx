@@ -137,7 +137,7 @@ export default function AdminPageClient({
 
   return (
     <AppShell active="admin" isManager>
-    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
+    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
       {isDemo && (
         <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
           <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>

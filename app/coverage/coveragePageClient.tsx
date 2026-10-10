@@ -156,7 +156,7 @@ export default function CoveragePageClient() {
   if (!sharedLoading && !isManager) {
     return (
       <AppShell active="settings" isManager={isManager}>
-        <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
+        <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">📈</div>
           <h1 className="text-lg font-bold text-slate-100 mb-1.5">Coverage Profiles</h1>
           <p className="text-sm text-slate-400">Only managers can manage coverage profiles.</p>
@@ -168,7 +168,7 @@ export default function CoveragePageClient() {
 
   return (
     <AppShell active="settings" isManager={isManager}>
-      <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8">
+      <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8">
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg

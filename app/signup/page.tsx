@@ -170,7 +170,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-bg flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[360px] bg-card rounded-2xl border border-slate-800 p-8">
         <div className="text-center mb-8">
           <Logo className="h-7" />

@@ -135,7 +135,7 @@ export default function RequestsDrawer({
             className={`fixed z-50 bg-bg ${
               isDesktop
                 ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
-                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80vh] overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80dvh] overflow-y-auto"
             }`}
             initial={isDesktop ? { x: "100%" } : { y: "100%" }}
             animate={isDesktop ? { x: 0 } : { y: 0 }}

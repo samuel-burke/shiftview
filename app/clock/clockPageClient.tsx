@@ -582,7 +582,7 @@ export default function ClockPageClient() {
     </div>
   );
 
-  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-screen desk:max-w-none desk:px-0 desk:pb-0";
+  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-dvh desk:max-w-none desk:px-0 desk:pb-0";
 
   const appShellProps = {
     active: "clock" as const,
@@ -610,7 +610,7 @@ export default function ClockPageClient() {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
-          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
+          <div className="flex flex-col items-center justify-center min-h-[50dvh] gap-3 text-center px-4">
             <div aria-hidden="true" className="text-4xl">🔗</div>
             <div className="text-lg font-bold text-slate-100">Account not linked</div>
             <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>

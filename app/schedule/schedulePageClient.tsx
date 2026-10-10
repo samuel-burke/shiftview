@@ -1175,7 +1175,7 @@ export default function SchedulePageClient() {
       isDemo={isDemo}
       onSignOut={handleSignOut}
     >
-      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
+      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
         {/* Desktop header (hidden on mobile) */}
         <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>

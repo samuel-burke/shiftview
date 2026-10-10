@@ -33,7 +33,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
     <div
       role="complementary"
       data-testid="nav-rail"
-      className="w-[72px] shrink-0 bg-bg border-r border-slate-800 flex flex-col items-center h-screen sticky top-0 z-20"
+      className="w-[72px] shrink-0 bg-bg border-r border-slate-800 flex flex-col items-center h-dvh sticky top-0 z-20"
       style={{
         paddingTop: "env(safe-area-inset-top)",
         paddingLeft: "env(safe-area-inset-left)",

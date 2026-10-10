@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"], display: "swap" });
 // Shared chrome for the public marketing pages (/ and /contact).
 export default function MarketingShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className={`${inter.className} min-h-screen bg-bg text-slate-100 overflow-x-hidden antialiased`}>
+    <main className={`${inter.className} min-h-dvh bg-bg text-slate-100 overflow-x-hidden antialiased`}>
       <MotionProvider>
         <MarketingNav />
         {children}

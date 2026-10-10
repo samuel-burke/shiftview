@@ -289,7 +289,7 @@ export default function WeekPageClient() {
   return (
     <AppShell active="week" isManager>
       <main
-        className={`max-w-[480px] mx-auto pb-28 bg-bg min-h-screen tablet:max-w-none tablet:pb-10 wide:transition-[padding] wide:duration-300 ${
+        className={`max-w-[480px] mx-auto pb-28 bg-bg min-h-dvh tablet:max-w-none tablet:pb-10 wide:transition-[padding] wide:duration-300 ${
           pickedCell ? "wide:pr-[420px]" : ""
         }`}
       >

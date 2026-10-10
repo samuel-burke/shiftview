@@ -77,8 +77,8 @@ export default function SwapRequestSheet({
             data-testid="swap-request-sheet"
             className={`fixed z-50 bg-bg ${
               isDesktop
-                ? "top-1/2 left-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 border border-slate-800 rounded-[20px] max-h-[80vh] overflow-y-auto"
-                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[85vh] overflow-y-auto"
+                ? "top-1/2 left-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 border border-slate-800 rounded-[20px] max-h-[80dvh] overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[85dvh] overflow-y-auto"
             }`}
             initial={isDesktop ? { opacity: 0, scale: 0.96 } : { y: "100%" }}
             animate={isDesktop ? { opacity: 1, scale: 1 } : { y: 0 }}

@@ -206,7 +206,7 @@ export default function RequestsPageClient() {
 
   return (
     <AppShell active="requests" isManager>
-      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-screen tablet:max-w-none tablet:pb-10">
+      <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-dvh tablet:max-w-none tablet:pb-10">
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg tablet:px-6 desk:py-[14px]"

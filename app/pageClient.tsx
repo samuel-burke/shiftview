@@ -1032,7 +1032,7 @@ export default function Page() {
        * against inherited horizontal padding.
        */}
       <main
-        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
+        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
           // Wide screens show employee detail as a side pane beside the dashboard (EmployeeDrawer)
           selected ? "wide:pr-[420px]" : ""
         }`}

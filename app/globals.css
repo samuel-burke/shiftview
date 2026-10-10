@@ -118,6 +118,13 @@
 
 /* ── Base styles ──────────────────────────────────────────── */
 
+/* The document is the app's scroll container. Reserve the scrollbar's gutter
+   so the page keeps its width when content grows past the fold or a sheet
+   locks scrolling (lib/scroll-lock.ts) — no sideways jump either way. */
+html {
+  scrollbar-gutter: stable;
+}
+
 html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;

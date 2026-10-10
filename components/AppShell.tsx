@@ -43,7 +43,7 @@ export default function AppShell({
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   return (
-    <div className="tablet:flex min-h-screen bg-bg">
+    <div className="tablet:flex min-h-dvh bg-bg">
       {/*
        * compact: BottomNav (rendered by each page) · tablet: icon rail ·
        * desk: icon rail, or the full sidebar when expanded · wide: full sidebar
