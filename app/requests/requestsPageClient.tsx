@@ -255,7 +255,7 @@ export default function RequestsPageClient() {
                 }`}
               >
                 {f.label}
-                <span className="text-xs tabular-nums opacity-80">{counts[f.key]}</span>
+                <span className="text-xs tabular-nums">{counts[f.key]}</span>
               </button>
             ))}
           </nav>
