@@ -126,8 +126,8 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
         role="dialog"
         aria-modal="true"
         aria-label={employee ? `Time card for ${employee.name}` : "Time card"}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[560px] bg-bg border-l border-slate-800 flex flex-col transition-transform duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[560px] bg-bg border-l border-slate-800 flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
         <TimeCardPanel

@@ -236,7 +236,7 @@ export default function CoverageHeader({
       </div>
 
       {showStatusLine && (
-        <div className="mt-3 tablet:mx-6 min-h-[38px]">
+        <div className="mt-3 mx-4 tablet:mx-6 min-h-[38px]">
           {/* A new status replaces the old one at once and fades in. No exit
               animation: AnimatePresence's "wait" mode could stall on one when
               the status changed twice in quick succession (today's status
