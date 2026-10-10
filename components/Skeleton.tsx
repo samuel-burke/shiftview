@@ -54,7 +54,7 @@ export function SkeletonWeekCalendar() {
           <div className="skeleton w-6 h-[3px] rounded-full mb-1" />
           <div className="mb-0.5 h-[14px] flex items-center justify-center"><div className="skeleton size-[13px] rounded" /></div>
           <div className="text-[9px] font-semibold tracking-wider leading-tight"><span className="skeleton rounded text-transparent">MID</span></div>
-          <div className="text-[8px] mt-0.5 leading-tight"><span className="skeleton rounded text-transparent">7a–3p</span></div>
+          <div className="text-[8px] mt-0.5 leading-tight min-h-5"><span className="skeleton rounded text-transparent">7a–3p</span></div>
         </div>
       ))}
     </div>

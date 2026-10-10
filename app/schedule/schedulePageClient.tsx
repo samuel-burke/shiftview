@@ -965,7 +965,7 @@ export default function SchedulePageClient() {
         )
       ) : scheduleError ? (
         // The week calendar's height, so an error doesn't move what's below.
-        <div className="h-[118px] mb-3 flex items-center justify-center">
+        <div className="h-[128px] mb-3 flex items-center justify-center">
           <div role="alert" className="text-sm text-red-400 text-center">{scheduleError}</div>
         </div>
       ) : view === "week" ? (
