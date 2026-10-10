@@ -18,6 +18,7 @@ import { limitsFromColumns, type SchedulingRules } from "@/lib/scheduling-rules"
 import { scheduledMinutesByEmployee } from "@/lib/schedule-hours";
 import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week-cells";
 import type { WeekMode } from "@/lib/week-params";
+import { SkeletonText } from "@/components/Skeleton";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
 import type { PendingTimeOff } from "../WeekGrid";
 import { varianceColor } from "./WeekInsights";
@@ -74,10 +75,10 @@ export function DayChips({
             }`}
           >
             <span className="text-[11px] font-semibold uppercase">
-              {ready ? DAY_LABELS[dayOfWeek(date)] : <span className="skeleton rounded text-transparent">Sun</span>}
+              {ready ? DAY_LABELS[dayOfWeek(date)] : <SkeletonText text="Sun" />}
             </span>
             <span className="text-sm font-bold tabular-nums">
-              {ready ? Number(date.slice(8, 10)) : <span className="skeleton rounded text-transparent">00</span>}
+              {ready ? Number(date.slice(8, 10)) : <SkeletonText text="00" />}
             </span>
             <span
               aria-hidden="true"
@@ -241,8 +242,8 @@ export function DayList({
             <div className="skeleton size-9 rounded-full shrink-0" />
             {/* The real rows' two lines, in their own fonts. */}
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold"><span className="skeleton rounded text-transparent">Alice S.</span></div>
-              <div className="text-xs"><span className="skeleton rounded text-transparent">9:00 AM – 5:00 PM · 8 hrs</span></div>
+              <div className="text-sm font-semibold"><SkeletonText text="Alice S." /></div>
+              <div className="text-xs"><SkeletonText text="9:00 AM – 5:00 PM · 8 hrs" /></div>
             </div>
           </div>
         ))

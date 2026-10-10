@@ -16,6 +16,7 @@ import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import DemoBanner from "@/components/DemoBanner";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
+import { SkeletonText } from "@/components/Skeleton";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -788,11 +789,11 @@ export default function ReportsPageClient() {
               // (keyed 0..n) for the employees with those ids, and move them.
               <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
-                  <div className="text-[10px] font-semibold"><span className="skeleton rounded text-transparent">Employee</span></div>
+                  <div className="text-[10px] font-semibold"><SkeletonText text="Employee" /></div>
                 </div>
                 {Array.from({ length: employees.length || 6 }, (_, i) => (
                   <div key={i} aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
-                    <div className="text-xs font-medium"><span className="skeleton rounded text-transparent">Name</span></div>
+                    <div className="text-xs font-medium"><SkeletonText text="Name" /></div>
                   </div>
                 ))}
               </div>

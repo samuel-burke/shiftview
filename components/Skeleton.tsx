@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * A placeholder bar exactly as wide and tall as `text` set in the
+ * surrounding font. The words are CSS-generated content (from data-text),
+ * so they aren't part of the page's text: find-in-page, screen readers and
+ * text lookups don't see a placeholder name or label.
+ */
+export function SkeletonText({ text, className = "" }: { text: string; className?: string }) {
+  return <span aria-hidden="true" data-text={text} className={`skeleton rounded text-transparent before:content-[attr(data-text)] ${className}`} />;
+}
+
 export function SkeletonShiftCard() {
   return (
     <div aria-hidden="true" className="flex items-center gap-3 w-full bg-card border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
@@ -49,12 +59,12 @@ export function SkeletonWeekCalendar() {
     <div role="status" aria-label="Loading calendar" className="flex gap-1.5 mb-3">
       {Array.from({ length: 7 }, (_, i) => (
         <div key={i} aria-hidden="true" className="flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 border border-slate-800 bg-card">
-          <div className="text-[9px] font-semibold tracking-wider mb-1.5"><span className="skeleton rounded text-transparent">SUN</span></div>
+          <div className="text-[9px] font-semibold tracking-wider mb-1.5"><SkeletonText text="SUN" /></div>
           <div className="skeleton size-7 rounded-full mb-1.5" />
           <div className="skeleton w-6 h-[3px] rounded-full mb-1" />
           <div className="mb-0.5 h-[14px] flex items-center justify-center"><div className="skeleton size-[13px] rounded" /></div>
-          <div className="text-[9px] font-semibold tracking-wider leading-tight"><span className="skeleton rounded text-transparent">MID</span></div>
-          <div className="text-[8px] mt-0.5 leading-tight min-h-5"><span className="skeleton rounded text-transparent">7a–3p</span></div>
+          <div className="text-[9px] font-semibold tracking-wider leading-tight"><SkeletonText text="MID" /></div>
+          <div className="text-[8px] mt-0.5 leading-tight min-h-5"><SkeletonText text="7a–3p" /></div>
         </div>
       ))}
     </div>
@@ -139,18 +149,18 @@ export function SkeletonBudgetChart() {
     <div role="status" aria-label="Loading budget chart" className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
       <div aria-hidden="true" className="flex items-center justify-between mb-2 pl-1.5 pr-1 gap-2 flex-wrap">
         {/* The title in its own font, so the header wraps where the chart's does. */}
-        <div className="text-[11px] font-bold tracking-[0.1em] uppercase text-transparent">
-          <span className="skeleton rounded">Budget vs Scheduled</span>
+        <div className="text-[11px] font-bold tracking-[0.1em] uppercase">
+          <SkeletonText text="Budget vs Scheduled" />
         </div>
         <div className="flex rounded-lg bg-slate-800/60 border border-slate-700/40 p-0.5">
           {["By Day", "By Hour"].map((label) => (
-            <span key={label} className="min-h-8 px-3 flex items-center text-[11px] font-semibold text-transparent">{label}</span>
+            <span key={label} data-text={label} className="min-h-8 px-3 flex items-center text-[11px] font-semibold text-transparent before:content-[attr(data-text)]" />
           ))}
         </div>
       </div>
       <div aria-hidden="true" className="flex flex-wrap items-center gap-2 mb-3 pl-1.5">
         {["Scheduled hrs", "Budget hrs"].map((label) => (
-          <span key={label} className="skeleton flex items-center text-[11px] text-transparent px-2 py-0.5 rounded-full border border-transparent">{label}</span>
+          <span key={label} data-text={label} className="skeleton flex items-center text-[11px] text-transparent px-2 py-0.5 rounded-full border border-transparent before:content-[attr(data-text)]" />
         ))}
       </div>
       <div aria-hidden="true" className="w-full min-w-0 aspect-[2.6/1] min-h-[190px] max-h-[300px] flex items-end gap-3 px-6 pt-6 pb-10">
@@ -172,8 +182,8 @@ export function SkeletonTimeline() {
   return (
     <div role="status" aria-label="Loading coverage timeline" className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
       <div aria-hidden="true" className="flex flex-col gap-1 mb-3 pl-1.5 pr-1 tablet:flex-row tablet:items-center tablet:justify-between">
-        <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-transparent">
-          <span className="skeleton rounded">Coverage Timeline</span>
+        <p className="text-[11px] font-bold tracking-[0.1em] uppercase">
+          <SkeletonText text="Coverage Timeline" />
         </p>
         <div className="h-[21px]" />
       </div>

@@ -17,6 +17,7 @@ import BottomNav from "../../components/BottomNav";
 import CoverageCurveEditor, { CoverageCurvePreview } from "../../components/CoverageCurveEditor";
 import { createApiFetch } from "@/lib/api-fetch";
 import FormError from "@/components/FormError";
+import { SkeletonText } from "@/components/Skeleton";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -226,7 +227,7 @@ export default function CoveragePageClient() {
                   <div key={i} aria-hidden="true" className="bg-card rounded-2xl border border-slate-800/60 px-4 pt-3 pb-2">
                     <div className="mb-1">
                       <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-32 rounded" /></div>
-                      <div className="text-[11px]"><span className="skeleton rounded text-transparent">00 staff-hrs / day</span></div>
+                      <div className="text-[11px]"><SkeletonText text="00 staff-hrs / day" /></div>
                     </div>
                     <div className="skeleton h-[90px] rounded-xl" />
                   </div>
