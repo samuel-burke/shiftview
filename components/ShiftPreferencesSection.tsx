@@ -235,7 +235,7 @@ export default function ShiftPreferencesSection({
             placeholder="Any"
             value={shown.desiredHours}
             onChange={(e) => setForm({ ...shown, desiredHours: e.target.value })}
-            className="w-20 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
+            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
           />
           <span className="text-xs text-slate-500">h</span>
         </div>

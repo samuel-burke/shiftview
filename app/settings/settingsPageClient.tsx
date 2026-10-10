@@ -1510,13 +1510,13 @@ export default function SettingsPageClient({
                           onClick={() => saveEditName(emp.id)}
                           disabled={editSaving}
                           aria-busy={editSaving}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <StableLabel labels={["Save", "…"]} active={editSaving ? 1 : 0} />
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1602,7 +1602,7 @@ export default function SettingsPageClient({
                           onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingWeekStartKey(timezone, firstDayOfWeek) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
                         >
                           Apply
                         </button>
@@ -1616,7 +1616,7 @@ export default function SettingsPageClient({
                           disabled={deletingTemplateId === tpl.id}
                           aria-label={`Delete ${tpl.name} template`}
                           aria-busy={deletingTemplateId === tpl.id}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <StableLabel labels={["Delete", "…"]} active={deletingTemplateId === tpl.id ? 1 : 0} />
                         </button>
@@ -1651,7 +1651,7 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <StableLabel labels={["Confirm", "Applying…"]} active={applyingId === tpl.id ? 1 : 0} />
                         </button>
