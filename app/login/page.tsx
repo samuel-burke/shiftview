@@ -100,7 +100,7 @@ export default function LoginPage() {
               </TryDemoButton>
               <p className="text-center text-xs text-slate-500 mt-1">
                 New to ShiftView?{" "}
-                <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold">
+                <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold py-2 -my-2 inline-block">
                   Create an organization
                 </Link>
               </p>
