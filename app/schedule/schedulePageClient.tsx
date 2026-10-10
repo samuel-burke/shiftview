@@ -26,7 +26,6 @@ import {
   SkeletonNextShift,
   SkeletonWeekCalendar,
   SkeletonDetailCard,
-  SkeletonStatsRow,
 } from "../../components/Skeleton";
 import {
   TimeOffPendingIcon,
@@ -37,6 +36,7 @@ import {
 import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
+import { removeOptimistically } from "@/hooks/useManagerRequests";
 import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
 import { shiftWindowOn } from "@/lib/shift-times";
 import { mapSwap, type Swap, type RawSwap } from "@/lib/swaps";
@@ -52,6 +52,7 @@ import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { BREAKPOINTS } from "@/hooks/useBreakpoint";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import { calloutBlockReason } from "@/lib/callout-rules";
+import { Toast, ToastStack } from "../../components/Toast";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -62,6 +63,8 @@ type ManagerTimeOffRequest = {
 };
 
 type View = "week" | "month";
+
+const NO_SCHEDULES: Schedule[] = [];
 
 export function isShiftUpcoming(
   shift: { date: string; endMinutes: number; startMinutes: number },
@@ -95,10 +98,33 @@ function getWeekStart(d: Date, firstDay: number): Date {
   return result;
 }
 
-function formatWeekRange(start: Date, end: Date): string {
-  const startStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${startStr} – ${endStr}`;
+// The date range the calendar shows: the week containing navDate, or its month.
+function rangeOf(view: View, navDate: Date, firstDay: number): { fromKey: string; toKey: string } {
+  const from = view === "week"
+    ? getWeekStart(navDate, firstDay)
+    : new Date(navDate.getFullYear(), navDate.getMonth(), 1);
+  const to = view === "week"
+    ? offsetDays(from, 6)
+    : new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
+  return { fromKey: localDateKey(from), toKey: localDateKey(to) };
+}
+
+// navDate one step back or forward in the view.
+function stepNav(view: View, navDate: Date, step: -1 | 1): Date {
+  return view === "week"
+    ? offsetDays(navDate, 7 * step)
+    : new Date(navDate.getFullYear(), navDate.getMonth() + step, 1);
+}
+
+const RANGE_DAYS = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const RANGE_DAYS_YEARS = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+// A week as "Oct 11 – 17" plus its year, or "Dec 27, 2026 – Jan 2, 2027"
+// when it spans two (year is then empty). Kept apart so the year can give
+// way where the range shares a narrow row with Today and the arrows.
+function weekRangeParts(start: Date, end: Date): { range: string; year: string } {
+  if (start.getFullYear() !== end.getFullYear()) return { range: RANGE_DAYS_YEARS.formatRange(start, end), year: "" };
+  return { range: RANGE_DAYS.formatRange(start, end), year: String(end.getFullYear()) };
 }
 
 const SHIFT_TYPE_LABELS: Record<string, string> = {
@@ -120,11 +146,10 @@ export default function SchedulePageClient() {
   const [view, setView] = useState<View>("week");
   const [selectedDate, setSelectedDate] = useState(today);
   const [navDate, setNavDate] = useState(today);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The range whose load failed (with nothing cached to show instead).
+  const [failedRange, setFailedRange] = useState<string | null>(null);
 
-  const { isManager, employeeId, employeeName, isDemo } = me;
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const { isManager, employeeId, employeeName } = me;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [timeOffError, setTimeOffError] = useState<string | null>(null);
@@ -150,6 +175,12 @@ export default function SchedulePageClient() {
   const [swapSubmitting, setSwapSubmitting] = useState(false);
   const [swapSubmitError, setSwapSubmitError] = useState<string | null>(null);
   const [swapRequestStatus, setSwapRequestStatus] = useState<"idle" | "success">("idle");
+  // The day card's other inputs, each loaded on its own: it waits for all of
+  // them, so it doesn't grow a button or a status line after it's shown.
+  const [dayCardInputs, setDayCardInputs] = useState({ swaps: false, timeOff: false, callouts: false, punches: false });
+  const markLoaded = useCallback((part: keyof typeof dayCardInputs) => {
+    setDayCardInputs((prev) => (prev[part] ? prev : { ...prev, [part]: true }));
+  }, []);
   // Which incoming swap (if any) is mid accept/decline, to disable its buttons.
   const [respondingSwapId, setRespondingSwapId] = useState<number | null>(null);
 
@@ -175,31 +206,23 @@ export default function SchedulePageClient() {
     setNavDate((nd) => (localDateKey(nd) === prev ? dateFromKey(todayKey) : nd));
   }, [todayKey]);
 
-  async function handleApproveManagerTimeOff(id: number) {
+  // Decisions in the requests drawer are optimistic: the request leaves the
+  // list at the tap and comes back if the server refuses (useManagerRequests).
+  async function decideManagerTimeOff(id: number, status: "approved" | "denied") {
+    const restore = removeOptimistically(setPendingManagerTimeOff, id);
     const res = await fetch(`/api/time-off/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to approve request");
+      body: JSON.stringify({ status }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      restore();
+      const { error } = (await res?.json().catch(() => ({}))) ?? {};
+      throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} request`);
     }
-    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
   }
-
-  async function handleDenyManagerTimeOff(id: number) {
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "denied" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to deny request");
-    }
-    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
-  }
+  const handleApproveManagerTimeOff = (id: number) => decideManagerTimeOff(id, "approved");
+  const handleDenyManagerTimeOff = (id: number) => decideManagerTimeOff(id, "denied");
 
   const loadPunchCorrections = useCallback(() => {
     fetch("/api/punch-corrections")
@@ -209,16 +232,17 @@ export default function SchedulePageClient() {
   }, []);
 
   async function reviewPunchCorrection(id: number, status: "approved" | "denied") {
+    const restore = removeOptimistically(setPendingPunchCorrections, id);
     const res = await fetch(`/api/punch-corrections/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json().catch(() => ({}));
+    }).catch(() => null);
+    if (!res?.ok) {
+      restore();
+      const { error } = (await res?.json().catch(() => ({}))) ?? {};
       throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} correction`);
     }
-    setPendingPunchCorrections((prev) => prev.filter((r) => r.id !== id));
   }
 
   const loadSwaps = useCallback(() => {
@@ -227,38 +251,27 @@ export default function SchedulePageClient() {
       .then((data: RawSwap[]) => {
         if (Array.isArray(data)) setAllSwaps(data.map(mapSwap));
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => markLoaded("swaps"));
+  }, [markLoaded]);
 
   // SwapRequestsDrawer's cards call these directly without catching, so swallow
   // errors here and resync from the server rather than throwing.
-  async function handleApproveSwap(id: number) {
+  async function decideSwap(id: number, status: "approved" | "denied") {
+    removeOptimistically(setAllSwaps, id);
     try {
       const res = await fetch(`/api/swaps/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "approved" }),
+        body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error();
-      setAllSwaps((prev) => prev.filter((s) => s.id !== id));
     } catch {
       loadSwaps();
     }
   }
-
-  async function handleDenySwap(id: number) {
-    try {
-      const res = await fetch(`/api/swaps/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "denied" }),
-      });
-      if (!res.ok) throw new Error();
-      setAllSwaps((prev) => prev.filter((s) => s.id !== id));
-    } catch {
-      loadSwaps();
-    }
-  }
+  const handleApproveSwap = (id: number) => decideSwap(id, "approved");
+  const handleDenySwap = (id: number) => decideSwap(id, "denied");
 
   // Target employee responding to an incoming request. Accepting moves it to
   // 'accepted' (now awaiting a manager); declining ends it. Either way it leaves
@@ -353,15 +366,20 @@ export default function SchedulePageClient() {
   }
 
   const loadClockedInToday = useCallback(() => {
-    if (employeeId === null) return;
+    if (employeeId === null) {
+      // No employee record: nothing to load once the identity is known.
+      if (!sharedLoading) markLoaded("punches");
+      return;
+    }
     fetch(`/api/punches?date=${todayKey}`)
       .then((r) => r.json())
       .then((punches: PunchRecord[]) => {
         if (!Array.isArray(punches)) return;
         setClockedInToday(punches.some((p) => p.employeeId === employeeId && p.punchType === "clock_in"));
       })
-      .catch(() => {});
-  }, [employeeId, todayKey]);
+      .catch(() => {})
+      .finally(() => markLoaded("punches"));
+  }, [employeeId, todayKey, sharedLoading, markLoaded]);
 
   // Refresh on load, at the store's midnight (todayKey changes), and when the
   // tab comes back — e.g. after clocking in on the Clock screen or another device.
@@ -409,16 +427,18 @@ export default function SchedulePageClient() {
           })));
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => markLoaded("timeOff"));
+  }, [markLoaded]);
 
   // Load user's own upcoming call-outs on mount
   useEffect(() => {
     fetch("/api/callouts?mine=true")
       .then((r) => r.json())
       .then(({ callouts }) => { if (Array.isArray(callouts)) setMyCallouts(callouts); })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => markLoaded("callouts"));
+  }, [markLoaded]);
 
   async function handleCallOut() {
     if (!employeeId) return;
@@ -460,39 +480,44 @@ export default function SchedulePageClient() {
     }
   }
 
+  // The calendar reads the shown range straight from the cache, so a range
+  // that's there (the one before, or one prefetched below) renders in the
+  // same frame as the tap; one that isn't shows its placeholder until it is.
+  // The range waits for the store's week start, rather than loading the
+  // default week first and then the right one.
+  const { fromKey: rangeFrom, toKey: rangeTo } = rangeOf(view, navDate, firstDayOfWeek);
+  const rangeKey = `${rangeFrom}:${rangeTo}`;
+  const cachedRange = sharedLoading ? undefined : myScheduleCache[rangeKey];
+  const schedules = cachedRange ?? NO_SCHEDULES;
+  const scheduleError = !cachedRange && failedRange === rangeKey ? "Failed to load schedule" : null;
+  const loading = !cachedRange && !scheduleError;
+
+  // The previous and next range load once the shown one has, so stepping
+  // through weeks (or months) renders straight from the cache.
+  const prefetched = useRef(new Set<string>());
   useEffect(() => {
-    let from: Date, to: Date;
-    if (view === "week") {
-      const ws = getWeekStart(navDate, firstDayOfWeek);
-      from = ws;
-      to = offsetDays(ws, 6);
-    } else {
-      from = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
-      to = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
-    }
-    const fromKey = localDateKey(from);
-    const toKey = localDateKey(to);
-    const rangeKey = `${fromKey}:${toKey}`;
-    setScheduleError(null);
-
-    const cached = myScheduleCache[rangeKey];
-    if (cached) {
-      setSchedules(cached);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
-
+    if (sharedLoading) return;
+    const { fromKey, toKey } = rangeOf(view, navDate, firstDayOfWeek);
+    const key = `${fromKey}:${toKey}`;
     fetch(`/api/my-schedule?from=${fromKey}&to=${toKey}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
-        const scheds = data.schedules ?? [];
-        setSchedules(scheds);
-        setMyScheduleCache(rangeKey, scheds);
-        setLoading(false);
+        setMyScheduleCache(key, data.schedules ?? []);
+        setFailedRange((f) => (f === key ? null : f));
+        for (const step of [-1, 1] as const) {
+          const near = rangeOf(view, stepNav(view, navDate, step), firstDayOfWeek);
+          const nearKey = `${near.fromKey}:${near.toKey}`;
+          if (prefetched.current.has(nearKey) || myScheduleCache[nearKey]) continue;
+          prefetched.current.add(nearKey);
+          fetch(`/api/my-schedule?from=${near.fromKey}&to=${near.toKey}`)
+            .then((r) => (r.ok ? r.json() : Promise.reject()))
+            .then((d) => setMyScheduleCache(nearKey, d.schedules ?? []))
+            .catch(() => prefetched.current.delete(nearKey));
+        }
       })
-      .catch(() => { if (!cached) { setScheduleError("Failed to load schedule"); setLoading(false); } });
-  }, [view, navDate, firstDayOfWeek]);
+      .catch(() => setFailedRange(key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, navDate, firstDayOfWeek, sharedLoading]);
 
   // Reset time-off request status when selected date changes
   useEffect(() => {
@@ -570,11 +595,7 @@ export default function SchedulePageClient() {
       const tk = localDateKey(to);
       fetch(`/api/my-schedule?from=${fk}&to=${tk}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
-        .then((data) => {
-          const scheds = data.schedules ?? [];
-          setSchedules(scheds);
-          setMyScheduleCache(`${fk}:${tk}`, scheds);
-        })
+        .then((data) => setMyScheduleCache(`${fk}:${tk}`, data.schedules ?? []))
         .catch(() => {});
     }
 
@@ -696,12 +717,14 @@ export default function SchedulePageClient() {
       ? todayKey >= localDateKey(weekStart) && todayKey <= localDateKey(weekEnd)
       : navDate.getFullYear() === today.getFullYear() && navDate.getMonth() === today.getMonth();
 
+  const weekRange = weekRangeParts(weekStart, weekEnd);
   const rangeLabel =
     view === "week"
-      ? formatWeekRange(weekStart, weekEnd)
+      ? weekRange.year ? `${weekRange.range}, ${weekRange.year}` : weekRange.range
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const selectedDateKey = localDateKey(selectedDate);
+  const dayCardLoading = loading || !Object.values(dayCardInputs).every(Boolean);
   const selectedSchedule =
     schedules.find((s) => s.date.slice(0, 10) === selectedDateKey) ?? null;
 
@@ -830,7 +853,8 @@ export default function SchedulePageClient() {
             My Schedule
           </div>
           <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">
-            {firstName}
+            {/* Holds the line while the name loads, rather than an empty, 0px row. */}
+            {firstName || <span aria-hidden="true" className="skeleton inline-block align-middle h-7 w-28 rounded-md" />}
           </div>
         </div>
         <LayoutGroup id="view-toggle">
@@ -857,8 +881,10 @@ export default function SchedulePageClient() {
         </LayoutGroup>
       </div>
 
-      {/* Range label + prev/next */}
-      <div className="flex items-center justify-between mt-5 mb-4">
+      {/* Range label + prev/next. A container, so the label can drop its year
+          wherever this row is too narrow for it (small phones; the side
+          column on tablets). */}
+      <div className="@container flex items-center justify-between mt-5 mb-4">
         <motion.button
           onClick={() => setPickerOpen(true)}
           aria-label={`${rangeLabel}. Open date picker`}
@@ -867,9 +893,16 @@ export default function SchedulePageClient() {
           whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 py-2.5 cursor-pointer"
+          className="flex items-center gap-1.5 min-h-11 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 @max-[23.25rem]:px-3 cursor-pointer"
         >
-          <span className="text-base font-bold text-slate-100 tracking-tight">{rangeLabel}</span>
+          <span className="text-base font-bold text-slate-100 tracking-tight">
+            {view === "week" ? (
+              <>
+                {weekRange.range}
+                {weekRange.year && <span className="@max-[23.25rem]:hidden">, {weekRange.year}</span>}
+              </>
+            ) : rangeLabel}
+          </span>
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
@@ -915,9 +948,24 @@ export default function SchedulePageClient() {
 
       {/* Calendar */}
       {loading ? (
-        <SkeletonWeekCalendar />
+        // The loading grid has the shape of the view it stands in for.
+        view === "week" ? (
+          <SkeletonWeekCalendar />
+        ) : (
+          <MonthView
+            schedules={[]}
+            weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
+            selectedDate={selectedDate}
+            navDate={navDate}
+            onSelectDate={setSelectedDate}
+            today={today}
+            loading
+          />
+        )
       ) : scheduleError ? (
-        <div className="h-[120px] flex items-center justify-center">
+        // The week calendar's height, so an error doesn't move what's below.
+        <div className="h-[128px] mb-3 flex items-center justify-center">
           <div role="alert" className="text-sm text-red-400 text-center">{scheduleError}</div>
         </div>
       ) : view === "week" ? (
@@ -951,34 +999,38 @@ export default function SchedulePageClient() {
   const nextShiftCard = (
     <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
       <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
-      {nextShift === undefined ? (
-        <SkeletonNextShift />
-      ) : nextShift ? (
-        <>
-          <div className="text-slate-300 font-semibold text-sm">
-            {formatNextShiftDate(nextShift.date, todayKey)}
-          </div>
-          <div className="text-2xl font-extrabold text-slate-100 mt-1">
-            {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
-          </div>
-          {getDaysUntil(nextShift.date, todayKey) > 1 && (
-            <div className="text-xs text-slate-400 mt-1">
-              in {getDaysUntil(nextShift.date, todayKey)} days
+      {/* One height for every state (loading, a shift, none), so the calendar
+          under it never moves: the date line and the time line, 56px. */}
+      <div className="min-h-14">
+        {nextShift === undefined ? (
+          <SkeletonNextShift />
+        ) : nextShift ? (
+          <>
+            <div className="text-slate-300 font-semibold text-sm">
+              {formatNextShiftDate(nextShift.date, todayKey)}
+              {getDaysUntil(nextShift.date, todayKey) > 1 && (
+                <span className="text-xs font-normal text-slate-400">
+                  {" "}· in {getDaysUntil(nextShift.date, todayKey)} days
+                </span>
+              )}
             </div>
-          )}
-        </>
-      ) : (
-        <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
-      )}
+            <div className="text-2xl font-extrabold text-slate-100 mt-1">
+              {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
+            </div>
+          </>
+        ) : (
+          <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+        )}
+      </div>
     </div>
   );
 
   const detailSection = (
     <>
       {/* Detail card */}
-      {loading ? <SkeletonDetailCard /> : null}
-      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${loading ? " hidden" : ""}`}>
-        <div className="flex items-center justify-between mb-1">
+      {dayCardLoading ? <SkeletonDetailCard /> : null}
+      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${dayCardLoading ? " hidden" : ""}`}>
+        <div className="min-h-6 flex items-center justify-between mb-1">
           <span className="text-sm text-slate-400">{selectedDayLabel}</span>
           {shiftLabel && shiftColor && (
             <span
@@ -1047,9 +1099,6 @@ export default function SchedulePageClient() {
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
-                {timeOffStatus === "error" && timeOffError && (
-                  <div role="alert" className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
-                )}
               </>
             )}
           </div>
@@ -1070,7 +1119,6 @@ export default function SchedulePageClient() {
             >
               {calloutStatus === "loading" ? "…" : "Undo call-out"}
             </button>
-            {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
         ) : canCallOut ? (
           <div className="mt-3">
@@ -1083,7 +1131,6 @@ export default function SchedulePageClient() {
               <MegaphoneIcon size={15} color="rgb(248 113 113)" />
               {calloutStatus === "loading" ? "Submitting…" : "Can't make this shift? Call out"}
             </button>
-            {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
         ) : null}
 
@@ -1110,17 +1157,21 @@ export default function SchedulePageClient() {
         ) : null}
       </div>
 
-      {/* Incoming swap requests this user must accept or decline */}
-      <IncomingSwapRequests
-        swaps={incomingSwaps}
-        respondingId={respondingSwapId}
-        onAccept={(id) => respondToSwap(id, "accepted")}
-        onDecline={(id) => respondToSwap(id, "declined")}
-      />
+      {/* Incoming swap requests this user must accept or decline. Shown with
+          the day card above it, so a taller card can't push them down. */}
+      {!dayCardLoading && (
+        <IncomingSwapRequests
+          swaps={incomingSwaps}
+          respondingId={respondingSwapId}
+          onAccept={(id) => respondToSwap(id, "accepted")}
+          onDecline={(id) => respondToSwap(id, "declined")}
+        />
+      )}
 
-      {/* Stats row */}
-      {loading ? <SkeletonStatsRow /> : null}
-      <div className={`flex gap-2${loading ? " hidden" : ""}`}>
+      {/* Stats row. No placeholder while loading: it sits under the day card,
+          whose height depends on the day (a shift and its buttons, or a day
+          off), so a placeholder here would only jump. */}
+      <div className={`flex gap-2${dayCardLoading ? " hidden" : ""}`}>
         <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
           <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
           <div className="text-xs text-slate-400 mt-1">
@@ -1139,18 +1190,20 @@ export default function SchedulePageClient() {
         </div>
       </div>
 
-      {isManager && (
+      {/* The manager buttons follow the stats in, rather than sitting where the
+          stats will appear. */}
+      {isManager && !dayCardLoading && (
         <motion.button
           onClick={() => router.push("/week?mode=draft")}
           whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
         >
           Plan Draft Schedule
         </motion.button>
       )}
 
-      {isManager && (
+      {isManager && !dayCardLoading && (
         <button
           // Phones review requests in the drawer; wider screens get the full inbox page.
           onClick={() => (window.matchMedia(`(min-width: ${BREAKPOINTS.tablet}px)`).matches ? router.push("/requests") : setSwapDrawerOpen(true))}
@@ -1172,15 +1225,16 @@ export default function SchedulePageClient() {
       active="schedule"
       isManager={isManager}
       userName={sharedLoading ? null : employeeName}
-      isDemo={isDemo}
       onSignOut={handleSignOut}
     >
-      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
+      <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
         {/* Desktop header (hidden on mobile) */}
         <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
-            <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
+            <div className="text-xl font-extrabold text-slate-100 mt-0.5">
+              {firstName || <span aria-hidden="true" className="skeleton inline-block align-middle h-5 w-24 rounded-md" />}
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400">{todayStr}</span>
@@ -1252,6 +1306,15 @@ export default function SchedulePageClient() {
           submitError={swapSubmitError}
           onSelect={submitSwap}
         />
+
+        {/* Failed requests show over the page, not inside the day card, so
+            the card doesn't grow under the button that was just tapped. */}
+        <ToastStack>
+          {timeOffStatus === "error" && timeOffError && (
+            <Toast onDismiss={() => { setTimeOffError(null); setTimeOffStatus("idle"); }}>{timeOffError}</Toast>
+          )}
+          {calloutError && <Toast onDismiss={() => setCalloutError(null)}>{calloutError}</Toast>}
+        </ToastStack>
 
         <BottomNav active="schedule" />
       </main>

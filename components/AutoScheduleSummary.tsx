@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { fmtMinutes, formatDisplayName, type Employee } from "../data/types";
 import { dayOfWeek } from "../lib/draft-metrics";
 import type { GapReasonCode, GenerationRun, SchedulerWarning, Suggestion } from "../lib/scheduler/types";
+import FormError from "./FormError";
 
 // What the last Auto-schedule run did for the week, what it couldn't cover and
 // why, and one-tap ways to improve it. Stays until the week is published, the
@@ -199,7 +200,7 @@ export default function AutoScheduleSummary({
         </div>
       )}
 
-      {error && <div role="alert" className="mt-3 text-xs text-red-400">{error}</div>}
+      <FormError message={error} className="mt-3" />
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button

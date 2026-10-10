@@ -14,6 +14,9 @@ import type { PunctualitySummary } from "../../lib/punctuality";
 import { formatTimeInTz, previousPayWeek, weekStartForKey } from "@/lib/dates";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { shiftMinutes } from "@/lib/schedule-hours";
+import DemoBanner from "@/components/DemoBanner";
+import { useScrollAnchor } from "@/lib/scroll-anchor";
+import { SkeletonText } from "@/components/Skeleton";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -294,10 +297,11 @@ const CATEGORIES = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReportsPageClient() {
+  // Live audit entries keep the one being read in place (lib/scroll-anchor.ts).
+  const keepScroll = useScrollAnchor();
   const router = useRouter();
   const supabase = createClient();
-  const { me, settings } = useAppData();
-  const isDemo = me.isDemo;
+  const { settings } = useAppData();
   const { timezone } = settings;
 
   // "Today" is the store's calendar day, not UTC's or the device's.
@@ -313,7 +317,13 @@ export default function ReportsPageClient() {
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekSchedules, setWeekSchedules] = useState<Schedule[]>([]);
-  const [weekLoading, setWeekLoading] = useState(false);
+  // True from the start: the first week loads on mount, and its table shows
+  // placeholders rather than an empty table first.
+  const [weekLoading, setWeekLoading] = useState(true);
+  // The export button sits under the hours table, whose length (the team)
+  // isn't known until the first week has loaded; it waits until then.
+  const [hoursShown, setHoursShown] = useState(false);
+  if (!weekLoading && !hoursShown) setHoursShown(true);
 
   // ── Activity log state ──
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -387,10 +397,10 @@ export default function ReportsPageClient() {
 
   // Supabase Realtime — live updates for schedules, employees, and audit log
   useEffect(() => {
+    // A change elsewhere refreshes the table in place (no placeholder).
     function refetchWeekSchedules() {
       const ws = selectedWeekStartRef.current;
       const weekDates = getWeekDates(ws);
-      setWeekLoading(true);
       Promise.allSettled(
         weekDates.map((d) =>
           fetch(`/api/schedules?date=${d}`)
@@ -428,12 +438,17 @@ export default function ReportsPageClient() {
       const params = new URLSearchParams({ from: auditFromRef.current, to: auditToRef.current, page: "1" });
       if (auditCategoryRef.current) params.set("category", auditCategoryRef.current);
       if (auditActorIdRef.current)  params.set("actorId", auditActorIdRef.current);
+      // New entries join the top of what's loaded (any further pages the
+      // reader loaded stay), and the entry being read stays in place.
       fetch(`/api/audit-log?${params}`)
         .then((r) => r.json())
-        .then(({ entries, hasMore, total }) => {
-          setAuditEntries(entries ?? []);
-          setAuditHasMore(hasMore ?? false);
-          setAuditPage(1);
+        .then(({ entries, total }) => {
+          if (!Array.isArray(entries)) return;
+          keepScroll();
+          setAuditEntries((prev) => {
+            const seen = new Set(prev.map((e) => e.id));
+            return [...entries.filter((e: AuditEntry) => !seen.has(e.id)), ...prev];
+          });
           setAuditTotal(total ?? 0);
         })
         .catch(() => {});
@@ -659,14 +674,9 @@ export default function ReportsPageClient() {
 
   return (
     <AppShell active="reports" isManager>
-    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
+    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
       {/* Demo banner */}
-      {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner />
 
       {/* Top bar — sticky on mobile, static on desktop */}
       <div
@@ -710,40 +720,47 @@ export default function ReportsPageClient() {
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Coverage — Last 4 Weeks
             </div>
-            {loading ? (
-              <div role="status" aria-label="Loading coverage heatmap" className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
-            ) : (
-              <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
-                <div className="grid grid-cols-7 gap-1 mb-1" role="row">
-                  {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
-                    <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {heatmapCells.map(({ day, count, cls, dateLabel, dayNum }) => (
-                    <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
-                      <span className="text-[11px] font-bold tabular-nums">{count}</span>
-                      <span className="text-[9px] mt-0.5 opacity-70">
-                        {dayNum}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3 mt-2 justify-center">
-                  {[
-                    { label: "Optimal",  cls: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" },
-                    { label: "Low",      cls: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
-                    { label: "Critical", cls: "bg-red-500/20 text-red-400 border border-red-500/30" },
-                    { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
-                  ].map(({ label, cls }) => (
-                    <div key={label} className="flex items-center gap-1">
-                      <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
-                      <span className="text-[10px] text-slate-400">{label}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* The days are known before the counts: while they load, the same
+                card with placeholder cells, so it doesn't grow when they land. */}
+            <div
+              className="bg-card rounded-2xl border border-slate-800/60 p-3"
+              role={loading ? "status" : undefined}
+              aria-label={loading ? "Loading coverage heatmap" : undefined}
+            >
+              <div className="grid grid-cols-7 gap-1 mb-1" role="row">
+                {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
+                  <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
+                ))}
               </div>
-            )}
+              <div className="grid grid-cols-7 gap-1">
+                {heatmapCells.map(({ day, count, cls, dateLabel, dayNum }) => (
+                  <div
+                    key={day}
+                    title={loading ? undefined : `${dateLabel}: ${count} staff`}
+                    aria-hidden={loading || undefined}
+                    className={`rounded-lg py-2 flex flex-col items-center justify-center ${loading ? "skeleton text-transparent border border-transparent" : cls}`}
+                  >
+                    <span className="text-[11px] font-bold tabular-nums">{loading ? "0" : count}</span>
+                    <span className="text-[9px] mt-0.5 opacity-70">
+                      {dayNum}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 mt-2 justify-center">
+                {[
+                  { label: "Optimal",  cls: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" },
+                  { label: "Low",      cls: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
+                  { label: "Critical", cls: "bg-red-500/20 text-red-400 border border-red-500/30" },
+                  { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
+                ].map(({ label, cls }) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
+                    <span className="text-[10px] text-slate-400">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
 
           {/* Week selector + hours table */}
@@ -765,11 +782,30 @@ export default function ReportsPageClient() {
               </div>
             </div>
 
-            {weekLoading ? (
-              <div role="status" aria-label="Loading hours table" className="h-32 bg-slate-800 rounded-2xl animate-pulse" />
+            {weekLoading && !hoursShown ? (
+              // First load: the table's header and one row per person, at the
+              // real rows' height. Later weeks keep the table up (below).
+              // Its own key: otherwise React would reuse these placeholder rows
+              // (keyed 0..n) for the employees with those ids, and move them.
+              <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+                <div aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+                  <div className="text-[10px] font-semibold"><SkeletonText text="Employee" /></div>
+                </div>
+                {Array.from({ length: employees.length || 6 }, (_, i) => (
+                  <div key={i} aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                    <div className="text-xs font-medium"><SkeletonText text="Name" /></div>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
-                <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+              // While another week loads, this one stays up, dimmed, until the new
+              // numbers replace it.
+              <div
+                key="table"
+                aria-busy={weekLoading || undefined}
+                className={`bg-card rounded-2xl border border-slate-800/60 overflow-hidden transition-opacity ${weekLoading ? "opacity-60" : ""}`}
+              >
+                <div className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
                   {weekDates.map((d) => (
                     <div key={d} className="text-[10px] text-slate-500 font-semibold text-center" title={new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}>
@@ -784,17 +820,17 @@ export default function ReportsPageClient() {
                   employees.map((emp) => {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
-                      <div key={emp.id} className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                      <div key={emp.id} className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
                         <div className="text-xs text-slate-200 font-medium truncate" title={emp.name}>{emp.name.split(" ")[0]}</div>
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];
                           return (
-                            <div key={d} className={`text-center text-[11px] font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
+                            <div key={d} className={`text-center text-[11px] leading-4 font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
                               {h ? h.toFixed(0) : "-"}
                             </div>
                           );
                         })}
-                        <div className="text-right text-[11px] font-bold text-slate-300 tabular-nums">
+                        <div className="text-right text-[11px] leading-4 font-bold text-slate-300 tabular-nums">
                           {total > 0 ? total.toFixed(0) : "-"}
                         </div>
                       </div>
@@ -806,14 +842,16 @@ export default function ReportsPageClient() {
           </section>
 
           {/* CSV Export */}
-          <section>
-            <button
-              onClick={exportCSV}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
-            >
-              Export CSV
-            </button>
-          </section>
+          {hoursShown && (
+            <section>
+              <button
+                onClick={exportCSV}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+              >
+                Export CSV
+              </button>
+            </section>
+          )}
         </div>
       )}
 
@@ -1078,7 +1116,7 @@ export default function ReportsPageClient() {
                 {auditEntries.map((entry) => {
                   const detail = auditDetail(entry, timezone);
                   return (
-                    <motion.div key={entry.id} variants={listItem} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
+                    <motion.div key={entry.id} variants={listItem} data-scroll-anchor={`audit-${entry.id}`} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${auditBadgeClass(entry.action)}`}>
                           {auditBadgeLabel(entry.action)}

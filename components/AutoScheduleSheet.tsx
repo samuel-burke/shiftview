@@ -205,7 +205,7 @@ export default function AutoScheduleSheet({
                 disabled={generating}
                 autoFocus
                 aria-label="Close"
-                className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors disabled:opacity-50"
+                className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors disabled:opacity-50"
               >
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
               </button>
@@ -445,7 +445,7 @@ export default function AutoScheduleSheet({
                 onClick={() => onGenerate({ mode: draftCount > 0 ? mode : "replace", rules: { overtimePolicy, pendingTimeOff: pendingPolicy }, adjustments })}
                 disabled={!canGenerate}
                 aria-busy={generating}
-                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {generating ? "Generating…" : "Generate Schedule"}
               </button>

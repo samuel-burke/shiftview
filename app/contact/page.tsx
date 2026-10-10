@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import MarketingShell from "@/components/marketing/MarketingShell";
@@ -49,9 +48,7 @@ export default function ContactPage() {
             </dl>
           </div>
           <div className="rounded-2xl border border-slate-800 p-5 sm:p-8">
-            <Suspense>
-              <ContactForm />
-            </Suspense>
+            <ContactForm />
           </div>
         </Container>
       </section>

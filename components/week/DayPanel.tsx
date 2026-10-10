@@ -18,6 +18,7 @@ import { limitsFromColumns, type SchedulingRules } from "@/lib/scheduling-rules"
 import { scheduledMinutesByEmployee } from "@/lib/schedule-hours";
 import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week-cells";
 import type { WeekMode } from "@/lib/week-params";
+import { SkeletonText } from "@/components/Skeleton";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
 import type { PendingTimeOff } from "../WeekGrid";
 import { varianceColor } from "./WeekInsights";
@@ -37,10 +38,14 @@ export function DayChips({
   shifts,
   curves,
   timezone,
+  ready = true,
 }: {
   dates: string[];
   selectedDate: string;
   onSelectDate: (date: string) => void;
+  /** False until the store's settings (its week start) are known: the chips
+   *  keep their size but show placeholders, rather than one week then another. */
+  ready?: boolean;
   /** The shifts the mode counts. */
   shifts: Schedule[];
   curves: Record<string, CoverageBlock[]>;
@@ -48,25 +53,33 @@ export function DayChips({
 }) {
   return (
     <div id="week-day-picker" className="grid grid-cols-7 gap-1 mb-3 scroll-mt-4" role="group" aria-label="Day">
-      {dates.map((date) => {
+      {dates.map((date, i) => {
         const scheduled = scheduledHoursForDate(shifts, date, timezone);
         const budget = curveHours(curves[date] ?? []);
         const active = date === selectedDate;
         return (
+          // Keyed by column, not date: when the week moves (or the store's week
+          // start arrives) each chip stays put and its contents change.
           <button
-            key={date}
+            key={i}
             type="button"
             onClick={() => onSelectDate(date)}
-            aria-pressed={active}
-            aria-label={formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}
+            // Placeholders can't be picked: the day under them is about to change.
+            disabled={!ready}
+            aria-pressed={ready ? active : undefined}
+            aria-label={ready ? formatDateKey(date, { weekday: "long", month: "long", day: "numeric" }) : undefined}
             className={`flex flex-col items-center py-2 rounded-xl cursor-pointer transition-colors border ${
               active
                 ? "bg-indigo-600/25 border-indigo-500/40 text-indigo-200"
                 : "bg-card border-slate-800/60 text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span className="text-[11px] font-semibold uppercase">{DAY_LABELS[dayOfWeek(date)]}</span>
-            <span className="text-sm font-bold tabular-nums">{Number(date.slice(8, 10))}</span>
+            <span className="text-[11px] font-semibold uppercase">
+              {ready ? DAY_LABELS[dayOfWeek(date)] : <SkeletonText text="Sun" />}
+            </span>
+            <span className="text-sm font-bold tabular-nums">
+              {ready ? Number(date.slice(8, 10)) : <SkeletonText text="00" />}
+            </span>
             <span
               aria-hidden="true"
               className={`mt-1 w-1.5 h-1.5 rounded-full ${
@@ -174,7 +187,10 @@ export function DayList({
   loading,
   selected,
   onSelect,
+  notice,
 }: {
+  /** Shown at the top of the list once it has loaded (Draft mode's "no drafts"). */
+  notice?: React.ReactNode;
   mode: WeekMode;
   date: string;
   dates: string[];
@@ -213,15 +229,30 @@ export function DayList({
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60 mb-4" data-testid="day-list">
+    <div
+      className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60 mb-4"
+      data-testid="day-list"
+      aria-busy={loading || undefined}
+    >
       {loading ? (
-        <div className="p-4 flex flex-col gap-3">
-          {[0, 1, 2].map((i) => <div key={i} className="skeleton h-10 rounded-xl" />)}
-        </div>
+        // One row per person, shaped like the real rows, so the list (and what's
+        // under it) keeps its height while the week loads.
+        Array.from({ length: employees.length || 6 }, (_, i) => (
+          <div key={`sk-${i}`} aria-hidden="true" className="w-full min-h-14 flex items-center gap-3 px-4 py-3">
+            <div className="skeleton size-9 rounded-full shrink-0" />
+            {/* The real rows' two lines, in their own fonts. */}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold"><SkeletonText text="Alice S." /></div>
+              <div className="text-xs"><SkeletonText text="9:00 AM – 5:00 PM · 8 hrs" /></div>
+            </div>
+          </div>
+        ))
       ) : employees.length === 0 ? (
         <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
       ) : (
-        rows.map(({ emp, cell }) => {
+        <>
+        {notice}
+        {rows.map(({ emp, cell }) => {
           const s = cell.shown;
           const isLiveContext = isDraftMode && cell.live !== null;
           const clash = isDraftMode && cell.live !== null && cell.draft !== null;
@@ -273,7 +304,8 @@ export function DayList({
                 <div className={`text-sm font-semibold truncate ${s ? "text-slate-200" : "text-slate-400"}`}>{formatDisplayName(emp.name)}</div>
                 <div className={`text-xs tabular-nums ${s ? "text-slate-400" : "text-slate-500"}`}>
                   {s ? `${fmtMinutes(s.startMinutes)} – ${fmtMinutes(s.endMinutes)} · ${round1(shiftHours(s, timezone))} hrs` : "Off"}
-                  <span className={week.over ? "text-red-400" : "text-slate-500"}> · {week.text}</span>
+                  {/* The week's hours wrap as one piece, never "56/40 h" | "week". */}
+                  {" "}<span className={`whitespace-nowrap ${week.over ? "text-red-400" : "text-slate-500"}`}>· {week.text}</span>
                 </div>
                 {clash && cell.draft && (
                   <div className="text-xs text-amber-400 mt-0.5">
@@ -293,7 +325,8 @@ export function DayList({
               )}
             </button>
           );
-        })
+        })}
+        </>
       )}
     </div>
   );

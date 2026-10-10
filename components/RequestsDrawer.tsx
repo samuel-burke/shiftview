@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { getMonogram } from "../data/types";
 import { TimeOffPendingIcon } from "./ShiftIcons";
+import { Toast, ToastStack } from "./Toast";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
 const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -94,12 +96,7 @@ export default function RequestsDrawer({
   const isDesktop = useIsDesktop();
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  useScrollLock(open);
 
   useEffect(() => {
     if (open) setError(null);
@@ -139,7 +136,7 @@ export default function RequestsDrawer({
             className={`fixed z-50 bg-bg ${
               isDesktop
                 ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
-                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80vh] overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80dvh] overflow-y-auto"
             }`}
             initial={isDesktop ? { x: "100%" } : { y: "100%" }}
             animate={isDesktop ? { x: 0 } : { y: 0 }}
@@ -175,11 +172,10 @@ export default function RequestsDrawer({
                 </button>
               </div>
 
-              {error && (
-                <div role="alert" className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-                  {error}
-                </div>
-              )}
+              {/* Over the drawer, so a failed action doesn't push the list. */}
+              <ToastStack>
+                {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+              </ToastStack>
 
               {total === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">
@@ -294,7 +290,7 @@ function TimeOffCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s time off request`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -356,7 +352,7 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -422,7 +418,7 @@ function PunchCorrectionCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s punch correction`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>

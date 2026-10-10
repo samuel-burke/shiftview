@@ -20,6 +20,8 @@ import {
   SHIFT_COLORS,
   fmtMinutes,
 } from "../data/types";
+import { useScrollLock } from "@/lib/scroll-lock";
+import FormError from "./FormError";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -103,10 +105,7 @@ export default function EmployeeDrawer({
   const [chatMounted, setChatMounted] = useState(false);
   const [conflict, setConflict] = useState<ConflictState>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = open && !isPane ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open, isPane]);
+  useScrollLock(open && !isPane);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -429,9 +428,7 @@ export default function EmployeeDrawer({
                       <div className="text-xs text-indigo-300 -mt-1" data-testid="edit-shift-overnight">Ends the next day (overnight shift)</div>
                     )}
 
-                    {error && (
-                      <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
-                    )}
+                    <FormError message={error} className="text-center" />
 
                     <motion.button
                       onClick={() => handleSave(false)}

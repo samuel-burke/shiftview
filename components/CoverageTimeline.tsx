@@ -246,15 +246,19 @@ function CoverageTimeline({
       aria-label={`Coverage timeline from ${fmtMinutes(openMinutes)} to ${fmtMinutes(closeMinutes)}. ${isToday ? `Current time: ${fmtMinutes(nowMinutes)}.` : ""}`}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
-      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1">
+      {/* On a phone the title and three legend pills don't fit side by side
+          (squeezed, the pills broke their own labels), so the legend has its
+          own row under the title there, whichever pills are showing. From
+          tablets up they share one line. SkeletonTimeline matches. */}
+      <div aria-hidden="true" className="flex flex-col gap-1 mb-3 pl-1.5 pr-1 tablet:flex-row tablet:items-center tablet:justify-between">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           {hasTarget && (
             <motion.span
               initial={{ opacity: 0, scale: 0.9 }}

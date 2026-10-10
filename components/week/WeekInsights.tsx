@@ -10,14 +10,15 @@ import type { SchedulingRules } from "@/lib/scheduling-rules";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
 import WeekCoverageHeatmap from "../WeekCoverageHeatmap";
 import DraftHoursPanel from "../DraftHoursPanel";
+import { SkeletonBudgetChart } from "../Skeleton";
 
 // The Week page's coverage tools, for whichever week the mode shows: the live
 // shifts in Live, the week after publishing in Draft. They take any shifts.
 
 // recharts is heavy; code-split the chart out of the route's initial bundle.
-// It sits below the editor, so a placeholder while the chunk loads is fine.
-const chartPlaceholder = () => <div className="h-[200px]" aria-hidden="true" />;
-const DraftCoverageChart = dynamic(() => import("../DraftCoverageChart"), { ssr: false, loading: chartPlaceholder });
+// Its placeholder is the chart's own box, so the heatmap and hours under it
+// stay put when the chunk lands (with a short day list, they're on screen).
+const DraftCoverageChart = dynamic(() => import("../DraftCoverageChart"), { ssr: false, loading: () => <SkeletonBudgetChart /> });
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -42,7 +43,7 @@ function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{ border: `1px solid ${color}33` }}
     >
@@ -51,11 +52,14 @@ function StatCard({
         style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
       />
       {loading ? (
-        <div className="flex justify-center mb-1">
-          <div className="skeleton h-6 w-10 rounded-[6px]" />
+        // The value's own box: a 22px line (text-[22px] leading-none).
+        <div className="flex justify-center">
+          <div className="skeleton h-[22px] w-10 rounded-[6px]" />
         </div>
       ) : (
-        <div className="relative flex items-baseline justify-center gap-0.5">
+        // A fixed 22px line: the smaller "hrs" on the baseline would otherwise
+        // make it a pixel taller than the skeleton above.
+        <div className="relative h-[22px] flex items-baseline justify-center gap-0.5">
           <span className="text-[22px] font-extrabold leading-none tabular-nums" style={{ color }}>{value}</span>
           {suffix && <span className="text-[11px] font-bold" style={{ color }}>{suffix}</span>}
         </div>
@@ -90,7 +94,7 @@ export function WeekStats({
   const score = useMemo(() => coverageScoreFromCurves(shifts, dates, curves), [shifts, dates, curves]);
 
   return (
-    <div className="grid grid-cols-4 gap-2" data-testid="week-stats">
+    <div className="grid grid-cols-2 tablet:grid-cols-4 gap-2" data-testid="week-stats">
       <StatCard index={0} value={String(Math.round(budget))} suffix="hrs" label="Weekly Budget" color="#818cf8" loading={loading} />
       <StatCard index={1} value={String(round1(scheduled))} suffix="hrs" label="Scheduled" color="#3b82f6" loading={loading} />
       <StatCard index={2} value={variance > 0 ? `+${variance}` : String(variance)} suffix="hrs" label="Variance" color={varianceColor(variance)} loading={loading} />

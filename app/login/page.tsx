@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import TryDemoButton from "@/components/TryDemoButton";
 import Logo from "@/components/Logo";
+import FormError from "@/components/FormError";
 
 type Step = "email" | "code";
 
@@ -62,7 +63,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-bg flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[360px] bg-card rounded-2xl border border-slate-800 p-8">
         <div className="text-center mb-8">
           <Logo className="h-7" />
@@ -86,11 +87,11 @@ export default function LoginPage() {
                 autoFocus
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
               />
-              {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <FormError id="login-error" message={error} className="text-center" />
               <button
                 onClick={handleSendCode}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? "Sending…" : "Send Code"}
               </button>
@@ -99,7 +100,7 @@ export default function LoginPage() {
               </TryDemoButton>
               <p className="text-center text-xs text-slate-500 mt-1">
                 New to ShiftView?{" "}
-                <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold">
+                <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 transition-colors font-semibold py-2 -my-2 inline-block">
                   Create an organization
                 </Link>
               </p>
@@ -125,11 +126,11 @@ export default function LoginPage() {
                 autoFocus
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors caret-transparent"
               />
-              {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <FormError id="login-error" message={error} className="text-center" />
               <button
                 onClick={handleVerify}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? "Verifying…" : "Verify"}
               </button>

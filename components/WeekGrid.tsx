@@ -225,12 +225,17 @@ export default function WeekGrid({
                       >
                         {s ? (
                           <>
-                            <span className={`block text-[12px] font-semibold tabular-nums truncate ${isLiveContext ? "text-slate-300" : "text-slate-100"}`}>
+                            {/* In a narrow column (tablet portrait) the times wrap after
+                                the dash instead of being cut off; on a tight line, two
+                                of them and the label still fit the 48px cell. */}
+                            <span className={`block text-[12px] leading-tight font-semibold tabular-nums ${isLiveContext ? "text-slate-300" : "text-slate-100"}`}>
                               {shortTime(s.startMinutes)}–{shortTime(s.endMinutes)}
                             </span>
+                            {/* A time-off request leads, so a narrow cell that cuts the
+                                line short still shows it. */}
                             <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "#f59e0b" : color }}>
+                              {requested ? "Time off? · " : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
-                              {requested ? " · Time off?" : ""}
                             </span>
                           </>
                         ) : requested ? (

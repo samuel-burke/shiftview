@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MAX_WEEKLY_HOURS, type SchedulingRules } from "@/lib/scheduling-rules";
 import SegmentedControl from "./SegmentedControl";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
+import FormError from "./FormError";
 
 // Settings → Workplace → Scheduling Rules: the org-wide rules
 // Auto-schedule works within (lib/scheduling-rules.ts). Each change saves
@@ -260,7 +261,7 @@ export default function SchedulingRulesSection({
           ))}
         </div>
 
-        {problem && <div role="alert" className="text-xs text-red-400 mt-3">{problem}</div>}
+        <FormError message={problem} className="mt-3" />
         <SaveStatusText status={status} testId="scheduling-rules-status" />
       </div>
     </section>

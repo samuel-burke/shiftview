@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useSyncExternalStore } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,6 +16,7 @@ import {
   ChatBubbleIcon,
   ChessPieceIcon,
 } from "./ShiftIcons";
+import { nativeAnchoring } from "@/lib/scroll-anchor";
 
 type Notification = {
   id: number;
@@ -179,6 +180,26 @@ const MessageThread = dynamic(() => import("./MessageThread"), { ssr: false });
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { userId, notifications, loading } = useSyncExternalStore(subscribeBell, getBellState, getBellState);
+
+  // A notification arriving while the list is scrolled goes in above what's
+  // being read; keep that in place by scrolling the list by the new rows'
+  // height (browsers with CSS scroll anchoring already do).
+  const listRef = useRef<HTMLDivElement>(null);
+  const firstIdRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const prevFirst = firstIdRef.current;
+    firstIdRef.current = notifications[0]?.id ?? null;
+    if (nativeAnchoring || !list || prevFirst === null || list.scrollTop <= 0 || notifications[0]?.id === prevFirst) return;
+    let added = 0;
+    for (const row of Array.from(list.children)) {
+      if ((row as HTMLElement).dataset.notifId === String(prevFirst)) {
+        list.scrollTop += added;
+        return;
+      }
+      added += row.getBoundingClientRect().height;
+    }
+  }, [notifications]);
   const [chatTarget, setChatTarget] = useState<{ userId: string; name: string; openChess?: boolean } | null>(null);
   const [chatMounted, setChatMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -328,10 +349,24 @@ export default function NotificationBell() {
           </div>
 
           {/* Notifications list */}
-          <div className="overflow-y-auto flex-1">
+          <div ref={listRef} className="overflow-y-auto flex-1">
             {loading && notifications.length === 0 && (
-              <div className="flex items-center justify-center py-8">
-                <div aria-hidden="true" className="spinner" />
+              // Rows shaped like notifications (icon, title, two-line body,
+              // time) rather than a spinner, so the list fills in place.
+              <div role="status" aria-label="Loading notifications">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} aria-hidden="true" className="px-4 py-3 border-b border-slate-800/50 flex gap-3">
+                    <span className="shrink-0 pt-0.5"><span className="skeleton block size-4 rounded" /></span>
+                    <div className="flex-1 min-w-0">
+                      <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-1/2 rounded" /></div>
+                      <div className="mt-0.5 h-8 flex flex-col justify-center gap-1.5">
+                        <div className="skeleton h-2.5 w-full rounded" />
+                        <div className="skeleton h-2.5 w-3/4 rounded" />
+                      </div>
+                      <div className="mt-1 h-4 flex items-center"><div className="skeleton h-2.5 w-12 rounded" /></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             {!loading && notifications.length === 0 && (
@@ -343,6 +378,7 @@ export default function NotificationBell() {
               return (
                 <div
                   key={n.id}
+                  data-notif-id={n.id}
                   className={`px-4 py-3 border-b border-slate-800/50 flex gap-3 ${n.read ? "opacity-60" : ""}`}
                 >
                   <span className="shrink-0 flex items-center pt-0.5"><NotifIcon type={n.type} /></span>

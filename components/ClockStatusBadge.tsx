@@ -18,6 +18,9 @@ const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boo
   not_clocked_in: { color: "#94a3b8", label: "Off",        live: false },
 };
 
+// The two longest labels; which one is wider depends on the font.
+const LONG_LABELS = ["Clocked In", "On Break"] as const;
+
 export default function ClockStatusBadge({ variant = "pill" }: { variant?: "pill" | "dot" }) {
   const { liveStatus } = useAppData();
   const s = STATUS[liveStatus] ?? STATUS.not_clocked_in;
@@ -35,6 +38,8 @@ export default function ClockStatusBadge({ variant = "pill" }: { variant?: "pill
     );
   }
 
+  // The pill is as wide as its longest label in every state, so the status
+  // arriving (Off → Clocked In) doesn't push the header's other buttons.
   return (
     <div
       role="status"
@@ -46,8 +51,15 @@ export default function ClockStatusBadge({ variant = "pill" }: { variant?: "pill
         className="size-2 rounded-full shrink-0"
         style={{ background: s.color, boxShadow: s.live ? `0 0 6px ${s.color}` : "none" }}
       />
-      <span className="text-xs font-semibold leading-none whitespace-nowrap" style={{ color: s.color }}>
-        {s.label}
+      {/* ::before and ::after hold the longest labels, invisible, in the same
+          grid cell as the shown one, so the pill is always the widest width.
+          (CSS content, so the hidden labels aren't in the page's text.) */}
+      <span
+        data-long-a={LONG_LABELS[0]}
+        data-long-b={LONG_LABELS[1]}
+        className="grid text-xs font-semibold leading-none whitespace-nowrap before:col-start-1 before:row-start-1 before:invisible before:content-[attr(data-long-a)] after:col-start-1 after:row-start-1 after:invisible after:content-[attr(data-long-b)]"
+      >
+        <span className="col-start-1 row-start-1" style={{ color: s.color }}>{s.label}</span>
       </span>
     </div>
   );

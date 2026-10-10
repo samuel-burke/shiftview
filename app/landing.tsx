@@ -238,7 +238,7 @@ function TrustStrip() {
             </li>
           ))}
         </ul>
-        <a href={REPO_URL} className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-200 transition-colors hover:text-slate-50">
+        <a href={REPO_URL} className="inline-flex shrink-0 items-center gap-2 py-3 -my-3 text-sm font-semibold text-slate-200 transition-colors hover:text-slate-50">
           View the source <Arrow />
         </a>
       </Container>

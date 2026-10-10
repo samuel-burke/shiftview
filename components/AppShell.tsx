@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MotionConfig } from "framer-motion";
 import SideNav from "./SideNav";
 import NavRail from "./NavRail";
 import TopBar from "./TopBar";
@@ -15,7 +16,6 @@ type Props = {
   isManager?: boolean;
   /** When provided, a persistent TopBar is rendered above the animated content on mobile. */
   userName?: string | null;
-  isDemo?: boolean;
   onBack?: () => void;
   onSignOut?: () => void;
   onSignIn?: () => void;
@@ -31,7 +31,6 @@ export default function AppShell({
   active,
   isManager,
   userName,
-  isDemo,
   onBack,
   onSignOut,
   onSignIn,
@@ -42,8 +41,12 @@ export default function AppShell({
   const [sidebarExpanded, setSidebarExpanded] = useSidebarExpanded();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
+  // reducedMotion="user": with the system's reduce-motion setting on, every
+  // framer animation in the app drops its movement (CSS ones are handled in
+  // globals.css).
   return (
-    <div className="tablet:flex min-h-screen bg-bg">
+    <MotionConfig reducedMotion="user">
+    <div className="tablet:flex min-h-dvh bg-bg">
       {/*
        * compact: BottomNav (rendered by each page) · tablet: icon rail ·
        * desk: icon rail, or the full sidebar when expanded · wide: full sidebar
@@ -67,7 +70,6 @@ export default function AppShell({
         {showTopBar && (
           <TopBar
             userName={userName ?? null}
-            isDemo={isDemo ?? false}
             onBack={onBack}
             onSignOut={onSignOut}
             onSignIn={onSignIn}
@@ -78,5 +80,6 @@ export default function AppShell({
       </div>
       <AddToHomeScreenBanner />
     </div>
+    </MotionConfig>
   );
 }

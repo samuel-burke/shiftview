@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { playNotificationSound, primeSounds } from "@/lib/sounds";
 import { createClient } from "@/lib/supabase-browser";
 import {
@@ -173,6 +173,8 @@ export default function InAppNotificationBanner() {
       aria-atomic="false"
       className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
     >
+      {/* Outside AppShell (it's in the root layout), so it sets its own. */}
+      <MotionConfig reducedMotion="user">
       <AnimatePresence initial={false}>
         {visibleBanners.map((banner) => {
           const entry = banner.type ? (TYPE_ICON_MAP[banner.type] ?? null) : null;
@@ -212,6 +214,7 @@ export default function InAppNotificationBanner() {
           );
         })}
       </AnimatePresence>
+      </MotionConfig>
       {overflowCount > 0 && (
         <div className="pointer-events-none self-end bg-card border border-slate-800 rounded-full px-3 py-1 text-xs text-slate-400 shadow-xl">
           +{overflowCount} more

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
 import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import { useScrollLock } from "@/lib/scroll-lock";
+import StableLabel from "./StableLabel";
 
 type Props = {
   open: boolean;
@@ -97,10 +99,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   function applyRange() {
     if (employee && from <= to) load(employee.id, from, to);
@@ -127,8 +126,8 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
         role="dialog"
         aria-modal="true"
         aria-label={employee ? `Time card for ${employee.name}` : "Time card"}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[560px] bg-bg border-l border-slate-800 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[560px] bg-bg border-l border-slate-800 flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
         <TimeCardPanel
@@ -197,7 +196,7 @@ export function TimeCardPanel({
         <button
           onClick={onClose}
           aria-label="Close"
-          className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
@@ -205,7 +204,7 @@ export function TimeCardPanel({
         </button>
       </div>
 
-      {/* Date range controls */}
+      {/* Date range controls: the fields and Apply share one height. */}
       <div className="px-5 py-3 border-b border-slate-800 shrink-0 flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[120px]">
           <label htmlFor="tc-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
@@ -215,7 +214,7 @@ export function TimeCardPanel({
             value={from}
             max={to}
             onChange={(e) => onFromChange(e.target.value)}
-            className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+            className="w-full h-11 bg-card border border-slate-700 rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
           />
         </div>
         <div className="flex-1 min-w-[120px]">
@@ -226,15 +225,15 @@ export function TimeCardPanel({
             value={to}
             min={from}
             onChange={(e) => onToChange(e.target.value)}
-            className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+            className="w-full h-11 bg-card border border-slate-700 rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
           />
         </div>
         <button
           onClick={onApply}
           disabled={loading || from > to}
-          className="py-1.5 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-11 px-4 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? "…" : "Apply"}
+          <StableLabel labels={["Apply", "…"]} active={loading ? 1 : 0} />
         </button>
       </div>
 

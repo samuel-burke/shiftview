@@ -23,6 +23,9 @@ import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../li
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
 import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
+import StableLabel from "@/components/StableLabel";
+import FormError from "@/components/FormError";
+import { Toast, ToastStack } from "@/components/Toast";
 
 // Templates are applied to the 7 days starting at a chosen date: default to
 // the next start of the store's week (its "first day of week" setting) on or
@@ -648,7 +651,10 @@ export default function SettingsPageClient({
   // ── Initial data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
-    fetch("/api/settings")
+    // The page shows once both the store's settings and the identity are in:
+    // the settings decide, among other things, the order of the availability
+    // days (the week start), which mustn't change under the reader.
+    const settingsLoad = fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
         if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
@@ -672,7 +678,7 @@ export default function SettingsPageClient({
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((emps: Employee[]) => setEmployees(emps))
       .catch(() => {});
-    fetch("/api/me")
+    const meLoad = fetch("/api/me")
       .then((r) => r.json())
       .then(({ isManager: mgr, employeeId: empId, isOwner: owner, orgName: org }) => {
         if (mgr != null) setIsManager(mgr);
@@ -690,8 +696,8 @@ export default function SettingsPageClient({
             .catch(() => {});
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
+    Promise.allSettled([settingsLoad, meLoad]).then(() => setLoading(false));
   }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────
@@ -794,7 +800,7 @@ export default function SettingsPageClient({
     >
     <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
-                 tablet:max-w-none tablet:h-auto tablet:min-h-screen tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
+                 tablet:max-w-none tablet:h-auto tablet:min-h-dvh tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
       style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
@@ -968,9 +974,6 @@ export default function SettingsPageClient({
                   />
                 </button>
               </div>
-              {pushError && (
-                <div role="alert" className="text-xs text-red-400 mt-2">{pushError}</div>
-              )}
 
               {/* Per-type toggles — only visible when push is enabled */}
               {pushSubscribed && (
@@ -1287,9 +1290,7 @@ export default function SettingsPageClient({
                       </>
                     )}
 
-                    {geofenceError && (
-                      <div role="alert" className="text-xs text-red-400">{geofenceError}</div>
-                    )}
+                    <FormError message={geofenceError} />
 
                     <button
                       onClick={saveGeofence}
@@ -1497,7 +1498,7 @@ export default function SettingsPageClient({
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
                           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
-                        {editError && <div role="alert" className="text-xs text-red-400">{editError}</div>}
+                        <FormError message={editError} />
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
@@ -1513,7 +1514,7 @@ export default function SettingsPageClient({
                           aria-busy={editSaving}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {editSaving ? "…" : "Save"}
+                          <StableLabel labels={["Save", "…"]} active={editSaving ? 1 : 0} />
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
@@ -1619,7 +1620,7 @@ export default function SettingsPageClient({
                           aria-busy={deletingTemplateId === tpl.id}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {deletingTemplateId === tpl.id ? "…" : "Delete"}
+                          <StableLabel labels={["Delete", "…"]} active={deletingTemplateId === tpl.id ? 1 : 0} />
                         </button>
                       </div>
                     </div>
@@ -1654,12 +1655,14 @@ export default function SettingsPageClient({
                           }}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {applyingId === tpl.id ? "Applying…" : "Confirm"}
+                          <StableLabel labels={["Confirm", "Applying…"]} active={applyingId === tpl.id ? 1 : 0} />
                         </button>
                       </div>
                     )}
-                    {applyError[tpl.id] && (
-                      <div role="alert" className="text-xs text-red-400">{applyError[tpl.id]}</div>
+                    {/* The line is held while the date picker is open, so a
+                        failed apply doesn't grow the row. */}
+                    {(applyError[tpl.id] || (applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")) && (
+                      <FormError message={applyError[tpl.id]} />
                     )}
                   </motion.div>
                 ))
@@ -1780,9 +1783,7 @@ export default function SettingsPageClient({
                     : " Your organization keeps its schedule and time clock records."}
                 </div>
               </div>
-              {deleteAccountError && (
-                <div role="alert" className="text-xs text-red-400">{deleteAccountError}</div>
-              )}
+              <FormError message={deleteAccountError} />
             </div>
             <div className="flex border-t border-slate-800">
               <button
@@ -1847,9 +1848,7 @@ export default function SettingsPageClient({
                   className="mt-1.5 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-red-500/70 transition-colors"
                 />
               </div>
-              {deleteOrgError && (
-                <div role="alert" className="text-xs text-red-400">{deleteOrgError}</div>
-              )}
+              <FormError message={deleteOrgError} />
             </div>
             <div className="flex border-t border-slate-800">
               <button
@@ -1916,6 +1915,10 @@ export default function SettingsPageClient({
           </div>
         </div>
       )}
+      {/* Over the page, so a failed toggle doesn't push the settings down. */}
+      <ToastStack>
+        {pushError && <Toast onDismiss={() => setPushError(null)}>{pushError}</Toast>}
+      </ToastStack>
     </motion.div>
     </motion.div>
     </AppShell>

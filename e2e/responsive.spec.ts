@@ -160,8 +160,18 @@ test.describe("Responsive layout", () => {
       expect(box.width).toBeGreaterThan(vp.width - 4);
     } else {
       // Side panel: full height on the right, leaving the dashboard visible.
+      // Its right edge is that of the area fixed elements fill, which stops at
+      // the scrollbar gutter the page keeps reserved (globals.css).
+      const fixedWidth = await page.evaluate(() => {
+        const probe = document.createElement("div");
+        probe.style.cssText = "position:fixed;inset:0;pointer-events:none";
+        document.body.append(probe);
+        const width = probe.getBoundingClientRect().width;
+        probe.remove();
+        return width;
+      });
       expect(box.height).toBeGreaterThanOrEqual(vp.height - 2);
-      expect(Math.round(box.x + box.width)).toBeGreaterThanOrEqual(vp.width - 2);
+      expect(Math.round(box.x + box.width)).toBeGreaterThanOrEqual(fixedWidth - 2);
       expect(box.width).toBeLessThan(vp.width * 0.75);
     }
 

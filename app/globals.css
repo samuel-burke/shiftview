@@ -118,6 +118,13 @@
 
 /* ── Base styles ──────────────────────────────────────────── */
 
+/* The document is the app's scroll container. Reserve the scrollbar's gutter
+   so the page keeps its width when content grows past the fold or a sheet
+   locks scrolling (lib/scroll-lock.ts) — no sideways jump either way. */
+html {
+  scrollbar-gutter: stable;
+}
+
 html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
@@ -132,6 +139,9 @@ body {
   color: var(--body-color);
   font-family: Inter, sans-serif;
   padding-top: env(safe-area-inset-top);
+  /* Every digit the same width: times, dates, counts and timers change in
+     place without nudging the text around them. */
+  font-variant-numeric: tabular-nums;
 }
 
 * {
@@ -257,6 +267,16 @@ header {
   animation: now-pulse 1.5s linear infinite;
 }
 
+/* ── Toasts (components/Toast.tsx) ───────────────────────── */
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.toast-in {
+  animation: toast-in 200ms ease-out;
+}
+
 /* ── Pulse glow for live indicators ──────────────────────── */
 @keyframes glow-pulse {
   0%, 100% { box-shadow: 0 0 6px 0 rgba(34, 197, 94, 0.3); }
@@ -294,6 +314,25 @@ header {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Demo mode (components/DemoBanner.tsx). <html data-demo> is set before the
+ * first paint from the cached identity (app/layout.tsx), so the strip and the
+ * header padding under it are right from the first frame.
+ */
+.demo-only {
+  display: none;
+}
+html[data-demo] .demo-only {
+  display: block;
+}
+/* TopBar's row: the safe-area inset goes to the demo strip when it shows. */
+.topbar-row {
+  padding-top: calc(env(safe-area-inset-top) + 14px);
+}
+html[data-demo] .topbar-row {
+  padding-top: 14px;
 }
 
 /*

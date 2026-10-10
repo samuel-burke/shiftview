@@ -379,8 +379,8 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         role="dialog"
         aria-modal="true"
         aria-label={`Message thread with ${otherName}`}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
         {/* Header */}
@@ -398,7 +398,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
           <button
             onClick={onClose}
             aria-label="Close"
-            className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>

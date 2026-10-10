@@ -27,8 +27,10 @@ import TimeCardDrawer from "../components/TimeCardDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
+import { Toast, ToastStack } from "../components/Toast";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
+import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 import {
@@ -54,6 +56,15 @@ const CoverageTimeline = dynamic(() => import("../components/CoverageTimeline"),
 });
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const NO_CALLOUTS: Callout[] = [];
+const NO_BLOCKS: CoverageBlock[] = [];
+
+// Call-outs and target curves by day, kept for the session like the layout
+// provider's shift cache, so coming back to the dashboard renders from them
+// at once (and the browser can put the scroll position back) instead of
+// waiting on the network. A switch of organization or user reloads the page.
+const calloutsSeen: Record<string, Callout[]> = {};
+const curvesSeen: Record<string, CoverageBlock[]> = {};
 
 // Cap the team export so it stays a manageable grid.
 const MAX_EXPORT_DAYS = 62;
@@ -86,7 +97,7 @@ function AnimatedStatCard({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{
         border: `1px solid ${color}33`,
@@ -100,7 +111,8 @@ function AnimatedStatCard({
       />
 
       {loading ? (
-        <div className="flex justify-center mb-1.5">
+        // The value's own box: a 28px line (text-[28px] leading-none).
+        <div className="flex justify-center">
           <div className="skeleton h-7 w-8 rounded-[6px]" />
         </div>
       ) : (
@@ -163,16 +175,41 @@ export default function Page() {
   const [showExport, setShowExport] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
-  const [callouts, setCallouts] = useState<Callout[]>([]);
   const [timeCardEmp, setTimeCardEmp] = useState<Employee | null>(null);
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
+  // Realtime changes and background refreshes keep the card being looked at
+  // in place (lib/scroll-anchor.ts) rather than pushing it.
+  const keepScroll = useScrollAnchor();
 
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
-  const { isManager, employeeName: userName, isDemo } = me;
+  const { isManager, employeeName: userName } = me;
   const weeklyHours = weeklyHoursCtx;
-  const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
+  // Call-outs and the target curve, kept per day like the shifts: the viewed
+  // day's neighbours load with it, so stepping a day renders at once from
+  // what's here rather than changing the page when they land. A day missing
+  // from these hasn't loaded yet (as opposed to having none).
+  const [calloutsByDay, setCalloutsState] = useState<Record<string, Callout[]>>(() => ({ ...calloutsSeen }));
+  const [curvesByDay, setCurvesState] = useState<Record<string, CoverageBlock[]>>(() => ({ ...curvesSeen }));
+  // Each update is kept for the session as well (idempotent, so a repeated
+  // updater call in development is harmless).
+  const setCalloutsByDay = (update: (prev: Record<string, Callout[]>) => Record<string, Callout[]>) =>
+    setCalloutsState((prev) => {
+      const next = update(prev);
+      Object.assign(calloutsSeen, next);
+      return next;
+    });
+  const setCurvesByDay = (update: (prev: Record<string, CoverageBlock[]>) => Record<string, CoverageBlock[]>) =>
+    setCurvesState((prev) => {
+      const next = update(prev);
+      Object.assign(curvesSeen, next);
+      return next;
+    });
+  const callouts = calloutsByDay[dateKey] ?? NO_CALLOUTS;
+  const calloutsReady = dateKey in calloutsByDay;
+  const dayCurve = curvesByDay[dateKey] ?? NO_BLOCKS;
+  const curveReady = dateKey in curvesByDay;
 
   // Mutable ref so subscription callbacks always see the latest viewed date.
   // Updated on commit: day changes render as transitions, which can be
@@ -243,7 +280,7 @@ export default function Page() {
   // still-clocked-in closers run into the viewed day) and the day after, which
   // is cached so stepping forward renders at once. Applied only while `dk` is
   // still the viewed day, so a slow response can't overwrite a newer one.
-  function loadScheduleDays(dk: string) {
+  function loadScheduleDays(dk: string, background = false) {
     const from = addDaysToKey(dk, -1);
     const to = addDaysToKey(dk, 1);
     return apiFetch(`/api/schedules?from=${from}&to=${to}`)
@@ -255,6 +292,7 @@ export default function Page() {
         if (!Array.isArray(data)) throw new Error("schedules fetch failed");
         const byDay: Record<string, Schedule[]> = { [from]: [], [dk]: [], [to]: [] };
         for (const s of data as Schedule[]) byDay[s.date.slice(0, 10)]?.push(s);
+        if (background) keepScroll();
         for (const [day, list] of Object.entries(byDay)) setScheduleCache(day, list);
         if (dateKeyRef.current === dk) {
           setSchedules(byDay[dk]);
@@ -384,6 +422,7 @@ export default function Page() {
           const p = payload.new as Record<string, unknown>;
           const punchDate = dateKeyInTz(p.punched_at as string, timezone);
           if (punchDate !== todayKey) return;
+          keepScroll();
           setPunchRecords((prev) => [...prev, rowToPunch(p)]);
           setPunchesLoaded(true);
         }
@@ -394,6 +433,7 @@ export default function Page() {
         (payload) => {
           const p = payload.new as Record<string, unknown>;
           const punch = rowToPunch(p);
+          keepScroll();
           setPunchRecords((prev) => prev.map((r) => r.id === punch.id ? punch : r));
         }
       )
@@ -403,7 +443,7 @@ export default function Page() {
     const t = setInterval(() => {
       apiFetch(`/api/punches?date=${dateKey}&carried=1`)
         .then((r) => r.json())
-        .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
+        .then((data) => { keepScroll(); setPunchRecords(Array.isArray(data) ? data : []); })
         .catch(() => {});
     }, 300000);
 
@@ -416,22 +456,18 @@ export default function Page() {
   // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
   useEffect(() => {
     function refetchSchedules() {
-      loadScheduleDays(dateKeyRef.current).catch(() => {});
+      loadScheduleDays(dateKeyRef.current, true).catch(() => {});
     }
 
     function refetchEmployees() {
       apiFetch("/api/employees")
         .then(r => r.json())
-        .then((data: Employee[]) => { if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); } })
+        .then((data: Employee[]) => { if (Array.isArray(data)) { keepScroll(); setEmployees(data); cacheEmployees(data); } })
         .catch(() => {});
     }
 
     function refetchCallouts() {
-      const dk = dateKeyRef.current;
-      apiFetch(`/api/callouts?date=${dk}`)
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d?.callouts)) setCallouts(d.callouts); })
-        .catch(() => {});
+      loadCallouts(dateKeyRef.current, true);
     }
 
     let hiddenAt = 0;
@@ -545,37 +581,50 @@ export default function Page() {
     return profilesRef.current;
   }
 
-  // Target coverage curve for the viewed date (override → day-of-week default)
+  // Target coverage curves (override → day-of-week default) for the viewed day
+  // and its neighbours, from one ranged request, like the shifts.
   useEffect(() => {
-    const dk = dateKey;
-    let cancelled = false;
+    const days = [addDaysToKey(dateKey, -1), dateKey, addDaysToKey(dateKey, 1)];
     Promise.all([
       coverageProfiles(),
-      apiFetch(`/api/coverage-assignments?from=${dk}&to=${dk}`).then((r) => r.json()),
+      apiFetch(`/api/coverage-assignments?from=${days[0]}&to=${days[2]}`).then((r) => r.json()),
     ])
       .then(([profiles, assignments]) => {
-        if (cancelled) return;
-        setDayCurve(curveForDate(
-          dk,
+        const curves = Object.fromEntries(days.map((d) => [d, curveForDate(
+          d,
           assignments?.overrides ?? {},
           assignments?.defaults ?? {},
           profiles
-        ));
+        )]));
+        setCurvesByDay((prev) => ({ ...prev, ...curves }));
       })
-      .catch(() => { if (!cancelled) setDayCurve([]); });
-    return () => { cancelled = true; };
+      .catch(() => setCurvesByDay((prev) => ({ ...prev, [dateKey]: prev[dateKey] ?? [] })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
-  // Call-outs for the viewed date — drives the "Called Out" team section.
-  useEffect(() => {
-    const dk = dateKey;
-    let cancelled = false;
-    apiFetch(`/api/callouts?date=${dk}`)
+  // Call-outs ("Called Out" section) for a day. Failing counts as none, so the
+  // day isn't held on its placeholder.
+  function loadCallouts(day: string, background = false) {
+    return apiFetch(`/api/callouts?date=${day}`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) setCallouts(Array.isArray(d?.callouts) ? d.callouts : []); })
-      .catch(() => { if (!cancelled) setCallouts([]); });
-    return () => { cancelled = true; };
+      .then((d) => {
+        if (!Array.isArray(d?.callouts)) throw new Error();
+        if (background) keepScroll();
+        setCalloutsByDay((prev) => ({ ...prev, [day]: d.callouts }));
+      })
+      .catch(() => setCalloutsByDay((prev) => (day in prev ? prev : { ...prev, [day]: [] })));
+  }
+
+  // The viewed day's call-outs, refreshed on every visit; its neighbours'
+  // once, ahead of a step to them.
+  const calloutsRequested = useRef(new Set<string>());
+  useEffect(() => {
+    for (const day of [dateKey, addDaysToKey(dateKey, -1), addDaysToKey(dateKey, 1)]) {
+      if (day !== dateKey && calloutsRequested.current.has(day)) continue;
+      calloutsRequested.current.add(day);
+      loadCallouts(day);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
   const isToday = dateKey === todayKey;
@@ -745,11 +794,19 @@ export default function Page() {
 
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
   // employees has its own local state so it no longer blocks the skeleton.
-  const isLoading = loading || sharedLoading;
+  // A day is shown once its shifts and its call-outs are in (call-outs move
+  // people into their own section).
+  const isLoading = loading || sharedLoading || !calloutsReady;
+  // The manager buttons sit under the team list, whose length isn't known
+  // until the first day has loaded; they wait for it rather than being pushed
+  // down (or, for an empty day, pulled up) when it lands.
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  if (!isLoading && !firstLoadDone) setFirstLoadDone(true);
 
   const headerProps = {
     date, today, isToday, hereCount: hereNowCount,
-    nowMinutes, coverageStatus, isDemo, loading: isLoading,
+    // Today's status needs the day's curve as well as its shifts.
+    nowMinutes, coverageStatus, loading: isLoading || !curveReady,
     userName, isManager, coverageAlertsEnabled,
     // Changing the day re-renders the whole dashboard; as a transition the tap
     // paints at once and React renders the new day in interruptible slices.
@@ -763,7 +820,9 @@ export default function Page() {
     onSignOut: handleSignOut,
   };
 
-  const timeline = isLoading ? <SkeletonTimeline /> : (
+  // The chart waits for the day's target curve as well, so its legend (the
+  // Target pill) and the target line arrive with it rather than after it.
+  const timeline = isLoading || !curveReady ? <SkeletonTimeline /> : (
     <CoverageTimeline
       schedules={daySchedules}
       dayKey={dateKey}
@@ -815,7 +874,7 @@ export default function Page() {
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
+      transition={{ duration: 0.25, delay: 0.1, ease: "easeOut" }}
       className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-white/[0.05]"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
@@ -934,11 +993,12 @@ export default function Page() {
     />
   );
 
-  const errorBanner = error ? (
-    <div role="alert" className="mx-4 tablet:mx-6 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-      {error}
-    </div>
-  ) : null;
+  // Over the page rather than in it, so it can't push the dashboard down.
+  const errorToast = (
+    <ToastStack>
+      {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+    </ToastStack>
+  );
 
   const weekButton = isManager ? (
     <Link
@@ -954,7 +1014,7 @@ export default function Page() {
       onClick={() => router.push("/week?mode=draft")}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
     >
       Plan Draft Schedule
     </motion.button>
@@ -1019,7 +1079,6 @@ export default function Page() {
       active="team"
       isManager={isManager}
       userName={userName}
-      isDemo={isDemo}
       onSignOut={handleSignOut}
     >
       {/*
@@ -1032,13 +1091,12 @@ export default function Page() {
        * against inherited horizontal padding.
        */}
       <main
-        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
+        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8 ${
           // Wide screens show employee detail as a side pane beside the dashboard (EmployeeDrawer)
           selected ? "wide:pr-[420px]" : ""
         }`}
       >
         <CoverageHeader {...headerProps} hideMobileBrand />
-        {errorBanner}
         {/*
          * One DOM order (overview → team → manager actions), placed per size class:
          * tablet: stacked, team sections in 2 columns.
@@ -1054,7 +1112,7 @@ export default function Page() {
           <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:items-start desk:block desk:col-start-2 desk:row-start-1 desk:sticky desk:top-4 wide:grid wide:grid-cols-3 wide:col-start-1 wide:col-span-2 wide:row-start-2 wide:static wide:mt-2">
             {teamSections}
           </div>
-          {(draftButton || weekButton || exportButton) && (
+          {firstLoadDone && (draftButton || weekButton || exportButton) && (
             <div className="tablet:grid tablet:grid-cols-3 tablet:gap-x-4 tablet:items-start desk:block desk:col-start-2 desk:row-start-2 wide:row-start-1 wide:-mt-4">
               {draftButton}
               {weekButton}
@@ -1064,6 +1122,7 @@ export default function Page() {
         </div>
         {drawer}
         {timeCardDrawer}
+        {errorToast}
         <BottomNav active="team" />
       </main>
     </AppShell>

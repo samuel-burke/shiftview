@@ -11,10 +11,13 @@ import {
   curveHours,
   validateBlocks,
 } from "../../lib/coverage";
+import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import CoverageCurveEditor, { CoverageCurvePreview } from "../../components/CoverageCurveEditor";
 import { createApiFetch } from "@/lib/api-fetch";
+import FormError from "@/components/FormError";
+import { SkeletonText } from "@/components/Skeleton";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -57,6 +60,9 @@ export default function CoveragePageClient() {
   }
 
   useEffect(() => {
+    // Until the identity is known, "not a manager" only means "not loaded
+    // yet": stay on the placeholders rather than flash the empty state.
+    if (sharedLoading) return;
     if (!isManager) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
@@ -70,7 +76,7 @@ export default function CoveragePageClient() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isManager]);
+  }, [isManager, sharedLoading]);
 
   async function handleSaveProfile() {
     if (!editing) return;
@@ -156,7 +162,7 @@ export default function CoveragePageClient() {
   if (!sharedLoading && !isManager) {
     return (
       <AppShell active="settings" isManager={isManager}>
-        <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
+        <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">📈</div>
           <h1 className="text-lg font-bold text-slate-100 mb-1.5">Coverage Profiles</h1>
           <p className="text-sm text-slate-400">Only managers can manage coverage profiles.</p>
@@ -168,7 +174,7 @@ export default function CoveragePageClient() {
 
   return (
     <AppShell active="settings" isManager={isManager}>
-      <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8">
+      <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8">
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
@@ -188,16 +194,15 @@ export default function CoveragePageClient() {
           </div>
         </div>
 
-        {migrationRequired && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 desk:mx-6">
-            Coverage tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-coverage-profiles.sql</code> in the Supabase SQL editor.
-          </div>
-        )}
-        {error && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center desk:mx-6">
-            {error}
-          </div>
-        )}
+        {/* Over the page, so a message can't push the profiles down. */}
+        <ToastStack>
+          {migrationRequired && (
+            <Toast tone="warning" role="alert" className="text-xs">
+              Coverage tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-coverage-profiles.sql</code> in the Supabase SQL editor.
+            </Toast>
+          )}
+          {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+        </ToastStack>
 
         <div className="px-4 pt-5 flex flex-col gap-6 desk:max-w-2xl desk:mx-auto desk:px-6">
           {/* Profiles */}
@@ -207,7 +212,7 @@ export default function CoveragePageClient() {
               {!editing && (
                 <button
                   onClick={() => { setEditing({ id: null, name: "", blocks: [{ startMinutes: 540, endMinutes: 1020, headcount: 2 }] }); setEditError(null); }}
-                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer transition-colors"
+                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer transition-colors py-[14px] -my-[14px] px-2 -mx-2"
                 >
                   + New Profile
                 </button>
@@ -216,7 +221,17 @@ export default function CoveragePageClient() {
 
             {loading ? (
               <div className="flex flex-col gap-2">
-                {[0, 1].map((i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}
+                {/* Shaped like a profile card: name and staff-hours, then the
+                    90px curve preview. */}
+                {[0, 1].map((i) => (
+                  <div key={i} aria-hidden="true" className="bg-card rounded-2xl border border-slate-800/60 px-4 pt-3 pb-2">
+                    <div className="mb-1">
+                      <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-32 rounded" /></div>
+                      <div className="text-[11px]"><SkeletonText text="00 staff-hrs / day" /></div>
+                    </div>
+                    <div className="skeleton h-[90px] rounded-xl" />
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -265,19 +280,21 @@ export default function CoveragePageClient() {
                             {Math.round(curveHours(p.blocks) * 10) / 10} staff-hrs / day
                           </div>
                         </div>
+                        {/* Each pair shares one button height; the plain one is a
+                            button-shaped box too, and both reach 44px to tap. */}
                         <div className="flex items-center gap-2 shrink-0">
                           {confirmDeleteId === p.id ? (
                             <>
                               <button
                                 onClick={() => handleDeleteProfile(p.id)}
                                 disabled={saving}
-                                className="text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                className="text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50 relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Confirm
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="text-xs font-semibold text-slate-400 bg-transparent border-none cursor-pointer hover:text-slate-200 transition-colors"
+                                className="text-xs font-semibold text-slate-400 bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-slate-200 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Cancel
                               </button>
@@ -286,13 +303,13 @@ export default function CoveragePageClient() {
                             <>
                               <button
                                 onClick={() => { setEditing({ id: p.id, name: p.name, blocks: p.blocks.map((b) => ({ ...b })) }); setEditError(null); setConfirmDeleteId(null); }}
-                                className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-indigo-500/20 transition-colors"
+                                className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-indigo-500/20 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(p.id)}
-                                className="text-xs font-semibold text-slate-500 bg-transparent border-none cursor-pointer hover:text-red-400 transition-colors"
+                                className="text-xs font-semibold text-slate-500 bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-red-400 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Delete
                               </button>
@@ -308,34 +325,38 @@ export default function CoveragePageClient() {
             )}
           </section>
 
-          {/* Weekly defaults */}
-          <section>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-              Weekly Defaults
-            </div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
-              {DAY_NAMES.map((dayName, dow) => (
-                <div key={dow} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="text-sm font-semibold text-slate-300 w-24 shrink-0">{dayName}</span>
-                  <select
-                    value={defaults[dow] ?? ""}
-                    disabled={loading || savingDefaultDow === dow}
-                    aria-label={`Default coverage profile for ${dayName}`}
-                    onChange={(e) => handleSetDefault(dow, e.target.value === "" ? null : Number(e.target.value))}
-                    className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <option value="">No coverage target</option>
-                    {profiles.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-2 px-1">
-              Specific dates (holidays, events) can be overridden on the Week page: pick the day, then its coverage.
-            </p>
-          </section>
+          {/* Weekly defaults. Under a list of profiles whose length isn't known
+              until they load (and its menus list them), so it comes in with them
+              rather than being pushed down. */}
+          {!loading && (
+            <section>
+              <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+                Weekly Defaults
+              </div>
+              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+                {DAY_NAMES.map((dayName, dow) => (
+                  <div key={dow} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="text-sm font-semibold text-slate-300 w-24 shrink-0">{dayName}</span>
+                    <select
+                      value={defaults[dow] ?? ""}
+                      disabled={loading || savingDefaultDow === dow}
+                      aria-label={`Default coverage profile for ${dayName}`}
+                      onChange={(e) => handleSetDefault(dow, e.target.value === "" ? null : Number(e.target.value))}
+                      className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <option value="">No coverage target</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2 px-1">
+                Specific dates (holidays, events) can be overridden on the Week page: pick the day, then its coverage.
+              </p>
+            </section>
+          )}
         </div>
 
         <BottomNav active="settings" />
@@ -384,16 +405,14 @@ function ProfileEditorCard({
         onChange={(blocks) => setEditing({ ...editing, blocks })}
       />
 
-      {error && (
-        <div role="alert" className="text-xs text-red-400 text-center mt-3">{error}</div>
-      )}
+      <FormError message={error} className="text-center mt-3" />
 
       <div className="flex gap-2 mt-4">
         <button
           onClick={onSave}
           disabled={saving}
           aria-busy={saving}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
         >
           {saving ? "Saving…" : editing.id === null ? "Create Profile" : "Save Profile"}
         </button>

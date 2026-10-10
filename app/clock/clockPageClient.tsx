@@ -18,6 +18,7 @@ import {
   SHIFT_COLORS,
 } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import { Toast, ToastStack } from "../../components/Toast";
 import AppShell from "../../components/AppShell";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
@@ -34,6 +35,8 @@ import { addDaysToKey, dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey,
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import FormError from "../../components/FormError";
+import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -88,7 +91,6 @@ export default function ClockPageClient() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const isDemo = cachedMe.isDemo;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
   // initialize from context cache if available so return visits are instant.
@@ -289,11 +291,18 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
+  // Today's call-out and the employee's own corrections each change what the
+  // clock shows (a call-out card, a pending-correction note), so the clock
+  // waits for both before replacing its placeholder.
+  const [calloutLoaded, setCalloutLoaded] = useState(false);
+  const [correctionsLoaded, setCorrectionsLoaded] = useState(false);
+
   const loadMyCorrections = useCallback(() => {
     fetch("/api/punch-corrections?mine=true")
       .then((r) => r.json())
       .then(({ corrections }) => { if (Array.isArray(corrections)) setMyCorrections(corrections); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCorrectionsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -302,13 +311,15 @@ export default function ClockPageClient() {
   }, [meLoading, employeeId, isManager, loadMyCorrections]);
 
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context).
+  // Both reload in the background: the clock keeps showing what it has and
+  // updates in place, rather than going back to the placeholder.
   // The punches listener keeps this screen in sync across the user's devices: a
   // punch made elsewhere updates the status, timer and history here too (a
   // background reload, so it never flashes the skeleton).
   useEffect(() => {
     const channel = supabase
       .channel("clock-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "punch_records" }, () => loadData(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, () => loadMyCorrections())
       .subscribe();
@@ -325,7 +336,8 @@ export default function ClockPageClient() {
         const list: Callout[] = Array.isArray(d?.callouts) ? d.callouts : [];
         setMyCallout(list.find((c) => c.date === todayKey) ?? null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCalloutLoaded(true));
   }, [meLoading, employeeId, todayKey]);
 
   async function submitCallout() {
@@ -582,17 +594,20 @@ export default function ClockPageClient() {
     </div>
   );
 
-  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-screen desk:max-w-none desk:px-0 desk:pb-0";
+  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-dvh desk:max-w-none desk:px-0 desk:pb-0";
 
   const appShellProps = {
     active: "clock" as const,
     isManager,
     userName: employeeName,
-    isDemo,
     onSignOut: handleSignOut,
   };
 
-  if (loading || meLoading) {
+  // Only an employee has a call-out to load, and only a non-manager employee
+  // has corrections of their own.
+  const calloutReady = employeeId ? calloutLoaded : !meLoading;
+  const correctionsReady = employeeId && !isManager ? correctionsLoaded : !meLoading;
+  if (loading || meLoading || !calloutReady || !correctionsReady) {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
@@ -610,7 +625,7 @@ export default function ClockPageClient() {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
-          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
+          <div className="flex flex-col items-center justify-center min-h-[50dvh] gap-3 text-center px-4">
             <div aria-hidden="true" className="text-4xl">🔗</div>
             <div className="text-lg font-bold text-slate-100">Account not linked</div>
             <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
@@ -625,20 +640,16 @@ export default function ClockPageClient() {
     <AppShell {...appShellProps}>
     <main className={mainClass}>
       {/* Mobile banner comes from AppShell's TopBar; this one is desktop-only */}
-      {isDemo && (
-        <div className="hidden desk:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner className="hidden desk:flex" />
       {clockHeader}
 
       <div className="desk:max-w-[600px] desk:mx-auto desk:px-6 desk:py-4">
-      {error && (
-        <div role="alert" className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-          {error}
-        </div>
-      )}
+      {/* Over the page, so a message can't push the clock down. */}
+      <ToastStack>
+        {error && <Toast className="text-center">{error}</Toast>}
+        {actionError && <Toast className="text-center" onDismiss={() => setActionError(null)}>{actionError}</Toast>}
+        {calloutError && <Toast className="text-center" onDismiss={() => setCalloutError(null)}>{calloutError}</Toast>}
+      </ToastStack>
 
       <div className="mt-4 space-y-3">
         {/* Today's shift card */}
@@ -786,11 +797,6 @@ export default function ClockPageClient() {
         )}
 
         {/* Action buttons */}
-        {actionError && (
-          <div role="alert" className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-            {actionError}
-          </div>
-        )}
 
         <div className="grid gap-3">
           {effectiveStatus === "not_clocked_in" && (
@@ -877,7 +883,6 @@ export default function ClockPageClient() {
                     )}
                   </div>
                 </div>
-                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
                 <button
                   onClick={undoCallout}
                   disabled={calloutPending}
@@ -902,7 +907,6 @@ export default function ClockPageClient() {
                     className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-red-500/70 transition-colors"
                   />
                 </div>
-                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => { setShowCalloutForm(false); setCalloutError(null); }}
@@ -1044,9 +1048,7 @@ export default function ClockPageClient() {
                   Your manager reviews corrections before they&apos;re added to your time card.
                 </div>
               )}
-              {correctionError && (
-                <div role="alert" className="text-xs text-red-400">{correctionError}</div>
-              )}
+              <FormError message={correctionError} />
               <button
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}

@@ -166,6 +166,20 @@ function clearMeCache() {
   try { localStorage.removeItem(ME_CACHE_KEY); } catch {}
 }
 
+// "View Demo" leaves this behind for the first load of the demo, before any
+// identity is cached; the inline script in app/layout.tsx reads both.
+export const DEMO_HINT_KEY = "sv_demo";
+
+// Shows or hides the demo strip (components/DemoBanner.tsx). Once /api/me has
+// answered, the hint has served its purpose.
+function showDemo(isDemo: boolean, confirmed: boolean) {
+  if (typeof document === "undefined") return;
+  document.documentElement.toggleAttribute("data-demo", isDemo);
+  if (confirmed) {
+    try { localStorage.removeItem(DEMO_HINT_KEY); } catch {}
+  }
+}
+
 // The org's settings and store hours, remembered like the identity above so a
 // return visit renders with the store's real timezone and week start straight
 // away — pages derive their date ranges from them, so starting from the
@@ -278,6 +292,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     };
     meRef.current = newMe;
     setMe(newMe);
+    showDemo(newMe.isDemo, true);
     // A different employee (sign-in, demo heal, a refreshed identity) needs
     // its own attendance status.
     if (newMe.employeeId !== liveStatusFor.current) refreshLiveStatus();
@@ -387,6 +402,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
       meRef.current = cached;
       setMe(cached);
+      showDemo(cached.isDemo, false);
       setSharedLoading(false);
     }
     // The current shift is requested alongside the identity rather than after

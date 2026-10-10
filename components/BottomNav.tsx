@@ -76,11 +76,10 @@ function NavTab({
       className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200 ${isActive ? "text-slate-100" : "text-slate-500"}`}
       onClick={() => { if (!isActive) haptic(6); }}
     >
+      {/* Only the scale animates (a transform); the glow just switches. */}
       <motion.div
-        animate={{
-          scale: isActive ? 1.12 : 1,
-          filter: isActive ? "drop-shadow(0 0 6px rgba(129,140,248,0.6))" : "none",
-        }}
+        animate={{ scale: isActive ? 1.12 : 1 }}
+        style={{ filter: isActive ? "drop-shadow(0 0 6px rgba(129,140,248,0.6))" : "none" }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
         {children}

@@ -37,6 +37,8 @@ type Props = {
   today: Date;
   timeOffRequests?: TimeOffRequest[];
   calloutDates?: string[];
+  /** The month's grid while its shifts load: same cells, nothing in them yet. */
+  loading?: boolean;
 };
 
 const ALL_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -52,6 +54,7 @@ export default function MonthView({
   today,
   timeOffRequests = [],
   calloutDates = [],
+  loading = false,
 }: Props) {
   const todayKey = localDateKey(today);
   const selectedKey = localDateKey(selectedDate);
@@ -152,11 +155,19 @@ export default function MonthView({
       </div>
 
       {/* Calendar grid */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1" role={loading ? "status" : undefined} aria-label={loading ? "Loading calendar" : undefined}>
         {weeks.map((week, wi) => (
           <div key={wi} className="grid grid-cols-7 gap-1">
             {week.map((d, di) => {
               if (!d) return <div key={di} />;
+              if (loading) {
+                return (
+                  <div key={di} aria-hidden="true" className="h-[52px] flex flex-col items-center justify-center rounded-xl border border-slate-800/50 bg-card">
+                    <div className="size-6 rounded-full skeleton" />
+                    <div className="h-[14px] mt-0.5" />
+                  </div>
+                );
+              }
 
               const dateKey = localDateKey(d);
               const isToday = dateKey === todayKey;

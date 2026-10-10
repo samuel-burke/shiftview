@@ -23,12 +23,18 @@ const supabaseOrigin = (() => {
   try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin; } catch { return null; }
 })();
 
-/* Inline script that runs before first paint to avoid theme flash. */
+/* Inline script that runs before first paint to avoid a theme flash, and to
+   show the demo strip from the first frame for a demo session (the cached
+   identity, or the hint "View Demo" leaves; see lib/AppDataContext.tsx). */
 const themeInitScript = `
 (function(){
   var t=localStorage.getItem('theme')||'system';
   var dark=(t==='dark')||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+  try{
+    var me=JSON.parse(localStorage.getItem('sv_me')||'null');
+    if((me&&me.isDemo)||localStorage.getItem('sv_demo')==='1')document.documentElement.setAttribute('data-demo','');
+  }catch(e){}
 })();
 `.trim();
 
