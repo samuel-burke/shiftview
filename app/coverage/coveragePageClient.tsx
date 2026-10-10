@@ -412,7 +412,7 @@ function ProfileEditorCard({
           onClick={onSave}
           disabled={saving}
           aria-busy={saving}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
         >
           {saving ? "Saving…" : editing.id === null ? "Create Profile" : "Save Profile"}
         </button>

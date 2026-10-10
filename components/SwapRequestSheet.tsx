@@ -140,7 +140,7 @@ export default function SwapRequestSheet({
                       aria-label={`Request swap with ${c.employeeName}, ${fmtMinutes(c.startMinutes)} to ${fmtMinutes(c.endMinutes)}`}
                       className="flex items-center gap-3 w-full text-left bg-card border border-slate-800/60 rounded-2xl px-4 py-3 cursor-pointer hover:border-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     >
-                      <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                      <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                         {getMonogram(c.employeeName)}
                       </div>
                       <div className="flex-1 min-w-0">

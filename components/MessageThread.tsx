@@ -388,7 +388,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
           className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: 16 }}
         >
-          <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
+          <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
             {initials(otherName)}
           </div>
           <div className="flex-1 min-w-0">
@@ -442,7 +442,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                   <button
                     onClick={() => { setChessOpen(false); startChessGame(); }}
                     disabled={sending}
-                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
+                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
                   >
                     New game
                   </button>
@@ -511,7 +511,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                     <div
                       className={`max-w-[72%] px-3.5 py-2 text-sm leading-relaxed break-words ${
                         isMine
-                          ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white rounded-2xl rounded-br-[6px]"
+                          ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white rounded-2xl rounded-br-[6px]"
                           : "bg-slate-800 text-slate-100 rounded-2xl rounded-bl-[6px]"
                       }`}
                     >
@@ -552,7 +552,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
               disabled={!body.trim() || sending}
               aria-label="Send message"
               aria-busy={sending}
-              className="size-11 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
+              className="size-11 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

@@ -212,7 +212,7 @@ function ManagerCard({
               <button
                 onClick={() => onApproveClaim(shift.id, claim.id)}
                 aria-label={`Assign ${claim.employeeName} to the shift on ${formatDate(shift.date)}`}
-                className="py-2 px-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
+                className="py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
               >
                 Assign
               </button>
@@ -245,7 +245,7 @@ function EmployeeCard({
         <button
           onClick={() => onClaim(shift.id)}
           aria-label={`Claim the shift on ${formatDate(shift.date)}`}
-          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
+          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Claim shift
         </button>

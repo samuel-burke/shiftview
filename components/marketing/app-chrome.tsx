@@ -68,7 +68,7 @@ export function Bell({ unread = 0 }: { unread?: number }) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 22 }}
-            className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+            className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white"
           >
             {unread}
           </motion.span>
@@ -80,7 +80,7 @@ export function Bell({ unread = 0 }: { unread?: number }) {
 
 export function Avatar({ initials }: { initials: string }) {
   return (
-    <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-600/80 text-sm font-bold text-white">
+    <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-600/90 text-sm font-bold text-white">
       {initials}
     </span>
   );

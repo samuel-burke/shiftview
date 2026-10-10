@@ -46,7 +46,7 @@ export default function PositionsManager({
         />
         <button
           onClick={submit}
-          className="h-11 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 px-4 text-sm font-bold text-white cursor-pointer border-none hover:brightness-110 transition-[filter]"
+          className="h-11 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-sm font-bold text-white cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Add
         </button>

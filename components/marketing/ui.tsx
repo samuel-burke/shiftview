@@ -8,7 +8,7 @@ export function Container({ children, className = "" }: { children: React.ReactN
 
 // The app's primary action: its blue-to-violet gradient.
 export const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-violet-500 px-5 py-3 text-sm font-semibold text-white hover:brightness-110 transition-[filter]";
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white hover:brightness-110 transition-[filter]";
 export const secondaryBtn =
   "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-slate-100 transition-colors cursor-pointer";
 

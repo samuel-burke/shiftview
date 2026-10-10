@@ -174,7 +174,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                   aria-pressed={isSelected}
                   className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
                     isSelected
-                      ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold hover:opacity-90"
+                      ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white font-bold hover:opacity-90"
                       : isToday_
                       ? "bg-transparent text-blue-500 font-bold hover:bg-blue-500/10"
                       : "bg-transparent text-slate-400 font-normal hover:bg-slate-800 hover:text-slate-200"

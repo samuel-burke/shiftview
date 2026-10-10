@@ -807,7 +807,7 @@ export default function ClockPageClient() {
               whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(34,197,94,0.35)" }}
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-green-600"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-700 text-white shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-green-800"
             >
               {actionPending ? "…" : "Clock In"}
             </motion.button>
@@ -848,7 +848,7 @@ export default function ClockPageClient() {
               whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(245,158,11,0.35)" }}
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-600"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-700 text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-800"
             >
               {actionPending ? "…" : "End Break"}
             </motion.button>

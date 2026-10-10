@@ -1078,7 +1078,7 @@ export default function SchedulePageClient() {
                 onClick={handleRequestDayOff}
                 disabled={timeOffStatus === "loading"}
                 aria-busy={timeOffStatus === "loading"}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
               >
                 {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
               </button>
@@ -1095,7 +1095,7 @@ export default function SchedulePageClient() {
                   onClick={handleRequestDayOff}
                   disabled={timeOffStatus === "loading"}
                   aria-busy={timeOffStatus === "loading"}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
@@ -1197,7 +1197,7 @@ export default function SchedulePageClient() {
           onClick={() => router.push("/week?mode=draft")}
           whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
+          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
         >
           Plan Draft Schedule
         </motion.button>

@@ -169,7 +169,7 @@ export default function WeekHeader(props: Props) {
               disabled={busy || publishCount === 0}
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
             >
               Publish ({publishCount})
             </motion.button>

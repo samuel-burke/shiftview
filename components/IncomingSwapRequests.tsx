@@ -42,7 +42,7 @@ function SwapRow({ swap, responding, onAccept, onDecline }: {
   return (
     <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 mb-2">
       <div className="flex items-center gap-3 mb-2">
-        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
           {getMonogram(swap.requesterName)}
         </div>
         <div className="flex-1 min-w-0">
@@ -74,7 +74,7 @@ function SwapRow({ swap, responding, onAccept, onDecline }: {
           disabled={responding}
           aria-label={`Accept swap with ${swap.requesterName}`}
           aria-busy={responding}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent text-white font-bold text-xs cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter]"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent text-white font-bold text-xs cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter]"
         >
           Accept
         </button>

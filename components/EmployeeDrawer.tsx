@@ -437,7 +437,7 @@ export default function EmployeeDrawer({
                       whileHover={!saving ? { scale: 1.02, boxShadow: "0 6px 24px rgba(139,92,246,0.3)" } : {}}
                       whileTap={!saving ? { scale: 0.97 } : {}}
                       transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
+                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
                     >
                       {saving ? "Saving…" : isDraft ? "Save Draft" : "Save Shift"}
                     </motion.button>
@@ -506,7 +506,7 @@ export default function EmployeeDrawer({
                           onClick={onSwitchToLive}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-blue-600 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
                         >
                           Switch to Live
                         </motion.button>
@@ -517,7 +517,7 @@ export default function EmployeeDrawer({
                           whileHover={{ scale: 1.02, boxShadow: "0 6px 24px rgba(59,130,246,0.3)" }}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-blue-600 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
                         >
                           {schedule ? (isDraft ? "Edit Draft" : "Edit Shift") : isDraft ? "Add Draft" : "Add Shift"}
                         </motion.button>

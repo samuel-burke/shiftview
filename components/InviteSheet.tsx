@@ -186,7 +186,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
+              className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
             >
               {saving ? "Sending…" : "Send Invite"}
             </button>

@@ -846,7 +846,7 @@ export default function ReportsPageClient() {
             <section>
               <button
                 onClick={exportCSV}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
               >
                 Export CSV
               </button>
@@ -980,7 +980,7 @@ export default function ReportsPageClient() {
 
               <button
                 onClick={downloadPayroll}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-700 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
               >
                 {payrollFormat === "qb-iif"
                   ? "Download QuickBooks Desktop (.iif)"

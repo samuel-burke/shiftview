@@ -1485,7 +1485,7 @@ export default function SettingsPageClient({
               employees.map((emp) => (
                 <motion.div key={emp.id} variants={listItem} className="flex flex-col">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     {editingId === emp.id ? (

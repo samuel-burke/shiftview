@@ -267,7 +267,7 @@ function TimeOffCard({
   return (
     <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
       <div className="flex items-center gap-3 mb-3">
-        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
@@ -290,7 +290,7 @@ function TimeOffCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s time off request`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -352,7 +352,7 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -398,7 +398,7 @@ function PunchCorrectionCard({
   return (
     <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3" data-testid="punch-correction-card">
       <div className="flex items-center gap-3 mb-2">
-        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
@@ -418,7 +418,7 @@ function PunchCorrectionCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s punch correction`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
