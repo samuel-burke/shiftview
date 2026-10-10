@@ -881,7 +881,7 @@ export default function SettingsPageClient({
                     <motion.div
                       layoutId="theme-active"
                       className="absolute inset-0 rounded-[9px] bg-slate-600"
-                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
@@ -1418,7 +1418,7 @@ export default function SettingsPageClient({
                     <motion.div
                       layoutId="week-start-active"
                       className="absolute inset-0 rounded-[9px] bg-slate-600"
-                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}

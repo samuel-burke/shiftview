@@ -160,7 +160,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
               aria-selected={view === v}
               onClick={() => setView(v)}
               className={`min-h-8 px-3 text-[11px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
-                view === v ? "bg-indigo-600/40 text-indigo-200" : "bg-transparent text-slate-400 hover:text-slate-200"
+                view === v ? "bg-indigo-600/40 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
               {v === "day" ? "By Day" : "By Hour"}

@@ -122,7 +122,7 @@ export default function WeekGrid({
                       aria-pressed={isPicked}
                       aria-label={`${formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}${isToday ? ", today" : ""}`}
                       className={`w-full min-h-11 rounded-lg py-1 cursor-pointer border transition-colors ${
-                        isPicked ? "bg-indigo-600/25 border-indigo-500/40" : "bg-transparent border-transparent hover:bg-slate-800/60"
+                        isPicked ? "bg-indigo-600/25 border-indigo-400" : "bg-transparent border-transparent hover:bg-slate-800/60"
                       }`}
                     >
                       {label}

@@ -124,7 +124,7 @@ export default function WeekCoverageHeatmap({
               aria-selected={view === v}
               onClick={() => setView(v)}
               className={`min-h-8 px-3 text-[11px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
-                view === v ? "bg-indigo-600/40 text-indigo-200" : "bg-transparent text-slate-400 hover:text-slate-200"
+                view === v ? "bg-indigo-600/40 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
               {v === "grid" ? "Grid" : "List"}
@@ -292,7 +292,7 @@ export default function WeekCoverageHeatmap({
                   aria-pressed={row.date === selectedDate}
                   aria-label={`Select ${DAY_NAMES[dayOfWeek(row.date)]}`}
                   className={`w-11 min-h-8 -my-1 shrink-0 rounded-lg text-left pl-1.5 text-xs font-semibold border-none cursor-pointer ${
-                    row.date === selectedDate ? "bg-indigo-600/25 text-indigo-200" : "bg-transparent text-slate-300 hover:text-slate-100"
+                    row.date === selectedDate ? "bg-indigo-600/25 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-300 hover:text-slate-100"
                   }`}
                 >
                   {DAY_SHORT[dayOfWeek(row.date)]}

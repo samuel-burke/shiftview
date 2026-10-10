@@ -28,7 +28,7 @@ export default function SegmentedControl<T extends string | number>({
             disabled={disabled}
             onClick={() => { if (!active) onChange(o.value); }}
             className={`flex-1 min-h-[40px] px-2.5 rounded-[9px] text-xs font-semibold cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              active ? "bg-slate-600 text-slate-50 shadow" : "bg-transparent text-slate-400 hover:text-slate-200"
+              active ? "bg-slate-600 text-slate-50 shadow ring-1 ring-inset ring-slate-500" : "bg-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             {o.label}

@@ -70,7 +70,7 @@ export function DayChips({
             aria-label={ready ? formatDateKey(date, { weekday: "long", month: "long", day: "numeric" }) : undefined}
             className={`flex flex-col items-center py-2 rounded-xl cursor-pointer transition-colors border ${
               active
-                ? "bg-indigo-600/25 border-indigo-500/40 text-indigo-200"
+                ? "bg-indigo-600/25 border-indigo-400 text-indigo-200"
                 : "bg-card border-slate-800/60 text-slate-400 hover:text-slate-200"
             }`}
           >

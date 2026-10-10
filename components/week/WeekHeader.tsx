@@ -76,7 +76,7 @@ function ModeToggle({
             disabled={disabled}
             onClick={() => { if (!active) onChange(o.value); }}
             className={`min-h-10 px-3 rounded-[9px] text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:cursor-default ${
-              active ? "bg-slate-800 text-slate-50 shadow" : "bg-transparent text-slate-400 hover:text-slate-200"
+              active ? "bg-slate-800 text-slate-50 shadow ring-1 ring-inset ring-slate-500" : "bg-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             <span aria-hidden="true" className={`size-1.5 rounded-full ${active ? o.dot : "bg-slate-600"}`} />
