@@ -420,7 +420,7 @@ export default function AvailabilitySection({
                   {/* Copy to */}
                   <div>
                     <div className="text-xs text-slate-500 mb-2">Apply this window to:</div>
-                    <div className="rounded-xl border border-slate-700/60 overflow-hidden divide-y divide-slate-700/60">
+                    <div className="flex flex-col gap-2">
                       {[
                         { key: "weekdays", label: "Weekdays", targets: WEEKDAYS },
                         { key: "weekends", label: "Weekends", targets: WEEKENDS },
@@ -431,10 +431,10 @@ export default function AvailabilitySection({
                           <button
                             key={key}
                             onClick={() => copyToTarget(activeDow, targets, key)}
-                            className={`w-full py-3 px-4 text-sm font-semibold text-left transition-colors cursor-pointer border-none ${
+                            className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
                               copied
-                                ? "bg-emerald-900/40 text-emerald-400"
-                                : "bg-slate-800/50 text-slate-300 hover:bg-slate-800"
+                                ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
+                                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-slate-200"
                             }`}
                           >
                             {copied ? `✓ ${label} updated` : label}
