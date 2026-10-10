@@ -23,6 +23,7 @@ import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../li
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
 import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
+import StableLabel from "@/components/StableLabel";
 
 // Templates are applied to the 7 days starting at a chosen date: default to
 // the next start of the store's week (its "first day of week" setting) on or
@@ -1513,7 +1514,7 @@ export default function SettingsPageClient({
                           aria-busy={editSaving}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {editSaving ? "…" : "Save"}
+                          <StableLabel labels={["Save", "…"]} active={editSaving ? 1 : 0} />
                         </button>
                         <button
                           onClick={() => setEditingId(null)}

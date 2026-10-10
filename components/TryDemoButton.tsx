@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ME_CACHE_KEY } from "@/lib/AppDataContext";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
+import StableLabel from "./StableLabel";
 
 // Starts a demo session (anonymous sign-in + demo-org membership via
 // POST /api/demo/start) and lands on the dashboard with a real session.
@@ -86,7 +87,7 @@ export default function TryDemoButton({
   return (
     <div className="flex flex-col gap-2">
       <button onClick={handleClick} disabled={loading} className={className}>
-        {loading ? "Starting demo…" : children}
+        <StableLabel labels={[children, "Starting demo…"]} active={loading ? 1 : 0} />
       </button>
       <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
       {error && (

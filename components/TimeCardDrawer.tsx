@@ -5,6 +5,7 @@ import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
 import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
 import { useScrollLock } from "@/lib/scroll-lock";
+import StableLabel from "./StableLabel";
 
 type Props = {
   open: boolean;
@@ -232,7 +233,7 @@ export function TimeCardPanel({
           disabled={loading || from > to}
           className="py-1.5 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? "…" : "Apply"}
+          <StableLabel labels={["Apply", "…"]} active={loading ? 1 : 0} />
         </button>
       </div>
 

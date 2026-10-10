@@ -139,6 +139,9 @@ body {
   color: var(--body-color);
   font-family: Inter, sans-serif;
   padding-top: env(safe-area-inset-top);
+  /* Every digit the same width: times, dates, counts and timers change in
+     place without nudging the text around them. */
+  font-variant-numeric: tabular-nums;
 }
 
 * {
