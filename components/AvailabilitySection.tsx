@@ -359,7 +359,9 @@ export default function AvailabilitySection({
                           layoutId="avail-pill"
                           className="absolute inset-0 rounded-[9px]"
                           style={{
-                            background: `color-mix(in srgb, ${activeColor} 12%, transparent)`,
+                            // Over the card's color, not the track's: on the lighter
+                            // track, Window's indigo fell under 4.5:1.
+                            background: `color-mix(in srgb, ${activeColor} 12%, var(--color-card))`,
                             boxShadow: `inset 0 0 0 1px ${activeColor}`,
                           }}
                           transition={{ type: "spring", stiffness: 420, damping: 34 }}
