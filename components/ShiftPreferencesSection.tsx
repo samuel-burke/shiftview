@@ -45,6 +45,7 @@ function Chip({
   label,
   ariaLabel,
   dotColor,
+  fill = false,
 }: {
   active: boolean;
   tone: "indigo" | "red";
@@ -52,6 +53,9 @@ function Chip({
   label: string;
   ariaLabel: string;
   dotColor?: string;
+  /** Fills a grid cell: the label is centred with little side padding, so
+   *  "Wed" fits the seven-day grid on a 360px phone. */
+  fill?: boolean;
 }) {
   const activeClass =
     tone === "indigo"
@@ -63,7 +67,7 @@ function Chip({
       aria-pressed={active}
       aria-label={ariaLabel}
       onClick={onClick}
-      className={`min-h-[40px] px-3 rounded-xl border text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 ${
+      className={`min-h-[40px] ${fill ? "px-1 justify-center" : "px-3"} rounded-xl border text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 ${
         active ? activeClass : "bg-bg border-slate-700 text-slate-400 hover:text-slate-200"
       }`}
     >
@@ -195,6 +199,7 @@ export default function ShiftPreferencesSection({
               })}
               label={DAY_SHORT[d]}
               ariaLabel={`Prefer ${DAY_FULL[d]}s`}
+              fill
             />
           ))}
         </div>
@@ -215,6 +220,7 @@ export default function ShiftPreferencesSection({
               })}
               label={DAY_SHORT[d]}
               ariaLabel={`Rather not work ${DAY_FULL[d]}s`}
+              fill
             />
           ))}
         </div>
