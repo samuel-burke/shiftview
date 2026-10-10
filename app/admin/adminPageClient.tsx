@@ -9,6 +9,7 @@ import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import { motion } from "framer-motion";
 import { useAppData } from "../../lib/AppDataContext";
+import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -23,7 +24,6 @@ export default function AdminPageClient({
   const router = useRouter();
   const supabase = createClient();
   const { me } = useAppData();
-  const isDemo = me.isDemo;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [ownerUserIds, setOwnerUserIds] = useState<Set<string>>(new Set());
@@ -139,12 +139,7 @@ export default function AdminPageClient({
   return (
     <AppShell active="admin" isManager>
     <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
-      {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner />
       <div
         className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
                    desk:px-6 desk:py-[14px] desk:pb-[14px] desk:gap-0"

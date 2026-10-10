@@ -234,16 +234,19 @@ export default function AvailabilitySection({
 
   return (
     <section data-testid="availability-section">
-      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-        Availability
+      {/* The "no restrictions" note shares the label's line, so the card keeps
+          its height when the saved availability loads (or is changed). */}
+      <div className="flex items-baseline justify-between gap-2 mb-2 px-1">
+        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+          Availability
+        </div>
+        {allAny && (
+          <div className="text-xs text-emerald-400 truncate">
+            ✓ No restrictions set — available any time.
+          </div>
+        )}
       </div>
       <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-1">
-
-      {allAny && (
-        <div className="mb-2 text-xs text-emerald-400">
-          ✓ No restrictions set — available any time.
-        </div>
-      )}
 
       {/* Compact day rows */}
       <div className="flex flex-col divide-y divide-slate-800/60">

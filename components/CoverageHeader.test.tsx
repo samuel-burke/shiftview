@@ -22,7 +22,6 @@ const baseProps = {
   hereCount: 2,
   nowMinutes: 600, // 10am
   coverageStatus: "optimal" as const,
-  isDemo: false,
 };
 
 describe("CoverageHeader", () => {
@@ -48,7 +47,8 @@ describe("CoverageHeader", () => {
 
   it("does not show TODAY button when viewing today", () => {
     render(<CoverageHeader {...baseProps} isToday={true} />);
-    expect(screen.queryByText("TODAY")).not.toBeInTheDocument();
+    // It keeps its room (invisible) so the header doesn't reflow between days.
+    expect(screen.queryByRole("button", { name: "TODAY" })).not.toBeInTheDocument();
   });
 
   it("shows TODAY button when viewing a different day", () => {
@@ -87,9 +87,24 @@ describe("CoverageHeader", () => {
     expect(screen.getByText(/Below coverage target/)).toBeInTheDocument();
   });
 
-  it("shows no alert when coverage is optimal", () => {
-    render(<CoverageHeader {...baseProps} coverageStatus="optimal" />);
-    expect(screen.queryByText(/Coverage/)).not.toBeInTheDocument();
+  it("shows a calm on-target status, not a warning, when coverage is optimal", () => {
+    render(<CoverageHeader {...baseProps} coverageStatus="optimal" hereCount={4} />);
+    expect(screen.getByRole("status")).toHaveTextContent("On target — 4 here now");
+    expect(screen.queryByText(/below coverage target/i)).not.toBeInTheDocument();
+  });
+
+  it("holds the status line with a placeholder while today's coverage loads", () => {
+    render(<CoverageHeader {...baseProps} loading coverageStatus="low" />);
+    expect(screen.getByRole("status", { name: "Loading coverage status" })).toBeInTheDocument();
+    expect(screen.queryByText(/Below coverage target/)).not.toBeInTheDocument();
+  });
+
+  it("offers Back to Today in the status line when viewing another day", async () => {
+    const onNow = vi.fn();
+    render(<CoverageHeader {...baseProps} date={new Date(2026, 4, 20)} isToday={false} onNow={onNow} />);
+    expect(screen.getByText("Viewing past schedule")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back to Today" }));
+    expect(onNow).toHaveBeenCalledOnce();
   });
 
   it("shows Sign In in the user menu dropdown when onSignIn is provided", async () => {

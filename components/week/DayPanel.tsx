@@ -184,7 +184,10 @@ export function DayList({
   loading,
   selected,
   onSelect,
+  notice,
 }: {
+  /** Shown at the top of the list once it has loaded (Draft mode's "no drafts"). */
+  notice?: React.ReactNode;
   mode: WeekMode;
   date: string;
   dates: string[];
@@ -244,7 +247,9 @@ export function DayList({
       ) : employees.length === 0 ? (
         <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
       ) : (
-        rows.map(({ emp, cell }) => {
+        <>
+        {notice}
+        {rows.map(({ emp, cell }) => {
           const s = cell.shown;
           const isLiveContext = isDraftMode && cell.live !== null;
           const clash = isDraftMode && cell.live !== null && cell.draft !== null;
@@ -316,7 +321,8 @@ export function DayList({
               )}
             </button>
           );
-        })
+        })}
+        </>
       )}
     </div>
   );

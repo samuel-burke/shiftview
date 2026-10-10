@@ -6,8 +6,9 @@ import { CoverageStatus } from "../data/types";
 import DatePickerSheet from "./DatePickerSheet";
 import UserMenu from "./UserMenu";
 import NotificationBell from "./NotificationBell";
-import { WarningIcon, CalendarIcon, LockIcon } from "./ShiftIcons";
+import { WarningIcon, CalendarIcon, LockIcon, TimeOffApprovedIcon } from "./ShiftIcons";
 import Logo from "@/components/Logo";
+import DemoBanner from "./DemoBanner";
 
 type Props = {
   date: Date;
@@ -22,7 +23,6 @@ type Props = {
   hereCount: number;
   nowMinutes: number;
   coverageStatus: CoverageStatus;
-  isDemo: boolean;
   loading?: boolean;
   userName?: string | null;
   isManager?: boolean;
@@ -60,7 +60,6 @@ export default function CoverageHeader({
   isToday,
   hereCount,
   coverageStatus,
-  isDemo,
   loading = false,
   userName = null,
   coverageAlertsEnabled = true,
@@ -86,13 +85,20 @@ export default function CoverageHeader({
       return { icon: <WarningIcon size={13} color="#f87171" />, message: `Critically below coverage target — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "#f87171" };
     if (coverageStatus === "low")
       return { icon: <WarningIcon size={13} color="#fbbf24" />, message: `Below coverage target — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "#fbbf24" };
-    return null;
+    // On target: a calm status rather than nothing, so the line is there in
+    // every state and the dashboard under it never moves when it changes.
+    return { icon: <TimeOffApprovedIcon size={13} color="#22c55e" />, message: `On target — ${hereCount} here now`, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.22)", text: "#22c55e", calm: true };
   })();
 
-  const alertKey = alertConfig?.message ?? "none";
-  // Past/future alerts are deterministic (date prop always known), show immediately.
-  // Coverage status alerts depend on loaded data, gate on !loading.
-  const showAlert = coverageAlertsEnabled && alertConfig && (!loading || isPast || isFuture);
+  const alertKey = alertConfig.message;
+  // The status line always has its place (when alerts are on). Past/future
+  // messages are known from the date; today's depends on the loaded data, so
+  // until then the line is a placeholder of the same size.
+  const showStatusLine = coverageAlertsEnabled;
+  const statusPending = loading && !isPast && !isFuture;
+  // Off today, "Back to Today" rides on the status line instead of being a
+  // button that appears (and pushes the page) only when you leave today.
+  const todayInStatusLine = showStatusLine && !isToday;
 
   // Mobile nav: full-width justify-between, pill-style date button, TODAY shortcut
   const mobileNav = (
@@ -120,7 +126,7 @@ export default function CoverageHeader({
         </motion.button>
         <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
       </div>
-      {!isToday && (
+      {!isToday && !todayInStatusLine && (
         <motion.button
           onClick={onNow}
           whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(99,102,241,0.35)" }}
@@ -160,12 +166,7 @@ export default function CoverageHeader({
   return (
     <div className="mb-4 desk:mb-6">
       {/* Desktop-only demo banner (above the bar) */}
-      {isDemo && (
-        <div className="hidden desk:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner className="hidden desk:flex" />
 
       {/*
        * Sticky on mobile (eliminates the JS-measured spacer div that was the main CLS source).
@@ -190,12 +191,7 @@ export default function CoverageHeader({
                    ${hideMobileBrand ? "hidden desk:flex" : "sticky top-0 z-30 header-safe-top"}`}
       >
         {/* Mobile-only demo banner (inside bar) */}
-        {isDemo && (
-          <div className="-mx-4 mb-2 px-4 py-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between desk:hidden">
-            <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-            <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
-          </div>
-        )}
+        <DemoBanner className="-mx-4 mb-2 flex desk:hidden" />
 
         {/* Brand + actions row (mobile row-1; on desktop: contents trick merges into parent flex) */}
         <div className="flex items-center justify-between mb-3 desk:contents">
@@ -213,17 +209,19 @@ export default function CoverageHeader({
           </div>
 
           <div className="flex items-center gap-2 desk:shrink-0">
-            {!isToday && (
-              <motion.button
-                onClick={onNow}
-                whileTap={{ scale: 0.93 }}
-                whileHover={{ scale: 1.04 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className="text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-3 cursor-pointer"
-              >
-                TODAY
-              </motion.button>
-            )}
+            {/* Holds its room on today too (invisible there), so the date nav
+                beside it doesn't re-center when you change days. */}
+            <motion.button
+              onClick={onNow}
+              whileTap={{ scale: 0.93 }}
+              whileHover={{ scale: 1.04 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              aria-hidden={isToday || undefined}
+              tabIndex={isToday ? -1 : undefined}
+              className={`text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-3 cursor-pointer ${isToday ? "invisible" : ""}`}
+            >
+              TODAY
+            </motion.button>
             <NotificationBell />
             <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
           </div>
@@ -237,22 +235,45 @@ export default function CoverageHeader({
         )}
       </div>
 
-      <AnimatePresence mode="wait">
-        {showAlert && (
-          <motion.div
-            key={alertKey}
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2 mt-3 tablet:mx-6"
-            style={{ background: alertConfig!.bg, border: `1px solid ${alertConfig!.border}`, color: alertConfig!.text }}
-          >
-            {alertConfig!.icon}
-            <span>{alertConfig!.message}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showStatusLine && (
+        <div className="mt-3 tablet:mx-6 min-h-[38px]">
+          <AnimatePresence mode="wait" initial={false}>
+            {statusPending ? (
+              <motion.div
+                key="pending"
+                role="status"
+                aria-label="Loading coverage status"
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="skeleton h-[38px] rounded-[10px]"
+              />
+            ) : (
+              <motion.div
+                key={alertKey}
+                role={alertConfig.calm ? "status" : undefined}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="min-h-[38px] px-[14px] py-[10px] rounded-[10px] text-xs flex items-center gap-2"
+                style={{ background: alertConfig.bg, border: `1px solid ${alertConfig.border}`, color: alertConfig.text }}
+              >
+                {alertConfig.icon}
+                <span className="flex-1 min-w-0">{alertConfig.message}</span>
+                {todayInStatusLine && (
+                  <button
+                    onClick={onNow}
+                    // A 22px chip inside the 38px line, with a 44px tap target.
+                    className="relative -my-[3px] shrink-0 rounded-md bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-xs font-bold leading-4 text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors after:absolute after:-inset-y-[11px] after:-inset-x-1 after:content-['']"
+                  >
+                    Back to Today
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       <DatePickerSheet open={pickerOpen} selected={date} today={today} onSelect={onDateSelect} onClose={() => setPickerOpen(false)} />
     </div>

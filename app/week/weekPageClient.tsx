@@ -290,6 +290,20 @@ export default function WeekPageClient() {
   const weekLabel = `${formatDateKey(dates[0], { month: "short", day: "numeric" })} – ${formatDateKey(dates[6], { month: "short", day: "numeric", year: "numeric" })}`;
   const pickedDow = pickedCell ? dayOfWeekForKey(pickedCell.date) : 0;
 
+  // Draft mode with nothing drafted yet. It arrives with the week's data, so
+  // it's shown with it: in the day list on phones (its rows land at the same
+  // moment) and under the grid on larger screens — never above the page,
+  // where it would push everything down when the week loads.
+  const showDraftsEmpty = isDraftMode && !loading && !week.draftsUnavailable && drafts.length === 0 && !auto.currentRun && employees.length > 0;
+  const draftsEmptyText = (
+    <div className="flex-1 min-w-0">
+      <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
+      <div className="text-xs text-slate-400 mt-0.5">
+        Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
+      </div>
+    </div>
+  );
+
   return (
     <AppShell active="week" isManager>
       <main
@@ -351,29 +365,6 @@ export default function WeekPageClient() {
           />
         )}
 
-        {isDraftMode && !loading && !week.draftsUnavailable && drafts.length === 0 && !auto.currentRun && employees.length > 0 && (
-          <div
-            data-testid="auto-schedule-empty"
-            className="mx-4 mt-3 tablet:mx-6 px-4 py-3.5 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] flex items-center gap-3"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
-              </div>
-            </div>
-            {/* Phones have the header's button right above. */}
-            <button
-              type="button"
-              onClick={auto.openSheet}
-              className="hidden tablet:flex px-3.5 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/35 text-violet-100 font-bold text-xs cursor-pointer hover:bg-violet-500/30 transition-colors shrink-0 items-center gap-1.5"
-            >
-              <Sparkle />
-              Auto-schedule
-            </button>
-          </div>
-        )}
-
         <div className="px-4 pt-4 tablet:px-6 wide:max-w-[1680px] wide:mx-auto">
           <div className="mb-4">
             <WeekStats shifts={counted} dates={dates} curves={curves} timezone={timezone} loading={loading} />
@@ -395,6 +386,11 @@ export default function WeekPageClient() {
           />
           <div className="tablet:hidden">
             <DayList
+              notice={showDraftsEmpty ? (
+                <div data-testid="auto-schedule-empty" className="px-4 py-3.5 bg-violet-500/[0.06] flex items-center gap-3">
+                  {draftsEmptyText}
+                </div>
+              ) : null}
               mode={mode}
               date={selectedDate}
               dates={dates}
@@ -424,6 +420,22 @@ export default function WeekPageClient() {
               selectedDate={selectedDate}
               onSelectDate={selectDate}
             />
+            {showDraftsEmpty && (
+              <div
+                data-testid="auto-schedule-empty"
+                className="mt-3 px-4 py-3.5 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] flex items-center gap-3"
+              >
+                {draftsEmptyText}
+                <button
+                  type="button"
+                  onClick={auto.openSheet}
+                  className="px-3.5 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/35 text-violet-100 font-bold text-xs cursor-pointer hover:bg-violet-500/30 transition-colors shrink-0 flex items-center gap-1.5"
+                >
+                  <Sparkle />
+                  Auto-schedule
+                </button>
+              </div>
+            )}
             <p className="hidden desk:block mt-3 text-xs text-slate-500">
               Click a cell to {isDraftMode ? "draft" : "edit or add"} a shift, or a day to see its coverage.{" "}
               <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> change the week, <kbd className="font-mono">T</kbd> returns to this week.

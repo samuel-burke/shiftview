@@ -123,7 +123,7 @@ export default function SchedulePageClient() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { isManager, employeeId, employeeName, isDemo } = me;
+  const { isManager, employeeId, employeeName } = me;
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [timeOffStatus, setTimeOffStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -150,6 +150,12 @@ export default function SchedulePageClient() {
   const [swapSubmitting, setSwapSubmitting] = useState(false);
   const [swapSubmitError, setSwapSubmitError] = useState<string | null>(null);
   const [swapRequestStatus, setSwapRequestStatus] = useState<"idle" | "success">("idle");
+  // The day card's other inputs, each loaded on its own: it waits for all of
+  // them, so it doesn't grow a button or a status line after it's shown.
+  const [dayCardInputs, setDayCardInputs] = useState({ swaps: false, timeOff: false, callouts: false, punches: false });
+  const markLoaded = useCallback((part: keyof typeof dayCardInputs) => {
+    setDayCardInputs((prev) => (prev[part] ? prev : { ...prev, [part]: true }));
+  }, []);
   // Which incoming swap (if any) is mid accept/decline, to disable its buttons.
   const [respondingSwapId, setRespondingSwapId] = useState<number | null>(null);
 
@@ -227,8 +233,9 @@ export default function SchedulePageClient() {
       .then((data: RawSwap[]) => {
         if (Array.isArray(data)) setAllSwaps(data.map(mapSwap));
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => markLoaded("swaps"));
+  }, [markLoaded]);
 
   // SwapRequestsDrawer's cards call these directly without catching, so swallow
   // errors here and resync from the server rather than throwing.
@@ -353,15 +360,20 @@ export default function SchedulePageClient() {
   }
 
   const loadClockedInToday = useCallback(() => {
-    if (employeeId === null) return;
+    if (employeeId === null) {
+      // No employee record: nothing to load once the identity is known.
+      if (!sharedLoading) markLoaded("punches");
+      return;
+    }
     fetch(`/api/punches?date=${todayKey}`)
       .then((r) => r.json())
       .then((punches: PunchRecord[]) => {
         if (!Array.isArray(punches)) return;
         setClockedInToday(punches.some((p) => p.employeeId === employeeId && p.punchType === "clock_in"));
       })
-      .catch(() => {});
-  }, [employeeId, todayKey]);
+      .catch(() => {})
+      .finally(() => markLoaded("punches"));
+  }, [employeeId, todayKey, sharedLoading, markLoaded]);
 
   // Refresh on load, at the store's midnight (todayKey changes), and when the
   // tab comes back — e.g. after clocking in on the Clock screen or another device.
@@ -409,16 +421,18 @@ export default function SchedulePageClient() {
           })));
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => markLoaded("timeOff"));
+  }, [markLoaded]);
 
   // Load user's own upcoming call-outs on mount
   useEffect(() => {
     fetch("/api/callouts?mine=true")
       .then((r) => r.json())
       .then(({ callouts }) => { if (Array.isArray(callouts)) setMyCallouts(callouts); })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => markLoaded("callouts"));
+  }, [markLoaded]);
 
   async function handleCallOut() {
     if (!employeeId) return;
@@ -702,6 +716,7 @@ export default function SchedulePageClient() {
       : navDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const selectedDateKey = localDateKey(selectedDate);
+  const dayCardLoading = loading || !Object.values(dayCardInputs).every(Boolean);
   const selectedSchedule =
     schedules.find((s) => s.date.slice(0, 10) === selectedDateKey) ?? null;
 
@@ -996,8 +1011,8 @@ export default function SchedulePageClient() {
   const detailSection = (
     <>
       {/* Detail card */}
-      {loading ? <SkeletonDetailCard /> : null}
-      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${loading ? " hidden" : ""}`}>
+      {dayCardLoading ? <SkeletonDetailCard /> : null}
+      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${dayCardLoading ? " hidden" : ""}`}>
         <div className="min-h-6 flex items-center justify-between mb-1">
           <span className="text-sm text-slate-400">{selectedDayLabel}</span>
           {shiftLabel && shiftColor && (
@@ -1125,18 +1140,21 @@ export default function SchedulePageClient() {
         ) : null}
       </div>
 
-      {/* Incoming swap requests this user must accept or decline */}
-      <IncomingSwapRequests
-        swaps={incomingSwaps}
-        respondingId={respondingSwapId}
-        onAccept={(id) => respondToSwap(id, "accepted")}
-        onDecline={(id) => respondToSwap(id, "declined")}
-      />
+      {/* Incoming swap requests this user must accept or decline. Shown with
+          the day card above it, so a taller card can't push them down. */}
+      {!dayCardLoading && (
+        <IncomingSwapRequests
+          swaps={incomingSwaps}
+          respondingId={respondingSwapId}
+          onAccept={(id) => respondToSwap(id, "accepted")}
+          onDecline={(id) => respondToSwap(id, "declined")}
+        />
+      )}
 
       {/* Stats row. No placeholder while loading: it sits under the day card,
           whose height depends on the day (a shift and its buttons, or a day
           off), so a placeholder here would only jump. */}
-      <div className={`flex gap-2${loading ? " hidden" : ""}`}>
+      <div className={`flex gap-2${dayCardLoading ? " hidden" : ""}`}>
         <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
           <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
           <div className="text-xs text-slate-400 mt-1">
@@ -1155,7 +1173,9 @@ export default function SchedulePageClient() {
         </div>
       </div>
 
-      {isManager && (
+      {/* The manager buttons follow the stats in, rather than sitting where the
+          stats will appear. */}
+      {isManager && !dayCardLoading && (
         <motion.button
           onClick={() => router.push("/week?mode=draft")}
           whileTap={{ scale: 0.98 }}
@@ -1166,7 +1186,7 @@ export default function SchedulePageClient() {
         </motion.button>
       )}
 
-      {isManager && (
+      {isManager && !dayCardLoading && (
         <button
           // Phones review requests in the drawer; wider screens get the full inbox page.
           onClick={() => (window.matchMedia(`(min-width: ${BREAKPOINTS.tablet}px)`).matches ? router.push("/requests") : setSwapDrawerOpen(true))}
@@ -1188,7 +1208,6 @@ export default function SchedulePageClient() {
       active="schedule"
       isManager={isManager}
       userName={sharedLoading ? null : employeeName}
-      isDemo={isDemo}
       onSignOut={handleSignOut}
     >
       <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">

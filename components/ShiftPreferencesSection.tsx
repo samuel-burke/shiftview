@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SHIFT_COLORS, type ShiftType } from "@/data/types";
 import { MAX_WEEKLY_HOURS } from "@/lib/scheduling-rules";
-import { PREFERENCE_NOTE_MAX, SHIFT_TYPES, type ShiftPreferences } from "@/lib/preferences";
+import { PREFERENCE_NOTE_MAX, SHIFT_TYPES, emptyPreferences, type ShiftPreferences } from "@/lib/preferences";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
 import FormError from "./FormError";
 
@@ -156,12 +156,14 @@ export default function ShiftPreferencesSection({
     }
   }
 
+  // While loading, the form itself, empty and disabled: it has its final size
+  // from the start, so the sections under it don't move when it fills in.
+  const loading = form === null;
+  const shown = form ?? toForm(emptyPreferences(employeeId));
   const body = loadError ? (
     <div className="text-xs text-slate-500">Shift preferences aren&apos;t available right now.</div>
-  ) : form === null ? (
-    <div role="status" className="text-xs text-slate-500">Loading…</div>
   ) : (
-    <div className="flex flex-col gap-4">
+    <fieldset disabled={loading} aria-busy={loading || undefined} className="min-w-0 flex flex-col gap-4">
       <div>
         <div className="text-xs font-semibold text-slate-300 mb-2">Shifts {employeeName ? "they" : "I"} like</div>
         <div className="flex flex-wrap gap-2">
@@ -169,8 +171,8 @@ export default function ShiftPreferencesSection({
             <Chip
               key={t}
               tone="indigo"
-              active={form.preferredShiftTypes.includes(t)}
-              onClick={() => setForm({ ...form, preferredShiftTypes: toggle(form.preferredShiftTypes, t) })}
+              active={shown.preferredShiftTypes.includes(t)}
+              onClick={() => setForm({ ...shown, preferredShiftTypes: toggle(shown.preferredShiftTypes, t) })}
               label={SHIFT_LABELS[t]}
               ariaLabel={`Prefer ${SHIFT_LABELS[t].toLowerCase()} shifts`}
               dotColor={SHIFT_COLORS[t]}
@@ -186,11 +188,11 @@ export default function ShiftPreferencesSection({
             <Chip
               key={d}
               tone="indigo"
-              active={form.preferredDays.includes(d)}
+              active={shown.preferredDays.includes(d)}
               onClick={() => setForm({
-                ...form,
-                preferredDays: toggle(form.preferredDays, d),
-                avoidDays: form.avoidDays.filter((x) => x !== d),
+                ...shown,
+                preferredDays: toggle(shown.preferredDays, d),
+                avoidDays: shown.avoidDays.filter((x) => x !== d),
               })}
               label={DAY_SHORT[d]}
               ariaLabel={`Prefer ${DAY_FULL[d]}s`}
@@ -206,11 +208,11 @@ export default function ShiftPreferencesSection({
             <Chip
               key={d}
               tone="red"
-              active={form.avoidDays.includes(d)}
+              active={shown.avoidDays.includes(d)}
               onClick={() => setForm({
-                ...form,
-                avoidDays: toggle(form.avoidDays, d),
-                preferredDays: form.preferredDays.filter((x) => x !== d),
+                ...shown,
+                avoidDays: toggle(shown.avoidDays, d),
+                preferredDays: shown.preferredDays.filter((x) => x !== d),
               })}
               label={DAY_SHORT[d]}
               ariaLabel={`Rather not work ${DAY_FULL[d]}s`}
@@ -232,8 +234,8 @@ export default function ShiftPreferencesSection({
             max={MAX_WEEKLY_HOURS}
             step={0.5}
             placeholder="Any"
-            value={form.desiredHours}
-            onChange={(e) => setForm({ ...form, desiredHours: e.target.value })}
+            value={shown.desiredHours}
+            onChange={(e) => setForm({ ...shown, desiredHours: e.target.value })}
             className="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70"
           />
           <span className="text-xs text-slate-500">h</span>
@@ -248,9 +250,9 @@ export default function ShiftPreferencesSection({
           id={`pref-note-${employeeId}`}
           rows={2}
           maxLength={PREFERENCE_NOTE_MAX}
-          value={form.note}
+          value={shown.note}
           placeholder="e.g. Class until 2 PM on Tuesdays"
-          onChange={(e) => setForm({ ...form, note: e.target.value })}
+          onChange={(e) => setForm({ ...shown, note: e.target.value })}
           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/70 resize-none"
         />
       </div>
@@ -271,7 +273,7 @@ export default function ShiftPreferencesSection({
         </div>
         <SaveStatusText status={status} testId={`preferences-status-${employeeId}`} />
       </div>
-    </div>
+    </fieldset>
   );
 
   if (embedded) {

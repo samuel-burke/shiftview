@@ -172,9 +172,13 @@ export default function Page() {
 
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
-  const { isManager, employeeName: userName, isDemo } = me;
+  const { isManager, employeeName: userName } = me;
   const weeklyHours = weeklyHoursCtx;
-  const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
+  // The viewed day's target curve, tagged with its day so the coverage status
+  // line can tell "not loaded yet" from "no target".
+  const [curve, setCurve] = useState<{ day: string; blocks: CoverageBlock[] } | null>(null);
+  const curveReady = curve?.day === dateKey;
+  const dayCurve = useMemo(() => (curve?.day === dateKey ? curve.blocks : []), [curve, dateKey]);
 
   // Mutable ref so subscription callbacks always see the latest viewed date.
   // Updated on commit: day changes render as transitions, which can be
@@ -557,14 +561,14 @@ export default function Page() {
     ])
       .then(([profiles, assignments]) => {
         if (cancelled) return;
-        setDayCurve(curveForDate(
+        setCurve({ day: dk, blocks: curveForDate(
           dk,
           assignments?.overrides ?? {},
           assignments?.defaults ?? {},
           profiles
-        ));
+        ) });
       })
-      .catch(() => { if (!cancelled) setDayCurve([]); });
+      .catch(() => { if (!cancelled) setCurve({ day: dk, blocks: [] }); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
@@ -756,7 +760,8 @@ export default function Page() {
 
   const headerProps = {
     date, today, isToday, hereCount: hereNowCount,
-    nowMinutes, coverageStatus, isDemo, loading: isLoading,
+    // Today's status needs the day's curve as well as its shifts.
+    nowMinutes, coverageStatus, loading: isLoading || !curveReady,
     userName, isManager, coverageAlertsEnabled,
     // Changing the day re-renders the whole dashboard; as a transition the tap
     // paints at once and React renders the new day in interruptible slices.
@@ -1027,7 +1032,6 @@ export default function Page() {
       active="team"
       isManager={isManager}
       userName={userName}
-      isDemo={isDemo}
       onSignOut={handleSignOut}
     >
       {/*

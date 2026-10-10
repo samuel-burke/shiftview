@@ -651,7 +651,10 @@ export default function SettingsPageClient({
   // ── Initial data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
-    fetch("/api/settings")
+    // The page shows once both the store's settings and the identity are in:
+    // the settings decide, among other things, the order of the availability
+    // days (the week start), which mustn't change under the reader.
+    const settingsLoad = fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
         if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
@@ -675,7 +678,7 @@ export default function SettingsPageClient({
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((emps: Employee[]) => setEmployees(emps))
       .catch(() => {});
-    fetch("/api/me")
+    const meLoad = fetch("/api/me")
       .then((r) => r.json())
       .then(({ isManager: mgr, employeeId: empId, isOwner: owner, orgName: org }) => {
         if (mgr != null) setIsManager(mgr);
@@ -693,8 +696,8 @@ export default function SettingsPageClient({
             .catch(() => {});
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
+    Promise.allSettled([settingsLoad, meLoad]).then(() => setLoading(false));
   }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────

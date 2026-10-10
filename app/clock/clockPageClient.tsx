@@ -36,6 +36,7 @@ import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import FormError from "../../components/FormError";
+import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -90,7 +91,6 @@ export default function ClockPageClient() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const isDemo = cachedMe.isDemo;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
   // initialize from context cache if available so return visits are instant.
@@ -291,11 +291,18 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
+  // Today's call-out and the employee's own corrections each change what the
+  // clock shows (a call-out card, a pending-correction note), so the clock
+  // waits for both before replacing its placeholder.
+  const [calloutLoaded, setCalloutLoaded] = useState(false);
+  const [correctionsLoaded, setCorrectionsLoaded] = useState(false);
+
   const loadMyCorrections = useCallback(() => {
     fetch("/api/punch-corrections?mine=true")
       .then((r) => r.json())
       .then(({ corrections }) => { if (Array.isArray(corrections)) setMyCorrections(corrections); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCorrectionsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -327,7 +334,8 @@ export default function ClockPageClient() {
         const list: Callout[] = Array.isArray(d?.callouts) ? d.callouts : [];
         setMyCallout(list.find((c) => c.date === todayKey) ?? null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCalloutLoaded(true));
   }, [meLoading, employeeId, todayKey]);
 
   async function submitCallout() {
@@ -590,11 +598,14 @@ export default function ClockPageClient() {
     active: "clock" as const,
     isManager,
     userName: employeeName,
-    isDemo,
     onSignOut: handleSignOut,
   };
 
-  if (loading || meLoading) {
+  // Only an employee has a call-out to load, and only a non-manager employee
+  // has corrections of their own.
+  const calloutReady = employeeId ? calloutLoaded : !meLoading;
+  const correctionsReady = employeeId && !isManager ? correctionsLoaded : !meLoading;
+  if (loading || meLoading || !calloutReady || !correctionsReady) {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
@@ -627,12 +638,7 @@ export default function ClockPageClient() {
     <AppShell {...appShellProps}>
     <main className={mainClass}>
       {/* Mobile banner comes from AppShell's TopBar; this one is desktop-only */}
-      {isDemo && (
-        <div className="hidden desk:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner className="hidden desk:flex" />
       {clockHeader}
 
       <div className="desk:max-w-[600px] desk:mx-auto desk:px-6 desk:py-4">

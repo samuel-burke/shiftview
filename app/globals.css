@@ -317,6 +317,25 @@ header {
 }
 
 /*
+ * Demo mode (components/DemoBanner.tsx). <html data-demo> is set before the
+ * first paint from the cached identity (app/layout.tsx), so the strip and the
+ * header padding under it are right from the first frame.
+ */
+.demo-only {
+  display: none;
+}
+html[data-demo] .demo-only {
+  display: block;
+}
+/* TopBar's row: the safe-area inset goes to the demo strip when it shows. */
+.topbar-row {
+  padding-top: calc(env(safe-area-inset-top) + 14px);
+}
+html[data-demo] .topbar-row {
+  padding-top: 14px;
+}
+
+/*
  * Safe-area-aware top padding for the sticky mobile header.
  * Using a CSS class (not an inline style) lets the desktop media query override it
  * cleanly without inline-style specificity issues.

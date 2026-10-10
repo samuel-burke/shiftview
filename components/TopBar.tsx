@@ -4,31 +4,22 @@ import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
 import ClockStatusBadge from "./ClockStatusBadge";
 import Logo from "@/components/Logo";
+import DemoBanner from "./DemoBanner";
 
 type Props = {
   userName: string | null;
-  isDemo: boolean;
   onBack?: () => void;
   onSignOut?: () => void;
   onSignIn?: () => void;
 };
 
-export default function TopBar({ userName, isDemo, onBack, onSignOut, onSignIn }: Props) {
+export default function TopBar({ userName, onBack, onSignOut, onSignIn }: Props) {
   return (
     <div className="desk:hidden sticky top-0 z-30 bg-bg border-b border-slate-800">
-      {isDemo && (
-        <div
-          className="px-4 pb-1.5 bg-blue-500/8 border-b border-blue-500/15 flex items-center justify-between"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 6px)" }}
-        >
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400">Sign In →</a>
-        </div>
-      )}
-      <div
-        className="flex items-center justify-between px-4 pb-3"
-        style={{ paddingTop: isDemo ? "14px" : "calc(env(safe-area-inset-top) + 14px)" }}
-      >
+      {/* The demo strip takes the safe-area inset when it shows (CSS, so the
+          header is right from the first frame; see DemoBanner). */}
+      <DemoBanner style={{ paddingTop: "calc(env(safe-area-inset-top) + 6px)" }} />
+      <div className="topbar-row flex items-center justify-between px-4 pb-3">
         {onBack && (
           <button
             onClick={onBack}

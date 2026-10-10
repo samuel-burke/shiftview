@@ -15,7 +15,6 @@ type Props = {
   isManager?: boolean;
   /** When provided, a persistent TopBar is rendered above the animated content on mobile. */
   userName?: string | null;
-  isDemo?: boolean;
   onBack?: () => void;
   onSignOut?: () => void;
   onSignIn?: () => void;
@@ -31,7 +30,6 @@ export default function AppShell({
   active,
   isManager,
   userName,
-  isDemo,
   onBack,
   onSignOut,
   onSignIn,
@@ -67,7 +65,6 @@ export default function AppShell({
         {showTopBar && (
           <TopBar
             userName={userName ?? null}
-            isDemo={isDemo ?? false}
             onBack={onBack}
             onSignOut={onSignOut}
             onSignIn={onSignIn}

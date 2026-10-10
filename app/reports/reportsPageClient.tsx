@@ -14,6 +14,7 @@ import type { PunctualitySummary } from "../../lib/punctuality";
 import { formatTimeInTz, previousPayWeek, weekStartForKey } from "@/lib/dates";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { shiftMinutes } from "@/lib/schedule-hours";
+import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -297,7 +298,6 @@ export default function ReportsPageClient() {
   const router = useRouter();
   const supabase = createClient();
   const { me, settings } = useAppData();
-  const isDemo = me.isDemo;
   const { timezone } = settings;
 
   // "Today" is the store's calendar day, not UTC's or the device's.
@@ -667,12 +667,7 @@ export default function ReportsPageClient() {
     <AppShell active="reports" isManager>
     <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
       {/* Demo banner */}
-      {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner />
 
       {/* Top bar — sticky on mobile, static on desktop */}
       <div

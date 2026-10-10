@@ -59,6 +59,9 @@ export default function CoveragePageClient() {
   }
 
   useEffect(() => {
+    // Until the identity is known, "not a manager" only means "not loaded
+    // yet": stay on the placeholders rather than flash the empty state.
+    if (sharedLoading) return;
     if (!isManager) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
@@ -72,7 +75,7 @@ export default function CoveragePageClient() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isManager]);
+  }, [isManager, sharedLoading]);
 
   async function handleSaveProfile() {
     if (!editing) return;
@@ -319,34 +322,38 @@ export default function CoveragePageClient() {
             )}
           </section>
 
-          {/* Weekly defaults */}
-          <section>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-              Weekly Defaults
-            </div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
-              {DAY_NAMES.map((dayName, dow) => (
-                <div key={dow} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="text-sm font-semibold text-slate-300 w-24 shrink-0">{dayName}</span>
-                  <select
-                    value={defaults[dow] ?? ""}
-                    disabled={loading || savingDefaultDow === dow}
-                    aria-label={`Default coverage profile for ${dayName}`}
-                    onChange={(e) => handleSetDefault(dow, e.target.value === "" ? null : Number(e.target.value))}
-                    className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <option value="">No coverage target</option>
-                    {profiles.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-2 px-1">
-              Specific dates (holidays, events) can be overridden on the Week page: pick the day, then its coverage.
-            </p>
-          </section>
+          {/* Weekly defaults. Under a list of profiles whose length isn't known
+              until they load (and its menus list them), so it comes in with them
+              rather than being pushed down. */}
+          {!loading && (
+            <section>
+              <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+                Weekly Defaults
+              </div>
+              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+                {DAY_NAMES.map((dayName, dow) => (
+                  <div key={dow} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="text-sm font-semibold text-slate-300 w-24 shrink-0">{dayName}</span>
+                    <select
+                      value={defaults[dow] ?? ""}
+                      disabled={loading || savingDefaultDow === dow}
+                      aria-label={`Default coverage profile for ${dayName}`}
+                      onChange={(e) => handleSetDefault(dow, e.target.value === "" ? null : Number(e.target.value))}
+                      className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <option value="">No coverage target</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2 px-1">
+                Specific dates (holidays, events) can be overridden on the Week page: pick the day, then its coverage.
+              </p>
+            </section>
+          )}
         </div>
 
         <BottomNav active="settings" />
