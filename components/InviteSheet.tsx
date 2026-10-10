@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 type Props = {
   open: boolean;
@@ -22,10 +23,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
   // than emailed an invite.
   const [existingAccount, setExistingAccount] = useState(false);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   useEffect(() => {
     if (open) {

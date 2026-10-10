@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { getMonogram } from "../data/types";
 import { TimeOffPendingIcon } from "./ShiftIcons";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
 const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -94,12 +95,7 @@ export default function RequestsDrawer({
   const isDesktop = useIsDesktop();
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  useScrollLock(open);
 
   useEffect(() => {
     if (open) setError(null);

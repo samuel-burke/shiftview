@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
 import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 type Props = {
   open: boolean;
@@ -97,10 +98,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   function applyRange() {
     if (employee && from <= to) load(employee.id, from, to);

@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fmtMinutes, getMonogram } from "../data/types";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -43,10 +44,7 @@ export default function SwapRequestSheet({
 }: Props) {
   const isDesktop = useIsDesktop();
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape" && open && !submitting) onClose();

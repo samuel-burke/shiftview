@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 type Props = {
   open: boolean;
@@ -47,10 +48,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
     }
   }, [open, selected]);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape" && open) onClose();
