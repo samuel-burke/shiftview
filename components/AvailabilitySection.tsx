@@ -335,7 +335,7 @@ export default function AvailabilitySection({
               {/* Segmented control */}
               <LayoutGroup id={`avail-pill-${activeDow}`}>
               <div
-                className="flex bg-slate-950 rounded-xl p-1 mb-6"
+                className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px] mb-6"
                 role="group"
                 aria-label={`${DAY_FULL[activeDow]} availability`}
               >
@@ -350,17 +350,17 @@ export default function AvailabilitySection({
                     <button
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
-                      className="relative flex-1 py-3 rounded-lg text-sm font-semibold cursor-pointer border-none min-h-[44px] z-10"
-                      style={{ color: isActive ? activeColor : "var(--color-slate-500)" }}
+                      className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer border-none z-10 ${isActive ? "" : "text-slate-400 hover:text-slate-200"}`}
+                      style={isActive ? { color: activeColor } : undefined}
                       aria-pressed={isActive}
                     >
                       {isActive && (
                         <motion.div
                           layoutId="avail-pill"
-                          className="absolute inset-0 rounded-lg"
+                          className="absolute inset-0 rounded-[9px]"
                           style={{
-                            background: `color-mix(in srgb, ${activeColor} 9%, transparent)`,
-                            boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${activeColor} 19%, transparent)`,
+                            background: `color-mix(in srgb, ${activeColor} 12%, transparent)`,
+                            boxShadow: `inset 0 0 0 1px ${activeColor}`,
                           }}
                           transition={{ type: "spring", stiffness: 420, damping: 34 }}
                         />

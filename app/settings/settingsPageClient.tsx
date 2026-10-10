@@ -870,13 +870,13 @@ export default function SettingsPageClient({
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <LayoutGroup id="theme-pill">
-            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+            <div className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px]">
               {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className={`relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {themeMode === m && (
                     <motion.div
@@ -1401,13 +1401,13 @@ export default function SettingsPageClient({
           </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <LayoutGroup id="week-start-pill">
-            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+            <div className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className={`relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
+                  className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {firstDayOfWeek === value && (
                     <motion.div
