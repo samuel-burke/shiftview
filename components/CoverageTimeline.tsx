@@ -1,6 +1,6 @@
 "use client";
-import { memo, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { memo, useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
+import { motion } from "framer-motion";
 import {
   ComposedChart,
   Area,
@@ -141,10 +141,23 @@ function CoverageTimeline({
   // The curves draw in once. After that — switching days, the minute tick,
   // live punches — they update in place: re-running the 1.5s animation on each
   // change kept a phone's main thread busy for over a second after every tap.
-  const reduceMotion = useReducedMotion();
+  //
+  // Recharts draws an area through a clip path until it has drawn in. An area
+  // switched to `isAnimationActive={false}` before it had drawn a frame still
+  // points at that clip path but leaves it out of the page; Chrome ignores
+  // that, but Safari draws nothing until the area's next redraw (up to a
+  // minute later, at the clock tick). That's how the "here now" area went
+  // missing on a first load. So:
+  // - every area is in the chart from its first render, and they draw in
+  //   together (the "here now" one was added only once punches were in);
+  // - the callback is stable (a new one each render made Recharts end the
+  //   draw-in at the chart's first re-render, before the areas had drawn);
+  // - until the draw-in ends, animation is Recharts' "auto", which also skips
+  //   it with reduced motion without leaving the clip path out. With reduced
+  //   motion it never ends, and "auto" stays.
   const [drawnIn, setDrawnIn] = useState(false);
-  const animate = !drawnIn && !reduceMotion;
-  const onDrawnIn = () => setDrawnIn(true);
+  const animation = drawnIn ? false : "auto";
+  const onDrawnIn = useCallback(() => setDrawnIn(true), []);
   const [dotAt, setDotAt] = useState<{ x: number; y: number } | null>(null);
   const [chartRect, setChartRect] = useState<{
     svgLeft: number;
@@ -365,7 +378,7 @@ function CoverageTimeline({
                 strokeDasharray="5 4"
                 dot={false}
                 activeDot={false}
-                isAnimationActive={animate}
+                isAnimationActive={animation}
               />
             )}
             <Area
@@ -375,21 +388,20 @@ function CoverageTimeline({
               strokeWidth={2.5}
               fill="url(#covGrad)"
               dot={false}
-              isAnimationActive={animate}
+              isAnimationActive={animation}
               onAnimationEnd={onDrawnIn}
             />
-            {actualByPoint && (
-              <Area
-                type="monotone"
-                dataKey="actual"
-                stroke="var(--status-ok)"
-                strokeWidth={2.5}
-                fill="url(#actualGrad)"
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={animate}
-              />
-            )}
+            {/* Empty (no values) until today's punches are in, and on other days. */}
+            <Area
+              type="monotone"
+              dataKey="actual"
+              stroke="var(--status-ok)"
+              strokeWidth={2.5}
+              fill="url(#actualGrad)"
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={animation}
+            />
             {isToday && nowDataPoint && (
               <ReferenceLine
                 x={nowDataPoint.label}
