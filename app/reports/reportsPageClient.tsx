@@ -313,7 +313,13 @@ export default function ReportsPageClient() {
   const [firstDayOfWeek, setFirstDayOfWeek] = useState(6);
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekSchedules, setWeekSchedules] = useState<Schedule[]>([]);
-  const [weekLoading, setWeekLoading] = useState(false);
+  // True from the start: the first week loads on mount, and its table shows
+  // placeholders rather than an empty table first.
+  const [weekLoading, setWeekLoading] = useState(true);
+  // The export button sits under the hours table, whose length (the team)
+  // isn't known until the first week has loaded; it waits until then.
+  const [hoursShown, setHoursShown] = useState(false);
+  if (!weekLoading && !hoursShown) setHoursShown(true);
 
   // ── Activity log state ──
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -710,40 +716,47 @@ export default function ReportsPageClient() {
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Coverage — Last 4 Weeks
             </div>
-            {loading ? (
-              <div role="status" aria-label="Loading coverage heatmap" className="h-28 bg-slate-800 rounded-2xl animate-pulse" />
-            ) : (
-              <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
-                <div className="grid grid-cols-7 gap-1 mb-1" role="row">
-                  {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
-                    <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {heatmapCells.map(({ day, count, cls, dateLabel, dayNum }) => (
-                    <div key={day} title={`${dateLabel}: ${count} staff`} className={`rounded-lg py-2 flex flex-col items-center justify-center ${cls}`}>
-                      <span className="text-[11px] font-bold tabular-nums">{count}</span>
-                      <span className="text-[9px] mt-0.5 opacity-70">
-                        {dayNum}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3 mt-2 justify-center">
-                  {[
-                    { label: "Optimal",  cls: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" },
-                    { label: "Low",      cls: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
-                    { label: "Critical", cls: "bg-red-500/20 text-red-400 border border-red-500/30" },
-                    { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
-                  ].map(({ label, cls }) => (
-                    <div key={label} className="flex items-center gap-1">
-                      <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
-                      <span className="text-[10px] text-slate-400">{label}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* The days are known before the counts: while they load, the same
+                card with placeholder cells, so it doesn't grow when they land. */}
+            <div
+              className="bg-card rounded-2xl border border-slate-800/60 p-3"
+              role={loading ? "status" : undefined}
+              aria-label={loading ? "Loading coverage heatmap" : undefined}
+            >
+              <div className="grid grid-cols-7 gap-1 mb-1" role="row">
+                {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
+                  <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
+                ))}
               </div>
-            )}
+              <div className="grid grid-cols-7 gap-1">
+                {heatmapCells.map(({ day, count, cls, dateLabel, dayNum }) => (
+                  <div
+                    key={day}
+                    title={loading ? undefined : `${dateLabel}: ${count} staff`}
+                    aria-hidden={loading || undefined}
+                    className={`rounded-lg py-2 flex flex-col items-center justify-center ${loading ? "skeleton text-transparent border border-transparent" : cls}`}
+                  >
+                    <span className="text-[11px] font-bold tabular-nums">{loading ? "0" : count}</span>
+                    <span className="text-[9px] mt-0.5 opacity-70">
+                      {dayNum}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 mt-2 justify-center">
+                {[
+                  { label: "Optimal",  cls: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" },
+                  { label: "Low",      cls: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
+                  { label: "Critical", cls: "bg-red-500/20 text-red-400 border border-red-500/30" },
+                  { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
+                ].map(({ label, cls }) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
+                    <span className="text-[10px] text-slate-400">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
 
           {/* Week selector + hours table */}
@@ -766,7 +779,17 @@ export default function ReportsPageClient() {
             </div>
 
             {weekLoading ? (
-              <div role="status" aria-label="Loading hours table" className="h-32 bg-slate-800 rounded-2xl animate-pulse" />
+              // The table's header and one row per person, at the real rows' height.
+              <div role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+                <div aria-hidden="true" className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+                  <div className="text-[10px] font-semibold"><span className="skeleton rounded text-transparent">Employee</span></div>
+                </div>
+                {Array.from({ length: employees.length || 6 }, (_, i) => (
+                  <div key={i} aria-hidden="true" className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                    <div className="text-xs font-medium"><span className="skeleton rounded text-transparent">Name</span></div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
@@ -806,14 +829,16 @@ export default function ReportsPageClient() {
           </section>
 
           {/* CSV Export */}
-          <section>
-            <button
-              onClick={exportCSV}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
-            >
-              Export CSV
-            </button>
-          </section>
+          {hoursShown && (
+            <section>
+              <button
+                onClick={exportCSV}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+              >
+                Export CSV
+              </button>
+            </section>
+          )}
         </div>
       )}
 

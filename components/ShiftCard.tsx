@@ -126,12 +126,14 @@ export default function ShiftCard({
             {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
           </div>
         )}
-        <div className="mt-[5px] flex justify-end items-center gap-1.5">
+        {/* The badge's row is always there, so a card is the same height
+            before and after the punches load (SkeletonShiftCard matches). */}
+        <div className="mt-[5px] min-h-6 flex justify-end items-center gap-1.5">
           {arrivalText && !badge && (
             <span className="text-xs text-slate-400">{arrivalText}</span>
           )}
           {badge && (
-            <span className={`text-[11px] font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 select-none ${badge.className}`}>
+            <span className={`text-[11px] leading-4 font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 select-none ${badge.className}`}>
               {(badge.label === "Clocked In" || badge.label === "Here") && (
                 <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />

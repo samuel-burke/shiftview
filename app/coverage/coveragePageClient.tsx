@@ -217,7 +217,17 @@ export default function CoveragePageClient() {
 
             {loading ? (
               <div className="flex flex-col gap-2">
-                {[0, 1].map((i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}
+                {/* Shaped like a profile card: name and staff-hours, then the
+                    90px curve preview. */}
+                {[0, 1].map((i) => (
+                  <div key={i} aria-hidden="true" className="bg-card rounded-2xl border border-slate-800/60 px-4 pt-3 pb-2">
+                    <div className="mb-1">
+                      <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-32 rounded" /></div>
+                      <div className="text-[11px]"><span className="skeleton rounded text-transparent">00 staff-hrs / day</span></div>
+                    </div>
+                    <div className="skeleton h-[90px] rounded-xl" />
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="flex flex-col gap-2">

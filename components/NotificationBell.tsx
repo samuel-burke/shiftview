@@ -330,8 +330,22 @@ export default function NotificationBell() {
           {/* Notifications list */}
           <div className="overflow-y-auto flex-1">
             {loading && notifications.length === 0 && (
-              <div className="flex items-center justify-center py-8">
-                <div aria-hidden="true" className="spinner" />
+              // Rows shaped like notifications (icon, title, two-line body,
+              // time) rather than a spinner, so the list fills in place.
+              <div role="status" aria-label="Loading notifications">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} aria-hidden="true" className="px-4 py-3 border-b border-slate-800/50 flex gap-3">
+                    <span className="shrink-0 pt-0.5"><span className="skeleton block size-4 rounded" /></span>
+                    <div className="flex-1 min-w-0">
+                      <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-1/2 rounded" /></div>
+                      <div className="mt-0.5 h-8 flex flex-col justify-center gap-1.5">
+                        <div className="skeleton h-2.5 w-full rounded" />
+                        <div className="skeleton h-2.5 w-3/4 rounded" />
+                      </div>
+                      <div className="mt-1 h-4 flex items-center"><div className="skeleton h-2.5 w-12 rounded" /></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             {!loading && notifications.length === 0 && (

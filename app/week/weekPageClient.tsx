@@ -114,6 +114,10 @@ export default function WeekPageClient() {
   const week = useWeekShifts({ enabled: !sharedLoading, dates, apiFetch });
   const { live, drafts } = week;
   const loading = week.loading || sharedLoading;
+  // Until the first week has loaded, the day list's length (the team) isn't
+  // known, so what sits under it waits rather than being pushed down.
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  if (!loading && !firstLoadDone) setFirstLoadDone(true);
   const auto = useAutoSchedule({
     enabled: !sharedLoading && isDraftMode,
     weekStart,
@@ -377,7 +381,7 @@ export default function WeekPageClient() {
 
           {/* The editor. Phones: pick a day, see everyone. Tablets and up: the team grid. */}
           <div className="tablet:hidden">
-            <DayChips dates={dates} selectedDate={selectedDate} onSelectDate={selectDate} shifts={counted} curves={curves} timezone={timezone} />
+            <DayChips dates={dates} selectedDate={selectedDate} onSelectDate={selectDate} shifts={counted} curves={curves} timezone={timezone} ready={!sharedLoading} />
           </div>
           <DayToolbar
             date={selectedDate}
@@ -426,19 +430,21 @@ export default function WeekPageClient() {
             </p>
           </div>
 
-          <WeekInsights
-            shifts={counted}
-            dates={dates}
-            curves={curves}
-            storeHours={storeHours}
-            employees={employees}
-            rules={settings.schedulingRules}
-            timezone={timezone}
-            loading={loading}
-            selectedDate={selectedDate}
-            onSelectDate={selectDate}
-            onPickDay={focusDayPicker}
-          />
+          {firstLoadDone && (
+            <WeekInsights
+              shifts={counted}
+              dates={dates}
+              curves={curves}
+              storeHours={storeHours}
+              employees={employees}
+              rules={settings.schedulingRules}
+              timezone={timezone}
+              loading={loading}
+              selectedDate={selectedDate}
+              onSelectDate={selectDate}
+              onPickDay={focusDayPicker}
+            />
+          )}
         </div>
 
         <EmployeeDrawer

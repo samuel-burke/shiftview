@@ -26,7 +26,6 @@ import {
   SkeletonNextShift,
   SkeletonWeekCalendar,
   SkeletonDetailCard,
-  SkeletonStatsRow,
 } from "../../components/Skeleton";
 import {
   TimeOffPendingIcon,
@@ -831,7 +830,8 @@ export default function SchedulePageClient() {
             My Schedule
           </div>
           <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">
-            {firstName}
+            {/* Holds the line while the name loads, rather than an empty, 0px row. */}
+            {firstName || <span aria-hidden="true" className="skeleton inline-block align-middle h-7 w-28 rounded-md" />}
           </div>
         </div>
         <LayoutGroup id="view-toggle">
@@ -916,9 +916,24 @@ export default function SchedulePageClient() {
 
       {/* Calendar */}
       {loading ? (
-        <SkeletonWeekCalendar />
+        // The loading grid has the shape of the view it stands in for.
+        view === "week" ? (
+          <SkeletonWeekCalendar />
+        ) : (
+          <MonthView
+            schedules={[]}
+            weeklyHours={weeklyHours}
+            firstDayOfWeek={firstDayOfWeek}
+            selectedDate={selectedDate}
+            navDate={navDate}
+            onSelectDate={setSelectedDate}
+            today={today}
+            loading
+          />
+        )
       ) : scheduleError ? (
-        <div className="h-[120px] flex items-center justify-center">
+        // The week calendar's height, so an error doesn't move what's below.
+        <div className="h-[118px] mb-3 flex items-center justify-center">
           <div role="alert" className="text-sm text-red-400 text-center">{scheduleError}</div>
         </div>
       ) : view === "week" ? (
@@ -952,25 +967,29 @@ export default function SchedulePageClient() {
   const nextShiftCard = (
     <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
       <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
-      {nextShift === undefined ? (
-        <SkeletonNextShift />
-      ) : nextShift ? (
-        <>
-          <div className="text-slate-300 font-semibold text-sm">
-            {formatNextShiftDate(nextShift.date, todayKey)}
-          </div>
-          <div className="text-2xl font-extrabold text-slate-100 mt-1">
-            {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
-          </div>
-          {getDaysUntil(nextShift.date, todayKey) > 1 && (
-            <div className="text-xs text-slate-400 mt-1">
-              in {getDaysUntil(nextShift.date, todayKey)} days
+      {/* One height for every state (loading, a shift, none), so the calendar
+          under it never moves: the date line and the time line, 56px. */}
+      <div className="min-h-14">
+        {nextShift === undefined ? (
+          <SkeletonNextShift />
+        ) : nextShift ? (
+          <>
+            <div className="text-slate-300 font-semibold text-sm">
+              {formatNextShiftDate(nextShift.date, todayKey)}
+              {getDaysUntil(nextShift.date, todayKey) > 1 && (
+                <span className="text-xs font-normal text-slate-400">
+                  {" "}· in {getDaysUntil(nextShift.date, todayKey)} days
+                </span>
+              )}
             </div>
-          )}
-        </>
-      ) : (
-        <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
-      )}
+            <div className="text-2xl font-extrabold text-slate-100 mt-1">
+              {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
+            </div>
+          </>
+        ) : (
+          <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+        )}
+      </div>
     </div>
   );
 
@@ -979,7 +998,7 @@ export default function SchedulePageClient() {
       {/* Detail card */}
       {loading ? <SkeletonDetailCard /> : null}
       <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${loading ? " hidden" : ""}`}>
-        <div className="flex items-center justify-between mb-1">
+        <div className="min-h-6 flex items-center justify-between mb-1">
           <span className="text-sm text-slate-400">{selectedDayLabel}</span>
           {shiftLabel && shiftColor && (
             <span
@@ -1114,8 +1133,9 @@ export default function SchedulePageClient() {
         onDecline={(id) => respondToSwap(id, "declined")}
       />
 
-      {/* Stats row */}
-      {loading ? <SkeletonStatsRow /> : null}
+      {/* Stats row. No placeholder while loading: it sits under the day card,
+          whose height depends on the day (a shift and its buttons, or a day
+          off), so a placeholder here would only jump. */}
       <div className={`flex gap-2${loading ? " hidden" : ""}`}>
         <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
           <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
@@ -1176,7 +1196,9 @@ export default function SchedulePageClient() {
         <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
           <div>
             <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
-            <div className="text-xl font-extrabold text-slate-100 mt-0.5">{firstName}</div>
+            <div className="text-xl font-extrabold text-slate-100 mt-0.5">
+              {firstName || <span aria-hidden="true" className="skeleton inline-block align-middle h-5 w-24 rounded-md" />}
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400">{todayStr}</span>

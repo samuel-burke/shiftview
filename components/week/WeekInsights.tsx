@@ -51,11 +51,14 @@ function StatCard({
         style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
       />
       {loading ? (
-        <div className="flex justify-center mb-1">
-          <div className="skeleton h-6 w-10 rounded-[6px]" />
+        // The value's own box: a 22px line (text-[22px] leading-none).
+        <div className="flex justify-center">
+          <div className="skeleton h-[22px] w-10 rounded-[6px]" />
         </div>
       ) : (
-        <div className="relative flex items-baseline justify-center gap-0.5">
+        // A fixed 22px line: the smaller "hrs" on the baseline would otherwise
+        // make it a pixel taller than the skeleton above.
+        <div className="relative h-[22px] flex items-baseline justify-center gap-0.5">
           <span className="text-[22px] font-extrabold leading-none tabular-nums" style={{ color }}>{value}</span>
           {suffix && <span className="text-[11px] font-bold" style={{ color }}>{suffix}</span>}
         </div>

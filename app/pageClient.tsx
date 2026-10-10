@@ -101,7 +101,8 @@ function AnimatedStatCard({
       />
 
       {loading ? (
-        <div className="flex justify-center mb-1.5">
+        // The value's own box: a 28px line (text-[28px] leading-none).
+        <div className="flex justify-center">
           <div className="skeleton h-7 w-8 rounded-[6px]" />
         </div>
       ) : (
@@ -747,6 +748,11 @@ export default function Page() {
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
   // employees has its own local state so it no longer blocks the skeleton.
   const isLoading = loading || sharedLoading;
+  // The manager buttons sit under the team list, whose length isn't known
+  // until the first day has loaded; they wait for it rather than being pushed
+  // down (or, for an empty day, pulled up) when it lands.
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  if (!isLoading && !firstLoadDone) setFirstLoadDone(true);
 
   const headerProps = {
     date, today, isToday, hereCount: hereNowCount,
@@ -1055,7 +1061,7 @@ export default function Page() {
           <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:items-start desk:block desk:col-start-2 desk:row-start-1 desk:sticky desk:top-4 wide:grid wide:grid-cols-3 wide:col-start-1 wide:col-span-2 wide:row-start-2 wide:static wide:mt-2">
             {teamSections}
           </div>
-          {(draftButton || weekButton || exportButton) && (
+          {firstLoadDone && (draftButton || weekButton || exportButton) && (
             <div className="tablet:grid tablet:grid-cols-3 tablet:gap-x-4 tablet:items-start desk:block desk:col-start-2 desk:row-start-2 wide:row-start-1 wide:-mt-4">
               {draftButton}
               {weekButton}

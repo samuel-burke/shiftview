@@ -126,11 +126,13 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             >
               {shiftLabel}
             </div>
-            {!calledOut && schedule && shiftType && (
-              <div className="text-[8px] text-slate-400 mt-0.5 leading-tight">
-                {shortTime(schedule.startMinutes)}–{shortTime(schedule.endMinutes)}
-              </div>
-            )}
+            {/* Always a line, so a week with no shifts is as tall as one with
+                them (SkeletonWeekCalendar matches). */}
+            <div className="text-[8px] text-slate-400 mt-0.5 leading-tight">
+              {!calledOut && schedule && shiftType
+                ? <>{shortTime(schedule.startMinutes)}–{shortTime(schedule.endMinutes)}</>
+                : "\u00a0"}
+            </div>
           </button>
         );
       })}
