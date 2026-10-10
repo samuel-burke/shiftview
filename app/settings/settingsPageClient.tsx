@@ -1206,7 +1206,7 @@ export default function SettingsPageClient({
                           onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           placeholder="Search address…"
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="flex-1 bg-slate-800 border border-field rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <button
                           onClick={captureCurrentLocation}
@@ -1352,7 +1352,7 @@ export default function SettingsPageClient({
                               const v = clamp(Math.round(Number(e.target.value) || 0), 1, 1440);
                               if (v !== (DEFAULT_PUNCH_POLICY[minutesKey] as number) || v !== minutes) savePunchPolicy({ [minutesKey]: v } as Partial<PunchPolicy>);
                             }}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70"
+                            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
                           />
                           <span className="text-xs text-slate-500">min</span>
                         </div>
@@ -1391,7 +1391,7 @@ export default function SettingsPageClient({
                   const v = clamp(Math.round(Number(e.target.value) || 0), 0, 20);
                   savePunchPolicy({ maxBreaksPerShift: v });
                 }}
-                className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 shrink-0"
+                className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500 shrink-0"
               />
             </div>
 
@@ -1441,7 +1441,7 @@ export default function SettingsPageClient({
               aria-label="Timezone"
               value={timezone}
               onChange={(e) => saveTimezone(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors"
+              className="w-full bg-slate-800 border border-field rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500 transition-colors"
             >
               <optgroup label="Common">
                 {TIMEZONE_OPTIONS.map(({ label, value }) => (
@@ -1496,7 +1496,7 @@ export default function SettingsPageClient({
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <FormError message={editError} />
                       </div>
@@ -1632,7 +1632,7 @@ export default function SettingsPageClient({
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="flex-1 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <button
                           disabled={applyingId === tpl.id}
@@ -1845,7 +1845,7 @@ export default function SettingsPageClient({
                   value={orgNameInput}
                   onChange={(e) => setOrgNameInput(e.target.value)}
                   placeholder={orgName ?? "Organization name"}
-                  className="mt-1.5 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-red-500/70 transition-colors"
+                  className="mt-1.5 w-full bg-slate-800 border border-field rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-red-500/70 transition-colors"
                 />
               </div>
               <FormError message={deleteOrgError} />

@@ -342,7 +342,7 @@ export default function CoveragePageClient() {
                       disabled={loading || savingDefaultDow === dow}
                       aria-label={`Default coverage profile for ${dayName}`}
                       onChange={(e) => handleSetDefault(dow, e.target.value === "" ? null : Number(e.target.value))}
-                      className="flex-1 min-w-0 bg-bg border border-slate-700 rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer disabled:opacity-50"
+                      className="flex-1 min-w-0 bg-bg border border-field rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <option value="">No coverage target</option>
                       {profiles.map((p) => (
@@ -397,7 +397,7 @@ function ProfileEditorCard({
         maxLength={60}
         placeholder="e.g. Weekday, Saturday, Holiday"
         onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-        className="w-full bg-bg border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm mb-4 focus:outline-none focus:border-indigo-500/70 transition-colors"
+        className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm mb-4 focus:outline-none focus:border-indigo-500 transition-colors"
       />
 
       <CoverageCurveEditor

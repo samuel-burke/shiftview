@@ -26,7 +26,7 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIMES = Array.from({ length: 49 }, (_, i) => i * 30); // 12:00 AM … midnight
 
 const selectClass =
-  "bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 cursor-pointer min-w-0";
+  "bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer min-w-0";
 
 type AdderKind = "coverage" | "employee_off" | "employee_hours";
 
@@ -414,7 +414,7 @@ export default function AutoScheduleSheet({
                             step={0.5}
                             value={form.maxHours}
                             onChange={(e) => setForm({ ...form, maxHours: e.target.value })}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70"
+                            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
                           />
                           <span className="text-xs text-slate-400 normal-case font-normal">h</span>
                         </span>

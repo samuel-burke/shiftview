@@ -129,7 +129,7 @@ export function DayToolbar({
           value={overrides[date] ?? ""}
           aria-label="Coverage profile for selected day"
           onChange={(e) => onAssignProfile(date, e.target.value === "" ? null : Number(e.target.value))}
-          className="flex-1 min-w-0 min-h-9 bg-bg border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors cursor-pointer"
+          className="flex-1 min-w-0 min-h-9 bg-bg border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
         >
           <option value="">Default ({defaultName ?? "none"})</option>
           {profiles.map((p) => (

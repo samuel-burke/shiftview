@@ -768,7 +768,7 @@ export function WeekDraftScreen({
               <select
                 defaultValue=""
                 aria-label="Coverage profile for selected day"
-                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-slate-700 bg-bg px-2 py-1.5 text-xs text-slate-100 transition-colors focus:border-indigo-500/70 focus:outline-none"
+                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-field bg-bg px-2 py-1.5 text-xs text-slate-100 transition-colors focus:border-indigo-500 focus:outline-none"
               >
                 <option value="">Default ({defaultProfile})</option>
               </select>

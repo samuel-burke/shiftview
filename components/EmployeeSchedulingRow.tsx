@@ -106,7 +106,7 @@ export default function EmployeeSchedulingRow({
   }
 
   const inputClass =
-    "w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/70";
+    "w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums placeholder:text-slate-500 focus:outline-none focus:border-indigo-500";
 
   return (
     <div data-testid={`employee-scheduling-${employee.id}`} className="px-4 pb-3 pt-0">
@@ -176,7 +176,7 @@ export default function EmployeeSchedulingRow({
               aria-label={`Most days per week for ${employee.name}`}
               value={maxDays}
               onChange={(e) => setMaxDays(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 cursor-pointer"
+              className="bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
               <option value="">Default ({typeDefaults.maxDays})</option>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => (

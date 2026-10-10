@@ -214,7 +214,7 @@ export function TimeCardPanel({
             value={from}
             max={to}
             onChange={(e) => onFromChange(e.target.value)}
-            className="w-full h-11 bg-card border border-slate-700 rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+            className="w-full h-11 bg-card border border-field rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
           />
         </div>
         <div className="flex-1 min-w-[120px]">
@@ -225,7 +225,7 @@ export function TimeCardPanel({
             value={to}
             min={from}
             onChange={(e) => onToChange(e.target.value)}
-            className="w-full h-11 bg-card border border-slate-700 rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+            className="w-full h-11 bg-card border border-field rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
           />
         </div>
         <button

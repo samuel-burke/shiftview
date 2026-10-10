@@ -1044,7 +1044,7 @@ export default function Page() {
                 value={exportFrom}
                 max={exportTo}
                 onChange={(e) => setExportFrom(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                className="w-full bg-slate-900 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -1055,7 +1055,7 @@ export default function Page() {
                 value={exportTo}
                 min={exportFrom}
                 onChange={(e) => setExportTo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                className="w-full bg-slate-900 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>

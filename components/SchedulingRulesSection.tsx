@@ -22,9 +22,9 @@ const REST_OPTIONS = Array.from({ length: 17 }, (_, i) => i * 60);
 const DAY_COUNTS = [1, 2, 3, 4, 5, 6, 7];
 
 const selectClass =
-  "bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500/70 cursor-pointer";
+  "bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500 cursor-pointer";
 const hoursInputClass =
-  "w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70";
+  "w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500";
 
 function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
