@@ -788,7 +788,9 @@ export default function Page() {
     onSignOut: handleSignOut,
   };
 
-  const timeline = isLoading ? <SkeletonTimeline /> : (
+  // The chart waits for the day's target curve as well, so its legend (the
+  // Target pill) and the target line arrive with it rather than after it.
+  const timeline = isLoading || !curveReady ? <SkeletonTimeline /> : (
     <CoverageTimeline
       schedules={daySchedules}
       dayKey={dateKey}
