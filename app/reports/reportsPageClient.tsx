@@ -780,7 +780,9 @@ export default function ReportsPageClient() {
 
             {weekLoading ? (
               // The table's header and one row per person, at the real rows' height.
-              <div role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+              // Its own key: otherwise React would reuse these placeholder rows
+              // (keyed 0..n) for the employees with those ids, and move them.
+              <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div aria-hidden="true" className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] font-semibold"><span className="skeleton rounded text-transparent">Employee</span></div>
                 </div>
@@ -791,7 +793,7 @@ export default function ReportsPageClient() {
                 ))}
               </div>
             ) : (
-              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+              <div key="table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
                 <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
                   {weekDates.map((d) => (
@@ -812,12 +814,12 @@ export default function ReportsPageClient() {
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];
                           return (
-                            <div key={d} className={`text-center text-[11px] font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
+                            <div key={d} className={`text-center text-[11px] leading-4 font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
                               {h ? h.toFixed(0) : "-"}
                             </div>
                           );
                         })}
-                        <div className="text-right text-[11px] font-bold text-slate-300 tabular-nums">
+                        <div className="text-right text-[11px] leading-4 font-bold text-slate-300 tabular-nums">
                           {total > 0 ? total.toFixed(0) : "-"}
                         </div>
                       </div>

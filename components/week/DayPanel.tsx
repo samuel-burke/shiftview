@@ -232,7 +232,7 @@ export function DayList({
         // One row per person, shaped like the real rows, so the list (and what's
         // under it) keeps its height while the week loads.
         Array.from({ length: employees.length || 6 }, (_, i) => (
-          <div key={i} aria-hidden="true" className="w-full min-h-14 flex items-center gap-3 px-4 py-3">
+          <div key={`sk-${i}`} aria-hidden="true" className="w-full min-h-14 flex items-center gap-3 px-4 py-3">
             <div className="skeleton size-9 rounded-full shrink-0" />
             {/* The real rows' two lines, in their own fonts. */}
             <div className="flex-1 min-w-0">
