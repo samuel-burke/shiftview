@@ -4,63 +4,66 @@ import { useAppData } from "@/lib/AppDataContext";
 import type { AttendanceStatus } from "@/data/types";
 
 /*
- * Compact clock-status indicator for the app header: a color-coded status dot
- * with a short label. Reads the shared live attendance status (kept in sync
- * across devices by AppDataContext), so it reflects the user's clock state at
- * a glance from any screen — a lightweight replacement for the old full-screen
- * ambient ring.
+ * Clock-status indicator for the app header and nav: a status dot (pulsing
+ * while you're on the clock) and an icon for the state: a clock when clocked
+ * in, a cup on break, a crossed-out clock when off. Reads the shared live
+ * attendance status (kept in sync across devices by AppDataContext). The
+ * state's name is the indicator's accessible name and its tooltip.
+ *
+ * Every state is the same size, so the status arriving or changing doesn't
+ * move the header's other buttons.
  */
 
-const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boolean }> = {
-  clocked_in:     { color: "var(--status-ok)", label: "Clocked In", live: true },
-  on_break:       { color: "var(--status-warn)", label: "On Break",   live: true },
-  clocked_out:    { color: "var(--status-muted)", label: "Off",        live: false },
-  not_clocked_in: { color: "var(--status-muted)", label: "Off",        live: false },
+function ClockIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BreakIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 3.5v2M12 3.5v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function OffIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <path d="M12 7v5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path d="M4.5 19.5l15-15" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boolean; Icon: typeof ClockIcon }> = {
+  clocked_in:     { color: "var(--status-ok)",    label: "Clocked In", live: true,  Icon: ClockIcon },
+  on_break:       { color: "var(--status-warn)",  label: "On Break",   live: true,  Icon: BreakIcon },
+  clocked_out:    { color: "var(--status-muted)", label: "Off",        live: false, Icon: OffIcon },
+  not_clocked_in: { color: "var(--status-muted)", label: "Off",        live: false, Icon: OffIcon },
 };
 
-// The two longest labels; which one is wider depends on the font.
-const LONG_LABELS = ["Clocked In", "On Break"] as const;
-
-export default function ClockStatusBadge({ variant = "pill" }: { variant?: "pill" | "dot" }) {
+export default function ClockStatusBadge() {
   const { liveStatus } = useAppData();
   const s = STATUS[liveStatus] ?? STATUS.not_clocked_in;
 
-  // Dot-only form for the narrow nav rail; the label stays available to screen readers.
-  if (variant === "dot") {
-    return (
-      <span
-        role="status"
-        aria-label={s.label}
-        title={s.label}
-        className="block size-2.5 rounded-full"
-        style={{ background: s.color, boxShadow: s.live ? `0 0 6px ${s.color}` : "none" }}
-      />
-    );
-  }
-
-  // The pill is as wide as its longest label in every state, so the status
-  // arriving (Off → Clocked In) doesn't push the header's other buttons.
   return (
-    <div
-      role="status"
-      aria-label={s.label}
-      className="flex items-center gap-1.5 rounded-full bg-card border border-slate-800/70 pl-2 pr-2.5 py-1"
-    >
-      <span
-        aria-hidden="true"
-        className="size-2 rounded-full shrink-0"
-        style={{ background: s.color, boxShadow: s.live ? `0 0 6px ${s.color}` : "none" }}
-      />
-      {/* ::before and ::after hold the longest labels, invisible, in the same
-          grid cell as the shown one, so the pill is always the widest width.
-          (CSS content, so the hidden labels aren't in the page's text.) */}
-      <span
-        data-long-a={LONG_LABELS[0]}
-        data-long-b={LONG_LABELS[1]}
-        className="grid text-xs font-semibold leading-none whitespace-nowrap before:col-start-1 before:row-start-1 before:invisible before:content-[attr(data-long-a)] after:col-start-1 after:row-start-1 after:invisible after:content-[attr(data-long-b)]"
-      >
-        <span className="col-start-1 row-start-1" style={{ color: s.color }}>{s.label}</span>
+    <div role="status" aria-label={s.label} title={s.label} className="flex items-center gap-1.5 h-4">
+      <span aria-hidden="true" className="relative flex size-2 shrink-0">
+        {/* The pulse: transform and opacity only, and none with reduced motion. */}
+        {s.live && (
+          <span className="absolute inline-flex size-full rounded-full opacity-60 motion-safe:animate-ping" style={{ background: s.color }} />
+        )}
+        <span className="relative inline-flex size-2 rounded-full" style={{ background: s.color }} />
       </span>
+      <s.Icon color={s.color} />
     </div>
   );
 }

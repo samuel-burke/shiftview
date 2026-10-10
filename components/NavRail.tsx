@@ -45,7 +45,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
       </Link>
 
       <div className="mb-3 h-4 flex items-center" data-testid="rail-clock-status">
-        <ClockStatusBadge variant="dot" />
+        <ClockStatusBadge />
       </div>
 
       <nav aria-label="Main navigation" className="flex-1 w-full px-2 flex flex-col items-stretch gap-1 overflow-y-auto pb-4">
