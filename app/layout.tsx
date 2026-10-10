@@ -1,7 +1,7 @@
 import "./globals.css";
 import { Suspense } from "react";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
-import InAppNotificationBanner from "../components/InAppNotificationBanner";
+import DeferredNotificationBanner from "../components/DeferredNotificationBanner";
 import PresenceHeartbeat from "../components/PresenceHeartbeat";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -18,6 +18,10 @@ export const metadata = {
     title: "ShiftView",
   },
 };
+
+const supabaseOrigin = (() => {
+  try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin; } catch { return null; }
+})();
 
 /* Inline script that runs before first paint to avoid theme flash. */
 const themeInitScript = `
@@ -38,6 +42,10 @@ export default function RootLayout({
       <head>
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* The browser talks to Supabase directly for session refreshes and the
+            Realtime socket; open that connection while the page loads. */}
+        {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}
+        {supabaseOrigin && <link rel="dns-prefetch" href={supabaseOrigin} />}
         <link rel="apple-touch-icon" sizes="180x180" href="/icon-apple-180.png" />
         <meta name="theme-color" content="#0a1628" />
         <meta name="screen-orientation" content="portrait" />
@@ -55,7 +63,7 @@ export default function RootLayout({
           </Suspense>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
-        <InAppNotificationBanner />
+        <DeferredNotificationBanner />
         <PresenceHeartbeat />
         <SpeedInsights />
         <Analytics />

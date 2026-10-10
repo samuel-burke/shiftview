@@ -8,8 +8,8 @@ import type { Employee, Schedule, AvailabilityRecord } from "../data/types";
 vi.mock("@/lib/supabase-browser", () => ({
   createClient: () => ({
     auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user: { id: "manager-123" } },
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { user: { id: "manager-123" } } },
         error: null,
       }),
     },

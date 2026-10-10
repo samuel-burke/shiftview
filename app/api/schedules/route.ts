@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
   const { orgId } = ctx!;
 
-  const query = supabase.from("schedules").select("*").eq("org_id", orgId);
+  const query = supabase.from("schedules").select("id, employee_id, date, start_minutes, end_minutes").eq("org_id", orgId);
   const { data, error: dbError } = await (ranged
     ? query.gte("date", from!).lte("date", to!).order("date").order("start_minutes")
     : query.eq("date", date!).order("start_minutes"));
@@ -198,9 +198,11 @@ export async function POST(request: Request) {
     if (conflict) return NextResponse.json(conflict, { status: 409 });
   }
 
-  const { error } = await supabase
+  const { data: created, error } = await supabase
     .from("schedules")
-    .insert(withOrg(orgId, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes }));
+    .insert(withOrg(orgId, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes }))
+    .select("id")
+    .single();
 
   if (error) {
     console.error("[api/schedules]", error);
@@ -240,7 +242,8 @@ export async function POST(request: Request) {
     },
   }).catch(() => {});
 
-  return NextResponse.json({ ok: true }, { status: 201 });
+  // The id lets the client show the new shift without re-reading the day.
+  return NextResponse.json({ ok: true, id: created?.id ?? null }, { status: 201 });
 }
 
 export async function DELETE(request: Request) {

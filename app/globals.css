@@ -238,6 +238,25 @@ header {
   animation: gradient-shift 4s ease infinite;
 }
 
+/* ── Coverage chart "now" pulse ───────────────────────────── */
+/* A ring growing from the dot and fading (radius 4 → 10 → 4). Transform and
+   opacity only, so it runs on the compositor without repainting the chart. */
+@keyframes now-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.8; }
+  50%      { transform: translate(-50%, -50%) scale(1);   opacity: 0; }
+}
+
+.now-pulse {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid;
+  border-radius: 9999px;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: now-pulse 1.5s linear infinite;
+}
+
 /* ── Pulse glow for live indicators ──────────────────────── */
 @keyframes glow-pulse {
   0%, 100% { box-shadow: 0 0 6px 0 rgba(34, 197, 94, 0.3); }
