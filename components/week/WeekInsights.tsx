@@ -10,14 +10,15 @@ import type { SchedulingRules } from "@/lib/scheduling-rules";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
 import WeekCoverageHeatmap from "../WeekCoverageHeatmap";
 import DraftHoursPanel from "../DraftHoursPanel";
+import { SkeletonBudgetChart } from "../Skeleton";
 
 // The Week page's coverage tools, for whichever week the mode shows: the live
 // shifts in Live, the week after publishing in Draft. They take any shifts.
 
 // recharts is heavy; code-split the chart out of the route's initial bundle.
-// It sits below the editor, so a placeholder while the chunk loads is fine.
-const chartPlaceholder = () => <div className="h-[200px]" aria-hidden="true" />;
-const DraftCoverageChart = dynamic(() => import("../DraftCoverageChart"), { ssr: false, loading: chartPlaceholder });
+// Its placeholder is the chart's own box, so the heatmap and hours under it
+// stay put when the chunk lands (with a short day list, they're on screen).
+const DraftCoverageChart = dynamic(() => import("../DraftCoverageChart"), { ssr: false, loading: () => <SkeletonBudgetChart /> });
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

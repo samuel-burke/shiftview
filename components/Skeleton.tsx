@@ -131,6 +131,40 @@ export function SkeletonSettingsBody({ isManager }: { isManager?: boolean }) {
   );
 }
 
+export function SkeletonBudgetChart() {
+  // The same box as DraftCoverageChart (the Week page's Budget vs Scheduled):
+  // its header with the By Day / By Hour toggle, the legend pills, the chart
+  // (2.6:1, 190-300px) and the "Edit coverage targets" link under it.
+  return (
+    <div role="status" aria-label="Loading budget chart" className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4">
+      <div aria-hidden="true" className="flex items-center justify-between mb-2 pl-1.5 pr-1 gap-2 flex-wrap">
+        {/* The title in its own font, so the header wraps where the chart's does. */}
+        <div className="text-[11px] font-bold tracking-[0.1em] uppercase text-transparent">
+          <span className="skeleton rounded">Budget vs Scheduled</span>
+        </div>
+        <div className="flex rounded-lg bg-slate-800/60 border border-slate-700/40 p-0.5">
+          {["By Day", "By Hour"].map((label) => (
+            <span key={label} className="min-h-8 px-3 flex items-center text-[11px] font-semibold text-transparent">{label}</span>
+          ))}
+        </div>
+      </div>
+      <div aria-hidden="true" className="flex flex-wrap items-center gap-2 mb-3 pl-1.5">
+        {["Scheduled hrs", "Budget hrs"].map((label) => (
+          <span key={label} className="skeleton flex items-center text-[11px] text-transparent px-2 py-0.5 rounded-full border border-transparent">{label}</span>
+        ))}
+      </div>
+      <div aria-hidden="true" className="w-full min-w-0 aspect-[2.6/1] min-h-[190px] max-h-[300px] flex items-end gap-3 px-6 pt-6 pb-10">
+        {[55, 70, 62, 80, 74, 90, 66].map((h, i) => (
+          <div key={i} className="skeleton flex-1 rounded-t-[3px]" style={{ height: `${h}%` }} />
+        ))}
+      </div>
+      <div aria-hidden="true" className="flex justify-end pr-1 mt-1">
+        <div className="min-h-8" />
+      </div>
+    </div>
+  );
+}
+
 export function SkeletonTimeline() {
   // The same box as CoverageTimeline: its header (two lines tall on phones,
   // one legend pill tall from tablets up) and its chart area (3:1, 150-300px).
