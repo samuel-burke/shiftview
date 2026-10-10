@@ -17,7 +17,7 @@ export default function DemoBanner({
         className={`bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between ${className}`}
         style={style}
       >
-        <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
+        <span className="text-[11px] text-blue-400 font-medium">Demo Mode · Sample data resets nightly</span>
         <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
       </div>
     </div>

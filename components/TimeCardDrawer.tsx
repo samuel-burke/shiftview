@@ -341,7 +341,7 @@ export function TimeCardPanel({
                               {formatPunchTime(p.punchedAt, data.timezone)}
                             </span>
                             {p.isManual && (
-                              <span className="text-[9px] text-amber-400/80 uppercase" title="Manual correction">✎</span>
+                              <span className="text-[9px] text-amber-400 uppercase" title="Manual correction">✎</span>
                             )}
                           </div>
                         ))}

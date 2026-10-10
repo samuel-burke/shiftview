@@ -206,10 +206,11 @@ export default function WeekGrid({
                         className={`group relative w-full h-12 rounded-lg text-left px-2 transition-colors cursor-pointer border ${
                           isSel ? "ring-2 ring-indigo-400 ring-offset-1 ring-offset-bg" : ""
                         } ${
+                          // A live shift in Draft mode reads as muted by its slate
+                          // colors, not by fading the whole cell (which took its
+                          // text under 4.5:1).
                           s
-                            ? isLiveContext
-                              ? "border-transparent opacity-70"
-                              : "border-transparent"
+                            ? "border-transparent"
                             : requested
                             ? "border-dashed border-slate-500 bg-transparent"
                             : "border-transparent hover:border-slate-700 hover:bg-slate-800/60 focus-visible:border-slate-700"
@@ -241,7 +242,7 @@ export default function WeekGrid({
                         ) : requested ? (
                           <span className="block text-[11px] font-semibold text-slate-400">Time off requested</span>
                         ) : (
-                          <span aria-hidden="true" className="block text-center text-lg text-slate-600 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
+                          <span aria-hidden="true" className="block text-center text-lg text-slate-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
                         )}
                       </button>
                     </td>

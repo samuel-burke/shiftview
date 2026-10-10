@@ -176,7 +176,7 @@ export default function WeekInsights({
             <button
               type="button"
               onClick={() => setAlertsExpanded((v) => !v)}
-              className="min-h-8 -mb-1.5 text-[11px] font-semibold text-amber-300/80 hover:text-amber-200 bg-transparent border-none cursor-pointer p-0"
+              className="min-h-8 -mb-1.5 text-[11px] font-semibold text-amber-300 hover:text-amber-200 bg-transparent border-none cursor-pointer p-0"
             >
               {alertsExpanded ? "Show less" : `${alerts.length - 1} more alert${alerts.length - 1 === 1 ? "" : "s"} →`}
             </button>

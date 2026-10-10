@@ -351,7 +351,7 @@ export default function AvailabilitySection({
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
                       className="relative flex-1 py-3 rounded-lg text-sm font-semibold cursor-pointer border-none min-h-[44px] z-10"
-                      style={{ color: isActive ? activeColor : "#64748b" }}
+                      style={{ color: isActive ? activeColor : "var(--color-slate-500)" }}
                       aria-pressed={isActive}
                     >
                       {isActive && (

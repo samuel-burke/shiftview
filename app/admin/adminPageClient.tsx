@@ -207,7 +207,7 @@ export default function AdminPageClient({
                         </span>
                       ) : isOwner || !canManageRoles ? (
                         <span
-                          className="text-xs text-slate-600 w-[4.25rem] min-[400px]:w-20 py-1.5 text-center"
+                          className="text-xs text-slate-500 w-[4.25rem] min-[400px]:w-20 py-1.5 text-center"
                           aria-label={isOwner
                             ? "Organization owner — cannot be demoted"
                             : "Only the organization owner can change roles"}

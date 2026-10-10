@@ -741,7 +741,7 @@ export default function ReportsPageClient() {
                     className={`rounded-lg py-2 flex flex-col items-center justify-center ${loading ? "skeleton text-transparent border border-transparent" : cls}`}
                   >
                     <span className="text-[11px] font-bold tabular-nums">{loading ? "0" : count}</span>
-                    <span className="text-[9px] mt-0.5 opacity-70">
+                    <span className="text-[9px] mt-0.5">
                       {dayNum}
                     </span>
                   </div>
@@ -752,7 +752,7 @@ export default function ReportsPageClient() {
                   { label: "Optimal",  cls: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" },
                   { label: "Low",      cls: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
                   { label: "Critical", cls: "bg-red-500/20 text-red-400 border border-red-500/30" },
-                  { label: "None",     cls: "bg-slate-800 text-slate-600 border border-slate-700" },
+                  { label: "None",     cls: "bg-slate-800 text-slate-500 border border-slate-700" },
                 ].map(({ label, cls }) => (
                   <div key={label} className="flex items-center gap-1">
                     <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
@@ -973,7 +973,7 @@ export default function ReportsPageClient() {
               </div>
 
               {payrollData.some((e) => e.weeks.some((w) => w.hasIncomplete)) && (
-                <div className="text-[11px] text-amber-400/80 px-1 leading-snug">
+                <div className="text-[11px] text-amber-400 px-1 leading-snug">
                   <span aria-hidden="true">⚠</span> Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
                 </div>
               )}

@@ -130,7 +130,7 @@ export default function TeamSection({
                   {statusLabel}
                 </div>
               ) : (
-                <div className="text-[11px] font-medium text-slate-600 bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/40">
+                <div className="text-[11px] font-medium text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/40">
                   {statusLabel}
                 </div>
               )}

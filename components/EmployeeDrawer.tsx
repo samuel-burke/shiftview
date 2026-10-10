@@ -386,12 +386,12 @@ export default function EmployeeDrawer({
                     {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
                       <>
                         <span aria-hidden="true">⚠</span> Usually unavailable on {DAY_NAMES[dayOfWeek]}s
-                        {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                        {availRecord.note && <div className="mt-0.5 text-amber-300">{availRecord.note}</div>}
                       </>
                     ) : (
                       <>
                         <span aria-hidden="true">⚠</span> Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
-                        {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                        {availRecord.note && <div className="mt-0.5 text-amber-300">{availRecord.note}</div>}
                       </>
                     )}
                   </div>

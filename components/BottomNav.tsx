@@ -84,12 +84,11 @@ function NavTab({
       >
         {children}
       </motion.div>
-      <motion.span
-        animate={{ opacity: isActive ? 1 : 0.6 }}
-        className="text-[10px] font-semibold tracking-wider uppercase"
-      >
+      {/* Inactive tabs are told apart by color alone (slate-500, 4.5:1), not
+          faded on top of it: at 60% opacity the label fell to ~2.3:1. */}
+      <span className="text-[10px] font-semibold tracking-wider uppercase">
         {label}
-      </motion.span>
+      </span>
     </Link>
   );
 }

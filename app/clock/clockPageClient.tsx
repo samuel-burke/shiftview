@@ -769,7 +769,7 @@ export default function ClockPageClient() {
               <span aria-hidden="true" className="text-amber-400 mt-px shrink-0">⚠</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
-                <div className="text-xs text-amber-400/80 mt-0.5">
+                <div className="text-xs text-amber-400 mt-0.5">
                   {missedPunchInfo.lastPunchType === "break_start"
                     ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing break end and clock-out before clocking in today.</>
                     : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing clock-out before clocking in today.</>
@@ -877,7 +877,7 @@ export default function ClockPageClient() {
                   <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="var(--status-bad)" /></span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-red-300">You&apos;ve called out for today</div>
-                    <div className="text-xs text-red-400/80 mt-0.5">Your manager has been notified.</div>
+                    <div className="text-xs text-red-400 mt-0.5">Your manager has been notified.</div>
                     {myCallout.reason && (
                       <div className="text-xs text-slate-400 mt-1.5 italic">“{myCallout.reason}”</div>
                     )}

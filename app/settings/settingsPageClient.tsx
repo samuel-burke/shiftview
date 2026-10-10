@@ -821,7 +821,7 @@ export default function SettingsPageClient({
           </svg>
         </button>
         <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
-        {isDemo && <span className="ml-auto text-[11px] text-blue-400/80 font-medium">Demo Mode</span>}
+        {isDemo && <span className="ml-auto text-[11px] text-blue-400 font-medium">Demo Mode</span>}
       </div>
 
       <div className="tablet:px-2 desk:grid desk:grid-cols-[180px_minmax(0,720px)] desk:justify-center desk:gap-10 desk:px-6">
@@ -1710,7 +1710,7 @@ export default function SettingsPageClient({
         {/* Danger Zone — hidden in demo (anonymous throwaway sessions) */}
         {!isDemo && (
           <section className="pb-2">
-            <div className="text-[11px] text-red-400/70 font-semibold tracking-wider uppercase mb-2 px-1">
+            <div className="text-[11px] text-red-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Danger Zone
             </div>
             <div className="flex flex-col gap-2">
