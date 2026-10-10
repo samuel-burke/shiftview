@@ -24,6 +24,8 @@ import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
 import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
 import StableLabel from "@/components/StableLabel";
+import FormError from "@/components/FormError";
+import { Toast, ToastStack } from "@/components/Toast";
 
 // Templates are applied to the 7 days starting at a chosen date: default to
 // the next start of the store's week (its "first day of week" setting) on or
@@ -969,9 +971,6 @@ export default function SettingsPageClient({
                   />
                 </button>
               </div>
-              {pushError && (
-                <div role="alert" className="text-xs text-red-400 mt-2">{pushError}</div>
-              )}
 
               {/* Per-type toggles — only visible when push is enabled */}
               {pushSubscribed && (
@@ -1917,6 +1916,10 @@ export default function SettingsPageClient({
           </div>
         </div>
       )}
+      {/* Over the page, so a failed toggle doesn't push the settings down. */}
+      <ToastStack>
+        {pushError && <Toast onDismiss={() => setPushError(null)}>{pushError}</Toast>}
+      </ToastStack>
     </motion.div>
     </motion.div>
     </AppShell>

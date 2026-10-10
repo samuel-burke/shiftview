@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import { useAppData } from "@/lib/AppDataContext";
@@ -362,11 +363,9 @@ export default function RequestsPageClient() {
                     </div>
                   )}
 
-                  {error && (
-                    <div role="alert" className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2.5 text-sm text-red-400">
-                      {error}
-                    </div>
-                  )}
+                  <ToastStack>
+                    {error && <Toast onDismiss={() => setError(null)}>{error}</Toast>}
+                  </ToastStack>
 
                   <div className="flex gap-3">
                     <button

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { getMonogram } from "../data/types";
 import { TimeOffPendingIcon } from "./ShiftIcons";
+import { Toast, ToastStack } from "./Toast";
 import { useScrollLock } from "@/lib/scroll-lock";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
@@ -171,11 +172,10 @@ export default function RequestsDrawer({
                 </button>
               </div>
 
-              {error && (
-                <div role="alert" className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-                  {error}
-                </div>
-              )}
+              {/* Over the drawer, so a failed action doesn't push the list. */}
+              <ToastStack>
+                {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+              </ToastStack>
 
               {total === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">

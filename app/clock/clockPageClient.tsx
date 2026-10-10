@@ -18,6 +18,7 @@ import {
   SHIFT_COLORS,
 } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import { Toast, ToastStack } from "../../components/Toast";
 import AppShell from "../../components/AppShell";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
@@ -634,11 +635,12 @@ export default function ClockPageClient() {
       {clockHeader}
 
       <div className="desk:max-w-[600px] desk:mx-auto desk:px-6 desk:py-4">
-      {error && (
-        <div role="alert" className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-          {error}
-        </div>
-      )}
+      {/* Over the page, so a message can't push the clock down. */}
+      <ToastStack>
+        {error && <Toast className="text-center">{error}</Toast>}
+        {actionError && <Toast className="text-center" onDismiss={() => setActionError(null)}>{actionError}</Toast>}
+        {calloutError && <Toast className="text-center" onDismiss={() => setCalloutError(null)}>{calloutError}</Toast>}
+      </ToastStack>
 
       <div className="mt-4 space-y-3">
         {/* Today's shift card */}
@@ -786,11 +788,6 @@ export default function ClockPageClient() {
         )}
 
         {/* Action buttons */}
-        {actionError && (
-          <div role="alert" className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-            {actionError}
-          </div>
-        )}
 
         <div className="grid gap-3">
           {effectiveStatus === "not_clocked_in" && (
@@ -877,7 +874,6 @@ export default function ClockPageClient() {
                     )}
                   </div>
                 </div>
-                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
                 <button
                   onClick={undoCallout}
                   disabled={calloutPending}
@@ -902,7 +898,6 @@ export default function ClockPageClient() {
                     className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-red-500/70 transition-colors"
                   />
                 </div>
-                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => { setShowCalloutForm(false); setCalloutError(null); }}

@@ -11,6 +11,7 @@ import {
   curveHours,
   validateBlocks,
 } from "../../lib/coverage";
+import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import CoverageCurveEditor, { CoverageCurvePreview } from "../../components/CoverageCurveEditor";
@@ -188,16 +189,15 @@ export default function CoveragePageClient() {
           </div>
         </div>
 
-        {migrationRequired && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 desk:mx-6">
-            Coverage tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-coverage-profiles.sql</code> in the Supabase SQL editor.
-          </div>
-        )}
-        {error && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center desk:mx-6">
-            {error}
-          </div>
-        )}
+        {/* Over the page, so a message can't push the profiles down. */}
+        <ToastStack>
+          {migrationRequired && (
+            <Toast tone="warning" role="alert" className="text-xs">
+              Coverage tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-coverage-profiles.sql</code> in the Supabase SQL editor.
+            </Toast>
+          )}
+          {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+        </ToastStack>
 
         <div className="px-4 pt-5 flex flex-col gap-6 desk:max-w-2xl desk:mx-auto desk:px-6">
           {/* Profiles */}

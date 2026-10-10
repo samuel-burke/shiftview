@@ -27,6 +27,7 @@ import TimeCardDrawer from "../components/TimeCardDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
+import { Toast, ToastStack } from "../components/Toast";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
@@ -934,11 +935,12 @@ export default function Page() {
     />
   );
 
-  const errorBanner = error ? (
-    <div role="alert" className="mx-4 tablet:mx-6 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-      {error}
-    </div>
-  ) : null;
+  // Over the page rather than in it, so it can't push the dashboard down.
+  const errorToast = (
+    <ToastStack>
+      {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+    </ToastStack>
+  );
 
   const weekButton = isManager ? (
     <Link
@@ -1038,7 +1040,6 @@ export default function Page() {
         }`}
       >
         <CoverageHeader {...headerProps} hideMobileBrand />
-        {errorBanner}
         {/*
          * One DOM order (overview → team → manager actions), placed per size class:
          * tablet: stacked, team sections in 2 columns.
@@ -1064,6 +1065,7 @@ export default function Page() {
         </div>
         {drawer}
         {timeCardDrawer}
+        {errorToast}
         <BottomNav active="team" />
       </main>
     </AppShell>

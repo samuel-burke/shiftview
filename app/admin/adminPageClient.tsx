@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import { motion } from "framer-motion";
 import { useAppData } from "../../lib/AppDataContext";
@@ -165,11 +166,10 @@ export default function AdminPageClient({
             Roles
           </div>
 
-          {errorMsg && (
-            <div role="alert" className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
-              {errorMsg}
-            </div>
-          )}
+          {/* Over the page, so it can't push the roles list down. */}
+          <ToastStack>
+            {errorMsg && <Toast>{errorMsg}</Toast>}
+          </ToastStack>
 
           <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (

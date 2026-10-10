@@ -52,6 +52,7 @@ import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { BREAKPOINTS } from "@/hooks/useBreakpoint";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import { calloutBlockReason } from "@/lib/callout-rules";
+import { Toast, ToastStack } from "../../components/Toast";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -1047,9 +1048,6 @@ export default function SchedulePageClient() {
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
-                {timeOffStatus === "error" && timeOffError && (
-                  <div role="alert" className="text-xs text-red-400 mt-1.5">{timeOffError}</div>
-                )}
               </>
             )}
           </div>
@@ -1070,7 +1068,6 @@ export default function SchedulePageClient() {
             >
               {calloutStatus === "loading" ? "…" : "Undo call-out"}
             </button>
-            {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
         ) : canCallOut ? (
           <div className="mt-3">
@@ -1083,7 +1080,6 @@ export default function SchedulePageClient() {
               <MegaphoneIcon size={15} color="rgb(248 113 113)" />
               {calloutStatus === "loading" ? "Submitting…" : "Can't make this shift? Call out"}
             </button>
-            {calloutError && <div role="alert" className="text-xs text-red-400 mt-1.5">{calloutError}</div>}
           </div>
         ) : null}
 
@@ -1252,6 +1248,15 @@ export default function SchedulePageClient() {
           submitError={swapSubmitError}
           onSelect={submitSwap}
         />
+
+        {/* Failed requests show over the page, not inside the day card, so
+            the card doesn't grow under the button that was just tapped. */}
+        <ToastStack>
+          {timeOffStatus === "error" && timeOffError && (
+            <Toast onDismiss={() => { setTimeOffError(null); setTimeOffStatus("idle"); }}>{timeOffError}</Toast>
+          )}
+          {calloutError && <Toast onDismiss={() => setCalloutError(null)}>{calloutError}</Toast>}
+        </ToastStack>
 
         <BottomNav active="schedule" />
       </main>

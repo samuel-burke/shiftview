@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import EmployeeDrawer from "../../components/EmployeeDrawer";
@@ -310,35 +310,29 @@ export default function WeekPageClient() {
           onBack={() => router.back()}
         />
 
-        {/* Banners */}
-        {missingTables.length > 0 && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-400 tablet:mx-6">
-            Database tables are missing ({missingTables.join(" and ")}). Apply the migrations in{" "}
-            <code className="font-mono">supabase/migrations/</code> in the Supabase SQL editor.
-          </div>
-        )}
-        {errorText && (
-          <div role="alert" className="mx-4 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 tablet:mx-6">
-            {errorText}
-          </div>
-        )}
-        <AnimatePresence>
+        {/* Banners sit over the page (components/Toast.tsx), so one showing
+            up or going away doesn't push the week down. */}
+        <ToastStack>
+          {missingTables.length > 0 && (
+            <Toast tone="warning" role="alert" className="text-xs">
+              Database tables are missing ({missingTables.join(" and ")}). Apply the migrations in{" "}
+              <code className="font-mono">supabase/migrations/</code> in the Supabase SQL editor.
+            </Toast>
+          )}
+          {errorText && (
+            <Toast onDismiss={actionError ? () => setActionError(null) : undefined}>
+              {errorText}
+            </Toast>
+          )}
           {banner && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              role="status"
-              data-testid="publish-result"
-              className="mx-4 mt-3 px-4 py-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl tablet:mx-6"
-            >
-              <div className="text-sm font-semibold text-emerald-400">
+            <Toast tone="success" data-testid="publish-result" onDismiss={() => setPublishResult(null)}>
+              <div className="font-semibold">
                 Published {banner.published} shift{banner.published === 1 ? "" : "s"}. The team can see {banner.published === 1 ? "it" : "them"} now.
               </div>
               {skippedText && <div className="text-xs text-amber-400 mt-1">{skippedText}</div>}
-            </motion.div>
+            </Toast>
           )}
-        </AnimatePresence>
+        </ToastStack>
 
         {isDraftMode && auto.showSummary && auto.currentRun && (
           <AutoScheduleSummary
