@@ -182,7 +182,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                     isSelected
                       ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white font-bold hover:opacity-90"
                       : isToday_
-                      ? "bg-transparent text-blue-500 font-bold hover:bg-blue-500/10"
+                      ? "bg-transparent text-blue-400 font-bold hover:bg-blue-500/10"
                       : "bg-transparent text-slate-400 font-normal hover:bg-slate-800 hover:text-slate-200"
                   }`}
                 >
