@@ -16,6 +16,9 @@
 
   --color-bg: #080f1e;
   --color-card: #111827;
+  /* The edge of a text field or select: 3:1 against the card and the page,
+     as a control's boundary needs to be (WCAG 1.4.11). Light value below. */
+  --color-field: #5e6f88;
 }
 
 /* ── Dark theme (default) ─────────────────────────────────── */
@@ -23,6 +26,25 @@
   color-scheme: dark;
   --body-color: #f8fafc;
   --skeleton-shine: #1e2a3f;
+
+  /* Secondary text (text-slate-500). Tailwind's slate-500 is 3.7:1 on the
+     card, under the 4.5:1 small text needs; this is 5.7:1 there and 4.65 on
+     slate-800 (chips, field fills), still a step below slate-400. */
+  --color-slate-500: #8193aa;
+
+  /* Status colors for inline styles (badges, icons, chart lines, values),
+     one set per theme so each reads on that theme's surfaces. */
+  --status-ok: #22c55e;      /* clocked in, on target, approved */
+  --status-warn: #f59e0b;    /* on break */
+  --status-caution: #fbbf24; /* below target, pending */
+  --status-bad: #f87171;     /* critical, denied, late */
+  --status-muted: #94a3b8;   /* off, closed, walk-in */
+  --status-info: #818cf8;    /* budget, target, early */
+  --status-blue: #3b82f6;    /* scheduled */
+  --status-sky: #60a5fa;
+  --status-violet: #a78bfa;
+  --status-teal: #34d399;
+  --status-orange: #fb923c;
   /* Shift types */
   --color-shift-opener:  #fbbf24;  /* brighter amber */
   --color-shift-mid:     #60a5fa;  /* lighter blue */
@@ -58,15 +80,31 @@
   /* Semantic backgrounds */
   --color-bg: #f1f5f9;
   --color-card: #ffffff;
-  /* Shift types */
-  --color-shift-opener:  #f59e0b;  /* amber */
-  --color-shift-mid:     #3b82f6;  /* blue (less neon than cyan) */
-  --color-shift-closer:  #8b5cf6;  /* deeper purple */
+  --color-field: #77859b; /* 3.4:1 on the page, 3.7 on a card */
 
-  /* Time-off request statuses */
-  --color-timeoff-pending:  #94a3b8; /* neutral slate (no confusion with "warning") */
-  --color-timeoff-approved: #22c55e; /* strong, readable green */
-  --color-timeoff-denied:   #ef4444; /* clear error red */
+  /* Shift types and time-off statuses are text as well as stripes and
+     icons ("Opener", "Denied"), often on their own tint: these are the
+     shades that keep 4.5:1 there (amber 800, blue 700, violet 700, green
+     800, red 700). The 500s read at 2-4:1 on white. */
+  --color-shift-opener:  #92400e;
+  --color-shift-mid:     #1d4ed8;
+  --color-shift-closer:  #6d28d9;
+
+  --color-timeoff-pending:  #576578;
+  --color-timeoff-approved: #166534;
+  --color-timeoff-denied:   #b91c1c;
+
+  --status-ok: #166534;
+  --status-warn: #92400e;
+  --status-caution: #92400e;
+  --status-bad: #b91c1c;
+  --status-muted: #576578;
+  --status-info: #4338ca;
+  --status-blue: #1d4ed8;
+  --status-sky: #1d4ed8;
+  --status-violet: #6d28d9;
+  --status-teal: #065f46;
+  --status-orange: #9a3412;
 
   /* Coverage heatmap (see the dark values above): amber 500 / 600 / 700 and
      blue 400 / 500 / 600, checked against the white card the same way. */
@@ -89,7 +127,9 @@
   --color-slate-200: #1e293b;
   --color-slate-300: #334155;
   --color-slate-400: #475569;
-  --color-slate-500: #64748b;
+  /* Not the inversion's #64748b (4.3:1 on the page): secondary text keeps
+     4.5:1 on white, the page and slate-800. */
+  --color-slate-500: #576578;
   --color-slate-600: #94a3b8;
   --color-slate-700: #cbd5e1;
   --color-slate-800: #e2e8f0;
@@ -107,13 +147,18 @@
   --color-violet-100: #4c1d95;
   --color-violet-200: #5b21b6;
   --color-violet-300: #6d28d9;
-  --color-emerald-400: #059669;
-  --color-red-300: #b91c1c;
-  --color-red-400: #dc2626;
-  --color-blue-400: #2563eb;
+  /* Status text sits on its own tint (bg-emerald-500/10 and the like), so
+     these are a shade darker than white alone would need. */
+  --color-emerald-300: #065f46;
+  --color-emerald-400: #047857;
+  --color-green-400: #166534;
+  --color-green-500: #166534;
+  --color-red-300: #991b1b;
+  --color-red-400: #b91c1c;
+  --color-blue-400: #1d4ed8;
   --color-violet-400: #7c3aed;
-  --color-amber-300: #92400e;
-  --color-amber-400: #b45309;
+  --color-amber-300: #78350f;
+  --color-amber-400: #92400e;
 }
 
 /* ── Base styles ──────────────────────────────────────────── */
@@ -151,6 +196,16 @@ body {
 /* Prevent iOS Safari from zooming the page when focusing inputs smaller than 16px */
 input, textarea, select {
   font-size: max(16px, 1em);
+}
+
+/* Placeholders ("Any", "e.g. Class until 2 PM") are text people read: the
+   browser's default grey is ~2.4:1 on white. Secondary text's token keeps
+   4.5:1 in both themes; a placeholder: utility still overrides it. */
+@layer base {
+  ::placeholder {
+    color: var(--color-slate-500);
+    opacity: 1;
+  }
 }
 
 /*
