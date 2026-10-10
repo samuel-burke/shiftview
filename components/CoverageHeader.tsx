@@ -121,7 +121,7 @@ export default function CoverageHeader({
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
             className="inline-block"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
         </motion.button>
         <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
@@ -156,7 +156,7 @@ export default function CoverageHeader({
       >
         <div className="text-lg font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
           {dateLabel}
-          <span className="text-[13px] text-blue-500 font-normal">▾</span>
+          <span className="text-[13px] text-blue-400 font-normal">▾</span>
         </div>
       </motion.button>
       <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>

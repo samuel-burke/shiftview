@@ -480,7 +480,7 @@ export function ScheduleScreen({
               <span className="text-base font-bold tracking-tight text-slate-100">
                 {formatDateKey(week[0], { month: "short", day: "numeric" })} – {formatDateKey(week[6], { month: "short", day: "numeric", year: "numeric" })}
               </span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </span>
             <div className="flex items-center gap-2">
               {arrow("M15 18l-6-6 6-6")}
