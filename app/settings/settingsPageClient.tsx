@@ -12,6 +12,7 @@ import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
+import SettingsSectionLabel from "../../components/SettingsSectionLabel";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
@@ -1101,9 +1102,11 @@ export default function SettingsPageClient({
 
         {/* Time Clock — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Time Clock
-          </div>
+          <SettingsSectionLabel label="Time Clock">
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-xs leading-4">
+              {timeclockSaved && <div className="text-emerald-400">Saved ✓</div>}
+            </div>
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1304,21 +1307,15 @@ export default function SettingsPageClient({
                 )}
               </div>
             )}
-
-            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
-              {timeclockSaved && (
-                <div className="text-xs text-emerald-400">Saved ✓</div>
-              )}
-            </div>
           </div>
         </section>}
 
         {/* Punch Violations — manager only. Orgs precisely define what counts as
             a violation and cap breaks per shift (enforced at clock-in time). */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Punch Violations
-          </div>
+          <SettingsSectionLabel label="Punch Violations">
+            <SaveStatusText status={punchPolicyStatus} testId="punch-policy-status" />
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
             {([
               { enabledKey: "lateInEnabled",     minutesKey: "lateInMinutes",     label: "Late Clock-In",   desc: "Flag when clocking in past the scheduled start" },
@@ -1394,16 +1391,14 @@ export default function SettingsPageClient({
                 className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500 shrink-0"
               />
             </div>
-
-            <SaveStatusText status={punchPolicyStatus} testId="punch-policy-status" />
           </div>
         </section>}
 
         {/* Week Start — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Week Start
-          </div>
+          <SettingsSectionLabel label="Week Start">
+            <SaveStatusText status={firstDayStatus} testId="week-start-status" />
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <LayoutGroup id="week-start-pill">
             <div className="flex bg-slate-800 rounded-xl p-[3px]">
@@ -1427,15 +1422,14 @@ export default function SettingsPageClient({
               ))}
             </div>
             </LayoutGroup>
-            <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </div>
         </section>}
 
         {/* Timezone — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Timezone
-          </div>
+          <SettingsSectionLabel label="Timezone">
+            <SaveStatusText status={timezoneStatus} testId="timezone-status" />
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <select
               aria-label="Timezone"
@@ -1460,7 +1454,6 @@ export default function SettingsPageClient({
                 <option value={timezone}>{timezone}</option>
               )}
             </select>
-            <SaveStatusText status={timezoneStatus} testId="timezone-status" />
           </div>
         </section>}
 

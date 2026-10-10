@@ -12,7 +12,6 @@ import {
 import SegmentedControl from "./SegmentedControl";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
 import ShiftPreferencesSection from "./ShiftPreferencesSection";
-import FormError from "./FormError";
 
 // Manager-only, under each employee in Settings → Team: employment type and
 // weekly limits for Auto-schedule, plus the employee's shift
@@ -187,21 +186,22 @@ export default function EmployeeSchedulingRow({
 
           <div className="text-[11px] text-slate-500 -mt-2">Blank fields use the {type === "full_time" ? "full-time" : "part-time"} default from Scheduling Rules.</div>
 
-          <FormError message={problem} />
-
-          <div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={save}
-                disabled={status === "saving"}
-                aria-busy={status === "saving"}
-                className="text-xs font-semibold px-4 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Save Limits
-              </button>
+          {/* The form's problem or its save status, beside Save: neither needs
+              a line of its own, so the form ends at its button. */}
+          <div className="flex items-center gap-3 min-h-10">
+            <div className="flex-1 min-w-0">
+              {problem && <div role="alert" className="text-xs leading-4 text-red-400">{problem}</div>}
+              <SaveStatusText status={status} testId={`employee-scheduling-status-${employee.id}`} />
             </div>
-            <SaveStatusText status={status} testId={`employee-scheduling-status-${employee.id}`} />
+            <button
+              type="button"
+              onClick={save}
+              disabled={status === "saving"}
+              aria-busy={status === "saving"}
+              className="shrink-0 h-10 text-xs font-semibold px-4 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Save Limits
+            </button>
           </div>
 
           <div className="pt-4 border-t border-slate-800/60">
