@@ -275,7 +275,7 @@ function TimeOffCard({
             {request.employeeName}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-400">
-            <TimeOffPendingIcon size={11} color="#fbbf24" />
+            <TimeOffPendingIcon size={11} color="var(--status-caution)" />
             {formatShortDate(request.date)}
             {request.note && (
               <span className="text-slate-500 truncate">· &ldquo;{request.note}&rdquo;</span>

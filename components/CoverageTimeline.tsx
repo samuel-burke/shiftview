@@ -47,7 +47,7 @@ function fmtMinutes(m: number): string {
 // the whole chart every frame for as long as the dashboard was open, while a
 // CSS transform/opacity animation runs on the compositor. The dot reports its
 // position (in SVG coordinates) so the ring can sit on it.
-function NowDot({ cx, cy, color = "#22c55e", onPlace }: {
+function NowDot({ cx, cy, color = "var(--status-ok)", onPlace }: {
   cx?: number;
   cy?: number;
   color?: string;
@@ -227,7 +227,7 @@ function CoverageTimeline({
 
   if (range === 0) return null;
 
-  const nowDotColor = nowDataPoint?.actual != null ? "#22c55e" : "#3b82f6";
+  const nowDotColor = nowDataPoint?.actual != null ? "var(--status-ok)" : "var(--status-blue)";
 
   const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
   // Pixel position of the badge within the container
@@ -268,7 +268,7 @@ function CoverageTimeline({
             >
               <span
                 className="inline-block w-2.5 h-0.5 rounded-full"
-                style={{ backgroundImage: "repeating-linear-gradient(90deg, #818cf8 0 3px, transparent 3px 5px)" }}
+                style={{ backgroundImage: "repeating-linear-gradient(90deg, var(--status-info) 0 3px, transparent 3px 5px)" }}
               />
               Target
             </motion.span>
@@ -319,23 +319,23 @@ function CoverageTimeline({
           >
             <defs>
               <linearGradient id="covGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--status-blue)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="var(--status-blue)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--status-ok)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--status-ok)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
               dataKey="label"
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "var(--status-muted)", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               ticks={ticks}
             />
             <YAxis
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "var(--status-muted)", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
@@ -360,7 +360,7 @@ function CoverageTimeline({
               <Line
                 type="stepAfter"
                 dataKey="target"
-                stroke="#818cf8"
+                stroke="var(--status-info)"
                 strokeWidth={2}
                 strokeDasharray="5 4"
                 dot={false}
@@ -371,7 +371,7 @@ function CoverageTimeline({
             <Area
               type="monotone"
               dataKey="staff"
-              stroke="#3b82f6"
+              stroke="var(--status-blue)"
               strokeWidth={2.5}
               fill="url(#covGrad)"
               dot={false}
@@ -382,7 +382,7 @@ function CoverageTimeline({
               <Area
                 type="monotone"
                 dataKey="actual"
-                stroke="#22c55e"
+                stroke="var(--status-ok)"
                 strokeWidth={2.5}
                 fill="url(#actualGrad)"
                 dot={false}
@@ -393,7 +393,7 @@ function CoverageTimeline({
             {isToday && nowDataPoint && (
               <ReferenceLine
                 x={nowDataPoint.label}
-                stroke="#94a3b8"
+                stroke="var(--status-muted)"
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
               />

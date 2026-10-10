@@ -144,8 +144,8 @@ export function DayToolbar({
       </div>
       <div className="flex gap-2 tablet:ml-auto">
         {[
-          { label: "Scheduled", value: `${scheduled} hrs`, color: "#3b82f6" },
-          { label: "Budget", value: `${budget} hrs`, color: "#818cf8" },
+          { label: "Scheduled", value: `${scheduled} hrs`, color: "var(--status-blue)" },
+          { label: "Budget", value: `${budget} hrs`, color: "var(--status-info)" },
           { label: "Variance", value: `${variance > 0 ? "+" : ""}${variance} hrs`, color: varianceColor(variance) },
         ].map(({ label, value, color }) => (
           <div key={label} className="flex-1 tablet:flex-none tablet:min-w-[92px] bg-card rounded-xl px-2 py-2 text-center border border-slate-800/60">
@@ -257,7 +257,7 @@ export function DayList({
           const isLiveContext = isDraftMode && cell.live !== null;
           const clash = isDraftMode && cell.live !== null && cell.draft !== null;
           const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
-          const color = isLiveContext ? "#64748b" : type ? SHIFT_COLORS[type] : "#94a3b8";
+          const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
           const week = weekHours(emp);
           const timeOffRequested = requested.has(emp.id);
           const isSel = selected?.employeeId === emp.id && selected.date === date;
@@ -291,7 +291,7 @@ export function DayList({
                 style={
                   s
                     ? {
-                        background: `color-mix(in srgb, ${color} 18%, transparent)`,
+                        background: `color-mix(in srgb, ${color} 14%, transparent)`,
                         border: `1px solid color-mix(in srgb, ${color} 40%, transparent)`,
                         color,
                       }

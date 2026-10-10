@@ -58,12 +58,12 @@ export function CoverageCurvePreview({ blocks, height = 120 }: { blocks: Coverag
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
         <defs>
           <linearGradient id="curvePrevGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#818cf8" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+            <stop offset="5%" stopColor="var(--status-info)" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="var(--status-info)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} ticks={ticks} />
-        <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+        <XAxis dataKey="label" tick={{ fill: "var(--status-muted)", fontSize: 10 }} tickLine={false} axisLine={false} ticks={ticks} />
+        <YAxis tick={{ fill: "var(--status-muted)", fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
         <Tooltip
           contentStyle={{
             background: isLight ? "#ffffff" : "#0f172a",
@@ -74,7 +74,7 @@ export function CoverageCurvePreview({ blocks, height = 120 }: { blocks: Coverag
           }}
           formatter={(v) => [`${v} staff`, "Target"]}
         />
-        <Area type="stepAfter" dataKey="target" stroke="#818cf8" strokeWidth={2.5} fill="url(#curvePrevGrad)" dot={false} />
+        <Area type="stepAfter" dataKey="target" stroke="var(--status-info)" strokeWidth={2.5} fill="url(#curvePrevGrad)" dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   );

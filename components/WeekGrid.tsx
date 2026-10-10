@@ -164,7 +164,7 @@ export default function WeekGrid({
                   const clash = isDraftMode && cell.live !== null && cell.draft !== null;
                   const hours = weeklyHours[dayOfWeekForKey(date)];
                   const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
-                  const color = isLiveContext ? "#64748b" : type ? SHIFT_COLORS[type] : "#94a3b8";
+                  const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
                   const requested = timeOffCell.has(`${emp.id}|${date}`);
                   const isSel = selected?.employeeId === emp.id && selected.date === date;
                   const dayLabel = formatDateKey(date, { weekday: "long", month: "long", day: "numeric" });
@@ -218,7 +218,7 @@ export default function WeekGrid({
                           s
                             ? {
                                 background: `color-mix(in srgb, ${color} ${isLiveContext ? 14 : 18}%, transparent)`,
-                                boxShadow: `inset 3px 0 0 ${clash ? "#f59e0b" : color}`,
+                                boxShadow: `inset 3px 0 0 ${clash ? "var(--status-warn)" : color}`,
                               }
                             : undefined
                         }
@@ -233,7 +233,7 @@ export default function WeekGrid({
                             </span>
                             {/* A time-off request leads, so a narrow cell that cuts the
                                 line short still shows it. */}
-                            <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "#f59e0b" : color }}>
+                            <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "var(--status-warn)" : color }}>
                               {requested ? "Time off? · " : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
                             </span>

@@ -45,11 +45,11 @@ function StatCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
-      style={{ border: `1px solid ${color}33` }}
+      style={{ border: `1px solid color-mix(in srgb, ${color} 20%, transparent)` }}
     >
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, color-mix(in srgb, ${color} 4%, transparent) 0%, transparent 70%)` }}
       />
       {loading ? (
         // The value's own box: a 22px line (text-[22px] leading-none).
@@ -71,7 +71,7 @@ function StatCard({
 
 /** Variance color: over budget red, under amber, on budget green. */
 export function varianceColor(variance: number): string {
-  return variance > 0 ? "#f87171" : variance < 0 ? "#fbbf24" : "#22c55e";
+  return variance > 0 ? "var(--status-bad)" : variance < 0 ? "var(--status-caution)" : "var(--status-ok)";
 }
 
 /** The week at a glance: budget, scheduled hours, variance and coverage score. */
@@ -95,10 +95,10 @@ export function WeekStats({
 
   return (
     <div className="grid grid-cols-2 tablet:grid-cols-4 gap-2" data-testid="week-stats">
-      <StatCard index={0} value={String(Math.round(budget))} suffix="hrs" label="Weekly Budget" color="#818cf8" loading={loading} />
-      <StatCard index={1} value={String(round1(scheduled))} suffix="hrs" label="Scheduled" color="#3b82f6" loading={loading} />
+      <StatCard index={0} value={String(Math.round(budget))} suffix="hrs" label="Weekly Budget" color="var(--status-info)" loading={loading} />
+      <StatCard index={1} value={String(round1(scheduled))} suffix="hrs" label="Scheduled" color="var(--status-blue)" loading={loading} />
       <StatCard index={2} value={variance > 0 ? `+${variance}` : String(variance)} suffix="hrs" label="Variance" color={varianceColor(variance)} loading={loading} />
-      <StatCard index={3} value={score === null ? "—" : String(score)} suffix={score === null ? undefined : "%"} label="Coverage Score" color="#22c55e" loading={loading} />
+      <StatCard index={3} value={score === null ? "—" : String(score)} suffix={score === null ? undefined : "%"} label="Coverage Score" color="var(--status-ok)" loading={loading} />
     </div>
   );
 }

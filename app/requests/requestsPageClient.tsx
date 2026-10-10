@@ -34,7 +34,7 @@ type Item = {
 const KIND_LABEL: Record<Kind, string> = { timeoff: "Time off", swap: "Shift swap", correction: "Punch correction" };
 /** Compact labels for the list rows. */
 const KIND_TAG: Record<Kind, string> = { timeoff: "Time off", swap: "Swap", correction: "Fix" };
-const KIND_COLOR: Record<Kind, string> = { timeoff: "#a78bfa", swap: "#60a5fa", correction: "#fbbf24" };
+const KIND_COLOR: Record<Kind, string> = { timeoff: "var(--status-violet)", swap: "var(--status-sky)", correction: "var(--status-caution)" };
 const PUNCH_LABEL = { clock_in: "Clock in", clock_out: "Clock out", break_start: "Break start", break_end: "Break end" } as const;
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },

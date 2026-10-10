@@ -100,14 +100,14 @@ function AnimatedStatCard({
       transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{
-        border: `1px solid ${color}33`,
-        boxShadow: pulse ? `0 0 16px ${color}18` : undefined,
+        border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+        boxShadow: pulse ? `0 0 16px color-mix(in srgb, ${color} 9%, transparent)` : undefined,
       }}
     >
       {/* Subtle radial glow bg */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, color-mix(in srgb, ${color} 4%, transparent) 0%, transparent 70%)` }}
       />
 
       {loading ? (
@@ -846,7 +846,7 @@ export default function Page() {
             index={0}
             value={hereNowCount}
             label="Here Now"
-            color="#22c55e"
+            color="var(--status-ok)"
             loading={isLoading}
           />
         )}
@@ -856,7 +856,7 @@ export default function Page() {
         index={isToday ? 1 : 0}
         value={scheduledCount}
         label="Scheduled"
-        color="#818cf8"
+        color="var(--status-info)"
         loading={isLoading}
       />
       <AnimatedStatCard
@@ -864,7 +864,7 @@ export default function Page() {
         index={isToday ? 2 : 1}
         value={off.length}
         label="Off"
-        color="#94a3b8"
+        color="var(--status-muted)"
         loading={isLoading}
       />
     </div>

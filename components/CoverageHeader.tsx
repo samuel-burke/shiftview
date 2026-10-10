@@ -78,16 +78,16 @@ export default function CoverageHeader({
 
   const alertConfig = (() => {
     if (isPast || isFuture)
-      return { icon: <CalendarIcon size={13} color="#94a3b8" />, message: isPast ? "Viewing past schedule" : "Viewing future schedule", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "#94a3b8" };
+      return { icon: <CalendarIcon size={13} color="var(--status-muted)" />, message: isPast ? "Viewing past schedule" : "Viewing future schedule", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "var(--status-muted)" };
     if (coverageStatus === "closed")
-      return { icon: <LockIcon size={13} color="#94a3b8" />, message: "Store closed", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "#94a3b8" };
+      return { icon: <LockIcon size={13} color="var(--status-muted)" />, message: "Store closed", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "var(--status-muted)" };
     if (coverageStatus === "critical")
-      return { icon: <WarningIcon size={13} color="#f87171" />, message: `Critically below coverage target — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "#f87171" };
+      return { icon: <WarningIcon size={13} color="var(--status-bad)" />, message: `Critically below coverage target — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "var(--status-bad)" };
     if (coverageStatus === "low")
-      return { icon: <WarningIcon size={13} color="#fbbf24" />, message: `Below coverage target — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "#fbbf24" };
+      return { icon: <WarningIcon size={13} color="var(--status-caution)" />, message: `Below coverage target — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "var(--status-caution)" };
     // On target: a calm status rather than nothing, so the line is there in
     // every state and the dashboard under it never moves when it changes.
-    return { icon: <TimeOffApprovedIcon size={13} color="#22c55e" />, message: `On target — ${hereCount} here now`, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.22)", text: "#22c55e", calm: true };
+    return { icon: <TimeOffApprovedIcon size={13} color="var(--status-ok)" />, message: `On target — ${hereCount} here now`, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.22)", text: "var(--status-ok)", calm: true };
   })();
 
   const alertKey = alertConfig.message;

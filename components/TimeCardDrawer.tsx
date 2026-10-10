@@ -22,10 +22,10 @@ const PUNCH_LABELS: Record<PunchType, string> = {
 };
 
 const PUNCH_COLORS: Record<PunchType, string> = {
-  clock_in: "#22c55e",
-  clock_out: "#94a3b8",
-  break_start: "#f59e0b",
-  break_end: "#818cf8",
+  clock_in: "var(--status-ok)",
+  clock_out: "var(--status-muted)",
+  break_start: "var(--status-warn)",
+  break_end: "var(--status-info)",
 };
 
 // Per-violation pill styling. Hard violations (NCNS, late, no-show-shaped) are

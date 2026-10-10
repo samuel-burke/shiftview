@@ -26,19 +26,19 @@ type BannerItem = {
 };
 
 const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
-  chess_move:         { Icon: ChessPieceIcon,      color: "#f59e0b" },
-  shift_change:       { Icon: CalendarIcon,        color: "#60a5fa" },
-  shift_reminder:     { Icon: AlarmIcon,           color: "#fbbf24" },
-  swap_approved:      { Icon: TimeOffApprovedIcon, color: "#34d399" },
-  swap_denied:        { Icon: TimeOffDeniedIcon,   color: "#f87171" },
-  pto_approved:       { Icon: TimeOffApprovedIcon, color: "#34d399" },
-  pto_denied:         { Icon: TimeOffDeniedIcon,   color: "#f87171" },
-  late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
-  punch_correction_requested: { Icon: WarningIcon,         color: "#fbbf24" },
-  punch_correction_approved:  { Icon: TimeOffApprovedIcon, color: "#34d399" },
-  punch_correction_denied:    { Icon: TimeOffDeniedIcon,   color: "#f87171" },
-  schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
-  message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
+  chess_move:         { Icon: ChessPieceIcon,      color: "var(--status-warn)" },
+  shift_change:       { Icon: CalendarIcon,        color: "var(--status-sky)" },
+  shift_reminder:     { Icon: AlarmIcon,           color: "var(--status-caution)" },
+  swap_approved:      { Icon: TimeOffApprovedIcon, color: "var(--status-teal)" },
+  swap_denied:        { Icon: TimeOffDeniedIcon,   color: "var(--status-bad)" },
+  pto_approved:       { Icon: TimeOffApprovedIcon, color: "var(--status-teal)" },
+  pto_denied:         { Icon: TimeOffDeniedIcon,   color: "var(--status-bad)" },
+  late_clock_in:      { Icon: WarningIcon,         color: "var(--status-orange)" },
+  punch_correction_requested: { Icon: WarningIcon,         color: "var(--status-caution)" },
+  punch_correction_approved:  { Icon: TimeOffApprovedIcon, color: "var(--status-teal)" },
+  punch_correction_denied:    { Icon: TimeOffDeniedIcon,   color: "var(--status-bad)" },
+  schedule_published: { Icon: MegaphoneIcon,       color: "var(--status-violet)" },
+  message:            { Icon: ChatBubbleIcon,      color: "var(--status-info)" },
 };
 
 const AUTO_DISMISS_MS = 5000;
@@ -179,7 +179,7 @@ export default function InAppNotificationBanner() {
         {visibleBanners.map((banner) => {
           const entry = banner.type ? (TYPE_ICON_MAP[banner.type] ?? null) : null;
           const Icon = entry?.Icon ?? BellIcon;
-          const color = entry?.color ?? "#94a3b8";
+          const color = entry?.color ?? "var(--status-muted)";
           return (
             <motion.div
               key={banner.id}

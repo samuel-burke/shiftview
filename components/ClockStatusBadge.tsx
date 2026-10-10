@@ -12,10 +12,10 @@ import type { AttendanceStatus } from "@/data/types";
  */
 
 const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boolean }> = {
-  clocked_in:     { color: "#22c55e", label: "Clocked In", live: true },
-  on_break:       { color: "#f59e0b", label: "On Break",   live: true },
-  clocked_out:    { color: "#94a3b8", label: "Off",        live: false },
-  not_clocked_in: { color: "#94a3b8", label: "Off",        live: false },
+  clocked_in:     { color: "var(--status-ok)", label: "Clocked In", live: true },
+  on_break:       { color: "var(--status-warn)", label: "On Break",   live: true },
+  clocked_out:    { color: "var(--status-muted)", label: "Off",        live: false },
+  not_clocked_in: { color: "var(--status-muted)", label: "Off",        live: false },
 };
 
 // The two longest labels; which one is wider depends on the font.

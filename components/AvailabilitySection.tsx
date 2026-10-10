@@ -343,9 +343,9 @@ export default function AvailabilitySection({
                   const isActive = sheetDay?.state === s;
                   const pillLabel = s === "any" ? "Any time" : s === "window" ? "Window" : "Off";
                   const activeColor =
-                    s === "any"    ? "#34d399" :
-                    s === "window" ? "#818cf8" :
-                                     "#f87171";
+                    s === "any"    ? "var(--status-teal)" :
+                    s === "window" ? "var(--status-info)" :
+                                     "var(--status-bad)";
                   return (
                     <button
                       key={s}
@@ -359,8 +359,8 @@ export default function AvailabilitySection({
                           layoutId="avail-pill"
                           className="absolute inset-0 rounded-lg"
                           style={{
-                            background: `${activeColor}18`,
-                            boxShadow: `inset 0 0 0 1px ${activeColor}30`,
+                            background: `color-mix(in srgb, ${activeColor} 9%, transparent)`,
+                            boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${activeColor} 19%, transparent)`,
                           }}
                           transition={{ type: "spring", stiffness: 420, damping: 34 }}
                         />

@@ -49,10 +49,10 @@ const STATUS_LABELS: Record<AttendanceStatus, string> = {
 };
 
 const STATUS_COLORS: Record<AttendanceStatus, string> = {
-  clocked_in:    "#22c55e",
-  on_break:      "#f59e0b",
-  clocked_out:   "#94a3b8",
-  not_clocked_in: "#94a3b8",
+  clocked_in:    "var(--status-ok)",
+  on_break:      "var(--status-warn)",
+  clocked_out:   "var(--status-muted)",
+  not_clocked_in: "var(--status-muted)",
 };
 
 const PUNCH_TYPE_LABELS: Record<PunchType, string> = {
@@ -560,8 +560,8 @@ export default function ClockPageClient() {
     const clockIn = sortedPunches.find((p) => p.punchType === "clock_in");
     if (!clockIn) return null;
     const diff = minutesFromScheduled(clockIn.punchedAt, schedule.date.slice(0, 10), schedule.startMinutes, timezone);
-    if (diff > 5) return { text: `${diff}m late`, color: "#ef4444" };
-    if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
+    if (diff > 5) return { text: `${diff}m late`, color: "var(--status-bad)" };
+    if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "var(--status-info)" };
     return null;
   }, [schedule, sortedPunches, timezone]);
 
@@ -573,7 +573,7 @@ export default function ClockPageClient() {
   const shiftType = schedule
     ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close)
     : null;
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#818cf8";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "var(--status-info)";
 
   const firstName = employeeName ? employeeName.split(" ")[0] : "Clock";
 
@@ -661,7 +661,7 @@ export default function ClockPageClient() {
             <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Today&apos;s Shift</span>
             {shiftType && (
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize"
-                style={{ background: `${shiftColor}22`, color: shiftColor }}>
+                style={{ background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`, color: shiftColor }}>
                 {shiftType}
               </span>
             )}
@@ -698,9 +698,9 @@ export default function ClockPageClient() {
           <div
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-3"
             style={{
-              background: `${STATUS_COLORS[effectiveStatus]}22`,
+              background: `color-mix(in srgb, ${STATUS_COLORS[effectiveStatus]} 13%, transparent)`,
               color: STATUS_COLORS[effectiveStatus],
-              border: `1px solid ${STATUS_COLORS[effectiveStatus]}44`,
+              border: `1px solid color-mix(in srgb, ${STATUS_COLORS[effectiveStatus]} 27%, transparent)`,
             }}
           >
             <span
@@ -874,7 +874,7 @@ export default function ClockPageClient() {
             {myCallout ? (
               <div className="px-4 py-3.5 space-y-2.5">
                 <div className="flex items-start gap-2.5">
-                  <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="#f87171" /></span>
+                  <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="var(--status-bad)" /></span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-red-300">You&apos;ve called out for today</div>
                     <div className="text-xs text-red-400/80 mt-0.5">Your manager has been notified.</div>
@@ -930,7 +930,7 @@ export default function ClockPageClient() {
                 onClick={() => setShowCalloutForm(true)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors text-sm font-semibold text-slate-300"
               >
-                <MegaphoneIcon size={15} color="#94a3b8" />
+                <MegaphoneIcon size={15} color="var(--status-muted)" />
                 Can&apos;t make it in today? Call out
               </button>
             )}
@@ -950,10 +950,10 @@ export default function ClockPageClient() {
                         className="size-2 rounded-full shrink-0"
                         style={{
                           background:
-                            p.punchType === "clock_in"   ? "#22c55e" :
-                            p.punchType === "clock_out"  ? "#94a3b8" :
-                            p.punchType === "break_start"? "#f59e0b" :
-                                                           "#818cf8",
+                            p.punchType === "clock_in"   ? "var(--status-ok)" :
+                            p.punchType === "clock_out"  ? "var(--status-muted)" :
+                            p.punchType === "break_start"? "var(--status-warn)" :
+                                                           "var(--status-info)",
                         }}
                       />
                       <span className="text-sm font-medium text-slate-200">

@@ -1035,7 +1035,7 @@ export default function SchedulePageClient() {
           {shiftLabel && shiftColor && (
             <span
               className="text-xs font-semibold px-3 py-1 rounded-full"
-              style={{ background: `${shiftColor}22`, color: shiftColor }}
+              style={{ background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`, color: shiftColor }}
             >
               {shiftLabel}
             </span>

@@ -141,7 +141,7 @@ export default function EmployeeDrawer({
   const dayOfWeek = date ? dayOfWeekForKey(date) : new Date().getDay();
   const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes, date);
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "var(--status-muted)";
 
   const isDraft = source === "draft";
   let statusLabel: string;
@@ -149,23 +149,23 @@ export default function EmployeeDrawer({
   if (isDraft) {
     statusLabel = !schedule ? "Off" : schedule.generationRunId ? "Auto draft" : "Draft";
     // Theme variables, so light mode gets its darker amber and violet.
-    statusColor = !schedule ? "#94a3b8" : schedule.generationRunId ? "var(--color-violet-400, #a78bfa)" : "var(--color-amber-400, #fbbf24)";
+    statusColor = !schedule ? "var(--status-muted)" : schedule.generationRunId ? "var(--color-violet-400, #a78bfa)" : "var(--color-amber-400, #fbbf24)";
   } else if (readOnly) {
     statusLabel = "Live";
-    statusColor = "#94a3b8";
+    statusColor = "var(--status-muted)";
   } else if (calledOut) {
     statusLabel = "Called Out";
-    statusColor = "#f87171";
+    statusColor = "var(--status-bad)";
   } else if (isToday && attendanceStatus && attendanceStatus !== "not_clocked_in") {
     const ATTENDANCE_LABELS: Record<Exclude<AttendanceStatus, "not_clocked_in">, { label: string; color: string }> = {
-      clocked_in:  { label: "Clocked In",  color: "#22c55e" },
-      on_break:    { label: "On Break",    color: "#f59e0b" },
-      clocked_out: { label: "Clocked Out", color: "#94a3b8" },
+      clocked_in:  { label: "Clocked In",  color: "var(--status-ok)" },
+      on_break:    { label: "On Break",    color: "var(--status-warn)" },
+      clocked_out: { label: "Clocked Out", color: "var(--status-muted)" },
     };
     ({ label: statusLabel, color: statusColor } = ATTENDANCE_LABELS[attendanceStatus]);
   } else {
     statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
-    statusColor = here ? "#22c55e" : "#94a3b8";
+    statusColor = here ? "var(--status-ok)" : "var(--status-muted)";
   }
 
   // Find matching availability record
