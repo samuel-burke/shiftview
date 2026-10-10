@@ -36,6 +36,7 @@ import {
 import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
+import { removeOptimistically } from "@/hooks/useManagerRequests";
 import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
 import { shiftWindowOn } from "@/lib/shift-times";
 import { mapSwap, type Swap, type RawSwap } from "@/lib/swaps";
@@ -200,31 +201,23 @@ export default function SchedulePageClient() {
     setNavDate((nd) => (localDateKey(nd) === prev ? dateFromKey(todayKey) : nd));
   }, [todayKey]);
 
-  async function handleApproveManagerTimeOff(id: number) {
+  // Decisions in the requests drawer are optimistic: the request leaves the
+  // list at the tap and comes back if the server refuses (useManagerRequests).
+  async function decideManagerTimeOff(id: number, status: "approved" | "denied") {
+    const restore = removeOptimistically(setPendingManagerTimeOff, id);
     const res = await fetch(`/api/time-off/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to approve request");
+      body: JSON.stringify({ status }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      restore();
+      const { error } = (await res?.json().catch(() => ({}))) ?? {};
+      throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} request`);
     }
-    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
   }
-
-  async function handleDenyManagerTimeOff(id: number) {
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "denied" }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      throw new Error(error ?? "Failed to deny request");
-    }
-    setPendingManagerTimeOff((prev) => prev.filter((r) => r.id !== id));
-  }
+  const handleApproveManagerTimeOff = (id: number) => decideManagerTimeOff(id, "approved");
+  const handleDenyManagerTimeOff = (id: number) => decideManagerTimeOff(id, "denied");
 
   const loadPunchCorrections = useCallback(() => {
     fetch("/api/punch-corrections")
@@ -234,16 +227,17 @@ export default function SchedulePageClient() {
   }, []);
 
   async function reviewPunchCorrection(id: number, status: "approved" | "denied") {
+    const restore = removeOptimistically(setPendingPunchCorrections, id);
     const res = await fetch(`/api/punch-corrections/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json().catch(() => ({}));
+    }).catch(() => null);
+    if (!res?.ok) {
+      restore();
+      const { error } = (await res?.json().catch(() => ({}))) ?? {};
       throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} correction`);
     }
-    setPendingPunchCorrections((prev) => prev.filter((r) => r.id !== id));
   }
 
   const loadSwaps = useCallback(() => {
@@ -258,33 +252,21 @@ export default function SchedulePageClient() {
 
   // SwapRequestsDrawer's cards call these directly without catching, so swallow
   // errors here and resync from the server rather than throwing.
-  async function handleApproveSwap(id: number) {
+  async function decideSwap(id: number, status: "approved" | "denied") {
+    removeOptimistically(setAllSwaps, id);
     try {
       const res = await fetch(`/api/swaps/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "approved" }),
+        body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error();
-      setAllSwaps((prev) => prev.filter((s) => s.id !== id));
     } catch {
       loadSwaps();
     }
   }
-
-  async function handleDenySwap(id: number) {
-    try {
-      const res = await fetch(`/api/swaps/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "denied" }),
-      });
-      if (!res.ok) throw new Error();
-      setAllSwaps((prev) => prev.filter((s) => s.id !== id));
-    } catch {
-      loadSwaps();
-    }
-  }
+  const handleApproveSwap = (id: number) => decideSwap(id, "approved");
+  const handleDenySwap = (id: number) => decideSwap(id, "denied");
 
   // Target employee responding to an incoming request. Accepting moves it to
   // 'accepted' (now awaiting a manager); declining ends it. Either way it leaves

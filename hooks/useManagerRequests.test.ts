@@ -51,6 +51,26 @@ describe("useManagerRequests", () => {
     expect(result.current.count).toBe(2);
   });
 
+  it("drops a request at the tap, before the server answers", async () => {
+    let answer: (r: Response) => void = () => {};
+    const { result } = renderHook(() => useManagerRequests(true));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { answer = resolve; }));
+    let decided!: Promise<void>;
+    act(() => { decided = result.current.decideTimeOff(1, "approved"); });
+    expect(result.current.timeOff).toHaveLength(0);
+    await act(async () => { answer({ ok: true, json: async () => ({}) } as Response); await decided; });
+    expect(result.current.timeOff).toHaveLength(0);
+  });
+
+  it("puts a request back where it was when the server refuses", async () => {
+    const { result } = renderHook(() => useManagerRequests(true));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    fetchMock.mockImplementationOnce(async () => ({ ok: false, json: async () => ({ error: "Already decided" }) }) as Response);
+    await expect(act(() => result.current.decideCorrection(4, "denied"))).rejects.toThrow("Already decided");
+    expect(result.current.corrections.map((c) => c.id)).toEqual([4]);
+  });
+
   it("surfaces the server's message when a decision fails", async () => {
     const { result } = renderHook(() => useManagerRequests(true));
     await waitFor(() => expect(result.current.loaded).toBe(true));

@@ -67,7 +67,6 @@ export default function RequestsPageClient() {
 
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"approved" | "denied" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [daySchedules, setDaySchedules] = useState<{ date: string; schedules: Schedule[] } | null>(null);
@@ -161,28 +160,28 @@ export default function RequestsPageClient() {
     return () => { cancelled = true; };
   }, [selectedDate]);
 
+  // Optimistic (useManagerRequests): the request leaves the list and the
+  // neighbour is selected at the tap, so a manager can work down the list;
+  // if the server refuses, it comes back, selected, with the reason.
   async function decide(item: Item, status: "approved" | "denied") {
     const idx = visible.findIndex((i) => i.key === item.key);
     const next = visible[idx + 1] ?? visible[idx - 1] ?? null;
-    setBusy(status);
     setError(null);
+    setSelectedKey(autoSelect ? next?.key ?? null : null);
     try {
       if (item.kind === "timeoff") await requests.decideTimeOff(item.id, status);
       else if (item.kind === "swap") await requests.decideSwap(item.id, status);
       else await requests.decideCorrection(item.id, status);
-      // Move on to the neighbour so a manager can work down the list.
-      setSelectedKey(autoSelect ? next?.key ?? null : null);
     } catch (e) {
+      setSelectedKey(item.key);
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
-    } finally {
-      setBusy(null);
     }
   }
 
   useEffect(() => {
     if (size === "compact" || size === "tablet") return;
     function onKey(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || typingInField(e.target) || busy) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || typingInField(e.target)) return;
       const idx = selected ? visible.findIndex((i) => i.key === selected.key) : -1;
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         const n = visible[Math.min(visible.length - 1, Math.max(0, idx + (e.key === "ArrowDown" ? 1 : -1)))];
@@ -363,24 +362,18 @@ export default function RequestsPageClient() {
                     </div>
                   )}
 
-                  <ToastStack>
-                    {error && <Toast onDismiss={() => setError(null)}>{error}</Toast>}
-                  </ToastStack>
-
                   <div className="flex gap-3">
                     <button
                       onClick={() => decide(selected, "denied")}
-                      disabled={busy !== null}
                       className="flex-1 py-3 rounded-xl text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/25 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {busy === "denied" ? "Denying…" : "Deny"}
+                      Deny
                     </button>
                     <button
                       onClick={() => decide(selected, "approved")}
-                      disabled={busy !== null}
                       className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 cursor-pointer hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {busy === "approved" ? "Approving…" : "Approve"}
+                      Approve
                     </button>
                   </div>
                 </div>
@@ -392,6 +385,11 @@ export default function RequestsPageClient() {
             </section>
           </div>
         </div>
+
+        {/* Page level, so it outlives the selection moving on (decide()). */}
+        <ToastStack>
+          {error && <Toast onDismiss={() => setError(null)}>{error}</Toast>}
+        </ToastStack>
 
         <BottomNav active="requests" />
       </main>

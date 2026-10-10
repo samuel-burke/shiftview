@@ -28,6 +28,28 @@ async function putStatus(url: string, status: string, fallback: string) {
 }
 
 /**
+ * Drops the item with `id` from a list now; the returned function puts it
+ * back at the same place (if it isn't there again already).
+ */
+export function removeOptimistically<T extends { id: number }>(
+  setList: (update: (prev: T[]) => T[]) => void,
+  id: number,
+): () => void {
+  let removed: { item: T; index: number } | null = null;
+  setList((prev) => {
+    const index = prev.findIndex((x) => x.id === id);
+    if (index === -1) return prev;
+    removed = { item: prev[index], index };
+    return prev.filter((x) => x.id !== id);
+  });
+  return () => {
+    const r = removed;
+    if (!r) return;
+    setList((prev) => (prev.some((x) => x.id === id) ? prev : [...prev.slice(0, r.index), r.item, ...prev.slice(r.index)]));
+  };
+}
+
+/**
  * Everything awaiting a manager's decision — time off, shift swaps the other
  * employee already accepted, and missed-punch corrections — kept live via
  * Supabase realtime and a refetch when the tab comes back into view.
@@ -81,15 +103,23 @@ export function useManagerRequests(enabled: boolean) {
   const managerSwaps = useMemo(() => swaps.filter((s) => s.status === "accepted"), [swaps]);
   const pendingCorrections = useMemo(() => corrections.filter((c) => c.status === "pending"), [corrections]);
 
+  // Decisions are optimistic: the request leaves its list at the tap (so the
+  // list changes then, not a round trip later under the manager's finger)
+  // and goes back where it was if the server refuses.
   const decideTimeOff = useCallback(async (id: number, status: "approved" | "denied") => {
-    await putStatus(`/api/time-off/${id}`, status, `Couldn't ${status === "approved" ? "approve" : "deny"} the time off request.`);
-    setTimeOff((prev) => prev.filter((r) => r.id !== id));
+    const restore = removeOptimistically(setTimeOff, id);
+    try {
+      await putStatus(`/api/time-off/${id}`, status, `Couldn't ${status === "approved" ? "approve" : "deny"} the time off request.`);
+    } catch (e) {
+      restore();
+      throw e;
+    }
   }, []);
 
   const decideSwap = useCallback(async (id: number, status: "approved" | "denied") => {
+    removeOptimistically(setSwaps, id);
     try {
       await putStatus(`/api/swaps/${id}`, status, `Couldn't ${status === "approved" ? "approve" : "deny"} the swap.`);
-      setSwaps((prev) => prev.filter((s) => s.id !== id));
     } catch (e) {
       load(); // the swap may have changed underneath us; resync
       throw e;
@@ -97,8 +127,13 @@ export function useManagerRequests(enabled: boolean) {
   }, [load]);
 
   const decideCorrection = useCallback(async (id: number, status: "approved" | "denied") => {
-    await putStatus(`/api/punch-corrections/${id}`, status, `Couldn't ${status === "approved" ? "approve" : "deny"} the correction.`);
-    setCorrections((prev) => prev.filter((c) => c.id !== id));
+    const restore = removeOptimistically(setCorrections, id);
+    try {
+      await putStatus(`/api/punch-corrections/${id}`, status, `Couldn't ${status === "approved" ? "approve" : "deny"} the correction.`);
+    } catch (e) {
+      restore();
+      throw e;
+    }
   }, []);
 
   return {
