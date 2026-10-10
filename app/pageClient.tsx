@@ -59,6 +59,13 @@ const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const NO_CALLOUTS: Callout[] = [];
 const NO_BLOCKS: CoverageBlock[] = [];
 
+// Call-outs and target curves by day, kept for the session like the layout
+// provider's shift cache, so coming back to the dashboard renders from them
+// at once (and the browser can put the scroll position back) instead of
+// waiting on the network. A switch of organization or user reloads the page.
+const calloutsSeen: Record<string, Callout[]> = {};
+const curvesSeen: Record<string, CoverageBlock[]> = {};
+
 // Cap the team export so it stays a manageable grid.
 const MAX_EXPORT_DAYS = 62;
 // Longest range one /api/schedules request may cover (MAX_RANGE_DAYS there).
@@ -183,8 +190,22 @@ export default function Page() {
   // day's neighbours load with it, so stepping a day renders at once from
   // what's here rather than changing the page when they land. A day missing
   // from these hasn't loaded yet (as opposed to having none).
-  const [calloutsByDay, setCalloutsByDay] = useState<Record<string, Callout[]>>({});
-  const [curvesByDay, setCurvesByDay] = useState<Record<string, CoverageBlock[]>>({});
+  const [calloutsByDay, setCalloutsState] = useState<Record<string, Callout[]>>(() => ({ ...calloutsSeen }));
+  const [curvesByDay, setCurvesState] = useState<Record<string, CoverageBlock[]>>(() => ({ ...curvesSeen }));
+  // Each update is kept for the session as well (idempotent, so a repeated
+  // updater call in development is harmless).
+  const setCalloutsByDay = (update: (prev: Record<string, Callout[]>) => Record<string, Callout[]>) =>
+    setCalloutsState((prev) => {
+      const next = update(prev);
+      Object.assign(calloutsSeen, next);
+      return next;
+    });
+  const setCurvesByDay = (update: (prev: Record<string, CoverageBlock[]>) => Record<string, CoverageBlock[]>) =>
+    setCurvesState((prev) => {
+      const next = update(prev);
+      Object.assign(curvesSeen, next);
+      return next;
+    });
   const callouts = calloutsByDay[dateKey] ?? NO_CALLOUTS;
   const calloutsReady = dateKey in calloutsByDay;
   const dayCurve = curvesByDay[dateKey] ?? NO_BLOCKS;
