@@ -579,7 +579,7 @@ function SwapSheet({ scene, employeeId, shift, dayLabel }: { scene: Scene; emplo
                     <div className="truncate text-sm font-semibold text-slate-100">{name}</div>
                     <div className="mt-0.5 text-xs text-slate-400">{fmtMinutes(c.startMinutes)} – {fmtMinutes(c.endMinutes)}</div>
                   </div>
-                  <span className="shrink-0 text-base text-slate-600">⇄</span>
+                  <span className="shrink-0 text-base text-slate-500">⇄</span>
                 </div>
               );
             })}

@@ -343,7 +343,7 @@ function SwapCard({
       </div>
       <div className="flex gap-2 text-xs text-slate-400 mb-3">
         <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.requesterName}: {swap.scheduleATime}</span>
-        <span className="text-slate-600" aria-hidden="true">⇄</span>
+        <span className="text-slate-500" aria-hidden="true">⇄</span>
         <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.targetName}: {swap.scheduleBTime}</span>
       </div>
       <div className="flex gap-2">

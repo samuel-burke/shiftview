@@ -149,7 +149,7 @@ export default function SwapRequestSheet({
                           {fmtMinutes(c.startMinutes)} – {fmtMinutes(c.endMinutes)}
                         </div>
                       </div>
-                      <span className="text-slate-600 text-base shrink-0" aria-hidden="true">⇄</span>
+                      <span className="text-slate-500 text-base shrink-0" aria-hidden="true">⇄</span>
                     </motion.button>
                   ))}
                 </motion.div>
