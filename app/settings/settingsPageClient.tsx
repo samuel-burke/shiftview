@@ -1494,7 +1494,7 @@ export default function SettingsPageClient({
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                          className="w-full bg-slate-800 border border-field rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <FormError message={editError} />
                       </div>
