@@ -3,7 +3,7 @@
 import { useState, useEffect, useId, useRef, useCallback, useLayoutEffect } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase-browser";
-import { parseChessMessage, type ChessMessage } from "./ChessBoard";
+import { parseChessMessage, type ChessMessage } from "@/lib/chess-message";
 import { playMessageSent, playMessageReceived } from "@/lib/sounds";
 
 const ChessBoard = dynamic(() => import("./ChessBoard"), { ssr: false });
@@ -134,10 +134,13 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
     return supabaseRef.current;
   }
 
+  // Only decides which side of the thread a message sits on, so the locally
+  // stored session is enough — getUser() would cost a round trip to Supabase
+  // Auth; the messages API verifies the caller itself.
   useEffect(() => {
     getSupabase()
-      .auth.getUser()
-      .then(({ data: { user } }) => setMyUserId(user?.id ?? null));
+      .auth.getSession()
+      .then(({ data: { session } }) => setMyUserId(session?.user.id ?? null));
   }, []);
 
   // Fetch the newest page and merge it with any older pages already loaded

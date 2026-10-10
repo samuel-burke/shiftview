@@ -9,7 +9,7 @@ import { haversineMeters } from "@/lib/haversine";
 import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
-import { loadCarriedOverPunches, loadCurrentShift } from "@/lib/current-shift-server";
+import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("punch_records")
-    .select("*")
+    .select(PUNCH_COLUMNS)
     .eq("org_id", orgId)
     .gte("punched_at", dayStart.toISOString())
     .lte("punched_at", upperBound.toISOString())
