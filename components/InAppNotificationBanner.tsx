@@ -108,9 +108,13 @@ export default function InAppNotificationBanner() {
     const sb = supabaseRef.current;
 
     let channel: ReturnType<typeof sb.channel> | null = null;
+    let cancelled = false;
 
-    sb.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+    // The locally stored session is enough to name the channel and filter rows
+    // (RLS already scopes them); getUser() would add a Supabase Auth round trip.
+    sb.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user;
+      if (!user || cancelled) return;
 
       channel = sb
         .channel(`banner:${user.id}:${Math.random().toString(36).slice(2)}`)
@@ -153,6 +157,7 @@ export default function InAppNotificationBanner() {
     });
 
     return () => {
+      cancelled = true;
       if (channel) sb.removeChannel(channel);
     };
   }, [showBanner]);

@@ -36,6 +36,7 @@ vi.mock("@/lib/supabase-browser", () => ({
     auth: {
       signOut: vi.fn(),
       getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     },
     channel: vi.fn(() => ({
@@ -157,13 +158,16 @@ describe("pageClient — after midnight", () => {
   it("shows a closer still clocked in from yesterday and last night's overnight shift", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url.includes("/api/employees")) return makeJsonResponse([{ id: 1, name: "Casey Closer" }, { id: 2, name: "Nia Night" }]);
-      if (url.includes("/api/schedules?date=2026-01-15")) {
+      if (url.includes("/api/schedules")) {
+        // The dashboard reads the day before through the day after in one range.
+        const params = new URL(url, "http://localhost").searchParams;
+        const from = params.get("from") ?? params.get("date")!;
+        const to = params.get("to") ?? from;
         return makeJsonResponse([
           { id: 10, employeeId: 1, date: "2026-01-15", startMinutes: 960, endMinutes: 1380 },  // 4 PM – 11 PM
           { id: 11, employeeId: 2, date: "2026-01-15", startMinutes: 1320, endMinutes: 1800 }, // 10 PM – 6 AM
-        ]);
+        ].filter((s) => s.date >= from && s.date <= to));
       }
-      if (url.includes("/api/schedules")) return makeJsonResponse([]);
       if (url.includes("/api/punches")) {
         // Only returned with carried=1 — the punches are from before midnight.
         if (!url.includes("carried=1")) return makeJsonResponse([]);

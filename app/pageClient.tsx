@@ -3,7 +3,7 @@ import { downloadCSV } from "../lib/csv-download";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useLayoutEffect, useRef, startTransition } from "react";
 import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import {
   Employee,
@@ -55,9 +55,10 @@ const CoverageTimeline = dynamic(() => import("../components/CoverageTimeline"),
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Cap the team export so it stays a manageable grid and a bounded number of
-// per-day schedule fetches.
+// Cap the team export so it stays a manageable grid.
 const MAX_EXPORT_DAYS = 62;
+// Longest range one /api/schedules request may cover (MAX_RANGE_DAYS there).
+const MAX_RANGE_DAYS = 42;
 
 function AnimatedStatCard({
   index,
@@ -173,9 +174,11 @@ export default function Page() {
   const weeklyHours = weeklyHoursCtx;
   const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
 
-  // Mutable ref so subscription callbacks always see the latest viewed date
+  // Mutable ref so subscription callbacks always see the latest viewed date.
+  // Updated on commit: day changes render as transitions, which can be
+  // abandoned, so the ref must not follow a render that never lands.
   const dateKeyRef = useRef(dateKey);
-  dateKeyRef.current = dateKey;
+  useLayoutEffect(() => { dateKeyRef.current = dateKey; }, [dateKey]);
 
   async function handleExportCSV() {
     if (exportFrom > exportTo) {
@@ -189,13 +192,19 @@ export default function Page() {
     }
     setExportLoading(true);
 
+    // Whole ranges rather than a request per day.
+    const ranges: [string, string][] = [];
+    for (let i = 0; i < capturedDates.length; i += MAX_RANGE_DAYS) {
+      const chunk = capturedDates.slice(i, i + MAX_RANGE_DAYS);
+      ranges.push([chunk[0], chunk[chunk.length - 1]]);
+    }
     const results = await Promise.allSettled(
-      capturedDates.map(d =>
-        fetch(`/api/schedules?date=${d}`).then(r => r.json())
+      ranges.map(([from, to]) =>
+        fetch(`/api/schedules?from=${from}&to=${to}`).then(r => r.json())
       )
     );
 
-    if (results.some(r => r.status === "rejected")) {
+    if (results.some(r => r.status === "rejected" || !Array.isArray(r.value))) {
       setError("Failed to load schedule data for export. Please try again.");
       setExportLoading(false);
       return;
@@ -230,16 +239,28 @@ export default function Page() {
     window.location.href = "/login";
   }
 
-  function reloadPrevSchedules(dk: string) {
-    const prev = addDaysToKey(dk, -1);
-    return apiFetch(`/api/schedules?date=${prev}`)
+  // One request covers the viewed day, the day before (its overnight shifts and
+  // still-clocked-in closers run into the viewed day) and the day after, which
+  // is cached so stepping forward renders at once. Applied only while `dk` is
+  // still the viewed day, so a slow response can't overwrite a newer one.
+  function loadScheduleDays(dk: string) {
+    const from = addDaysToKey(dk, -1);
+    const to = addDaysToKey(dk, 1);
+    return apiFetch(`/api/schedules?from=${from}&to=${to}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!Array.isArray(data) || dateKeyRef.current !== dk) return;
-        setPrevSchedules(data);
-        setScheduleCache(prev, data);
-      })
-      .catch(() => {});
+        // Non-array means an error payload (e.g. 403 after a demo reset
+        // orphaned the session) — keep the previous state instead of
+        // crashing downstream .filter() calls.
+        if (!Array.isArray(data)) throw new Error("schedules fetch failed");
+        const byDay: Record<string, Schedule[]> = { [from]: [], [dk]: [], [to]: [] };
+        for (const s of data as Schedule[]) byDay[s.date.slice(0, 10)]?.push(s);
+        for (const [day, list] of Object.entries(byDay)) setScheduleCache(day, list);
+        if (dateKeyRef.current === dk) {
+          setSchedules(byDay[dk]);
+          setPrevSchedules(byDay[from]);
+        }
+      });
   }
 
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -259,12 +280,13 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to save shift");
     }
-    reloadPrevSchedules(dateKey); // the edited shift may be last night's overnight shift
-    const data = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
-    if (Array.isArray(data)) {
-      setSchedules(data);
-      setScheduleCache(dateKey, data);
-    }
+    // Saved: show it now and re-read the days in the background, rather than
+    // holding the drawer open for another round trip. The edited shift may be
+    // last night's overnight one, hence both lists.
+    const edit = (list: Schedule[]) => list.map((s) => (s.id === scheduleId ? { ...s, startMinutes, endMinutes } : s));
+    setSchedules(edit);
+    setPrevSchedules(edit);
+    loadScheduleDays(dateKey).catch(() => {});
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -284,10 +306,14 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to add shift");
     }
-    const data2 = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
-    if (Array.isArray(data2)) {
-      setSchedules(data2);
-      setScheduleCache(dateKey, data2);
+    // The response names the new shift, so it can show straight away; the
+    // background re-read reconciles. Without an id, wait for the re-read.
+    const { id } = await res.json().catch(() => ({ id: null }));
+    const refresh = loadScheduleDays(dateKey).catch(() => {});
+    if (typeof id === "number") {
+      setSchedules((prev) => [...prev, { id, employeeId, date: dateKey, startMinutes, endMinutes }]);
+    } else {
+      await refresh;
     }
   }
 
@@ -390,14 +416,7 @@ export default function Page() {
   // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
   useEffect(() => {
     function refetchSchedules() {
-      const dk = dateKeyRef.current;
-      apiFetch(`/api/schedules?date=${dk}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data)) { setSchedules(data); setScheduleCache(dk, data); }
-        })
-        .catch(() => {});
-      reloadPrevSchedules(dk);
+      loadScheduleDays(dateKeyRef.current).catch(() => {});
     }
 
     function refetchEmployees() {
@@ -481,19 +500,7 @@ export default function Page() {
     }
 
     // Always fetch fresh data (background refresh if cache hit, primary fetch if not)
-    const fetches: Promise<void>[] = [
-      apiFetch(`/api/schedules?date=${dateKey}`)
-        .then((r) => r.json())
-        .then((data) => {
-          // Non-array means an error payload (e.g. 403 after a demo reset
-          // orphaned the session) — keep the previous state instead of
-          // crashing downstream .filter() calls.
-          if (!Array.isArray(data)) throw new Error("schedules fetch failed");
-          setSchedules(data);
-          setScheduleCache(dateKey, data);
-        }),
-      reloadPrevSchedules(dateKey),
-    ];
+    const fetches: Promise<void>[] = [loadScheduleDays(dateKey)];
     if (isViewingToday) {
       fetches.push(
         apiFetch(`/api/punches?date=${dateKey}&carried=1`)
@@ -510,19 +517,40 @@ export default function Page() {
       setPunchRecords([]);
       setPunchesLoaded(false);
     }
+    // A day left before its data arrived must not end the next day's loading.
+    let cancelled = false;
     Promise.all(fetches)
-      .then(() => setLoading(false))
+      .then(() => { if (!cancelled) setLoading(false); })
       .catch(() => {
-        if (!cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
+        if (!cancelled && !cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
       });
+    return () => { cancelled = true; };
   }, [dateKey, timezone]);
+
+  // Start loading the chart's code alongside this page's data requests, rather
+  // than once the data has arrived and the skeleton gives way — it's the
+  // largest piece of the page, so waiting put the two back to back. Started
+  // from an effect (not when this module loads) so that, when the chunk is
+  // already cached, evaluating it doesn't delay hydration and the requests.
+  useEffect(() => { void import("../components/CoverageTimeline"); }, []);
+
+  // Coverage profiles don't depend on the day, so they load once per visit to
+  // the dashboard; only the day's assignment is per date.
+  const profilesRef = useRef<Promise<CoverageProfile[]> | null>(null);
+  function coverageProfiles() {
+    profilesRef.current ??= apiFetch("/api/coverage-profiles")
+      .then((r) => r.json())
+      .then((profiles) => (Array.isArray(profiles) ? (profiles as CoverageProfile[]) : []))
+      .catch(() => { profilesRef.current = null; return []; });
+    return profilesRef.current;
+  }
 
   // Target coverage curve for the viewed date (override → day-of-week default)
   useEffect(() => {
     const dk = dateKey;
     let cancelled = false;
     Promise.all([
-      apiFetch("/api/coverage-profiles").then((r) => r.json()),
+      coverageProfiles(),
       apiFetch(`/api/coverage-assignments?from=${dk}&to=${dk}`).then((r) => r.json()),
     ])
       .then(([profiles, assignments]) => {
@@ -531,11 +559,12 @@ export default function Page() {
           dk,
           assignments?.overrides ?? {},
           assignments?.defaults ?? {},
-          Array.isArray(profiles) ? (profiles as CoverageProfile[]) : []
+          profiles
         ));
       })
       .catch(() => { if (!cancelled) setDayCurve([]); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
   // Call-outs for the viewed date — drives the "Called Out" team section.
@@ -722,12 +751,14 @@ export default function Page() {
     date, today, isToday, hereCount: hereNowCount,
     nowMinutes, coverageStatus, isDemo, loading: isLoading,
     userName, isManager, coverageAlertsEnabled,
-    onPrev: () => setSelectedKey(addDaysToKey(dateKey, -1)),
-    onNext: () => setSelectedKey(addDaysToKey(dateKey, 1)),
-    onNow: () => setSelectedKey(null),
+    // Changing the day re-renders the whole dashboard; as a transition the tap
+    // paints at once and React renders the new day in interruptible slices.
+    onPrev: () => startTransition(() => setSelectedKey(addDaysToKey(dateKey, -1))),
+    onNext: () => startTransition(() => setSelectedKey(addDaysToKey(dateKey, 1))),
+    onNow: () => startTransition(() => setSelectedKey(null)),
     onDateSelect: (d: Date) => {
       const key = localDateKey(d);
-      setSelectedKey(key === todayKeyInTz(timezone) ? null : key);
+      startTransition(() => setSelectedKey(key === todayKeyInTz(timezone) ? null : key));
     },
     onSignOut: handleSignOut,
   };

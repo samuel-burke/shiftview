@@ -1,6 +1,6 @@
 "use client";
-import { useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
-import { motion } from "framer-motion";
+import { memo, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   ComposedChart,
   Area,
@@ -42,20 +42,29 @@ function fmtMinutes(m: number): string {
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
 
-function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; color?: string }) {
+// The "now" dot. Its pulse is drawn by the chart as an HTML ring (.now-pulse)
+// rather than an SVG animation: animating the ring inside the SVG repainted
+// the whole chart every frame for as long as the dashboard was open, while a
+// CSS transform/opacity animation runs on the compositor. The dot reports its
+// position (in SVG coordinates) so the ring can sit on it.
+function NowDot({ cx, cy, color = "#22c55e", onPlace }: {
+  cx?: number;
+  cy?: number;
+  color?: string;
+  onPlace?: (at: { x: number; y: number } | null) => void;
+}) {
+  useLayoutEffect(() => {
+    onPlace?.(cx === undefined || cy === undefined ? null : { x: cx, y: cy });
+    return () => onPlace?.(null);
+  }, [cx, cy, onPlace]);
   if (cx === undefined || cy === undefined) return null;
-  return (
-    <g aria-hidden="true">
-      <circle cx={cx} cy={cy} r={4} fill={color} />
-      <circle cx={cx} cy={cy} r={4} fill="none" stroke={color} strokeWidth={2}>
-        <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
-        <animate attributeName="stroke-opacity" values="0.8;0;0.8" dur="1.5s" repeatCount="indefinite" />
-      </circle>
-    </g>
-  );
+  return <circle aria-hidden="true" cx={cx} cy={cy} r={4} fill={color} />;
 }
 
-export default function CoverageTimeline({
+// Recharts' plot area starts this far into the SVG (margin left = -28).
+const PLOT_LEFT = 30;
+
+function CoverageTimeline({
   schedules,
   dayKey,
   nowMinutes,
@@ -129,7 +138,16 @@ export default function CoverageTimeline({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [showTooltip, setShowTooltip] = useState(true);
+  // The curves draw in once. After that — switching days, the minute tick,
+  // live punches — they update in place: re-running the 1.5s animation on each
+  // change kept a phone's main thread busy for over a second after every tap.
+  const reduceMotion = useReducedMotion();
+  const [drawnIn, setDrawnIn] = useState(false);
+  const animate = !drawnIn && !reduceMotion;
+  const onDrawnIn = () => setDrawnIn(true);
+  const [dotAt, setDotAt] = useState<{ x: number; y: number } | null>(null);
   const [chartRect, setChartRect] = useState<{
+    svgLeft: number;
     left: number;
     width: number;
     top: number;
@@ -172,11 +190,11 @@ export default function CoverageTimeline({
       const elRect = el.getBoundingClientRect();
       // recharts with margin left=-28, right=8 means:
       // chart plot area starts at ~30px from svg left, ends ~8px from svg right
-      const plotLeft = 30;
       const plotRight = 8;
       setChartRect({
-        left: svgRect.left - elRect.left + plotLeft,
-        width: svgRect.width - plotLeft - plotRight,
+        svgLeft: svgRect.left - elRect.left,
+        left: svgRect.left - elRect.left + PLOT_LEFT,
+        width: svgRect.width - PLOT_LEFT - plotRight,
         top: svgRect.top - elRect.top,
         height: svgRect.height,
         containerWidth: elRect.width,
@@ -208,6 +226,8 @@ export default function CoverageTimeline({
   }, [timeStr, chartRect]);
 
   if (range === 0) return null;
+
+  const nowDotColor = nowDataPoint?.actual != null ? "#22c55e" : "#3b82f6";
 
   const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
   // Pixel position of the badge within the container
@@ -341,6 +361,7 @@ export default function CoverageTimeline({
                 strokeDasharray="5 4"
                 dot={false}
                 activeDot={false}
+                isAnimationActive={animate}
               />
             )}
             <Area
@@ -350,6 +371,8 @@ export default function CoverageTimeline({
               strokeWidth={2.5}
               fill="url(#covGrad)"
               dot={false}
+              isAnimationActive={animate}
+              onAnimationEnd={onDrawnIn}
             />
             {actualByPoint && (
               <Area
@@ -360,6 +383,7 @@ export default function CoverageTimeline({
                 fill="url(#actualGrad)"
                 dot={false}
                 connectNulls={false}
+                isAnimationActive={animate}
               />
             )}
             {isToday && nowDataPoint && (
@@ -374,11 +398,19 @@ export default function CoverageTimeline({
               <ReferenceDot
                 x={nowDataPoint.label}
                 y={nowDataPoint.actual ?? nowDataPoint.staff}
-                shape={<PulsingDot color={nowDataPoint.actual != null ? "#22c55e" : "#3b82f6"} />}
+                shape={<NowDot color={nowDotColor} onPlace={setDotAt} />}
               />
             )}
           </ComposedChart>
         </ResponsiveContainer>
+
+        {isToday && nowDataPoint && dotAt && chartRect && (
+          <span
+            aria-hidden="true"
+            className="now-pulse"
+            style={{ left: chartRect.svgLeft + dotAt.x, top: chartRect.top + dotAt.y, borderColor: nowDotColor }}
+          />
+        )}
 
         {/* Time badge — positioned above the now line */}
         {isToday && badgeLeft !== null && lineTop !== null && (
@@ -396,3 +428,8 @@ export default function CoverageTimeline({
     </motion.div>
   );
 }
+
+// Memoized: the dashboard re-renders for things the chart doesn't show (the
+// employee drawer opening, the export panel), and redrawing Recharts is the
+// most expensive part of that render.
+export default memo(CoverageTimeline);

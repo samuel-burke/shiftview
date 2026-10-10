@@ -41,13 +41,15 @@ export default function AdminPageClient({
   }
   useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current); }, []);
 
+  // Loaded independently: a failed role lookup must not hide the roster.
   useEffect(() => {
-    Promise.all([
-      fetch("/api/employees").then((r) => r.ok ? r.json() : Promise.reject()),
-      fetch("/api/managers").then((r) => r.ok ? r.json() : Promise.reject()),
-    ])
-      .then(([emps, { managerUserIds: ids, ownerUserIds: ownerIds }]) => {
-        setEmployees(emps);
+    fetch("/api/employees")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((emps: Employee[]) => setEmployees(emps))
+      .catch(() => {});
+    fetch("/api/managers")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then(({ managerUserIds: ids, ownerUserIds: ownerIds }: { managerUserIds: string[]; ownerUserIds?: string[] }) => {
         setManagerUserIds(new Set(ids));
         setOwnerUserIds(new Set(ownerIds ?? []));
       })

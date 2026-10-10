@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
 import {
@@ -15,7 +16,6 @@ import {
   ChatBubbleIcon,
   ChessPieceIcon,
 } from "./ShiftIcons";
-import MessageThread from "./MessageThread";
 
 type Notification = {
   id: number;
@@ -59,66 +59,73 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-// Module-level cache: the bell is mounted inside per-page headers, so it
-// remounts on every navigation. Seeding state from the previous mount keeps
-// the bell (and its badge) visible immediately instead of flickering out
-// while auth.getUser() and the notifications fetch resolve.
-let cachedUserId: string | null = null;
-let cachedNotifications: Notification[] = [];
+// Every mounted bell shares one store. The bell sits in per-page headers (and
+// a page can render two — the phone top bar and the desk header, one hidden by
+// CSS), so per-instance state meant a session lookup, a notifications fetch
+// and a Realtime channel per bell, repeated on every navigation. The store
+// keeps one of each for as long as any bell is mounted, and briefly after the
+// last unmounts so a page navigation reuses them instead of reconnecting.
+type BellState = { userId: string | null; notifications: Notification[]; loading: boolean };
 
-export default function NotificationBell() {
-  const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(cachedNotifications);
-  const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(cachedUserId);
-  const [chatTarget, setChatTarget] = useState<{ userId: string; name: string; openChess?: boolean } | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  // Lazily initialised on the client only — never called during SSR / test renders
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-  function getSupabase() {
-    if (!supabaseRef.current) supabaseRef.current = createClient();
-    return supabaseRef.current;
-  }
+let bellState: BellState = { userId: null, notifications: [], loading: false };
+const bellListeners = new Set<() => void>();
+let inflight: Promise<void> | null = null;
+let mountedBells = 0;
+let stopLive: (() => void) | null = null;
+let stopTimer: ReturnType<typeof setTimeout> | null = null;
+// How long the channel outlives the last bell (covers a page navigation).
+const KEEPALIVE_MS = 10_000;
 
-  // Get current user ID. The cached value renders immediately; this verifies
-  // it and clears the cache if the session changed (sign-out / account switch).
-  useEffect(() => {
-    getSupabase().auth.getUser().then(({ data: { user } }) => {
-      const id = user?.id ?? null;
-      if (id !== cachedUserId) {
-        cachedNotifications = [];
-        setNotifications([]);
-      }
-      cachedUserId = id;
-      setUserId(id);
-    });
-  }, []);
+function setBellState(patch: Partial<BellState>) {
+  bellState = { ...bellState, ...patch };
+  bellListeners.forEach((l) => l());
+}
 
-  // Mirror notifications into the cache so the next mount seeds from them.
-  useEffect(() => {
-    cachedNotifications = notifications;
-  }, [notifications]);
+function subscribeBell(listener: () => void) {
+  bellListeners.add(listener);
+  return () => { bellListeners.delete(listener); };
+}
 
-  const unread = notifications.filter((n) => !n.read).length;
+const getBellState = () => bellState;
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/notifications?limit=30");
-    if (res.ok) {
+// Concurrent callers (realtime insert, push relay, tab refocus) share one request.
+function fetchNotifications(): Promise<void> {
+  if (inflight) return inflight;
+  setBellState({ loading: true });
+  inflight = fetch("/api/notifications?limit=30")
+    .then(async (res) => {
+      if (!res.ok) return;
       const data = await res.json();
-      setNotifications(Array.isArray(data) ? data : []);
-    }
-    setLoading(false);
-  }, []);
+      setBellState({ notifications: Array.isArray(data) ? data : [] });
+    })
+    .catch(() => {})
+    .finally(() => {
+      inflight = null;
+      setBellState({ loading: false });
+    });
+  return inflight;
+}
 
-  // Initial load + Supabase Realtime subscription
-  useEffect(() => {
-    if (!userId) return;
+function updateNotifications(fn: (prev: Notification[]) => Notification[]) {
+  setBellState({ notifications: fn(bellState.notifications) });
+}
+
+function startLive(): () => void {
+  let cancelled = false;
+  let teardownChannel: (() => void) | null = null;
+  const sb = createClient();
+
+  // Only the user id is needed (to show the bell and name the channel), so
+  // the locally stored session will do — getUser() would add a round trip to
+  // Supabase Auth before anything loads. The API and RLS verify the caller.
+  sb.auth.getSession().then(({ data: { session } }) => {
+    if (cancelled) return;
+    const id = session?.user.id ?? null;
+    if (id !== bellState.userId) setBellState({ userId: id, notifications: [] });
+    if (!id) return;
     fetchNotifications();
-
-    const sb = getSupabase();
     const channel = sb
-      .channel(`notifications:${userId}:${Math.random().toString(36).slice(2)}`)
+      .channel(`notifications:${id}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         // No user_id filter: RLS scopes the stream to the user's own rows plus
@@ -128,28 +135,63 @@ export default function NotificationBell() {
         () => { fetchNotifications(); }
       )
       .subscribe();
+    teardownChannel = () => { sb.removeChannel(channel); };
+  });
 
-    return () => { sb.removeChannel(channel); };
-  }, [userId]);
+  // Re-fetch when the service worker receives a push (foreground delivery)
+  // and when the app comes back to the foreground (e.g. a push banner tap).
+  const onSWMessage = (e: MessageEvent) => {
+    if (e.data?.type === "PUSH_RECEIVED" && bellState.userId) fetchNotifications();
+  };
+  const onVisible = () => {
+    if (document.visibilityState === "visible" && bellState.userId) fetchNotifications();
+  };
+  const sw = "serviceWorker" in navigator ? navigator.serviceWorker : null;
+  sw?.addEventListener("message", onSWMessage);
+  document.addEventListener("visibilitychange", onVisible);
 
-  // Re-fetch when the service worker receives a push (handles foreground delivery)
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    function onSWMessage(e: MessageEvent) {
-      if (e.data?.type === "PUSH_RECEIVED") fetchNotifications();
-    }
-    navigator.serviceWorker.addEventListener("message", onSWMessage);
-    return () => navigator.serviceWorker.removeEventListener("message", onSWMessage);
-  }, [fetchNotifications]);
+  return () => {
+    cancelled = true;
+    teardownChannel?.();
+    sw?.removeEventListener("message", onSWMessage);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
+}
 
-  // Re-fetch when app comes back to foreground (handles tapping a push banner to open the app)
-  useEffect(() => {
-    function onVisible() {
-      if (document.visibilityState === "visible") fetchNotifications();
-    }
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [fetchNotifications]);
+function retainLive(): () => void {
+  mountedBells++;
+  if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+  if (!stopLive) stopLive = startLive();
+  return () => {
+    mountedBells--;
+    if (mountedBells > 0) return;
+    stopTimer = setTimeout(() => {
+      stopTimer = null;
+      stopLive?.();
+      stopLive = null;
+    }, KEEPALIVE_MS);
+  };
+}
+
+// The thread only mounts once a conversation is opened from the bell.
+const MessageThread = dynamic(() => import("./MessageThread"), { ssr: false });
+
+export default function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const { userId, notifications, loading } = useSyncExternalStore(subscribeBell, getBellState, getBellState);
+  const [chatTarget, setChatTarget] = useState<{ userId: string; name: string; openChess?: boolean } | null>(null);
+  const [chatMounted, setChatMounted] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => retainLive(), []);
+
+  // Mount the thread on first open and keep it mounted so it can animate out.
+  function openChat(target: { userId: string; name: string; openChess?: boolean }) {
+    setChatTarget(target);
+    setChatMounted(true);
+  }
+
+  const unread = notifications.filter((n) => !n.read).length;
 
   // Open the chess board when a banner is tapped or the SW relays an OPEN_CHESS message.
   useEffect(() => {
@@ -157,6 +199,7 @@ export default function NotificationBell() {
       const { fromUserId, fromName } = (e as CustomEvent).detail ?? {};
       if (!fromUserId) return;
       setChatTarget({ userId: fromUserId, name: fromName || "Opponent", openChess: true });
+      setChatMounted(true);
       setOpen(false);
     }
     window.addEventListener("open-chess-board", onOpenChess);
@@ -182,7 +225,7 @@ export default function NotificationBell() {
   }, [open]);
 
   async function dismissOne(id: number) {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    updateNotifications((prev) => prev.filter((n) => n.id !== id));
     fetch("/api/notifications", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -191,7 +234,7 @@ export default function NotificationBell() {
   }
 
   async function clearAll() {
-    setNotifications([]);
+    updateNotifications(() => []);
     fetch("/api/notifications", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -207,7 +250,7 @@ export default function NotificationBell() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: unreadIds }),
     });
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    updateNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
   if (!userId) return null;
@@ -311,7 +354,7 @@ export default function NotificationBell() {
                       {(isMsg || isChess) && (
                         <button
                           onClick={() => {
-                            setChatTarget({
+                            openChat({
                               userId: n.data!.fromUserId as string,
                               name: (n.data!.fromName as string) || (isChess ? "Opponent" : n.title),
                               openChess: isChess,
@@ -347,7 +390,7 @@ export default function NotificationBell() {
       </AnimatePresence>
     </div>
 
-    {createPortal(
+    {chatMounted && createPortal(
       <MessageThread
         open={!!chatTarget}
         otherUserId={chatTarget?.userId ?? ""}
