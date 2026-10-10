@@ -1534,7 +1534,7 @@ export default function SettingsPageClient({
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
-                        {emp.user_id === currentUserId ? (
+                        {emp.user_id !== null && emp.user_id === currentUserId ? (
                           <button
                             disabled
                             aria-label="Cannot remove yourself"
