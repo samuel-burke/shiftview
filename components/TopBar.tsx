@@ -33,7 +33,11 @@ export default function TopBar({ userName, onBack, onSignOut, onSignIn }: Props)
         )}
         <Logo className="h-6" />
         <div className="flex items-center gap-2">
-          <ClockStatusBadge />
+          {/* From the tablet size class up the nav rail beside the page shows
+              the clock status, so the top bar doesn't repeat it. */}
+          <div className="tablet:hidden">
+            <ClockStatusBadge />
+          </div>
           <NotificationBell />
           <UserMenu name={userName} onSignOut={onSignOut} onSignIn={onSignIn} />
         </div>
