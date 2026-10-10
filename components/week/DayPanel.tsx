@@ -63,8 +63,10 @@ export function DayChips({
             key={i}
             type="button"
             onClick={() => onSelectDate(date)}
-            aria-pressed={active}
-            aria-label={formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}
+            // Placeholders can't be picked: the day under them is about to change.
+            disabled={!ready}
+            aria-pressed={ready ? active : undefined}
+            aria-label={ready ? formatDateKey(date, { weekday: "long", month: "long", day: "numeric" }) : undefined}
             className={`flex flex-col items-center py-2 rounded-xl cursor-pointer transition-colors border ${
               active
                 ? "bg-indigo-600/25 border-indigo-500/40 text-indigo-200"
