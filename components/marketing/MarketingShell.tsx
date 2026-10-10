@@ -70,12 +70,13 @@ function MarketingFooter() {
           <Logo className="h-4" />
           <CurrentYear />
         </div>
+        {/* Padding offset by negative margins: 36px to tap, same layout. */}
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/#features" className="transition-colors hover:text-slate-200">Features</Link>
-          <Link href="/login" className="transition-colors hover:text-slate-200">Sign in</Link>
-          <Link href="/contact" className="transition-colors hover:text-slate-200">Contact</Link>
-          <Link href="/privacy" className="transition-colors hover:text-slate-200">Privacy</Link>
-          <a href={REPO_URL} className="transition-colors hover:text-slate-200">GitHub</a>
+          <Link href="/#features" className="py-2 -my-2 transition-colors hover:text-slate-200">Features</Link>
+          <Link href="/login" className="py-2 -my-2 transition-colors hover:text-slate-200">Sign in</Link>
+          <Link href="/contact" className="py-2 -my-2 transition-colors hover:text-slate-200">Contact</Link>
+          <Link href="/privacy" className="py-2 -my-2 transition-colors hover:text-slate-200">Privacy</Link>
+          <a href={REPO_URL} className="py-2 -my-2 transition-colors hover:text-slate-200">GitHub</a>
         </nav>
       </Container>
     </footer>
