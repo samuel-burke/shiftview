@@ -14,14 +14,14 @@ is 0.1; the target here was 0, and nothing above 0.01.
 | Dashboard — manager | 0.058 | **0** |
 | Dashboard — employee | 0.058 | **0** |
 | Dashboard — repeat visit (identity cached) | 0.058 | **0** |
-| Schedule — employee | 0.026 | **0** |
-| Schedule — manager | 0.103 | **0** |
+| Schedule — employee | 0.026 | **0.0001** |
+| Schedule — manager | 0.103 | **0.0001** |
 | Clock — employee | 0.001 | **0** |
 | Clock — manager | 0.058 | **0** |
 | Week | 0.121 | **0.0002** |
 | Week — Draft mode | 0.640 | **0.0002** |
 | Requests | 0 | 0 |
-| Reports | 0.102 | **0.0008** |
+| Reports | 0.102 | **0.0006** |
 | Settings — manager / employee | 0.104 | **0** |
 | Coverage targets | 0.065 | **0** |
 | Admin | 0 | 0 |
@@ -34,7 +34,7 @@ Error and empty states (the screen's API calls fail, or the store has no data):
 |---|---|---|
 | Dashboard — load errors | 0.408 | **0** |
 | Dashboard — empty store | 0.457 | **0** |
-| Schedule — load errors / empty | 0.021 / 0.019 | **0 / 0** |
+| Schedule — load errors / empty | 0.021 / 0.019 | **0.0001 / 0.0001** |
 | Clock — load errors | 0.004 | **0** |
 | Week — load errors | 0.143 | **0.0002** |
 
@@ -47,16 +47,17 @@ Flows (shifts within 500 ms of a tap are excluded, as CLS does):
 | Dashboard: edit a shift and save | 0.048 | **0** |
 | Dashboard: returning to the tab (refetch) | 0.058 | **0** |
 | Tabs: Team → Schedule → Clock → Team, then Back | 0.600 | **0** |
-| Back to a scrolled dashboard | 0.315, scroll 323 → **109** | **0.0001**, scroll 435 → **435** |
-| Back to a scrolled Schedule | 0, scroll → 0 | 0, scroll 71 → **71** |
-| Schedule: weeks back and forth, month view | 0.104 | **0** |
+| Back to a scrolled dashboard | 0.315, scroll 323 → **109** | **0**, scroll 439 → **439** |
+| Back to a scrolled Schedule | 0, scroll → 0 | 0.0001, scroll 71 → **71** |
+| Schedule: weeks back and forth, month view | 0.104 | **0.0001** |
 | Week: weeks back and forth | 0.121 | **0.0002** |
-| Reports: weeks back and forth | 0.102 | **0.0008** |
+| Reports: weeks back and forth | 0.102 | **0.0006** |
 | Sign in: empty submit, send code, wrong code | 0.009 | **0.0005** |
 | Clock: punch (start break) | 0.001 | 0.001 |
 
-The remaining 0.0002–0.0008 are digits changing width in a fixed box (a week's
-hour totals, the heatmap's counts): the box doesn't move.
+The remaining 0.0001–0.0011 are text changing width in a box that doesn't
+move: a week's hour totals, the heatmap's counts, Schedule's range label as
+the store's week start arrives, a button's label after a punch.
 
 `e2e/layout-stability.spec.ts` keeps this from regressing: it loads the six
 main screens on a phone with API responses arriving staggered and out of
@@ -102,6 +103,7 @@ second overlay).
 |---|---|---|
 | Day card grows 14, 46 and 6 px as requests arrive (measured, 0.07 for managers) | Time-off, call-outs, swaps and today's punches each added buttons/lines as they landed; the manager buttons below were removed and re-added | The card waits for all four; stats, incoming swaps and manager buttons wait for the card |
 | Calendar 6 px taller once loaded (measured) | Week skeleton didn't mirror `WeekView` (whose time line was conditional) | Skeleton mirrors it; the time line is always reserved |
+| Strip and everything under it drop 10 px when a long time ("3:30a–11:30a") arrives or a call-out replaces it with OUT (measured, 0.002 on load, 0.01 coming Back; depends on the day's shift times) | A long time wraps onto a second line in a phone-width cell | The time line always has two lines' room (strip, placeholder, error state) |
 | Next-shift card changes height ("in N days" on its own line) (audit) | Extra line | "· in N days" follows the date on its line |
 | Heading icon moves when the name arrives (measured) | Name inserted | A placeholder holds the name's place |
 | Week change shows the new dates with the old week's shifts for a frame, then the day card jumps (measured) | Range loaded in an effect | The calendar reads the range from the cache during render; neighbouring weeks/months prefetched |
@@ -173,6 +175,48 @@ unlayered `max(16px, 1em)` rule in `globals.css`, so iOS doesn't zoom on
 focus); the header is sticky and the bottom nav fixed; Schedule's scroll
 position survives Back.
 
+## Buttons and layout
+
+A second pass looked for buttons and boxes that are the wrong size or in the
+wrong place, rather than ones that move. Every screen and its sheets, menus
+and editors were loaded at 360, 412 (phones), 820 and 1180 (tablets) and
+1600 px wide, and checked by script for: buttons side by side with
+different heights or tops, labels that wrap or get cut off inside buttons,
+pills and cells, text overlapping text, content past the screen edge,
+controls covered by something else, and tap targets under 24 and 44 px;
+then the screenshots were read for anything a script can't judge.
+
+| Found | Where | Fix |
+|---|---|---|
+| Primary buttons 2 px shorter than the secondary button beside or under them (gradient: no border; secondary: 1 px border) | Generate Schedule / Cancel, Approve / Deny (requests drawer and page), Accept / Decline (swaps), coverage Save / Cancel, Plan Draft Schedule / Team week (dashboard, Schedule), sign-in and sign-up stacks | Transparent 1 px border on the primary |
+| Date pill 46 px between 44 px arrows | Dashboard, Schedule | 44 px |
+| From / To fields 35 px, Apply 28 px, in one row | Time card | All 44 px |
+| A 30 px Edit / Confirm pill beside a 16 px text Delete / Cancel | Coverage profiles | Same 30 px box for both, 44 px to tap; "+ New Profile" 44 px to tap |
+| Name field 46 px, Add 40 px | Settings → positions | Both 44 px |
+| "Clocked In" legend pill broke over two lines | Dashboard chart, phones | Legend on its own row under the title on phones; pills never wrap (placeholder matches) |
+| "Oct 11 – Oct 17, 2026" wrapped to 2–3 lines (70 px tall) beside Today | Schedule, phones and the tablet side column | "Oct 11 – 17, 2026"; the year gives way when the row is under 372 px (container query) |
+| "56/40 h" \| "week" split across lines | Week day list, phones | The phrase wraps as one piece |
+| Shift times cut off ("8:30a-...") and "Live · T..." | Week grid, portrait tablet | Times wrap after the dash (still fit the 48 px cell); "Time off?" leads the label |
+| "-858.8 hrs" lost its minus sign and unit; labels wrapped | Week stats, phones | 2 × 2 below tablet width |
+| Names cut to 68 px ("Alice S...") | Admin, 360 px | Role and action columns 68 px under 400 px wide |
+| Names cut to 32 px ("Grac...") | Reports hours table, 360 px | Name column at least 56 px |
+| Status line ran to the screen edges, corners cut off | Dashboard, phones | 16 px margin like the content |
+| 1 px line down the right edge: the closed time card's border, in the reserved scrollbar gutter | Dashboard, desktop / tablet with classic scrollbars | Closed drawers (time card, message thread) are also invisible |
+| Close buttons 40 px where the rest are 44 | Auto-schedule sheet, time card, message thread | 44 px |
+| 15–20 px tall links | Sign-in "Create an organization", public footer, "View the source" | 34–44 px to tap via padding offset by negative margins |
+
+Placeholders that are sized like their text (a name, a time, a chart
+title) draw their words with CSS-generated content (`SkeletonText`), so the
+words take the same space without being in the page's text.
+
+Left as they are: compact secondary controls of 32–40 px (chart view
+toggles, segmented controls, small selects) meet the 24 px minimum of WCAG
+2.2 and growing them would change the screens' density; week arrows are 44
+px on Schedule, 40 on Week (matching that header's 40 px toggle and This
+week) and 36 in the Reports card; on a 360 px phone Admin's emails and the
+availability note end in an ellipsis; the notification bell's panel wasn't
+reachable without a Supabase session.
+
 ## Not fixed, and why
 
 - **Tap-caused re-layouts that are the design.** Off today, the dashboard
@@ -180,9 +224,6 @@ position survives Back.
   by day; switching Schedule to month view grows the calendar. These happen
   in the frame of the tap, so CLS excludes them, and keeping them still would
   mean changing what the screens show.
-- **Schedule's range row wraps on narrow phones when "Today" appears** (off
-  the current week, ~24 px). Also in the tap's frame. Fixing it means always
-  reserving an empty line on the current week or redesigning the header.
 - **First visit, unknown list lengths.** What sits under a list whose length
   isn't known (dashboard manager buttons, Week insights, Reports export)
   waits for the first load instead of being pushed down. The cost: it
@@ -200,9 +241,9 @@ position survives Back.
   browser doesn't (Safari).
 - **Safe areas weren't checked on a notched device** (no device here);
   `viewport-fit` and the `env(safe-area-inset-*)` paddings were not changed.
-- **A 4 px strip beside fixed overlays on desktop**: with the gutter
+- **A 4 px strip beside open overlays on desktop**: with the gutter
   reserved, fixed elements stop at it. Invisible on phones (overlay
-  scrollbars).
+  scrollbars). Closed drawers no longer show in it (see Buttons and layout).
 - **Paint-only animations kept**: hover box-shadows and the skeleton shimmer
   (background-position) don't move layout and were left as they are.
 - **The Turnstile widget on Sign up / Contact** sizes itself; it's a
@@ -226,6 +267,6 @@ Also seen: the baseline Schedule page threw a React hydration mismatch
 - One run per scenario; the shift sources were checked by hand for each
   non-zero result. Data around "now" depends on the time of day, so the
   before and after runs were made back to back.
-- Checks on the final code: `tsc --noEmit` clean; ESLint 0 errors, 49
-  warnings, none new (51 before); 1,745 unit tests; all 138 e2e tests across
-  the five Playwright projects.
+- Checks on the final code (after the buttons-and-layout pass too):
+  `tsc --noEmit` clean; ESLint 0 errors, 49 warnings, none new (51 before);
+  1,745 unit tests; all 138 e2e tests across the five Playwright projects.
