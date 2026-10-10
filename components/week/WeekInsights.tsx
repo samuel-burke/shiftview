@@ -94,7 +94,7 @@ export function WeekStats({
   const score = useMemo(() => coverageScoreFromCurves(shifts, dates, curves), [shifts, dates, curves]);
 
   return (
-    <div className="grid grid-cols-4 gap-2" data-testid="week-stats">
+    <div className="grid grid-cols-2 tablet:grid-cols-4 gap-2" data-testid="week-stats">
       <StatCard index={0} value={String(Math.round(budget))} suffix="hrs" label="Weekly Budget" color="#818cf8" loading={loading} />
       <StatCard index={1} value={String(round1(scheduled))} suffix="hrs" label="Scheduled" color="#3b82f6" loading={loading} />
       <StatCard index={2} value={variance > 0 ? `+${variance}` : String(variance)} suffix="hrs" label="Variance" color={varianceColor(variance)} loading={loading} />

@@ -787,11 +787,11 @@ export default function ReportsPageClient() {
               // Its own key: otherwise React would reuse these placeholder rows
               // (keyed 0..n) for the employees with those ids, and move them.
               <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
-                <div aria-hidden="true" className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+                <div aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] font-semibold"><span className="skeleton rounded text-transparent">Employee</span></div>
                 </div>
                 {Array.from({ length: employees.length || 6 }, (_, i) => (
-                  <div key={i} aria-hidden="true" className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                  <div key={i} aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
                     <div className="text-xs font-medium"><span className="skeleton rounded text-transparent">Name</span></div>
                   </div>
                 ))}
@@ -804,7 +804,7 @@ export default function ReportsPageClient() {
                 aria-busy={weekLoading || undefined}
                 className={`bg-card rounded-2xl border border-slate-800/60 overflow-hidden transition-opacity ${weekLoading ? "opacity-60" : ""}`}
               >
-                <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+                <div className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
                   <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
                   {weekDates.map((d) => (
                     <div key={d} className="text-[10px] text-slate-500 font-semibold text-center" title={new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}>
@@ -819,7 +819,7 @@ export default function ReportsPageClient() {
                   employees.map((emp) => {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
-                      <div key={emp.id} className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                      <div key={emp.id} className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
                         <div className="text-xs text-slate-200 font-medium truncate" title={emp.name}>{emp.name.split(" ")[0]}</div>
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];

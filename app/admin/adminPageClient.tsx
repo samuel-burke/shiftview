@@ -184,8 +184,10 @@ export default function AdminPageClient({
                       <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
                       {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs font-semibold py-1.5 rounded-lg w-20 text-center border ${
+                    {/* The role and its action keep fixed columns so they line up row to
+                        row; a little narrower on small phones, so names fit. */}
+                    <div className="flex items-center gap-1.5 min-[400px]:gap-2 shrink-0">
+                      <span className={`text-xs font-semibold py-1.5 rounded-lg w-[4.25rem] min-[400px]:w-20 text-center border ${
                         isOwner
                           ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
                           : isMgr
@@ -195,17 +197,17 @@ export default function AdminPageClient({
                         {isOwner ? "Owner" : isMgr ? "Manager" : "Employee"}
                       </span>
                       {!emp.user_id ? (
-                        <span className="text-xs text-slate-500 w-20 py-1.5 text-center">No account</span>
+                        <span className="text-xs text-slate-500 w-[4.25rem] min-[400px]:w-20 py-1.5 text-center">No account</span>
                       ) : isSelf ? (
                         <span
-                          className="text-xs text-slate-500 w-20 py-1.5 text-center"
+                          className="text-xs text-slate-500 w-[4.25rem] min-[400px]:w-20 py-1.5 text-center"
                           aria-label="You — cannot change your own role"
                         >
                           You
                         </span>
                       ) : isOwner || !canManageRoles ? (
                         <span
-                          className="text-xs text-slate-600 w-20 py-1.5 text-center"
+                          className="text-xs text-slate-600 w-[4.25rem] min-[400px]:w-20 py-1.5 text-center"
                           aria-label={isOwner
                             ? "Organization owner — cannot be demoted"
                             : "Only the organization owner can change roles"}
@@ -217,7 +219,7 @@ export default function AdminPageClient({
                           onClick={() => toggleRole(emp)}
                           disabled={isToggling}
                           aria-busy={isToggling}
-                          className={`text-xs font-semibold py-3 rounded-lg border transition-colors cursor-pointer w-20 text-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                          className={`text-xs font-semibold py-3 rounded-lg border transition-colors cursor-pointer w-[4.25rem] min-[400px]:w-20 text-center disabled:opacity-50 disabled:cursor-not-allowed ${
                             hasError
                               ? "bg-red-500/20 text-red-400 border-red-500/30"
                               : isMgr
