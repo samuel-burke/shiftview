@@ -35,6 +35,7 @@ import { addDaysToKey, dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey,
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import FormError from "../../components/FormError";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -1039,9 +1040,7 @@ export default function ClockPageClient() {
                   Your manager reviews corrections before they&apos;re added to your time card.
                 </div>
               )}
-              {correctionError && (
-                <div role="alert" className="text-xs text-red-400">{correctionError}</div>
-              )}
+              <FormError message={correctionError} />
               <button
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}

@@ -16,6 +16,7 @@ import AppShell from "../../components/AppShell";
 import BottomNav from "../../components/BottomNav";
 import CoverageCurveEditor, { CoverageCurvePreview } from "../../components/CoverageCurveEditor";
 import { createApiFetch } from "@/lib/api-fetch";
+import FormError from "@/components/FormError";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -384,9 +385,7 @@ function ProfileEditorCard({
         onChange={(blocks) => setEditing({ ...editing, blocks })}
       />
 
-      {error && (
-        <div role="alert" className="text-xs text-red-400 text-center mt-3">{error}</div>
-      )}
+      <FormError message={error} className="text-center mt-3" />
 
       <div className="flex gap-2 mt-4">
         <button

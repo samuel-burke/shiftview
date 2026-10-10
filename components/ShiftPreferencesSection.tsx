@@ -5,6 +5,7 @@ import { SHIFT_COLORS, type ShiftType } from "@/data/types";
 import { MAX_WEEKLY_HOURS } from "@/lib/scheduling-rules";
 import { PREFERENCE_NOTE_MAX, SHIFT_TYPES, type ShiftPreferences } from "@/lib/preferences";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
+import FormError from "./FormError";
 
 // What an employee would like to work: shift types, days, weekly hours. The
 // Auto-schedule honors these when it can; availability and approved
@@ -254,7 +255,7 @@ export default function ShiftPreferencesSection({
         />
       </div>
 
-      {problem && <div role="alert" className="text-xs text-red-400">{problem}</div>}
+      <FormError message={problem} />
 
       <div>
         <div className="flex justify-end">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtMinutes } from "../data/types";
+import FormError from "./FormError";
 
 type Props = {
   firstDayOfWeek?: number;
@@ -233,11 +234,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                 ))}
               </div>
 
-              {sheetInvalid && (
-                <div id="store-hours-error" role="alert" className="mt-3 text-sm text-red-400">
-                  Close time must be after open time
-                </div>
-              )}
+              <FormError id="store-hours-error" size="sm" message={sheetInvalid ? "Close time must be after open time" : null} className="mt-3" />
 
               {/* Copy to */}
               <div className="mt-5">

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 import Logo from "@/components/Logo";
+import FormError from "@/components/FormError";
 
 type Step = "details" | "code";
 
@@ -210,7 +211,7 @@ export default function SignupPage() {
                   <div className="text-xs text-slate-500 text-center">
                     Signed in as <span className="text-slate-300 font-semibold">{sessionEmail}</span>
                   </div>
-                  {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+                  <FormError id="signup-error" message={error} className="text-center" />
                   <button
                     onClick={handleCreateSignedIn}
                     disabled={loading}
@@ -238,7 +239,7 @@ export default function SignupPage() {
                     onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
                     className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
                   />
-                  {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+                  <FormError id="signup-error" message={error} className="text-center" />
                   <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
                   <button
                     onClick={handleSendCode}
@@ -278,7 +279,7 @@ export default function SignupPage() {
                 autoFocus
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors caret-transparent disabled:opacity-50"
               />
-              {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <FormError id="signup-error" message={error} className="text-center" />
               <button
                 onClick={handleVerify}
                 disabled={loading}

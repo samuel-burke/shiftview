@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { useScrollLock } from "@/lib/scroll-lock";
+import FormError from "./FormError";
 
 type Props = {
   open: boolean;
@@ -180,9 +181,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
               </div>
             ))}
 
-            {error && (
-              <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
-            )}
+            <FormError message={error} className="text-center" />
 
             <button
               onClick={handleSubmit}

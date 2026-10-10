@@ -1287,9 +1287,7 @@ export default function SettingsPageClient({
                       </>
                     )}
 
-                    {geofenceError && (
-                      <div role="alert" className="text-xs text-red-400">{geofenceError}</div>
-                    )}
+                    <FormError message={geofenceError} />
 
                     <button
                       onClick={saveGeofence}
@@ -1497,7 +1495,7 @@ export default function SettingsPageClient({
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
                           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
                         />
-                        {editError && <div role="alert" className="text-xs text-red-400">{editError}</div>}
+                        <FormError message={editError} />
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
@@ -1619,7 +1617,7 @@ export default function SettingsPageClient({
                           aria-busy={deletingTemplateId === tpl.id}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {deletingTemplateId === tpl.id ? "…" : "Delete"}
+                          <StableLabel labels={["Delete", "…"]} active={deletingTemplateId === tpl.id ? 1 : 0} />
                         </button>
                       </div>
                     </div>
@@ -1654,12 +1652,14 @@ export default function SettingsPageClient({
                           }}
                           className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {applyingId === tpl.id ? "Applying…" : "Confirm"}
+                          <StableLabel labels={["Confirm", "Applying…"]} active={applyingId === tpl.id ? 1 : 0} />
                         </button>
                       </div>
                     )}
-                    {applyError[tpl.id] && (
-                      <div role="alert" className="text-xs text-red-400">{applyError[tpl.id]}</div>
+                    {/* The line is held while the date picker is open, so a
+                        failed apply doesn't grow the row. */}
+                    {(applyError[tpl.id] || (applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")) && (
+                      <FormError message={applyError[tpl.id]} />
                     )}
                   </motion.div>
                 ))
@@ -1780,9 +1780,7 @@ export default function SettingsPageClient({
                     : " Your organization keeps its schedule and time clock records."}
                 </div>
               </div>
-              {deleteAccountError && (
-                <div role="alert" className="text-xs text-red-400">{deleteAccountError}</div>
-              )}
+              <FormError message={deleteAccountError} />
             </div>
             <div className="flex border-t border-slate-800">
               <button
@@ -1847,9 +1845,7 @@ export default function SettingsPageClient({
                   className="mt-1.5 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-red-500/70 transition-colors"
                 />
               </div>
-              {deleteOrgError && (
-                <div role="alert" className="text-xs text-red-400">{deleteOrgError}</div>
-              )}
+              <FormError message={deleteOrgError} />
             </div>
             <div className="flex border-t border-slate-800">
               <button

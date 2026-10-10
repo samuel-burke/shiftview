@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { AvailabilityRecord, fmtMinutes } from "../data/types";
+import FormError from "./FormError";
 
 type Props = {
   employeeId: number;
@@ -402,9 +403,7 @@ export default function AvailabilitySection({
                     ))}
                   </div>
 
-                  {sheetInvalid && (
-                    <div id="avail-time-error" role="alert" className="text-sm text-red-400">End time must be after start time</div>
-                  )}
+                  <FormError id="avail-time-error" size="sm" message={sheetInvalid ? "End time must be after start time" : null} />
 
                   {sheetShowBar && sheetStartMins !== null && sheetEndMins !== null && (
                     <AvailBar

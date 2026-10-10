@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { fmtMinutes, getMonogram } from "../data/types";
 import { useScrollLock } from "@/lib/scroll-lock";
+import FormError from "./FormError";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -159,9 +160,7 @@ export default function SwapRequestSheet({
                   Sending request…
                 </div>
               )}
-              {submitError && !submitting && (
-                <div role="alert" className="mt-4 text-center text-sm text-red-400">{submitError}</div>
-              )}
+              <FormError size="sm" message={!submitting ? submitError : null} className="mt-4 text-center" />
             </div>
           </motion.div>
         </>

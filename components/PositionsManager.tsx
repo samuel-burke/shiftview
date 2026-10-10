@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { validatePositionName } from "../lib/positions";
+import FormError from "./FormError";
 
 export type Position = { id: number; name: string; color?: string | null };
 
@@ -50,7 +51,7 @@ export default function PositionsManager({
           Add
         </button>
       </div>
-      {error && <div role="alert" className="text-xs text-red-400">{error}</div>}
+      <FormError message={error} />
 
       {positions.length === 0 ? (
         <div className="text-center py-4 text-slate-400 text-sm">No positions yet</div>

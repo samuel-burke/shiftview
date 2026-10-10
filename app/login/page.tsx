@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import TryDemoButton from "@/components/TryDemoButton";
 import Logo from "@/components/Logo";
+import FormError from "@/components/FormError";
 
 type Step = "email" | "code";
 
@@ -86,7 +87,7 @@ export default function LoginPage() {
                 autoFocus
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
               />
-              {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <FormError id="login-error" message={error} className="text-center" />
               <button
                 onClick={handleSendCode}
                 disabled={loading}
@@ -125,7 +126,7 @@ export default function LoginPage() {
                 autoFocus
                 className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors caret-transparent"
               />
-              {error && <div id="login-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <FormError id="login-error" message={error} className="text-center" />
               <button
                 onClick={handleVerify}
                 disabled={loading}

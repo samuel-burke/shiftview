@@ -12,6 +12,7 @@ import {
 import SegmentedControl from "./SegmentedControl";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
 import ShiftPreferencesSection from "./ShiftPreferencesSection";
+import FormError from "./FormError";
 
 // Manager-only, under each employee in Settings → Team: employment type and
 // weekly limits for Auto-schedule, plus the employee's shift
@@ -186,7 +187,7 @@ export default function EmployeeSchedulingRow({
 
           <div className="text-[11px] text-slate-500 -mt-2">Blank fields use the {type === "full_time" ? "full-time" : "part-time"} default from Scheduling Rules.</div>
 
-          {problem && <div role="alert" className="text-xs text-red-400">{problem}</div>}
+          <FormError message={problem} />
 
           <div>
             <div className="flex justify-end">
