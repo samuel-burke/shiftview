@@ -374,7 +374,7 @@ export default function RequestsPageClient() {
                     </button>
                     <button
                       onClick={() => decide(selected, "approved")}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 cursor-pointer hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent cursor-pointer hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Approve
                     </button>

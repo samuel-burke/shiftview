@@ -290,7 +290,7 @@ function TimeOffCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s time off request`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -352,7 +352,7 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -418,7 +418,7 @@ function PunchCorrectionCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s punch correction`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>

@@ -211,7 +211,7 @@ export default function CoveragePageClient() {
               {!editing && (
                 <button
                   onClick={() => { setEditing({ id: null, name: "", blocks: [{ startMinutes: 540, endMinutes: 1020, headcount: 2 }] }); setEditError(null); }}
-                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer transition-colors"
+                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer transition-colors py-[14px] -my-[14px] px-2 -mx-2"
                 >
                   + New Profile
                 </button>
@@ -279,19 +279,21 @@ export default function CoveragePageClient() {
                             {Math.round(curveHours(p.blocks) * 10) / 10} staff-hrs / day
                           </div>
                         </div>
+                        {/* Each pair shares one button height; the plain one is a
+                            button-shaped box too, and both reach 44px to tap. */}
                         <div className="flex items-center gap-2 shrink-0">
                           {confirmDeleteId === p.id ? (
                             <>
                               <button
                                 onClick={() => handleDeleteProfile(p.id)}
                                 disabled={saving}
-                                className="text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                className="text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50 relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Confirm
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="text-xs font-semibold text-slate-400 bg-transparent border-none cursor-pointer hover:text-slate-200 transition-colors"
+                                className="text-xs font-semibold text-slate-400 bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-slate-200 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Cancel
                               </button>
@@ -300,13 +302,13 @@ export default function CoveragePageClient() {
                             <>
                               <button
                                 onClick={() => { setEditing({ id: p.id, name: p.name, blocks: p.blocks.map((b) => ({ ...b })) }); setEditError(null); setConfirmDeleteId(null); }}
-                                className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-indigo-500/20 transition-colors"
+                                className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-indigo-500/20 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(p.id)}
-                                className="text-xs font-semibold text-slate-500 bg-transparent border-none cursor-pointer hover:text-red-400 transition-colors"
+                                className="text-xs font-semibold text-slate-500 bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-red-400 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Delete
                               </button>
@@ -409,7 +411,7 @@ function ProfileEditorCard({
           onClick={onSave}
           disabled={saving}
           aria-busy={saving}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
         >
           {saving ? "Saving…" : editing.id === null ? "Create Profile" : "Save Profile"}
         </button>

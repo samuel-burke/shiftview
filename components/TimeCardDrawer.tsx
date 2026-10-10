@@ -204,7 +204,7 @@ export function TimeCardPanel({
         </button>
       </div>
 
-      {/* Date range controls */}
+      {/* Date range controls: the fields and Apply share one height. */}
       <div className="px-5 py-3 border-b border-slate-800 shrink-0 flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[120px]">
           <label htmlFor="tc-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
@@ -214,7 +214,7 @@ export function TimeCardPanel({
             value={from}
             max={to}
             onChange={(e) => onFromChange(e.target.value)}
-            className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+            className="w-full h-11 bg-card border border-slate-700 rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
           />
         </div>
         <div className="flex-1 min-w-[120px]">
@@ -225,13 +225,13 @@ export function TimeCardPanel({
             value={to}
             min={from}
             onChange={(e) => onToChange(e.target.value)}
-            className="w-full bg-card border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+            className="w-full h-11 bg-card border border-slate-700 rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
           />
         </div>
         <button
           onClick={onApply}
           disabled={loading || from > to}
-          className="py-1.5 px-3 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-11 px-4 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <StableLabel labels={["Apply", "…"]} active={loading ? 1 : 0} />
         </button>

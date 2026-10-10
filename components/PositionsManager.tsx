@@ -42,11 +42,11 @@ export default function PositionsManager({
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Add a position (e.g. Cashier)"
           aria-label="Position name"
-          className="flex-1 rounded-xl bg-card border border-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-600"
+          className="flex-1 h-11 rounded-xl bg-card border border-slate-800 px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-600"
         />
         <button
           onClick={submit}
-          className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 px-4 py-2.5 text-sm font-bold text-white cursor-pointer border-none hover:brightness-110 transition-[filter]"
+          className="h-11 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 px-4 text-sm font-bold text-white cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Add
         </button>

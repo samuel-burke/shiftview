@@ -74,7 +74,7 @@ function SwapRow({ swap, responding, onAccept, onDecline }: {
           disabled={responding}
           aria-label={`Accept swap with ${swap.requesterName}`}
           aria-busy={responding}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter]"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent text-white font-bold text-xs cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter]"
         >
           Accept
         </button>

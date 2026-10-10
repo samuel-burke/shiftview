@@ -445,7 +445,7 @@ export default function AutoScheduleSheet({
                 onClick={() => onGenerate({ mode: draftCount > 0 ? mode : "replace", rules: { overtimePolicy, pendingTimeOff: pendingPolicy }, adjustments })}
                 disabled={!canGenerate}
                 aria-busy={generating}
-                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border border-transparent cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {generating ? "Generating…" : "Generate Schedule"}
               </button>
