@@ -20,6 +20,8 @@ import {
   SHIFT_COLORS,
   fmtMinutes,
 } from "../data/types";
+import { useScrollLock } from "@/lib/scroll-lock";
+import FormError from "./FormError";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -103,10 +105,7 @@ export default function EmployeeDrawer({
   const [chatMounted, setChatMounted] = useState(false);
   const [conflict, setConflict] = useState<ConflictState>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = open && !isPane ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open, isPane]);
+  useScrollLock(open && !isPane);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -142,7 +141,7 @@ export default function EmployeeDrawer({
   const dayOfWeek = date ? dayOfWeekForKey(date) : new Date().getDay();
   const shiftType = schedule ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close) : null;
   const here = isToday && !!schedule && isHere(schedule, nowMinutes, date);
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "var(--status-muted)";
 
   const isDraft = source === "draft";
   let statusLabel: string;
@@ -150,23 +149,23 @@ export default function EmployeeDrawer({
   if (isDraft) {
     statusLabel = !schedule ? "Off" : schedule.generationRunId ? "Auto draft" : "Draft";
     // Theme variables, so light mode gets its darker amber and violet.
-    statusColor = !schedule ? "#94a3b8" : schedule.generationRunId ? "var(--color-violet-400, #a78bfa)" : "var(--color-amber-400, #fbbf24)";
+    statusColor = !schedule ? "var(--status-muted)" : schedule.generationRunId ? "var(--color-violet-400, #a78bfa)" : "var(--color-amber-400, #fbbf24)";
   } else if (readOnly) {
     statusLabel = "Live";
-    statusColor = "#94a3b8";
+    statusColor = "var(--status-muted)";
   } else if (calledOut) {
     statusLabel = "Called Out";
-    statusColor = "#f87171";
+    statusColor = "var(--status-bad)";
   } else if (isToday && attendanceStatus && attendanceStatus !== "not_clocked_in") {
     const ATTENDANCE_LABELS: Record<Exclude<AttendanceStatus, "not_clocked_in">, { label: string; color: string }> = {
-      clocked_in:  { label: "Clocked In",  color: "#22c55e" },
-      on_break:    { label: "On Break",    color: "#f59e0b" },
-      clocked_out: { label: "Clocked Out", color: "#94a3b8" },
+      clocked_in:  { label: "Clocked In",  color: "var(--status-ok)" },
+      on_break:    { label: "On Break",    color: "var(--status-warn)" },
+      clocked_out: { label: "Clocked Out", color: "var(--status-muted)" },
     };
     ({ label: statusLabel, color: statusColor } = ATTENDANCE_LABELS[attendanceStatus]);
   } else {
     statusLabel = !schedule ? "Off" : here ? "Here" : isToday ? "Not Yet In / Off" : "Scheduled";
-    statusColor = here ? "#22c55e" : "#94a3b8";
+    statusColor = here ? "var(--status-ok)" : "var(--status-muted)";
   }
 
   // Find matching availability record
@@ -387,12 +386,12 @@ export default function EmployeeDrawer({
                     {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
                       <>
                         <span aria-hidden="true">⚠</span> Usually unavailable on {DAY_NAMES[dayOfWeek]}s
-                        {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                        {availRecord.note && <div className="mt-0.5 text-amber-300">{availRecord.note}</div>}
                       </>
                     ) : (
                       <>
                         <span aria-hidden="true">⚠</span> Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
-                        {availRecord.note && <div className="mt-0.5 text-amber-300/80">{availRecord.note}</div>}
+                        {availRecord.note && <div className="mt-0.5 text-amber-300">{availRecord.note}</div>}
                       </>
                     )}
                   </div>
@@ -420,7 +419,7 @@ export default function EmployeeDrawer({
                           value={val}
                           autoFocus={autoFocus}
                           onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
-                          className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                       </div>
                     ))}
@@ -429,9 +428,7 @@ export default function EmployeeDrawer({
                       <div className="text-xs text-indigo-300 -mt-1" data-testid="edit-shift-overnight">Ends the next day (overnight shift)</div>
                     )}
 
-                    {error && (
-                      <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
-                    )}
+                    <FormError message={error} className="text-center" />
 
                     <motion.button
                       onClick={() => handleSave(false)}
@@ -440,7 +437,7 @@ export default function EmployeeDrawer({
                       whileHover={!saving ? { scale: 1.02, boxShadow: "0 6px 24px rgba(139,92,246,0.3)" } : {}}
                       whileTap={!saving ? { scale: 0.97 } : {}}
                       transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
+                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
                     >
                       {saving ? "Saving…" : isDraft ? "Save Draft" : "Save Shift"}
                     </motion.button>
@@ -509,7 +506,7 @@ export default function EmployeeDrawer({
                           onClick={onSwitchToLive}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-blue-600 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
                         >
                           Switch to Live
                         </motion.button>
@@ -520,7 +517,7 @@ export default function EmployeeDrawer({
                           whileHover={{ scale: 1.02, boxShadow: "0 6px 24px rgba(59,130,246,0.3)" }}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-500 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-400 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-blue-600 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
                         >
                           {schedule ? (isDraft ? "Edit Draft" : "Edit Shift") : isDraft ? "Add Draft" : "Add Shift"}
                         </motion.button>

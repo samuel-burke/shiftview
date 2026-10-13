@@ -27,6 +27,25 @@ describe("DatePickerSheet", () => {
     expect(screen.getByText("1")).toBeInTheDocument();
   });
 
+  it("lays out six weeks for every month, so the picker keeps its size", async () => {
+    // February 2026 starts on a Sunday and fills exactly four weeks;
+    // August 2026 spans six.
+    render(
+      <DatePickerSheet
+        {...baseProps}
+        firstDayOfWeek={0}
+        selected={new Date(2026, 1, 10)}
+        today={new Date(2026, 1, 10)}
+      />
+    );
+    const cells = () =>
+      screen.getByRole("button", { name: /^(Sunday|Saturday), \w+ 1, 2026$/ }).parentElement!.parentElement!.children.length;
+    expect(cells()).toBe(42);
+    for (let i = 0; i < 6; i++) await userEvent.click(screen.getByRole("button", { name: /next month/i }));
+    expect(screen.getByText("August 2026")).toBeInTheDocument();
+    expect(cells()).toBe(42);
+  });
+
   it("navigates to the previous month on prev-month click", async () => {
     render(<DatePickerSheet {...baseProps} />);
     await userEvent.click(screen.getByRole("button", { name: /previous month/i }));

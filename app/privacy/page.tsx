@@ -31,7 +31,7 @@ function Table({ rows }: { rows: [string, string][] }) {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-bg px-4 py-12">
+    <main className="min-h-dvh bg-bg px-4 py-12">
       <div className="mx-auto max-w-2xl">
         <Link
           href="/"

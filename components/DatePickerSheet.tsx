@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 type Props = {
   open: boolean;
@@ -26,12 +27,17 @@ function sameDay(a: Date, b: Date) {
     a.getDate() === b.getDate();
 }
 
+// Always six weeks (42 cells), blank after the month's last day: a month
+// spans four to six week rows, and a picker that grew and shrank with it
+// moved its top edge (anchored at the bottom on phones, centred on desktop)
+// every time the month changed.
 function getCalendarDays(year: number, month: number, firstDayOfWeek: number): (Date | null)[] {
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const offset = (firstDow - firstDayOfWeek + 7) % 7;
   const days: (Date | null)[] = Array(offset).fill(null);
   for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
+  while (days.length < 42) days.push(null);
   return days;
 }
 
@@ -47,10 +53,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
     }
   }, [open, selected]);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape" && open) onClose();
@@ -158,10 +161,11 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
           ))}
         </div>
 
-        {/* Day grid */}
-        <div className="grid grid-cols-7 gap-y-1">
+        {/* Day grid: every row the height of one with today's dot under a
+            date (44 + 3 + 4px), so the dot doesn't make its week taller. */}
+        <div className="grid grid-cols-7 gap-y-1 auto-rows-[51px]">
           {days.map((day, i) => {
-            if (!day) return <div key={i} />;
+            if (!day) return <div key={i} aria-hidden="true" />;
 
             const isSelected = sameDay(day, selected);
             const isToday_ = sameDay(day, today);
@@ -176,9 +180,9 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                   aria-pressed={isSelected}
                   className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
                     isSelected
-                      ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white font-bold hover:opacity-90"
+                      ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white font-bold hover:opacity-90"
                       : isToday_
-                      ? "bg-transparent text-blue-500 font-bold hover:bg-blue-500/10"
+                      ? "bg-transparent text-blue-400 font-bold hover:bg-blue-500/10"
                       : "bg-transparent text-slate-400 font-normal hover:bg-slate-800 hover:text-slate-200"
                   }`}
                 >

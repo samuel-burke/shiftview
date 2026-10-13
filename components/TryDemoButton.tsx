@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ME_CACHE_KEY } from "@/lib/AppDataContext";
+import { DEMO_HINT_KEY, ME_CACHE_KEY } from "@/lib/AppDataContext";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
+import StableLabel from "./StableLabel";
 
 // Starts a demo session (anonymous sign-in + demo-org membership via
 // POST /api/demo/start) and lands on the dashboard with a real session.
@@ -34,9 +35,14 @@ export default function TryDemoButton({
         if (widgetIdRef.current) window.turnstile?.reset(widgetIdRef.current);
         return;
       }
-      // Drop any cached identity from a previous session, then do a full
-      // navigation so the server sees the new auth cookies.
-      try { localStorage.removeItem(ME_CACHE_KEY); } catch {}
+      // Drop any cached identity from a previous session and leave a hint so
+      // the demo strip shows from the dashboard's first frame (app/layout.tsx)
+      // before /api/me confirms it; then do a full navigation so the server
+      // sees the new auth cookies.
+      try {
+        localStorage.removeItem(ME_CACHE_KEY);
+        localStorage.setItem(DEMO_HINT_KEY, "1");
+      } catch {}
       window.location.assign("/");
     } catch {
       setError("Demo is unavailable right now");
@@ -86,7 +92,7 @@ export default function TryDemoButton({
   return (
     <div className="flex flex-col gap-2">
       <button onClick={handleClick} disabled={loading} className={className}>
-        {loading ? "Starting demo…" : children}
+        <StableLabel labels={[children, "Starting demo…"]} active={loading ? 1 : 0} />
       </button>
       <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
       {error && (

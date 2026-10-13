@@ -76,7 +76,7 @@ function ModeToggle({
             disabled={disabled}
             onClick={() => { if (!active) onChange(o.value); }}
             className={`min-h-10 px-3 rounded-[9px] text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:cursor-default ${
-              active ? "bg-slate-800 text-slate-50 shadow" : "bg-transparent text-slate-400 hover:text-slate-200"
+              active ? "bg-slate-800 text-slate-50 shadow ring-1 ring-inset ring-slate-500" : "bg-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             <span aria-hidden="true" className={`size-1.5 rounded-full ${active ? o.dot : "bg-slate-600"}`} />
@@ -169,7 +169,7 @@ export default function WeekHeader(props: Props) {
               disabled={busy || publishCount === 0}
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
             >
               Publish ({publishCount})
             </motion.button>

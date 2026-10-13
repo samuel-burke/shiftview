@@ -18,6 +18,7 @@ import {
   SHIFT_COLORS,
 } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import { Toast, ToastStack } from "../../components/Toast";
 import AppShell from "../../components/AppShell";
 import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
@@ -34,6 +35,8 @@ import { addDaysToKey, dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey,
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
+import FormError from "../../components/FormError";
+import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -46,10 +49,10 @@ const STATUS_LABELS: Record<AttendanceStatus, string> = {
 };
 
 const STATUS_COLORS: Record<AttendanceStatus, string> = {
-  clocked_in:    "#22c55e",
-  on_break:      "#f59e0b",
-  clocked_out:   "#94a3b8",
-  not_clocked_in: "#94a3b8",
+  clocked_in:    "var(--status-ok)",
+  on_break:      "var(--status-warn)",
+  clocked_out:   "var(--status-muted)",
+  not_clocked_in: "var(--status-muted)",
 };
 
 const PUNCH_TYPE_LABELS: Record<PunchType, string> = {
@@ -88,7 +91,6 @@ export default function ClockPageClient() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
-  const isDemo = cachedMe.isDemo;
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
   // initialize from context cache if available so return visits are instant.
@@ -289,11 +291,18 @@ export default function ClockPageClient() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadData]);
 
+  // Today's call-out and the employee's own corrections each change what the
+  // clock shows (a call-out card, a pending-correction note), so the clock
+  // waits for both before replacing its placeholder.
+  const [calloutLoaded, setCalloutLoaded] = useState(false);
+  const [correctionsLoaded, setCorrectionsLoaded] = useState(false);
+
   const loadMyCorrections = useCallback(() => {
     fetch("/api/punch-corrections?mine=true")
       .then((r) => r.json())
       .then(({ corrections }) => { if (Array.isArray(corrections)) setMyCorrections(corrections); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCorrectionsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -302,13 +311,15 @@ export default function ClockPageClient() {
   }, [meLoading, employeeId, isManager, loadMyCorrections]);
 
   // Supabase Realtime — reload schedule/punches when they change (settings/hours handled by context).
+  // Both reload in the background: the clock keeps showing what it has and
+  // updates in place, rather than going back to the placeholder.
   // The punches listener keeps this screen in sync across the user's devices: a
   // punch made elsewhere updates the status, timer and history here too (a
   // background reload, so it never flashes the skeleton).
   useEffect(() => {
     const channel = supabase
       .channel("clock-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(false))
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedules" }, () => loadData(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "punch_records" }, () => loadData(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "punch_corrections" }, () => loadMyCorrections())
       .subscribe();
@@ -325,7 +336,8 @@ export default function ClockPageClient() {
         const list: Callout[] = Array.isArray(d?.callouts) ? d.callouts : [];
         setMyCallout(list.find((c) => c.date === todayKey) ?? null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCalloutLoaded(true));
   }, [meLoading, employeeId, todayKey]);
 
   async function submitCallout() {
@@ -548,8 +560,8 @@ export default function ClockPageClient() {
     const clockIn = sortedPunches.find((p) => p.punchType === "clock_in");
     if (!clockIn) return null;
     const diff = minutesFromScheduled(clockIn.punchedAt, schedule.date.slice(0, 10), schedule.startMinutes, timezone);
-    if (diff > 5) return { text: `${diff}m late`, color: "#ef4444" };
-    if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "#818cf8" };
+    if (diff > 5) return { text: `${diff}m late`, color: "var(--status-bad)" };
+    if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "var(--status-info)" };
     return null;
   }, [schedule, sortedPunches, timezone]);
 
@@ -561,7 +573,7 @@ export default function ClockPageClient() {
   const shiftType = schedule
     ? getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close)
     : null;
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#818cf8";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "var(--status-info)";
 
   const firstName = employeeName ? employeeName.split(" ")[0] : "Clock";
 
@@ -582,17 +594,20 @@ export default function ClockPageClient() {
     </div>
   );
 
-  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-screen desk:max-w-none desk:px-0 desk:pb-0";
+  const mainClass = "max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 px-4 pb-28 bg-bg min-h-dvh desk:max-w-none desk:px-0 desk:pb-0";
 
   const appShellProps = {
     active: "clock" as const,
     isManager,
     userName: employeeName,
-    isDemo,
     onSignOut: handleSignOut,
   };
 
-  if (loading || meLoading) {
+  // Only an employee has a call-out to load, and only a non-manager employee
+  // has corrections of their own.
+  const calloutReady = employeeId ? calloutLoaded : !meLoading;
+  const correctionsReady = employeeId && !isManager ? correctionsLoaded : !meLoading;
+  if (loading || meLoading || !calloutReady || !correctionsReady) {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
@@ -610,7 +625,7 @@ export default function ClockPageClient() {
     return (
       <AppShell {...appShellProps}>
         <main className={mainClass}>
-          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center px-4">
+          <div className="flex flex-col items-center justify-center min-h-[50dvh] gap-3 text-center px-4">
             <div aria-hidden="true" className="text-4xl">🔗</div>
             <div className="text-lg font-bold text-slate-100">Account not linked</div>
             <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
@@ -625,20 +640,16 @@ export default function ClockPageClient() {
     <AppShell {...appShellProps}>
     <main className={mainClass}>
       {/* Mobile banner comes from AppShell's TopBar; this one is desktop-only */}
-      {isDemo && (
-        <div className="hidden desk:flex bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+      <DemoBanner className="hidden desk:flex" />
       {clockHeader}
 
       <div className="desk:max-w-[600px] desk:mx-auto desk:px-6 desk:py-4">
-      {error && (
-        <div role="alert" className="mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-          {error}
-        </div>
-      )}
+      {/* Over the page, so a message can't push the clock down. */}
+      <ToastStack>
+        {error && <Toast className="text-center">{error}</Toast>}
+        {actionError && <Toast className="text-center" onDismiss={() => setActionError(null)}>{actionError}</Toast>}
+        {calloutError && <Toast className="text-center" onDismiss={() => setCalloutError(null)}>{calloutError}</Toast>}
+      </ToastStack>
 
       <div className="mt-4 space-y-3">
         {/* Today's shift card */}
@@ -650,7 +661,7 @@ export default function ClockPageClient() {
             <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Today&apos;s Shift</span>
             {shiftType && (
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize"
-                style={{ background: `${shiftColor}22`, color: shiftColor }}>
+                style={{ background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`, color: shiftColor }}>
                 {shiftType}
               </span>
             )}
@@ -687,9 +698,9 @@ export default function ClockPageClient() {
           <div
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-3"
             style={{
-              background: `${STATUS_COLORS[effectiveStatus]}22`,
+              background: `color-mix(in srgb, ${STATUS_COLORS[effectiveStatus]} 13%, transparent)`,
               color: STATUS_COLORS[effectiveStatus],
-              border: `1px solid ${STATUS_COLORS[effectiveStatus]}44`,
+              border: `1px solid color-mix(in srgb, ${STATUS_COLORS[effectiveStatus]} 27%, transparent)`,
             }}
           >
             <span
@@ -758,7 +769,7 @@ export default function ClockPageClient() {
               <span aria-hidden="true" className="text-amber-400 mt-px shrink-0">⚠</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
-                <div className="text-xs text-amber-400/80 mt-0.5">
+                <div className="text-xs text-amber-400 mt-0.5">
                   {missedPunchInfo.lastPunchType === "break_start"
                     ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing break end and clock-out before clocking in today.</>
                     : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing clock-out before clocking in today.</>
@@ -786,11 +797,6 @@ export default function ClockPageClient() {
         )}
 
         {/* Action buttons */}
-        {actionError && (
-          <div role="alert" className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-            {actionError}
-          </div>
-        )}
 
         <div className="grid gap-3">
           {effectiveStatus === "not_clocked_in" && (
@@ -801,7 +807,7 @@ export default function ClockPageClient() {
               whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(34,197,94,0.35)" }}
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-500 text-white shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-green-600"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-700 text-white shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-green-800"
             >
               {actionPending ? "…" : "Clock In"}
             </motion.button>
@@ -842,7 +848,7 @@ export default function ClockPageClient() {
               whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(245,158,11,0.35)" }}
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-500 text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-600"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-700 text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-800"
             >
               {actionPending ? "…" : "End Break"}
             </motion.button>
@@ -868,16 +874,15 @@ export default function ClockPageClient() {
             {myCallout ? (
               <div className="px-4 py-3.5 space-y-2.5">
                 <div className="flex items-start gap-2.5">
-                  <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="#f87171" /></span>
+                  <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="var(--status-bad)" /></span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-red-300">You&apos;ve called out for today</div>
-                    <div className="text-xs text-red-400/80 mt-0.5">Your manager has been notified.</div>
+                    <div className="text-xs text-red-400 mt-0.5">Your manager has been notified.</div>
                     {myCallout.reason && (
                       <div className="text-xs text-slate-400 mt-1.5 italic">“{myCallout.reason}”</div>
                     )}
                   </div>
                 </div>
-                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
                 <button
                   onClick={undoCallout}
                   disabled={calloutPending}
@@ -899,10 +904,9 @@ export default function ClockPageClient() {
                     onChange={(e) => setCalloutReason(e.target.value)}
                     placeholder="e.g. Feeling unwell"
                     rows={2}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-red-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-red-500/70 transition-colors"
                   />
                 </div>
-                {calloutError && <div role="alert" className="text-xs text-red-400">{calloutError}</div>}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => { setShowCalloutForm(false); setCalloutError(null); }}
@@ -926,7 +930,7 @@ export default function ClockPageClient() {
                 onClick={() => setShowCalloutForm(true)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors text-sm font-semibold text-slate-300"
               >
-                <MegaphoneIcon size={15} color="#94a3b8" />
+                <MegaphoneIcon size={15} color="var(--status-muted)" />
                 Can&apos;t make it in today? Call out
               </button>
             )}
@@ -946,10 +950,10 @@ export default function ClockPageClient() {
                         className="size-2 rounded-full shrink-0"
                         style={{
                           background:
-                            p.punchType === "clock_in"   ? "#22c55e" :
-                            p.punchType === "clock_out"  ? "#94a3b8" :
-                            p.punchType === "break_start"? "#f59e0b" :
-                                                           "#818cf8",
+                            p.punchType === "clock_in"   ? "var(--status-ok)" :
+                            p.punchType === "clock_out"  ? "var(--status-muted)" :
+                            p.punchType === "break_start"? "var(--status-warn)" :
+                                                           "var(--status-info)",
                         }}
                       />
                       <span className="text-sm font-medium text-slate-200">
@@ -998,7 +1002,7 @@ export default function ClockPageClient() {
                     id="correction-type"
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                   >
                     <option value="clock_in">Clock In</option>
                     <option value="clock_out">Clock Out</option>
@@ -1013,7 +1017,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
               </div>
@@ -1024,7 +1028,7 @@ export default function ClockPageClient() {
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                  className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
               <div>
@@ -1036,7 +1040,7 @@ export default function ClockPageClient() {
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   placeholder="Why is this punch being added manually?"
                   rows={2}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-indigo-500/70 transition-colors"
+                  className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
               {!isManager && (
@@ -1044,9 +1048,7 @@ export default function ClockPageClient() {
                   Your manager reviews corrections before they&apos;re added to your time card.
                 </div>
               )}
-              {correctionError && (
-                <div role="alert" className="text-xs text-red-400">{correctionError}</div>
-              )}
+              <FormError message={correctionError} />
               <button
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}
@@ -1122,7 +1124,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
                 <div>
@@ -1132,7 +1134,7 @@ export default function ClockPageClient() {
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
               </div>

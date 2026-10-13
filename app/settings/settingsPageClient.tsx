@@ -12,6 +12,7 @@ import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
+import SettingsSectionLabel from "../../components/SettingsSectionLabel";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
@@ -23,6 +24,9 @@ import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../li
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
 import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
+import StableLabel from "@/components/StableLabel";
+import FormError from "@/components/FormError";
+import { Toast, ToastStack } from "@/components/Toast";
 
 // Templates are applied to the 7 days starting at a chosen date: default to
 // the next start of the store's week (its "first day of week" setting) on or
@@ -80,6 +84,14 @@ type Employee = EmployeeLimitColumns & { id: number; name: string; email: string
 function groupId(label: string) {
   return `settings-${label.toLowerCase()}`;
 }
+
+// A row that opens another page or a sheet: the same as Store Hours' and
+// Availability's day rows, edge to edge in its card, with a chevron.
+const linkRow =
+  "flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors";
+const chevron = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+);
 
 function SettingsGroupHeader({ label }: { label: string }) {
   return (
@@ -648,7 +660,10 @@ export default function SettingsPageClient({
   // ── Initial data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
-    fetch("/api/settings")
+    // The page shows once both the store's settings and the identity are in:
+    // the settings decide, among other things, the order of the availability
+    // days (the week start), which mustn't change under the reader.
+    const settingsLoad = fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
         if (s.firstDayOfWeek  != null) setFirstDayOfWeek(s.firstDayOfWeek);
@@ -672,7 +687,7 @@ export default function SettingsPageClient({
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((emps: Employee[]) => setEmployees(emps))
       .catch(() => {});
-    fetch("/api/me")
+    const meLoad = fetch("/api/me")
       .then((r) => r.json())
       .then(({ isManager: mgr, employeeId: empId, isOwner: owner, orgName: org }) => {
         if (mgr != null) setIsManager(mgr);
@@ -690,8 +705,8 @@ export default function SettingsPageClient({
             .catch(() => {});
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
+    Promise.allSettled([settingsLoad, meLoad]).then(() => setLoading(false));
   }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────
@@ -794,7 +809,7 @@ export default function SettingsPageClient({
     >
     <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
-                 tablet:max-w-none tablet:h-auto tablet:min-h-screen tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
+                 tablet:max-w-none tablet:h-auto tablet:min-h-dvh tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
       style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
@@ -815,7 +830,7 @@ export default function SettingsPageClient({
           </svg>
         </button>
         <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
-        {isDemo && <span className="ml-auto text-[11px] text-blue-400/80 font-medium">Demo Mode</span>}
+        {isDemo && <span className="ml-auto text-[11px] text-blue-400 font-medium">Demo Mode</span>}
       </div>
 
       <div className="tablet:px-2 desk:grid desk:grid-cols-[180px_minmax(0,720px)] desk:justify-center desk:gap-10 desk:px-6">
@@ -863,19 +878,19 @@ export default function SettingsPageClient({
           </div>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <LayoutGroup id="theme-pill">
-            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+            <div className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px]">
               {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className={`relative flex-1 flex items-center justify-center gap-1.5 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {themeMode === m && (
                     <motion.div
                       layoutId="theme-active"
                       className="absolute inset-0 rounded-[9px] bg-slate-600"
-                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
@@ -924,7 +939,7 @@ export default function SettingsPageClient({
                 data-testid="toggle-sound-effects"
                 onClick={toggleSound}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  soundEnabled ? "bg-indigo-500" : "bg-slate-700"
+                  soundEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
@@ -958,7 +973,7 @@ export default function SettingsPageClient({
                   aria-busy={pushSaving}
                   onClick={togglePush}
                   className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                    pushSubscribed ? "bg-indigo-500" : "bg-slate-700"
+                    pushSubscribed ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                   }`}
                 >
                   <span
@@ -968,9 +983,6 @@ export default function SettingsPageClient({
                   />
                 </button>
               </div>
-              {pushError && (
-                <div role="alert" className="text-xs text-red-400 mt-2">{pushError}</div>
-              )}
 
               {/* Per-type toggles — only visible when push is enabled */}
               {pushSubscribed && (
@@ -1010,7 +1022,7 @@ export default function SettingsPageClient({
                         disabled={!!notifPrefsSaving[key]}
                         onClick={() => toggleNotifPref(key)}
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ml-4 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                          notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700"
+                          notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                         }`}
                       >
                         <span
@@ -1045,9 +1057,9 @@ export default function SettingsPageClient({
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Coverage Thresholds
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
             {/* Parent toggle */}
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-800">
+            <div className="flex items-center justify-between gap-3 px-4 py-4">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Coverage Alerts</div>
                 <div className="text-xs text-slate-500 mt-0.5">Show banners when staffing is low</div>
@@ -1063,7 +1075,7 @@ export default function SettingsPageClient({
                   saveCoverageAlerts(next);
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700"
+                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
@@ -1075,15 +1087,13 @@ export default function SettingsPageClient({
             <button
               data-testid="coverage-profiles-link"
               onClick={() => router.push("/coverage")}
-              className="w-full flex items-center justify-between bg-bg border border-slate-700 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-500/50 transition-colors text-left"
+              className={linkRow}
             >
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-200">Coverage Profiles</div>
                 <div className="text-xs text-slate-500 mt-0.5">Target staffing curves per day, in 15-minute steps</div>
               </div>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0">
-                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {chevron}
             </button>
           </div>
         </section>}
@@ -1098,11 +1108,13 @@ export default function SettingsPageClient({
 
         {/* Time Clock — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Time Clock
-          </div>
+          <SettingsSectionLabel label="Time Clock">
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-xs leading-4">
+              {timeclockSaved && <div className="text-emerald-400">Saved ✓</div>}
+            </div>
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-800/60">
               <div>
                 <div className="text-sm font-semibold text-slate-200">Allow Manual Punch Corrections</div>
                 <div className="text-xs text-slate-500 mt-0.5">Employees can report missed punches</div>
@@ -1119,7 +1131,7 @@ export default function SettingsPageClient({
                   saveTimeclockSetting({ manualPunchesEnabled: next });
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700"
+                  manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
@@ -1129,7 +1141,7 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
-            <div className="flex items-center justify-between">
+            <div className={`flex items-center justify-between gap-3 ${gpsRequired ? "pb-4 border-b border-slate-800/60" : ""}`}>
               <div>
                 <div className="text-sm font-semibold text-slate-200">Require GPS for Clock-In</div>
                 <div className="text-xs text-slate-500 mt-0.5">Block clock-in if location is denied</div>
@@ -1146,7 +1158,7 @@ export default function SettingsPageClient({
                   saveTimeclockSetting({ gpsRequired: next });
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  gpsRequired ? "bg-indigo-500" : "bg-slate-700"
+                  gpsRequired ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
@@ -1159,9 +1171,8 @@ export default function SettingsPageClient({
 
             {/* Geofence enforcement — only visible when GPS is required */}
             {gpsRequired && (
-              <div className="space-y-4 pt-1">
-                <div className="h-px bg-slate-800" />
-                <div className="flex items-center justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-200">Enforce Geofence</div>
                     <div className="text-xs text-slate-500 mt-0.5">Only allow clock-in within a set radius</div>
@@ -1179,7 +1190,7 @@ export default function SettingsPageClient({
                       if (next && geofenceLat === null) captureCurrentLocation();
                     }}
                     className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700"
+                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                     }`}
                   >
                     <span
@@ -1203,7 +1214,7 @@ export default function SettingsPageClient({
                           onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           placeholder="Search address…"
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="flex-1 bg-slate-800 border border-field rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <button
                           onClick={captureCurrentLocation}
@@ -1287,9 +1298,7 @@ export default function SettingsPageClient({
                       </>
                     )}
 
-                    {geofenceError && (
-                      <div role="alert" className="text-xs text-red-400">{geofenceError}</div>
-                    )}
+                    <FormError message={geofenceError} />
 
                     <button
                       onClick={saveGeofence}
@@ -1303,21 +1312,15 @@ export default function SettingsPageClient({
                 )}
               </div>
             )}
-
-            <div role="status" aria-live="polite" aria-atomic="true" className="text-right">
-              {timeclockSaved && (
-                <div className="text-xs text-emerald-400">Saved ✓</div>
-              )}
-            </div>
           </div>
         </section>}
 
         {/* Punch Violations — manager only. Orgs precisely define what counts as
             a violation and cap breaks per shift (enforced at clock-in time). */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Punch Violations
-          </div>
+          <SettingsSectionLabel label="Punch Violations">
+            <SaveStatusText status={punchPolicyStatus} testId="punch-policy-status" />
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
             {([
               { enabledKey: "lateInEnabled",     minutesKey: "lateInMinutes",     label: "Late Clock-In",   desc: "Flag when clocking in past the scheduled start" },
@@ -1351,7 +1354,7 @@ export default function SettingsPageClient({
                               const v = clamp(Math.round(Number(e.target.value) || 0), 1, 1440);
                               if (v !== (DEFAULT_PUNCH_POLICY[minutesKey] as number) || v !== minutes) savePunchPolicy({ [minutesKey]: v } as Partial<PunchPolicy>);
                             }}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70"
+                            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
                           />
                           <span className="text-xs text-slate-500">min</span>
                         </div>
@@ -1362,7 +1365,7 @@ export default function SettingsPageClient({
                         aria-checked={enabled}
                         onClick={() => savePunchPolicy({ [enabledKey]: !enabled } as Partial<PunchPolicy>)}
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                          enabled ? "bg-indigo-500" : "bg-slate-700"
+                          enabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
                         }`}
                       >
                         <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
@@ -1390,34 +1393,32 @@ export default function SettingsPageClient({
                   const v = clamp(Math.round(Number(e.target.value) || 0), 0, 20);
                   savePunchPolicy({ maxBreaksPerShift: v });
                 }}
-                className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70 shrink-0"
+                className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500 shrink-0"
               />
             </div>
-
-            <SaveStatusText status={punchPolicyStatus} testId="punch-policy-status" />
           </div>
         </section>}
 
         {/* Week Start — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Week Start
-          </div>
+          <SettingsSectionLabel label="Week Start">
+            <SaveStatusText status={firstDayStatus} testId="week-start-status" />
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <LayoutGroup id="week-start-pill">
-            <div className="flex bg-slate-800 rounded-xl p-[3px]">
+            <div className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className={`relative flex-1 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
+                  className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
                 >
                   {firstDayOfWeek === value && (
                     <motion.div
                       layoutId="week-start-active"
                       className="absolute inset-0 rounded-[9px] bg-slate-600"
-                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
@@ -1426,21 +1427,20 @@ export default function SettingsPageClient({
               ))}
             </div>
             </LayoutGroup>
-            <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </div>
         </section>}
 
         {/* Timezone — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-            Timezone
-          </div>
+          <SettingsSectionLabel label="Timezone">
+            <SaveStatusText status={timezoneStatus} testId="timezone-status" />
+          </SettingsSectionLabel>
           <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
             <select
               aria-label="Timezone"
               value={timezone}
               onChange={(e) => saveTimezone(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500/70 transition-colors"
+              className="w-full bg-slate-800 border border-field rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500 transition-colors"
             >
               <optgroup label="Common">
                 {TIMEZONE_OPTIONS.map(({ label, value }) => (
@@ -1459,7 +1459,6 @@ export default function SettingsPageClient({
                 <option value={timezone}>{timezone}</option>
               )}
             </select>
-            <SaveStatusText status={timezoneStatus} testId="timezone-status" />
           </div>
         </section>}
 
@@ -1484,7 +1483,7 @@ export default function SettingsPageClient({
               employees.map((emp) => (
                 <motion.div key={emp.id} variants={listItem} className="flex flex-col">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     {editingId === emp.id ? (
@@ -1495,9 +1494,9 @@ export default function SettingsPageClient({
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="w-full bg-slate-800 border border-field rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
-                        {editError && <div role="alert" className="text-xs text-red-400">{editError}</div>}
+                        <FormError message={editError} />
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
@@ -1511,13 +1510,13 @@ export default function SettingsPageClient({
                           onClick={() => saveEditName(emp.id)}
                           disabled={editSaving}
                           aria-busy={editSaving}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {editSaving ? "…" : "Save"}
+                          <StableLabel labels={["Save", "…"]} active={editSaving ? 1 : 0} />
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1535,7 +1534,7 @@ export default function SettingsPageClient({
                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
-                        {emp.user_id === currentUserId ? (
+                        {emp.user_id !== null && emp.user_id === currentUserId ? (
                           <button
                             disabled
                             aria-label="Cannot remove yourself"
@@ -1603,7 +1602,7 @@ export default function SettingsPageClient({
                           onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingWeekStartKey(timezone, firstDayOfWeek) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
                         >
                           Apply
                         </button>
@@ -1617,9 +1616,9 @@ export default function SettingsPageClient({
                           disabled={deletingTemplateId === tpl.id}
                           aria-label={`Delete ${tpl.name} template`}
                           aria-busy={deletingTemplateId === tpl.id}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {deletingTemplateId === tpl.id ? "…" : "Delete"}
+                          <StableLabel labels={["Delete", "…"]} active={deletingTemplateId === tpl.id ? 1 : 0} />
                         </button>
                       </div>
                     </div>
@@ -1631,7 +1630,7 @@ export default function SettingsPageClient({
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/70 transition-colors"
+                          className="flex-1 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
                         />
                         <button
                           disabled={applyingId === tpl.id}
@@ -1652,14 +1651,16 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="text-xs font-semibold px-3 py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {applyingId === tpl.id ? "Applying…" : "Confirm"}
+                          <StableLabel labels={["Confirm", "Applying…"]} active={applyingId === tpl.id ? 1 : 0} />
                         </button>
                       </div>
                     )}
-                    {applyError[tpl.id] && (
-                      <div role="alert" className="text-xs text-red-400">{applyError[tpl.id]}</div>
+                    {/* The line is held while the date picker is open, so a
+                        failed apply doesn't grow the row. */}
+                    {(applyError[tpl.id] || (applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")) && (
+                      <FormError message={applyError[tpl.id]} />
                     )}
                   </motion.div>
                 ))
@@ -1674,18 +1675,14 @@ export default function SettingsPageClient({
           <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
             Admin
           </div>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => router.push("/reports")}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
-            >
-              View Reports
+          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+            <button onClick={() => router.push("/reports")} className={linkRow}>
+              <span className="flex-1 text-sm font-semibold text-slate-200">View Reports</span>
+              {chevron}
             </button>
-            <button
-              onClick={() => router.push("/admin")}
-              className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
-            >
-              Manage Roles
+            <button onClick={() => router.push("/admin")} className={linkRow}>
+              <span className="flex-1 text-sm font-semibold text-slate-200">Manage Roles</span>
+              {chevron}
             </button>
           </div>
         </section>
@@ -1707,7 +1704,7 @@ export default function SettingsPageClient({
         {/* Danger Zone — hidden in demo (anonymous throwaway sessions) */}
         {!isDemo && (
           <section className="pb-2">
-            <div className="text-[11px] text-red-400/70 font-semibold tracking-wider uppercase mb-2 px-1">
+            <div className="text-[11px] text-red-400 font-semibold tracking-wider uppercase mb-2 px-1">
               Danger Zone
             </div>
             <div className="flex flex-col gap-2">
@@ -1780,9 +1777,7 @@ export default function SettingsPageClient({
                     : " Your organization keeps its schedule and time clock records."}
                 </div>
               </div>
-              {deleteAccountError && (
-                <div role="alert" className="text-xs text-red-400">{deleteAccountError}</div>
-              )}
+              <FormError message={deleteAccountError} />
             </div>
             <div className="flex border-t border-slate-800">
               <button
@@ -1844,12 +1839,10 @@ export default function SettingsPageClient({
                   value={orgNameInput}
                   onChange={(e) => setOrgNameInput(e.target.value)}
                   placeholder={orgName ?? "Organization name"}
-                  className="mt-1.5 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-red-500/70 transition-colors"
+                  className="mt-1.5 w-full bg-slate-800 border border-field rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-red-500/70 transition-colors"
                 />
               </div>
-              {deleteOrgError && (
-                <div role="alert" className="text-xs text-red-400">{deleteOrgError}</div>
-              )}
+              <FormError message={deleteOrgError} />
             </div>
             <div className="flex border-t border-slate-800">
               <button
@@ -1916,6 +1909,10 @@ export default function SettingsPageClient({
           </div>
         </div>
       )}
+      {/* Over the page, so a failed toggle doesn't push the settings down. */}
+      <ToastStack>
+        {pushError && <Toast onDismiss={() => setPushError(null)}>{pushError}</Toast>}
+      </ToastStack>
     </motion.div>
     </motion.div>
     </AppShell>

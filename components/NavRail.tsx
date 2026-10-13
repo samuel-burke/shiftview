@@ -33,7 +33,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
     <div
       role="complementary"
       data-testid="nav-rail"
-      className="w-[72px] shrink-0 bg-bg border-r border-slate-800 flex flex-col items-center h-screen sticky top-0 z-20"
+      className="w-[72px] shrink-0 bg-bg border-r border-slate-800 flex flex-col items-center h-dvh sticky top-0 z-20"
       style={{
         paddingTop: "env(safe-area-inset-top)",
         paddingLeft: "env(safe-area-inset-left)",
@@ -45,7 +45,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
       </Link>
 
       <div className="mb-3 h-4 flex items-center" data-testid="rail-clock-status">
-        <ClockStatusBadge variant="dot" />
+        <ClockStatusBadge />
       </div>
 
       <nav aria-label="Main navigation" className="flex-1 w-full px-2 flex flex-col items-stretch gap-1 overflow-y-auto pb-4">

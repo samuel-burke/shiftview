@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 import Logo from "@/components/Logo";
+import FormError from "@/components/FormError";
 
 type Step = "details" | "code";
 
@@ -170,7 +171,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-bg flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[360px] bg-card rounded-2xl border border-slate-800 p-8">
         <div className="text-center mb-8">
           <Logo className="h-7" />
@@ -192,7 +193,7 @@ export default function SignupPage() {
                 maxLength={80}
                 onChange={(e) => { setOrgName(e.target.value); setError(null); }}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
+                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <label htmlFor="signup-owner-name" className="sr-only">Your name</label>
               <input
@@ -203,18 +204,18 @@ export default function SignupPage() {
                 value={ownerName}
                 maxLength={80}
                 onChange={(e) => { setOwnerName(e.target.value); setError(null); }}
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
+                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
               />
               {sessionEmail ? (
                 <>
                   <div className="text-xs text-slate-500 text-center">
                     Signed in as <span className="text-slate-300 font-semibold">{sessionEmail}</span>
                   </div>
-                  {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+                  <FormError id="signup-error" message={error} className="text-center" />
                   <button
                     onClick={handleCreateSignedIn}
                     disabled={loading}
-                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                    className={`w-full bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
                   >
                     {loading ? "Creating…" : "Create Organization"}
                   </button>
@@ -236,14 +237,14 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setError(null); }}
                     onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
-                    className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/70 transition-colors"
+                    className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
                   />
-                  {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+                  <FormError id="signup-error" message={error} className="text-center" />
                   <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
                   <button
                     onClick={handleSendCode}
                     disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
-                    className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                    className={`w-full bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
                   >
                     {loading ? "Sending…" : "Send Code"}
                   </button>
@@ -276,13 +277,13 @@ export default function SignupPage() {
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500/70 transition-colors caret-transparent disabled:opacity-50"
+                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500 transition-colors caret-transparent disabled:opacity-50"
               />
-              {error && <div id="signup-error" role="alert" className="text-xs text-red-400 text-center">{error}</div>}
+              <FormError id="signup-error" message={error} className="text-center" />
               <button
                 onClick={handleVerify}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? (verified ? "Creating…" : "Verifying…") : verified ? "Retry" : "Verify & Create"}
               </button>

@@ -145,7 +145,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
       data-testid="budget-chart"
@@ -160,7 +160,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
               aria-selected={view === v}
               onClick={() => setView(v)}
               className={`min-h-8 px-3 text-[11px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
-                view === v ? "bg-indigo-600/40 text-indigo-200" : "bg-transparent text-slate-400 hover:text-slate-200"
+                view === v ? "bg-indigo-600/40 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
               {v === "day" ? "By Day" : "By Hour"}

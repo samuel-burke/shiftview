@@ -379,8 +379,8 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         role="dialog"
         aria-modal="true"
         aria-label={`Message thread with ${otherName}`}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
         {/* Header */}
@@ -388,7 +388,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
           className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: 16 }}
         >
-          <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
+          <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
             {initials(otherName)}
           </div>
           <div className="flex-1 min-w-0">
@@ -398,7 +398,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
           <button
             onClick={onClose}
             aria-label="Close"
-            className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -442,7 +442,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                   <button
                     onClick={() => { setChessOpen(false); startChessGame(); }}
                     disabled={sending}
-                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
+                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
                   >
                     New game
                   </button>
@@ -511,7 +511,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                     <div
                       className={`max-w-[72%] px-3.5 py-2 text-sm leading-relaxed break-words ${
                         isMine
-                          ? "bg-gradient-to-br from-blue-500 to-violet-500 text-white rounded-2xl rounded-br-[6px]"
+                          ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white rounded-2xl rounded-br-[6px]"
                           : "bg-slate-800 text-slate-100 rounded-2xl rounded-bl-[6px]"
                       }`}
                     >
@@ -544,7 +544,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
               placeholder={`Message ${otherName}…`}
               aria-label={`Message to ${otherName}`}
               rows={1}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-indigo-500/70 transition-colors"
+              className="flex-1 bg-slate-800 border border-field rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
               style={{ maxHeight: 120 }}
             />
             <button
@@ -552,7 +552,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
               disabled={!body.trim() || sending}
               aria-label="Send message"
               aria-busy={sending}
-              className="size-11 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
+              className="size-11 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

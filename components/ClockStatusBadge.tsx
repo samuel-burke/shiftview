@@ -4,51 +4,60 @@ import { useAppData } from "@/lib/AppDataContext";
 import type { AttendanceStatus } from "@/data/types";
 
 /*
- * Compact clock-status indicator for the app header: a color-coded status dot
- * with a short label. Reads the shared live attendance status (kept in sync
- * across devices by AppDataContext), so it reflects the user's clock state at
- * a glance from any screen — a lightweight replacement for the old full-screen
- * ambient ring.
+ * Clock-status indicator for the app header and nav: a status dot in the
+ * state's color and an icon for the state: a clock when clocked in, a cup on
+ * break, the same clock crossed out when off. Reads the shared live
+ * attendance status (kept in sync across devices by AppDataContext). The
+ * state's name is the indicator's accessible name and its tooltip.
+ *
+ * Every state is the same size, so the status arriving or changing doesn't
+ * move the header's other buttons.
  */
 
-const STATUS: Record<AttendanceStatus, { color: string; label: string; live: boolean }> = {
-  clocked_in:     { color: "#22c55e", label: "Clocked In", live: true },
-  on_break:       { color: "#f59e0b", label: "On Break",   live: true },
-  clocked_out:    { color: "#94a3b8", label: "Off",        live: false },
-  not_clocked_in: { color: "#94a3b8", label: "Off",        live: false },
+function ClockIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BreakIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 3.5v2M12 3.5v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function OffIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4.5 19.5l15-15" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const STATUS: Record<AttendanceStatus, { color: string; label: string; Icon: typeof ClockIcon }> = {
+  clocked_in:     { color: "var(--status-ok)",    label: "Clocked In", Icon: ClockIcon },
+  on_break:       { color: "var(--status-warn)",  label: "On Break",   Icon: BreakIcon },
+  clocked_out:    { color: "var(--status-muted)", label: "Off",        Icon: OffIcon },
+  not_clocked_in: { color: "var(--status-muted)", label: "Off",        Icon: OffIcon },
 };
 
-export default function ClockStatusBadge({ variant = "pill" }: { variant?: "pill" | "dot" }) {
+export default function ClockStatusBadge() {
   const { liveStatus } = useAppData();
   const s = STATUS[liveStatus] ?? STATUS.not_clocked_in;
 
-  // Dot-only form for the narrow nav rail; the label stays available to screen readers.
-  if (variant === "dot") {
-    return (
-      <span
-        role="status"
-        aria-label={s.label}
-        title={s.label}
-        className="block size-2.5 rounded-full"
-        style={{ background: s.color, boxShadow: s.live ? `0 0 6px ${s.color}` : "none" }}
-      />
-    );
-  }
-
   return (
-    <div
-      role="status"
-      aria-label={s.label}
-      className="flex items-center gap-1.5 rounded-full bg-card border border-slate-800/70 pl-2 pr-2.5 py-1"
-    >
-      <span
-        aria-hidden="true"
-        className="size-2 rounded-full shrink-0"
-        style={{ background: s.color, boxShadow: s.live ? `0 0 6px ${s.color}` : "none" }}
-      />
-      <span className="text-xs font-semibold leading-none whitespace-nowrap" style={{ color: s.color }}>
-        {s.label}
-      </span>
+    <div role="status" aria-label={s.label} title={s.label} className="flex items-center gap-1.5 h-4">
+      <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: s.color }} />
+      <s.Icon color={s.color} />
     </div>
   );
 }
