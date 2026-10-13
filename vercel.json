@@ -1,4 +1,7 @@
 {
+  "regions": [
+    "iad1"
+  ],
   "crons": [
     {
       "path": "/api/cron/reminders",

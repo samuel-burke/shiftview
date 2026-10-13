@@ -155,7 +155,9 @@ test.describe("Auto-schedule", () => {
     await page.goto("/week?mode=draft");
 
     // An empty week points to Auto-schedule.
-    const empty = page.getByTestId("auto-schedule-empty");
+    // One copy per layout (in the day list on phones, under the grid from
+    // tablets up); the other is hidden by CSS.
+    const empty = page.getByTestId("auto-schedule-empty").filter({ visible: true });
     await expect(empty).toBeVisible();
     await expect(page.getByRole("button", { name: "Publish (0)" })).toBeDisabled();
 

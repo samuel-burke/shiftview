@@ -3,7 +3,7 @@ import { downloadCSV } from "../lib/csv-download";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useLayoutEffect, useRef, startTransition } from "react";
 import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import {
   Employee,
@@ -27,8 +27,10 @@ import TimeCardDrawer from "../components/TimeCardDrawer";
 import { SkeletonTeamSection, SkeletonTimeline } from "../components/Skeleton";
 import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
+import { Toast, ToastStack } from "../components/Toast";
 import { createClient } from "@/lib/supabase-browser";
 import { createApiFetch } from "@/lib/api-fetch";
+import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
 import { SunriseIcon, SunIcon, MoonIcon } from "../components/ShiftIcons";
 import {
@@ -54,10 +56,20 @@ const CoverageTimeline = dynamic(() => import("../components/CoverageTimeline"),
 });
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const NO_CALLOUTS: Callout[] = [];
+const NO_BLOCKS: CoverageBlock[] = [];
 
-// Cap the team export so it stays a manageable grid and a bounded number of
-// per-day schedule fetches.
+// Call-outs and target curves by day, kept for the session like the layout
+// provider's shift cache, so coming back to the dashboard renders from them
+// at once (and the browser can put the scroll position back) instead of
+// waiting on the network. A switch of organization or user reloads the page.
+const calloutsSeen: Record<string, Callout[]> = {};
+const curvesSeen: Record<string, CoverageBlock[]> = {};
+
+// Cap the team export so it stays a manageable grid.
 const MAX_EXPORT_DAYS = 62;
+// Longest range one /api/schedules request may cover (MAX_RANGE_DAYS there).
+const MAX_RANGE_DAYS = 42;
 
 function AnimatedStatCard({
   index,
@@ -85,21 +97,22 @@ function AnimatedStatCard({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.35, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{
-        border: `1px solid ${color}33`,
-        boxShadow: pulse ? `0 0 16px ${color}18` : undefined,
+        border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+        boxShadow: pulse ? `0 0 16px color-mix(in srgb, ${color} 9%, transparent)` : undefined,
       }}
     >
       {/* Subtle radial glow bg */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}09 0%, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, color-mix(in srgb, ${color} 4%, transparent) 0%, transparent 70%)` }}
       />
 
       {loading ? (
-        <div className="flex justify-center mb-1.5">
+        // The value's own box: a 28px line (text-[28px] leading-none).
+        <div className="flex justify-center">
           <div className="skeleton h-7 w-8 rounded-[6px]" />
         </div>
       ) : (
@@ -162,20 +175,47 @@ export default function Page() {
   const [showExport, setShowExport] = useState(false);
   const [punchRecords, setPunchRecords] = useState<PunchRecord[]>([]);
   const [punchesLoaded, setPunchesLoaded] = useState(false);
-  const [callouts, setCallouts] = useState<Callout[]>([]);
   const [timeCardEmp, setTimeCardEmp] = useState<Employee | null>(null);
   const supabase = createClient();
   const apiFetch = createApiFetch(() => router.push("/login"));
+  // Realtime changes and background refreshes keep the card being looked at
+  // in place (lib/scroll-anchor.ts) rather than pushing it.
+  const keepScroll = useScrollAnchor();
 
   // Initialize from context cache for instant render on remount; direct fetch always runs for reliability
   const [employees, setEmployees] = useState<Employee[]>(() => cachedEmployees);
-  const { isManager, employeeName: userName, isDemo } = me;
+  const { isManager, employeeName: userName } = me;
   const weeklyHours = weeklyHoursCtx;
-  const [dayCurve, setDayCurve] = useState<CoverageBlock[]>([]);
+  // Call-outs and the target curve, kept per day like the shifts: the viewed
+  // day's neighbours load with it, so stepping a day renders at once from
+  // what's here rather than changing the page when they land. A day missing
+  // from these hasn't loaded yet (as opposed to having none).
+  const [calloutsByDay, setCalloutsState] = useState<Record<string, Callout[]>>(() => ({ ...calloutsSeen }));
+  const [curvesByDay, setCurvesState] = useState<Record<string, CoverageBlock[]>>(() => ({ ...curvesSeen }));
+  // Each update is kept for the session as well (idempotent, so a repeated
+  // updater call in development is harmless).
+  const setCalloutsByDay = (update: (prev: Record<string, Callout[]>) => Record<string, Callout[]>) =>
+    setCalloutsState((prev) => {
+      const next = update(prev);
+      Object.assign(calloutsSeen, next);
+      return next;
+    });
+  const setCurvesByDay = (update: (prev: Record<string, CoverageBlock[]>) => Record<string, CoverageBlock[]>) =>
+    setCurvesState((prev) => {
+      const next = update(prev);
+      Object.assign(curvesSeen, next);
+      return next;
+    });
+  const callouts = calloutsByDay[dateKey] ?? NO_CALLOUTS;
+  const calloutsReady = dateKey in calloutsByDay;
+  const dayCurve = curvesByDay[dateKey] ?? NO_BLOCKS;
+  const curveReady = dateKey in curvesByDay;
 
-  // Mutable ref so subscription callbacks always see the latest viewed date
+  // Mutable ref so subscription callbacks always see the latest viewed date.
+  // Updated on commit: day changes render as transitions, which can be
+  // abandoned, so the ref must not follow a render that never lands.
   const dateKeyRef = useRef(dateKey);
-  dateKeyRef.current = dateKey;
+  useLayoutEffect(() => { dateKeyRef.current = dateKey; }, [dateKey]);
 
   async function handleExportCSV() {
     if (exportFrom > exportTo) {
@@ -189,13 +229,19 @@ export default function Page() {
     }
     setExportLoading(true);
 
+    // Whole ranges rather than a request per day.
+    const ranges: [string, string][] = [];
+    for (let i = 0; i < capturedDates.length; i += MAX_RANGE_DAYS) {
+      const chunk = capturedDates.slice(i, i + MAX_RANGE_DAYS);
+      ranges.push([chunk[0], chunk[chunk.length - 1]]);
+    }
     const results = await Promise.allSettled(
-      capturedDates.map(d =>
-        fetch(`/api/schedules?date=${d}`).then(r => r.json())
+      ranges.map(([from, to]) =>
+        fetch(`/api/schedules?from=${from}&to=${to}`).then(r => r.json())
       )
     );
 
-    if (results.some(r => r.status === "rejected")) {
+    if (results.some(r => r.status === "rejected" || !Array.isArray(r.value))) {
       setError("Failed to load schedule data for export. Please try again.");
       setExportLoading(false);
       return;
@@ -230,16 +276,29 @@ export default function Page() {
     window.location.href = "/login";
   }
 
-  function reloadPrevSchedules(dk: string) {
-    const prev = addDaysToKey(dk, -1);
-    return apiFetch(`/api/schedules?date=${prev}`)
+  // One request covers the viewed day, the day before (its overnight shifts and
+  // still-clocked-in closers run into the viewed day) and the day after, which
+  // is cached so stepping forward renders at once. Applied only while `dk` is
+  // still the viewed day, so a slow response can't overwrite a newer one.
+  function loadScheduleDays(dk: string, background = false) {
+    const from = addDaysToKey(dk, -1);
+    const to = addDaysToKey(dk, 1);
+    return apiFetch(`/api/schedules?from=${from}&to=${to}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!Array.isArray(data) || dateKeyRef.current !== dk) return;
-        setPrevSchedules(data);
-        setScheduleCache(prev, data);
-      })
-      .catch(() => {});
+        // Non-array means an error payload (e.g. 403 after a demo reset
+        // orphaned the session) — keep the previous state instead of
+        // crashing downstream .filter() calls.
+        if (!Array.isArray(data)) throw new Error("schedules fetch failed");
+        const byDay: Record<string, Schedule[]> = { [from]: [], [dk]: [], [to]: [] };
+        for (const s of data as Schedule[]) byDay[s.date.slice(0, 10)]?.push(s);
+        if (background) keepScroll();
+        for (const [day, list] of Object.entries(byDay)) setScheduleCache(day, list);
+        if (dateKeyRef.current === dk) {
+          setSchedules(byDay[dk]);
+          setPrevSchedules(byDay[from]);
+        }
+      });
   }
 
   async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -259,12 +318,13 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to save shift");
     }
-    reloadPrevSchedules(dateKey); // the edited shift may be last night's overnight shift
-    const data = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
-    if (Array.isArray(data)) {
-      setSchedules(data);
-      setScheduleCache(dateKey, data);
-    }
+    // Saved: show it now and re-read the days in the background, rather than
+    // holding the drawer open for another round trip. The edited shift may be
+    // last night's overnight one, hence both lists.
+    const edit = (list: Schedule[]) => list.map((s) => (s.id === scheduleId ? { ...s, startMinutes, endMinutes } : s));
+    setSchedules(edit);
+    setPrevSchedules(edit);
+    loadScheduleDays(dateKey).catch(() => {});
   }
 
   async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
@@ -284,10 +344,14 @@ export default function Page() {
       }
       throw new Error(body.error ?? "Failed to add shift");
     }
-    const data2 = await apiFetch(`/api/schedules?date=${dateKey}`).then((r) => r.json());
-    if (Array.isArray(data2)) {
-      setSchedules(data2);
-      setScheduleCache(dateKey, data2);
+    // The response names the new shift, so it can show straight away; the
+    // background re-read reconciles. Without an id, wait for the re-read.
+    const { id } = await res.json().catch(() => ({ id: null }));
+    const refresh = loadScheduleDays(dateKey).catch(() => {});
+    if (typeof id === "number") {
+      setSchedules((prev) => [...prev, { id, employeeId, date: dateKey, startMinutes, endMinutes }]);
+    } else {
+      await refresh;
     }
   }
 
@@ -358,6 +422,7 @@ export default function Page() {
           const p = payload.new as Record<string, unknown>;
           const punchDate = dateKeyInTz(p.punched_at as string, timezone);
           if (punchDate !== todayKey) return;
+          keepScroll();
           setPunchRecords((prev) => [...prev, rowToPunch(p)]);
           setPunchesLoaded(true);
         }
@@ -368,6 +433,7 @@ export default function Page() {
         (payload) => {
           const p = payload.new as Record<string, unknown>;
           const punch = rowToPunch(p);
+          keepScroll();
           setPunchRecords((prev) => prev.map((r) => r.id === punch.id ? punch : r));
         }
       )
@@ -377,7 +443,7 @@ export default function Page() {
     const t = setInterval(() => {
       apiFetch(`/api/punches?date=${dateKey}&carried=1`)
         .then((r) => r.json())
-        .then((data) => { setPunchRecords(Array.isArray(data) ? data : []); })
+        .then((data) => { keepScroll(); setPunchRecords(Array.isArray(data) ? data : []); })
         .catch(() => {});
     }, 300000);
 
@@ -390,29 +456,18 @@ export default function Page() {
   // Supabase Realtime — live updates for schedules, employees, time-off, store hours, settings
   useEffect(() => {
     function refetchSchedules() {
-      const dk = dateKeyRef.current;
-      apiFetch(`/api/schedules?date=${dk}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data)) { setSchedules(data); setScheduleCache(dk, data); }
-        })
-        .catch(() => {});
-      reloadPrevSchedules(dk);
+      loadScheduleDays(dateKeyRef.current, true).catch(() => {});
     }
 
     function refetchEmployees() {
       apiFetch("/api/employees")
         .then(r => r.json())
-        .then((data: Employee[]) => { if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); } })
+        .then((data: Employee[]) => { if (Array.isArray(data)) { keepScroll(); setEmployees(data); cacheEmployees(data); } })
         .catch(() => {});
     }
 
     function refetchCallouts() {
-      const dk = dateKeyRef.current;
-      apiFetch(`/api/callouts?date=${dk}`)
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d?.callouts)) setCallouts(d.callouts); })
-        .catch(() => {});
+      loadCallouts(dateKeyRef.current, true);
     }
 
     let hiddenAt = 0;
@@ -481,19 +536,7 @@ export default function Page() {
     }
 
     // Always fetch fresh data (background refresh if cache hit, primary fetch if not)
-    const fetches: Promise<void>[] = [
-      apiFetch(`/api/schedules?date=${dateKey}`)
-        .then((r) => r.json())
-        .then((data) => {
-          // Non-array means an error payload (e.g. 403 after a demo reset
-          // orphaned the session) — keep the previous state instead of
-          // crashing downstream .filter() calls.
-          if (!Array.isArray(data)) throw new Error("schedules fetch failed");
-          setSchedules(data);
-          setScheduleCache(dateKey, data);
-        }),
-      reloadPrevSchedules(dateKey),
-    ];
+    const fetches: Promise<void>[] = [loadScheduleDays(dateKey)];
     if (isViewingToday) {
       fetches.push(
         apiFetch(`/api/punches?date=${dateKey}&carried=1`)
@@ -510,43 +553,78 @@ export default function Page() {
       setPunchRecords([]);
       setPunchesLoaded(false);
     }
+    // A day left before its data arrived must not end the next day's loading.
+    let cancelled = false;
     Promise.all(fetches)
-      .then(() => setLoading(false))
+      .then(() => { if (!cancelled) setLoading(false); })
       .catch(() => {
-        if (!cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
+        if (!cancelled && !cachedSchedules) { setError("Failed to load schedules"); setLoading(false); }
       });
+    return () => { cancelled = true; };
   }, [dateKey, timezone]);
 
-  // Target coverage curve for the viewed date (override → day-of-week default)
+  // Start loading the chart's code alongside this page's data requests, rather
+  // than once the data has arrived and the skeleton gives way — it's the
+  // largest piece of the page, so waiting put the two back to back. Started
+  // from an effect (not when this module loads) so that, when the chunk is
+  // already cached, evaluating it doesn't delay hydration and the requests.
+  useEffect(() => { void import("../components/CoverageTimeline"); }, []);
+
+  // Coverage profiles don't depend on the day, so they load once per visit to
+  // the dashboard; only the day's assignment is per date.
+  const profilesRef = useRef<Promise<CoverageProfile[]> | null>(null);
+  function coverageProfiles() {
+    profilesRef.current ??= apiFetch("/api/coverage-profiles")
+      .then((r) => r.json())
+      .then((profiles) => (Array.isArray(profiles) ? (profiles as CoverageProfile[]) : []))
+      .catch(() => { profilesRef.current = null; return []; });
+    return profilesRef.current;
+  }
+
+  // Target coverage curves (override → day-of-week default) for the viewed day
+  // and its neighbours, from one ranged request, like the shifts.
   useEffect(() => {
-    const dk = dateKey;
-    let cancelled = false;
+    const days = [addDaysToKey(dateKey, -1), dateKey, addDaysToKey(dateKey, 1)];
     Promise.all([
-      apiFetch("/api/coverage-profiles").then((r) => r.json()),
-      apiFetch(`/api/coverage-assignments?from=${dk}&to=${dk}`).then((r) => r.json()),
+      coverageProfiles(),
+      apiFetch(`/api/coverage-assignments?from=${days[0]}&to=${days[2]}`).then((r) => r.json()),
     ])
       .then(([profiles, assignments]) => {
-        if (cancelled) return;
-        setDayCurve(curveForDate(
-          dk,
+        const curves = Object.fromEntries(days.map((d) => [d, curveForDate(
+          d,
           assignments?.overrides ?? {},
           assignments?.defaults ?? {},
-          Array.isArray(profiles) ? (profiles as CoverageProfile[]) : []
-        ));
+          profiles
+        )]));
+        setCurvesByDay((prev) => ({ ...prev, ...curves }));
       })
-      .catch(() => { if (!cancelled) setDayCurve([]); });
-    return () => { cancelled = true; };
+      .catch(() => setCurvesByDay((prev) => ({ ...prev, [dateKey]: prev[dateKey] ?? [] })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
-  // Call-outs for the viewed date — drives the "Called Out" team section.
-  useEffect(() => {
-    const dk = dateKey;
-    let cancelled = false;
-    apiFetch(`/api/callouts?date=${dk}`)
+  // Call-outs ("Called Out" section) for a day. Failing counts as none, so the
+  // day isn't held on its placeholder.
+  function loadCallouts(day: string, background = false) {
+    return apiFetch(`/api/callouts?date=${day}`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) setCallouts(Array.isArray(d?.callouts) ? d.callouts : []); })
-      .catch(() => { if (!cancelled) setCallouts([]); });
-    return () => { cancelled = true; };
+      .then((d) => {
+        if (!Array.isArray(d?.callouts)) throw new Error();
+        if (background) keepScroll();
+        setCalloutsByDay((prev) => ({ ...prev, [day]: d.callouts }));
+      })
+      .catch(() => setCalloutsByDay((prev) => (day in prev ? prev : { ...prev, [day]: [] })));
+  }
+
+  // The viewed day's call-outs, refreshed on every visit; its neighbours'
+  // once, ahead of a step to them.
+  const calloutsRequested = useRef(new Set<string>());
+  useEffect(() => {
+    for (const day of [dateKey, addDaysToKey(dateKey, -1), addDaysToKey(dateKey, 1)]) {
+      if (day !== dateKey && calloutsRequested.current.has(day)) continue;
+      calloutsRequested.current.add(day);
+      loadCallouts(day);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, timezone]);
 
   const isToday = dateKey === todayKey;
@@ -716,23 +794,35 @@ export default function Page() {
 
   // Stay in skeleton until schedules are loaded. sharedLoading gates me/settings/storeHours;
   // employees has its own local state so it no longer blocks the skeleton.
-  const isLoading = loading || sharedLoading;
+  // A day is shown once its shifts and its call-outs are in (call-outs move
+  // people into their own section).
+  const isLoading = loading || sharedLoading || !calloutsReady;
+  // The manager buttons sit under the team list, whose length isn't known
+  // until the first day has loaded; they wait for it rather than being pushed
+  // down (or, for an empty day, pulled up) when it lands.
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  if (!isLoading && !firstLoadDone) setFirstLoadDone(true);
 
   const headerProps = {
     date, today, isToday, hereCount: hereNowCount,
-    nowMinutes, coverageStatus, isDemo, loading: isLoading,
+    // Today's status needs the day's curve as well as its shifts.
+    nowMinutes, coverageStatus, loading: isLoading || !curveReady,
     userName, isManager, coverageAlertsEnabled,
-    onPrev: () => setSelectedKey(addDaysToKey(dateKey, -1)),
-    onNext: () => setSelectedKey(addDaysToKey(dateKey, 1)),
-    onNow: () => setSelectedKey(null),
+    // Changing the day re-renders the whole dashboard; as a transition the tap
+    // paints at once and React renders the new day in interruptible slices.
+    onPrev: () => startTransition(() => setSelectedKey(addDaysToKey(dateKey, -1))),
+    onNext: () => startTransition(() => setSelectedKey(addDaysToKey(dateKey, 1))),
+    onNow: () => startTransition(() => setSelectedKey(null)),
     onDateSelect: (d: Date) => {
       const key = localDateKey(d);
-      setSelectedKey(key === todayKeyInTz(timezone) ? null : key);
+      startTransition(() => setSelectedKey(key === todayKeyInTz(timezone) ? null : key));
     },
     onSignOut: handleSignOut,
   };
 
-  const timeline = isLoading ? <SkeletonTimeline /> : (
+  // The chart waits for the day's target curve as well, so its legend (the
+  // Target pill) and the target line arrive with it rather than after it.
+  const timeline = isLoading || !curveReady ? <SkeletonTimeline /> : (
     <CoverageTimeline
       schedules={daySchedules}
       dayKey={dateKey}
@@ -756,7 +846,7 @@ export default function Page() {
             index={0}
             value={hereNowCount}
             label="Here Now"
-            color="#22c55e"
+            color="var(--status-ok)"
             loading={isLoading}
           />
         )}
@@ -766,7 +856,7 @@ export default function Page() {
         index={isToday ? 1 : 0}
         value={scheduledCount}
         label="Scheduled"
-        color="#818cf8"
+        color="var(--status-info)"
         loading={isLoading}
       />
       <AnimatedStatCard
@@ -774,7 +864,7 @@ export default function Page() {
         index={isToday ? 2 : 1}
         value={off.length}
         label="Off"
-        color="#94a3b8"
+        color="var(--status-muted)"
         loading={isLoading}
       />
     </div>
@@ -784,7 +874,7 @@ export default function Page() {
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
+      transition={{ duration: 0.25, delay: 0.1, ease: "easeOut" }}
       className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-white/[0.05]"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
@@ -903,11 +993,12 @@ export default function Page() {
     />
   );
 
-  const errorBanner = error ? (
-    <div role="alert" className="mx-4 tablet:mx-6 mt-3 mb-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-      {error}
-    </div>
-  ) : null;
+  // Over the page rather than in it, so it can't push the dashboard down.
+  const errorToast = (
+    <ToastStack>
+      {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+    </ToastStack>
+  );
 
   const weekButton = isManager ? (
     <Link
@@ -923,7 +1014,7 @@ export default function Page() {
       onClick={() => router.push("/week?mode=draft")}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none rounded-xl cursor-pointer hover:brightness-110 transition-all"
+      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
     >
       Plan Draft Schedule
     </motion.button>
@@ -953,7 +1044,7 @@ export default function Page() {
                 value={exportFrom}
                 max={exportTo}
                 onChange={(e) => setExportFrom(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                className="w-full bg-slate-900 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -964,7 +1055,7 @@ export default function Page() {
                 value={exportTo}
                 min={exportFrom}
                 onChange={(e) => setExportTo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70"
+                className="w-full bg-slate-900 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
@@ -988,7 +1079,6 @@ export default function Page() {
       active="team"
       isManager={isManager}
       userName={userName}
-      isDemo={isDemo}
       onSignOut={handleSignOut}
     >
       {/*
@@ -1001,13 +1091,12 @@ export default function Page() {
        * against inherited horizontal padding.
        */}
       <main
-        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-8 wide:transition-[padding] wide:duration-300 ${
+        className={`max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8 ${
           // Wide screens show employee detail as a side pane beside the dashboard (EmployeeDrawer)
           selected ? "wide:pr-[420px]" : ""
         }`}
       >
         <CoverageHeader {...headerProps} hideMobileBrand />
-        {errorBanner}
         {/*
          * One DOM order (overview → team → manager actions), placed per size class:
          * tablet: stacked, team sections in 2 columns.
@@ -1023,7 +1112,7 @@ export default function Page() {
           <div className="tablet:grid tablet:grid-cols-2 tablet:gap-x-6 tablet:items-start desk:block desk:col-start-2 desk:row-start-1 desk:sticky desk:top-4 wide:grid wide:grid-cols-3 wide:col-start-1 wide:col-span-2 wide:row-start-2 wide:static wide:mt-2">
             {teamSections}
           </div>
-          {(draftButton || weekButton || exportButton) && (
+          {firstLoadDone && (draftButton || weekButton || exportButton) && (
             <div className="tablet:grid tablet:grid-cols-3 tablet:gap-x-4 tablet:items-start desk:block desk:col-start-2 desk:row-start-2 wide:row-start-1 wide:-mt-4">
               {draftButton}
               {weekButton}
@@ -1033,6 +1122,7 @@ export default function Page() {
         </div>
         {drawer}
         {timeCardDrawer}
+        {errorToast}
         <BottomNav active="team" />
       </main>
     </AppShell>

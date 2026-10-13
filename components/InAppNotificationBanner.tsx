@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { playNotificationSound, primeSounds } from "@/lib/sounds";
 import { createClient } from "@/lib/supabase-browser";
 import {
@@ -26,19 +26,19 @@ type BannerItem = {
 };
 
 const TYPE_ICON_MAP: Record<string, { Icon: (p: { size?: number; color?: string }) => React.ReactElement | null; color: string }> = {
-  chess_move:         { Icon: ChessPieceIcon,      color: "#f59e0b" },
-  shift_change:       { Icon: CalendarIcon,        color: "#60a5fa" },
-  shift_reminder:     { Icon: AlarmIcon,           color: "#fbbf24" },
-  swap_approved:      { Icon: TimeOffApprovedIcon, color: "#34d399" },
-  swap_denied:        { Icon: TimeOffDeniedIcon,   color: "#f87171" },
-  pto_approved:       { Icon: TimeOffApprovedIcon, color: "#34d399" },
-  pto_denied:         { Icon: TimeOffDeniedIcon,   color: "#f87171" },
-  late_clock_in:      { Icon: WarningIcon,         color: "#fb923c" },
-  punch_correction_requested: { Icon: WarningIcon,         color: "#fbbf24" },
-  punch_correction_approved:  { Icon: TimeOffApprovedIcon, color: "#34d399" },
-  punch_correction_denied:    { Icon: TimeOffDeniedIcon,   color: "#f87171" },
-  schedule_published: { Icon: MegaphoneIcon,       color: "#a78bfa" },
-  message:            { Icon: ChatBubbleIcon,      color: "#818cf8" },
+  chess_move:         { Icon: ChessPieceIcon,      color: "var(--status-warn)" },
+  shift_change:       { Icon: CalendarIcon,        color: "var(--status-sky)" },
+  shift_reminder:     { Icon: AlarmIcon,           color: "var(--status-caution)" },
+  swap_approved:      { Icon: TimeOffApprovedIcon, color: "var(--status-teal)" },
+  swap_denied:        { Icon: TimeOffDeniedIcon,   color: "var(--status-bad)" },
+  pto_approved:       { Icon: TimeOffApprovedIcon, color: "var(--status-teal)" },
+  pto_denied:         { Icon: TimeOffDeniedIcon,   color: "var(--status-bad)" },
+  late_clock_in:      { Icon: WarningIcon,         color: "var(--status-orange)" },
+  punch_correction_requested: { Icon: WarningIcon,         color: "var(--status-caution)" },
+  punch_correction_approved:  { Icon: TimeOffApprovedIcon, color: "var(--status-teal)" },
+  punch_correction_denied:    { Icon: TimeOffDeniedIcon,   color: "var(--status-bad)" },
+  schedule_published: { Icon: MegaphoneIcon,       color: "var(--status-violet)" },
+  message:            { Icon: ChatBubbleIcon,      color: "var(--status-info)" },
 };
 
 const AUTO_DISMISS_MS = 5000;
@@ -108,9 +108,13 @@ export default function InAppNotificationBanner() {
     const sb = supabaseRef.current;
 
     let channel: ReturnType<typeof sb.channel> | null = null;
+    let cancelled = false;
 
-    sb.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+    // The locally stored session is enough to name the channel and filter rows
+    // (RLS already scopes them); getUser() would add a Supabase Auth round trip.
+    sb.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user;
+      if (!user || cancelled) return;
 
       channel = sb
         .channel(`banner:${user.id}:${Math.random().toString(36).slice(2)}`)
@@ -153,6 +157,7 @@ export default function InAppNotificationBanner() {
     });
 
     return () => {
+      cancelled = true;
       if (channel) sb.removeChannel(channel);
     };
   }, [showBanner]);
@@ -168,11 +173,13 @@ export default function InAppNotificationBanner() {
       aria-atomic="false"
       className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
     >
+      {/* Outside AppShell (it's in the root layout), so it sets its own. */}
+      <MotionConfig reducedMotion="user">
       <AnimatePresence initial={false}>
         {visibleBanners.map((banner) => {
           const entry = banner.type ? (TYPE_ICON_MAP[banner.type] ?? null) : null;
           const Icon = entry?.Icon ?? BellIcon;
-          const color = entry?.color ?? "#94a3b8";
+          const color = entry?.color ?? "var(--status-muted)";
           return (
             <motion.div
               key={banner.id}
@@ -207,6 +214,7 @@ export default function InAppNotificationBanner() {
           );
         })}
       </AnimatePresence>
+      </MotionConfig>
       {overflowCount > 0 && (
         <div className="pointer-events-none self-end bg-card border border-slate-800 rounded-full px-3 py-1 text-xs text-slate-400 shadow-xl">
           +{overflowCount} more

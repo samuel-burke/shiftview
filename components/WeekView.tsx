@@ -65,7 +65,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
         const calledOut = calloutDates.includes(dateKey);
         const timeOff = !schedule ? (timeOffRequests.find((r) => r.date === dateKey) ?? null) : null;
         const shiftLabel = calledOut ? "OUT" : shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
-        const labelColor = calledOut ? CALLOUT_COLOR : (shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "#94a3b8"));
+        const labelColor = calledOut ? CALLOUT_COLOR : (shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "var(--status-muted)"));
 
         const fullDayLabel = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
         const statusText = calledOut
@@ -107,7 +107,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
               {calledOut ? (
                 <MegaphoneIcon size={13} color={CALLOUT_COLOR} />
               ) : shiftType ? (
-                <ShiftIcon shiftType={shiftType} size={13} color={shiftColor ?? "#94a3b8"} />
+                <ShiftIcon shiftType={shiftType} size={13} color={shiftColor ?? "var(--status-muted)"} />
               ) : timeOff?.status === "pending" ? (
                 <TimeOffPendingIcon size={13} color={TIME_OFF_COLORS.pending} />
               ) : timeOff?.status === "approved" ? (
@@ -116,7 +116,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
                 <TimeOffDeniedIcon size={13} color={TIME_OFF_COLORS.denied} />
               ) : (
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="var(--color-slate-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
             </div>
@@ -126,11 +126,15 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             >
               {shiftLabel}
             </div>
-            {!calledOut && schedule && shiftType && (
-              <div className="text-[8px] text-slate-400 mt-0.5 leading-tight">
-                {shortTime(schedule.startMinutes)}–{shortTime(schedule.endMinutes)}
-              </div>
-            )}
+            {/* Always two lines' room: a week with no shifts is as tall as one
+                with them, and a long time ("11:30a–7:30p") that wraps in a
+                narrow cell doesn't grow the strip when it arrives
+                (SkeletonWeekCalendar matches). */}
+            <div className="text-[8px] text-slate-400 mt-0.5 leading-tight min-h-5">
+              {!calledOut && schedule && shiftType
+                ? <>{shortTime(schedule.startMinutes)}–{shortTime(schedule.endMinutes)}</>
+                : "\u00a0"}
+            </div>
           </button>
         );
       })}

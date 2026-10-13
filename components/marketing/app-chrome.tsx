@@ -68,7 +68,7 @@ export function Bell({ unread = 0 }: { unread?: number }) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 22 }}
-            className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+            className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white"
           >
             {unread}
           </motion.span>
@@ -80,7 +80,7 @@ export function Bell({ unread = 0 }: { unread?: number }) {
 
 export function Avatar({ initials }: { initials: string }) {
   return (
-    <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-600/80 text-sm font-bold text-white">
+    <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-600/90 text-sm font-bold text-white">
       {initials}
     </span>
   );
@@ -222,7 +222,7 @@ export function DateNav({ label }: { label: string }) {
         <RoundNav d={PREV} />
         <span className="flex items-center gap-1.5 rounded-xl border border-slate-700/60 bg-slate-800/70 px-4 py-2.5">
           <span className="text-base font-bold tracking-tight text-slate-100">{label}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
         <RoundNav d={NEXT} />
       </div>
@@ -239,7 +239,7 @@ export function DeskHeader({ label, initials, unread = 0 }: { label: string; ini
           <RoundNav d={PREV} />
           <div className="flex items-center gap-1.5 px-2 text-lg font-extrabold tracking-tight text-slate-100">
             {label}
-            <span className="text-[13px] font-normal text-blue-500">▾</span>
+            <span className="text-[13px] font-normal text-blue-400">▾</span>
           </div>
           <RoundNav d={NEXT} />
         </div>

@@ -167,7 +167,7 @@ export function DashboardScreen({ scene, t, size, unread = 0, pane = false, over
         <div className="mx-auto grid max-w-[1680px] grid-cols-[minmax(0,1fr)_340px] items-start gap-x-8 px-6 pt-6">
           <div className="col-start-1 row-start-1">{overview(pane ? 360 : 780)}</div>
           <div className="col-start-2 row-start-1 -mt-4">
-            <div className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 py-3 text-center text-sm font-bold text-white">Plan Draft Schedule</div>
+            <div className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3 text-center text-sm font-bold text-white">Plan Draft Schedule</div>
             <div className={button}>Team week</div>
             <div className={button}>
               Export CSV
@@ -281,7 +281,7 @@ export function ClockScreen({
 
         <div className="grid gap-3">
           {shown === "not_clocked_in" && (
-            <motion.div animate={pressed("clock_in")} transition={{ duration: 0.3 }} className="w-full rounded-2xl bg-green-500 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-green-500/20">
+            <motion.div animate={pressed("clock_in")} transition={{ duration: 0.3 }} className="w-full rounded-2xl bg-green-700 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-green-500/20">
               Clock In
             </motion.div>
           )}
@@ -294,7 +294,7 @@ export function ClockScreen({
             </div>
           )}
           {shown === "on_break" && (
-            <div className="w-full rounded-2xl bg-amber-500 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-amber-500/20">End Break</div>
+            <div className="w-full rounded-2xl bg-amber-700 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-amber-500/20">End Break</div>
           )}
         </div>
 
@@ -480,7 +480,7 @@ export function ScheduleScreen({
               <span className="text-base font-bold tracking-tight text-slate-100">
                 {formatDateKey(week[0], { month: "short", day: "numeric" })} – {formatDateKey(week[6], { month: "short", day: "numeric", year: "numeric" })}
               </span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </span>
             <div className="flex items-center gap-2">
               {arrow("M15 18l-6-6 6-6")}
@@ -574,12 +574,12 @@ function SwapSheet({ scene, employeeId, shift, dayLabel }: { scene: Scene; emplo
               const name = employeeOf(scene, c.employeeId).name;
               return (
                 <div key={c.employeeId} className="flex w-full items-center gap-3 rounded-2xl border border-slate-800/60 bg-card px-4 py-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-indigo-500/30 bg-indigo-600/70 text-xs font-bold text-white">{getMonogram(name)}</div>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-indigo-500/30 bg-indigo-600/90 text-xs font-bold text-white">{getMonogram(name)}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-slate-100">{name}</div>
                     <div className="mt-0.5 text-xs text-slate-400">{fmtMinutes(c.startMinutes)} – {fmtMinutes(c.endMinutes)}</div>
                   </div>
-                  <span className="shrink-0 text-base text-slate-600">⇄</span>
+                  <span className="shrink-0 text-base text-slate-500">⇄</span>
                 </div>
               );
             })}
@@ -641,7 +641,7 @@ export function RequestScreen({ scene, employeeId, date, note, pending, t }: { s
           </div>
           <div className="flex gap-3">
             <div className="flex-1 rounded-xl border border-red-500/25 bg-red-500/10 py-3 text-center text-sm font-bold text-red-400">Deny</div>
-            <div className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 py-3 text-center text-sm font-bold text-white">Approve</div>
+            <div className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3 text-center text-sm font-bold text-white">Approve</div>
           </div>
         </div>
       </div>
@@ -728,7 +728,7 @@ export function WeekDraftScreen({
                 <Sparkle />
                 Auto-schedule
               </span>
-              <span className={`flex min-h-10 items-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 px-4 text-xs font-bold text-white ${drafts.length ? "" : "opacity-40"}`}>
+              <span className={`flex min-h-10 items-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-xs font-bold text-white ${drafts.length ? "" : "opacity-40"}`}>
                 Publish ({drafts.length})
               </span>
             </div>
@@ -768,7 +768,7 @@ export function WeekDraftScreen({
               <select
                 defaultValue=""
                 aria-label="Coverage profile for selected day"
-                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-slate-700 bg-bg px-2 py-1.5 text-xs text-slate-100 transition-colors focus:border-indigo-500/70 focus:outline-none"
+                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-field bg-bg px-2 py-1.5 text-xs text-slate-100 transition-colors focus:border-indigo-500 focus:outline-none"
               >
                 <option value="">Default ({defaultProfile})</option>
               </select>
@@ -910,7 +910,7 @@ function AutoScheduleSheet({ week, label, generating, tap }: { week: DraftWeek; 
           <motion.span
             animate={tap}
             transition={{ duration: 0.3 }}
-            className={`flex-[2] rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 py-3 text-center text-sm font-bold text-white ${generating ? "opacity-40" : ""}`}
+            className={`flex-[2] rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3 text-center text-sm font-bold text-white ${generating ? "opacity-40" : ""}`}
           >
             {generating ? "Generating…" : "Generate Schedule"}
           </motion.span>

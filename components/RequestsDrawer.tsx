@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { getMonogram } from "../data/types";
 import { TimeOffPendingIcon } from "./ShiftIcons";
+import { Toast, ToastStack } from "./Toast";
+import { useScrollLock } from "@/lib/scroll-lock";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } } };
 const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -94,12 +96,7 @@ export default function RequestsDrawer({
   const isDesktop = useIsDesktop();
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  useScrollLock(open);
 
   useEffect(() => {
     if (open) setError(null);
@@ -139,7 +136,7 @@ export default function RequestsDrawer({
             className={`fixed z-50 bg-bg ${
               isDesktop
                 ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
-                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80vh] overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80dvh] overflow-y-auto"
             }`}
             initial={isDesktop ? { x: "100%" } : { y: "100%" }}
             animate={isDesktop ? { x: 0 } : { y: 0 }}
@@ -175,11 +172,10 @@ export default function RequestsDrawer({
                 </button>
               </div>
 
-              {error && (
-                <div role="alert" className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-                  {error}
-                </div>
-              )}
+              {/* Over the drawer, so a failed action doesn't push the list. */}
+              <ToastStack>
+                {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}
+              </ToastStack>
 
               {total === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-sm">
@@ -271,7 +267,7 @@ function TimeOffCard({
   return (
     <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
       <div className="flex items-center gap-3 mb-3">
-        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
@@ -279,7 +275,7 @@ function TimeOffCard({
             {request.employeeName}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-400">
-            <TimeOffPendingIcon size={11} color="#fbbf24" />
+            <TimeOffPendingIcon size={11} color="var(--status-caution)" />
             {formatShortDate(request.date)}
             {request.note && (
               <span className="text-slate-500 truncate">· &ldquo;{request.note}&rdquo;</span>
@@ -294,7 +290,7 @@ function TimeOffCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s time off request`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -347,7 +343,7 @@ function SwapCard({
       </div>
       <div className="flex gap-2 text-xs text-slate-400 mb-3">
         <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.requesterName}: {swap.scheduleATime}</span>
-        <span className="text-slate-600" aria-hidden="true">⇄</span>
+        <span className="text-slate-500" aria-hidden="true">⇄</span>
         <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.targetName}: {swap.scheduleBTime}</span>
       </div>
       <div className="flex gap-2">
@@ -356,7 +352,7 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -402,7 +398,7 @@ function PunchCorrectionCard({
   return (
     <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3" data-testid="punch-correction-card">
       <div className="flex items-center gap-3 mb-2">
-        <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
@@ -422,7 +418,7 @@ function PunchCorrectionCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s punch correction`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>

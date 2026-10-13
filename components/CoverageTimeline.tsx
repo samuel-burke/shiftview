@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
+import { memo, useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ComposedChart,
@@ -42,20 +42,29 @@ function fmtMinutes(m: number): string {
     : `${h12}:${String(min).padStart(2, "0")} ${ampm}`;
 }
 
-function PulsingDot({ cx, cy, color = "#22c55e" }: { cx?: number; cy?: number; color?: string }) {
+// The "now" dot. Its pulse is drawn by the chart as an HTML ring (.now-pulse)
+// rather than an SVG animation: animating the ring inside the SVG repainted
+// the whole chart every frame for as long as the dashboard was open, while a
+// CSS transform/opacity animation runs on the compositor. The dot reports its
+// position (in SVG coordinates) so the ring can sit on it.
+function NowDot({ cx, cy, color = "var(--status-ok)", onPlace }: {
+  cx?: number;
+  cy?: number;
+  color?: string;
+  onPlace?: (at: { x: number; y: number } | null) => void;
+}) {
+  useLayoutEffect(() => {
+    onPlace?.(cx === undefined || cy === undefined ? null : { x: cx, y: cy });
+    return () => onPlace?.(null);
+  }, [cx, cy, onPlace]);
   if (cx === undefined || cy === undefined) return null;
-  return (
-    <g aria-hidden="true">
-      <circle cx={cx} cy={cy} r={4} fill={color} />
-      <circle cx={cx} cy={cy} r={4} fill="none" stroke={color} strokeWidth={2}>
-        <animate attributeName="r" values="4;10;4" dur="1.5s" repeatCount="indefinite" />
-        <animate attributeName="stroke-opacity" values="0.8;0;0.8" dur="1.5s" repeatCount="indefinite" />
-      </circle>
-    </g>
-  );
+  return <circle aria-hidden="true" cx={cx} cy={cy} r={4} fill={color} />;
 }
 
-export default function CoverageTimeline({
+// Recharts' plot area starts this far into the SVG (margin left = -28).
+const PLOT_LEFT = 30;
+
+function CoverageTimeline({
   schedules,
   dayKey,
   nowMinutes,
@@ -129,7 +138,29 @@ export default function CoverageTimeline({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [showTooltip, setShowTooltip] = useState(true);
+  // The curves draw in once. After that — switching days, the minute tick,
+  // live punches — they update in place: re-running the 1.5s animation on each
+  // change kept a phone's main thread busy for over a second after every tap.
+  //
+  // Recharts draws an area through a clip path until it has drawn in. An area
+  // switched to `isAnimationActive={false}` before it had drawn a frame still
+  // points at that clip path but leaves it out of the page; Chrome ignores
+  // that, but Safari draws nothing until the area's next redraw (up to a
+  // minute later, at the clock tick). That's how the "here now" area went
+  // missing on a first load. So:
+  // - every area is in the chart from its first render, and they draw in
+  //   together (the "here now" one was added only once punches were in);
+  // - the callback is stable (a new one each render made Recharts end the
+  //   draw-in at the chart's first re-render, before the areas had drawn);
+  // - until the draw-in ends, animation is Recharts' "auto", which also skips
+  //   it with reduced motion without leaving the clip path out. With reduced
+  //   motion it never ends, and "auto" stays.
+  const [drawnIn, setDrawnIn] = useState(false);
+  const animation = drawnIn ? false : "auto";
+  const onDrawnIn = useCallback(() => setDrawnIn(true), []);
+  const [dotAt, setDotAt] = useState<{ x: number; y: number } | null>(null);
   const [chartRect, setChartRect] = useState<{
+    svgLeft: number;
     left: number;
     width: number;
     top: number;
@@ -172,11 +203,11 @@ export default function CoverageTimeline({
       const elRect = el.getBoundingClientRect();
       // recharts with margin left=-28, right=8 means:
       // chart plot area starts at ~30px from svg left, ends ~8px from svg right
-      const plotLeft = 30;
       const plotRight = 8;
       setChartRect({
-        left: svgRect.left - elRect.left + plotLeft,
-        width: svgRect.width - plotLeft - plotRight,
+        svgLeft: svgRect.left - elRect.left,
+        left: svgRect.left - elRect.left + PLOT_LEFT,
+        width: svgRect.width - PLOT_LEFT - plotRight,
         top: svgRect.top - elRect.top,
         height: svgRect.height,
         containerWidth: elRect.width,
@@ -209,6 +240,8 @@ export default function CoverageTimeline({
 
   if (range === 0) return null;
 
+  const nowDotColor = nowDataPoint?.actual != null ? "var(--status-ok)" : "var(--status-blue)";
+
   const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
   // Pixel position of the badge within the container
   const lineLeft = chartRect ? chartRect.left + nowPct * chartRect.width : null;
@@ -226,15 +259,19 @@ export default function CoverageTimeline({
       aria-label={`Coverage timeline from ${fmtMinutes(openMinutes)} to ${fmtMinutes(closeMinutes)}. ${isToday ? `Current time: ${fmtMinutes(nowMinutes)}.` : ""}`}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
     >
-      <div aria-hidden="true" className="flex items-center justify-between mb-3 pl-1.5 pr-1">
+      {/* On a phone the title and three legend pills don't fit side by side
+          (squeezed, the pills broke their own labels), so the legend has its
+          own row under the title there, whichever pills are showing. From
+          tablets up they share one line. SkeletonTimeline matches. */}
+      <div aria-hidden="true" className="flex flex-col gap-1 mb-3 pl-1.5 pr-1 tablet:flex-row tablet:items-center tablet:justify-between">
         <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
           Coverage Timeline
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           {hasTarget && (
             <motion.span
               initial={{ opacity: 0, scale: 0.9 }}
@@ -244,7 +281,7 @@ export default function CoverageTimeline({
             >
               <span
                 className="inline-block w-2.5 h-0.5 rounded-full"
-                style={{ backgroundImage: "repeating-linear-gradient(90deg, #818cf8 0 3px, transparent 3px 5px)" }}
+                style={{ backgroundImage: "repeating-linear-gradient(90deg, var(--status-info) 0 3px, transparent 3px 5px)" }}
               />
               Target
             </motion.span>
@@ -295,23 +332,23 @@ export default function CoverageTimeline({
           >
             <defs>
               <linearGradient id="covGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--status-blue)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="var(--status-blue)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--status-ok)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--status-ok)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
               dataKey="label"
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "var(--status-muted)", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               ticks={ticks}
             />
             <YAxis
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "var(--status-muted)", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
@@ -336,36 +373,39 @@ export default function CoverageTimeline({
               <Line
                 type="stepAfter"
                 dataKey="target"
-                stroke="#818cf8"
+                stroke="var(--status-info)"
                 strokeWidth={2}
                 strokeDasharray="5 4"
                 dot={false}
                 activeDot={false}
+                isAnimationActive={animation}
               />
             )}
             <Area
               type="monotone"
               dataKey="staff"
-              stroke="#3b82f6"
+              stroke="var(--status-blue)"
               strokeWidth={2.5}
               fill="url(#covGrad)"
               dot={false}
+              isAnimationActive={animation}
+              onAnimationEnd={onDrawnIn}
             />
-            {actualByPoint && (
-              <Area
-                type="monotone"
-                dataKey="actual"
-                stroke="#22c55e"
-                strokeWidth={2.5}
-                fill="url(#actualGrad)"
-                dot={false}
-                connectNulls={false}
-              />
-            )}
+            {/* Empty (no values) until today's punches are in, and on other days. */}
+            <Area
+              type="monotone"
+              dataKey="actual"
+              stroke="var(--status-ok)"
+              strokeWidth={2.5}
+              fill="url(#actualGrad)"
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={animation}
+            />
             {isToday && nowDataPoint && (
               <ReferenceLine
                 x={nowDataPoint.label}
-                stroke="#94a3b8"
+                stroke="var(--status-muted)"
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
               />
@@ -374,11 +414,19 @@ export default function CoverageTimeline({
               <ReferenceDot
                 x={nowDataPoint.label}
                 y={nowDataPoint.actual ?? nowDataPoint.staff}
-                shape={<PulsingDot color={nowDataPoint.actual != null ? "#22c55e" : "#3b82f6"} />}
+                shape={<NowDot color={nowDotColor} onPlace={setDotAt} />}
               />
             )}
           </ComposedChart>
         </ResponsiveContainer>
+
+        {isToday && nowDataPoint && dotAt && chartRect && (
+          <span
+            aria-hidden="true"
+            className="now-pulse"
+            style={{ left: chartRect.svgLeft + dotAt.x, top: chartRect.top + dotAt.y, borderColor: nowDotColor }}
+          />
+        )}
 
         {/* Time badge — positioned above the now line */}
         {isToday && badgeLeft !== null && lineTop !== null && (
@@ -396,3 +444,8 @@ export default function CoverageTimeline({
     </motion.div>
   );
 }
+
+// Memoized: the dashboard re-renders for things the chart doesn't show (the
+// employee drawer opening, the export panel), and redrawing Recharts is the
+// most expensive part of that render.
+export default memo(CoverageTimeline);

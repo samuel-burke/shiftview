@@ -105,7 +105,10 @@ export default function EmployeeSchedulingRow({
   }
 
   const inputClass =
-    "w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/70";
+    "w-0 flex-1 min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums placeholder:text-slate-500 focus:outline-none focus:border-indigo-500";
+  // The hours and the days fill one 160px column, so the two rows' controls
+  // line up and the select is as wide as the hours beside it.
+  const controlColumn = "w-40 shrink-0 flex items-center gap-2";
 
   return (
     <div data-testid={`employee-scheduling-${employee.id}`} className="px-4 pb-3 pt-0">
@@ -139,7 +142,7 @@ export default function EmployeeSchedulingRow({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs font-semibold text-slate-300">Weekly hours</div>
-            <div className="flex items-center gap-2">
+            <div className={controlColumn}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -152,7 +155,7 @@ export default function EmployeeSchedulingRow({
                 onChange={(e) => setMinText(e.target.value)}
                 className={inputClass}
               />
-              <span className="text-xs text-slate-500">–</span>
+              <span className="shrink-0 text-xs text-slate-500">–</span>
               <input
                 type="number"
                 inputMode="decimal"
@@ -165,42 +168,45 @@ export default function EmployeeSchedulingRow({
                 onChange={(e) => setMaxText(e.target.value)}
                 className={inputClass}
               />
-              <span className="text-xs text-slate-500">h</span>
+              <span className="shrink-0 text-xs text-slate-500">h</span>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs font-semibold text-slate-300">Most days per week</div>
-            <select
-              aria-label={`Most days per week for ${employee.name}`}
-              value={maxDays}
-              onChange={(e) => setMaxDays(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 cursor-pointer"
-            >
-              <option value="">Default ({typeDefaults.maxDays})</option>
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <div className={controlColumn}>
+              <select
+                aria-label={`Most days per week for ${employee.name}`}
+                value={maxDays}
+                onChange={(e) => setMaxDays(e.target.value)}
+                className="w-full min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="">Default ({typeDefaults.maxDays})</option>
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="text-[11px] text-slate-500 -mt-2">Blank fields use the {type === "full_time" ? "full-time" : "part-time"} default from Scheduling Rules.</div>
 
-          {problem && <div role="alert" className="text-xs text-red-400">{problem}</div>}
-
-          <div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={save}
-                disabled={status === "saving"}
-                aria-busy={status === "saving"}
-                className="text-xs font-semibold px-4 py-2.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Save Limits
-              </button>
+          {/* The form's problem or its save status, beside Save: neither needs
+              a line of its own, so the form ends at its button. */}
+          <div className="flex items-center gap-3 min-h-10">
+            <div className="flex-1 min-w-0">
+              {problem && <div role="alert" className="text-xs leading-4 text-red-400">{problem}</div>}
+              <SaveStatusText status={status} testId={`employee-scheduling-status-${employee.id}`} />
             </div>
-            <SaveStatusText status={status} testId={`employee-scheduling-status-${employee.id}`} />
+            <button
+              type="button"
+              onClick={save}
+              disabled={status === "saving"}
+              aria-busy={status === "saving"}
+              className="shrink-0 h-10 text-xs font-semibold px-4 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Save Limits
+            </button>
           </div>
 
           <div className="pt-4 border-t border-slate-800/60">

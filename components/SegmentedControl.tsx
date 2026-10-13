@@ -1,7 +1,8 @@
 "use client";
 
-// A compact single-choice control (radio group semantics), styled like the
-// Week Start pill in Settings.
+// A single-choice control (radio group semantics). Settings' other segmented
+// controls (Appearance, Week Start, a day's availability) share its sizes:
+// 44px segments, 14px labels, a 3px inset and gap.
 export default function SegmentedControl<T extends string | number>({
   options,
   value,
@@ -27,8 +28,8 @@ export default function SegmentedControl<T extends string | number>({
             aria-checked={active}
             disabled={disabled}
             onClick={() => { if (!active) onChange(o.value); }}
-            className={`flex-1 min-h-[40px] px-2.5 rounded-[9px] text-xs font-semibold cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              active ? "bg-slate-600 text-slate-50 shadow" : "bg-transparent text-slate-400 hover:text-slate-200"
+            className={`flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              active ? "bg-slate-600 text-slate-50 shadow ring-1 ring-inset ring-slate-500" : "bg-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             {o.label}

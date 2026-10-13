@@ -364,6 +364,17 @@ describe("EmployeeAvailabilityRow in SettingsPageClient", () => {
     });
   }
 
+  it("lets a manager remove an employee who has no account yet", async () => {
+    // No account means no user id, which must not match a signed-in user
+    // who hasn't loaded yet (also no id) as "yourself".
+    setupManagerFetch();
+    render(<SettingsPageClient />);
+    await screen.findByTestId("store-hours-section");
+    const remove = await screen.findByRole("button", { name: "Remove Alice Smith" });
+    expect(remove).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Cannot remove yourself" })).not.toBeInTheDocument();
+  });
+
   it("renders 'Typical Week' toggle for each employee when manager", async () => {
     setupManagerFetch();
     render(<SettingsPageClient />);

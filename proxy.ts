@@ -14,6 +14,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  const { pathname } = request.nextUrl;
+  // API routes authenticate themselves (getOrgContext/requireManager, which
+  // also refresh an expired session and write its cookies) and must answer
+  // with JSON status codes (401/403), never an HTML redirect — redirecting
+  // turns an unauthenticated POST (e.g. /api/demo/start, cron jobs) into a
+  // method-preserving 307 to /login, which then 405s. Checking the session
+  // here as well only added a Supabase Auth round trip to every API call.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -33,17 +44,25 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
-  // API routes authenticate themselves and must answer with JSON status
-  // codes (401/403), never an HTML redirect — redirecting turns an
-  // unauthenticated POST (e.g. /api/demo/start, cron jobs) into a
-  // method-preserving 307 to /login, which then 405s.
-  const isApi = pathname.startsWith("/api/");
-  const isPublic = pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname === "/contact" || pathname.startsWith("/auth/");
+  // getClaims() refreshes an expired session (writing its cookies through
+  // setAll above) and verifies the JWT — locally against the project's cached
+  // signing keys when it uses asymmetric keys, otherwise via the Auth server
+  // as getUser() did.
+  const { data } = await supabase.auth.getClaims();
+  const signedIn = !!data?.claims?.sub;
+  const isPublic = pathname === "/" || pathname === "/welcome" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname === "/contact" || pathname.startsWith("/auth/");
 
-  if (!user && !isPublic && !isApi) {
+  if (!signedIn && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // "/" is the dashboard when signed in and the landing page otherwise. They
+  // are separate routes (app/page.tsx, app/welcome) so neither downloads the
+  // other's code; visitors get the landing page at "/" through a rewrite.
+  if (pathname === "/" && !signedIn) {
+    const landing = NextResponse.rewrite(new URL("/welcome", request.url), { request });
+    supabaseResponse.cookies.getAll().forEach((cookie) => landing.cookies.set(cookie));
+    return landing;
   }
 
   return supabaseResponse;

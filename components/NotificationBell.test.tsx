@@ -1,23 +1,37 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import NotificationBell from "./NotificationBell";
 
+// The bell keeps its notifications, session and Realtime channel in a
+// module-level store shared by every mounted bell, so each test loads a fresh
+// copy of the module.
+let NotificationBell: typeof import("./NotificationBell").default;
+beforeEach(async () => {
+  vi.resetModules();
+  NotificationBell = (await import("./NotificationBell")).default;
+});
+
+const { channelSpy, getSessionSpy } = vi.hoisted(() => ({ channelSpy: vi.fn(), getSessionSpy: vi.fn() }));
 vi.mock("@/lib/supabase-browser", () => ({
   createClient: () => ({
     auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user: { id: "user-123" } },
-        error: null,
-      }),
+      getSession: (...args: unknown[]) => {
+        getSessionSpy(...args);
+        return Promise.resolve({ data: { session: { user: { id: "user-123" } } }, error: null });
+      },
     },
-    channel: vi.fn().mockReturnValue({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnValue({}),
-    }),
+    channel: (...args: unknown[]) => {
+      channelSpy(...args);
+      const channel = { on: () => channel, subscribe: () => channel };
+      return channel;
+    },
     removeChannel: vi.fn(),
   }),
 }));
+beforeEach(() => {
+  channelSpy.mockClear();
+  getSessionSpy.mockClear();
+});
 
 const SAMPLE_NOTIFICATIONS = [
   {
@@ -159,5 +173,34 @@ describe("NotificationBell — clear all", () => {
       const body = JSON.parse(deleteCalls[0][1]!.body as string);
       expect(body).toEqual({ all: true });
     });
+  });
+});
+
+// ── Shared between bells ──────────────────────────────────────────────────────
+
+describe("NotificationBell — every bell shares one store", () => {
+  it("reads the session, loads notifications and subscribes once for two mounted bells", async () => {
+    const fetchSpy = setupFetch();
+    render(<><NotificationBell /><NotificationBell /></>);
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Notifications, 1 unread" })).toHaveLength(2);
+    });
+    const loads = fetchSpy.mock.calls.filter(([url, init]) => String(url).includes("/api/notifications") && !init?.method);
+    expect(loads).toHaveLength(1);
+    expect(getSessionSpy).toHaveBeenCalledTimes(1);
+    expect(channelSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps its notifications across a remount (a page navigation) without reloading", async () => {
+    const fetchSpy = setupFetch();
+    const { unmount } = render(<NotificationBell />);
+    await screen.findByRole("button", { name: "Notifications, 1 unread" });
+    unmount();
+    render(<NotificationBell />);
+    // Shown at once from the shared store, not after another request.
+    expect(screen.getByRole("button", { name: "Notifications, 1 unread" })).toBeInTheDocument();
+    const loads = fetchSpy.mock.calls.filter(([url, init]) => String(url).includes("/api/notifications") && !init?.method);
+    expect(loads).toHaveLength(1);
+    expect(channelSpy).toHaveBeenCalledTimes(1);
   });
 });

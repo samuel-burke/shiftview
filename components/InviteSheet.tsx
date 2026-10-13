@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { useScrollLock } from "@/lib/scroll-lock";
+import FormError from "./FormError";
 
 type Props = {
   open: boolean;
@@ -22,10 +24,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
   // than emailed an invite.
   const [existingAccount, setExistingAccount] = useState(false);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useScrollLock(open);
 
   useEffect(() => {
     if (open) {
@@ -177,19 +176,17 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
                   autoFocus={autoFocus}
                   aria-required="true"
                   onChange={(e) => { set(e.target.value); setError(null); }}
-                  className="w-full bg-card border border-slate-700 rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500/70 transition-colors"
+                  className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
             ))}
 
-            {error && (
-              <div role="alert" className="text-xs text-red-400 text-center">{error}</div>
-            )}
+            <FormError message={error} className="text-center" />
 
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-500 to-violet-500 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
+              className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
             >
               {saving ? "Sending…" : "Send Invite"}
             </button>

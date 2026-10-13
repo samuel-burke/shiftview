@@ -122,7 +122,7 @@ export default function WeekGrid({
                       aria-pressed={isPicked}
                       aria-label={`${formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}${isToday ? ", today" : ""}`}
                       className={`w-full min-h-11 rounded-lg py-1 cursor-pointer border transition-colors ${
-                        isPicked ? "bg-indigo-600/25 border-indigo-500/40" : "bg-transparent border-transparent hover:bg-slate-800/60"
+                        isPicked ? "bg-indigo-600/25 border-indigo-400" : "bg-transparent border-transparent hover:bg-slate-800/60"
                       }`}
                     >
                       {label}
@@ -164,7 +164,7 @@ export default function WeekGrid({
                   const clash = isDraftMode && cell.live !== null && cell.draft !== null;
                   const hours = weeklyHours[dayOfWeekForKey(date)];
                   const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
-                  const color = isLiveContext ? "#64748b" : type ? SHIFT_COLORS[type] : "#94a3b8";
+                  const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
                   const requested = timeOffCell.has(`${emp.id}|${date}`);
                   const isSel = selected?.employeeId === emp.id && selected.date === date;
                   const dayLabel = formatDateKey(date, { weekday: "long", month: "long", day: "numeric" });
@@ -206,10 +206,11 @@ export default function WeekGrid({
                         className={`group relative w-full h-12 rounded-lg text-left px-2 transition-colors cursor-pointer border ${
                           isSel ? "ring-2 ring-indigo-400 ring-offset-1 ring-offset-bg" : ""
                         } ${
+                          // A live shift in Draft mode reads as muted by its slate
+                          // colors, not by fading the whole cell (which took its
+                          // text under 4.5:1).
                           s
-                            ? isLiveContext
-                              ? "border-transparent opacity-70"
-                              : "border-transparent"
+                            ? "border-transparent"
                             : requested
                             ? "border-dashed border-slate-500 bg-transparent"
                             : "border-transparent hover:border-slate-700 hover:bg-slate-800/60 focus-visible:border-slate-700"
@@ -218,25 +219,30 @@ export default function WeekGrid({
                           s
                             ? {
                                 background: `color-mix(in srgb, ${color} ${isLiveContext ? 14 : 18}%, transparent)`,
-                                boxShadow: `inset 3px 0 0 ${clash ? "#f59e0b" : color}`,
+                                boxShadow: `inset 3px 0 0 ${clash ? "var(--status-warn)" : color}`,
                               }
                             : undefined
                         }
                       >
                         {s ? (
                           <>
-                            <span className={`block text-[12px] font-semibold tabular-nums truncate ${isLiveContext ? "text-slate-300" : "text-slate-100"}`}>
+                            {/* In a narrow column (tablet portrait) the times wrap after
+                                the dash instead of being cut off; on a tight line, two
+                                of them and the label still fit the 48px cell. */}
+                            <span className={`block text-[12px] leading-tight font-semibold tabular-nums ${isLiveContext ? "text-slate-300" : "text-slate-100"}`}>
                               {shortTime(s.startMinutes)}–{shortTime(s.endMinutes)}
                             </span>
-                            <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "#f59e0b" : color }}>
+                            {/* A time-off request leads, so a narrow cell that cuts the
+                                line short still shows it. */}
+                            <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "var(--status-warn)" : color }}>
+                              {requested ? "Time off? · " : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
-                              {requested ? " · Time off?" : ""}
                             </span>
                           </>
                         ) : requested ? (
                           <span className="block text-[11px] font-semibold text-slate-400">Time off requested</span>
                         ) : (
-                          <span aria-hidden="true" className="block text-center text-lg text-slate-600 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
+                          <span aria-hidden="true" className="block text-center text-lg text-slate-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
                         )}
                       </button>
                     </td>

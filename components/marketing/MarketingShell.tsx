@@ -5,12 +5,15 @@ import Logo from "@/components/Logo";
 import { CurrentYear, MotionProvider } from "./live";
 import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "./ui";
 
-const inter = Inter({ subsets: ["latin"], display: "swap" });
+// font-display: optional: the font is preloaded, and if it isn't in by first
+// paint the page keeps the (metric-matched) fallback rather than re-wrapping
+// its text when Inter arrives.
+const inter = Inter({ subsets: ["latin"], display: "optional" });
 
 // Shared chrome for the public marketing pages (/ and /contact).
 export default function MarketingShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className={`${inter.className} min-h-screen bg-bg text-slate-100 overflow-x-hidden antialiased`}>
+    <main className={`${inter.className} min-h-dvh bg-bg text-slate-100 overflow-x-hidden antialiased`}>
       <MotionProvider>
         <MarketingNav />
         {children}
@@ -29,7 +32,7 @@ function MarketingNav() {
           <Link href="/login" className="whitespace-nowrap px-2 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-slate-100 sm:px-3">
             Sign in
           </Link>
-          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-gradient-to-r from-blue-500 to-violet-500 px-3.5 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110">
+          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-gradient-to-r from-blue-600 to-violet-600 px-3.5 py-2 text-sm font-semibold text-white transition-[filter] hover:brightness-110">
             Get started
           </Link>
         </nav>
@@ -67,12 +70,13 @@ function MarketingFooter() {
           <Logo className="h-4" />
           <CurrentYear />
         </div>
+        {/* Padding offset by negative margins: 36px to tap, same layout. */}
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/#features" className="transition-colors hover:text-slate-200">Features</Link>
-          <Link href="/login" className="transition-colors hover:text-slate-200">Sign in</Link>
-          <Link href="/contact" className="transition-colors hover:text-slate-200">Contact</Link>
-          <Link href="/privacy" className="transition-colors hover:text-slate-200">Privacy</Link>
-          <a href={REPO_URL} className="transition-colors hover:text-slate-200">GitHub</a>
+          <Link href="/#features" className="py-2 -my-2 transition-colors hover:text-slate-200">Features</Link>
+          <Link href="/login" className="py-2 -my-2 transition-colors hover:text-slate-200">Sign in</Link>
+          <Link href="/contact" className="py-2 -my-2 transition-colors hover:text-slate-200">Contact</Link>
+          <Link href="/privacy" className="py-2 -my-2 transition-colors hover:text-slate-200">Privacy</Link>
+          <a href={REPO_URL} className="py-2 -my-2 transition-colors hover:text-slate-200">GitHub</a>
         </nav>
       </Container>
     </footer>

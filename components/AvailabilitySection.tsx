@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { AvailabilityRecord, fmtMinutes } from "../data/types";
+import FormError from "./FormError";
 
 type Props = {
   employeeId: number;
@@ -88,7 +89,7 @@ export default function AvailabilitySection({
 
   function closeSheet() {
     setSheetOpen(false);
-    setTimeout(() => setActiveDow(null), 300);
+    setTimeout(() => setActiveDow(null), 250);
   }
 
   const handleEscape = useCallback((e: KeyboardEvent) => {
@@ -233,18 +234,21 @@ export default function AvailabilitySection({
 
   return (
     <section data-testid="availability-section">
-      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-        Availability
-      </div>
-      <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-1">
-
-      {allAny && (
-        <div className="mb-2 text-xs text-emerald-400">
-          ✓ No restrictions set — available any time.
+      {/* The "no restrictions" note shares the label's line, so the card keeps
+          its height when the saved availability loads (or is changed). */}
+      <div className="flex items-baseline justify-between gap-2 mb-2 px-1">
+        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+          Availability
         </div>
-      )}
+        {allAny && (
+          <div className="text-xs text-emerald-400 truncate">
+            ✓ No restrictions set — available any time.
+          </div>
+        )}
+      </div>
+      <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
 
-      {/* Compact day rows */}
+      {/* Day rows, the same as Store Hours' */}
       <div className="flex flex-col divide-y divide-slate-800/60">
         {orderedDays.map((dow) => {
           const cfg = days[dow];
@@ -267,7 +271,7 @@ export default function AvailabilitySection({
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
               aria-label={`Edit availability for ${DAY_FULL[dow]}`}
-              className="flex items-center w-full py-3 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
+              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
             >
               <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
                 {DAY_SHORT[dow]}
@@ -297,7 +301,7 @@ export default function AvailabilitySection({
           {/* Backdrop */}
           <div
             aria-hidden="true"
-            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
+            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
@@ -307,7 +311,7 @@ export default function AvailabilitySection({
             aria-modal="true"
             aria-labelledby="avail-sheet-title"
             data-testid="availability-sheet"
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
+            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 tablet:hidden">
@@ -331,7 +335,7 @@ export default function AvailabilitySection({
               {/* Segmented control */}
               <LayoutGroup id={`avail-pill-${activeDow}`}>
               <div
-                className="flex bg-slate-950 rounded-xl p-1 mb-6"
+                className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px] mb-6"
                 role="group"
                 aria-label={`${DAY_FULL[activeDow]} availability`}
               >
@@ -339,24 +343,26 @@ export default function AvailabilitySection({
                   const isActive = sheetDay?.state === s;
                   const pillLabel = s === "any" ? "Any time" : s === "window" ? "Window" : "Off";
                   const activeColor =
-                    s === "any"    ? "#34d399" :
-                    s === "window" ? "#818cf8" :
-                                     "#f87171";
+                    s === "any"    ? "var(--status-teal)" :
+                    s === "window" ? "var(--status-info)" :
+                                     "var(--status-bad)";
                   return (
                     <button
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
-                      className="relative flex-1 py-3 rounded-lg text-sm font-semibold cursor-pointer border-none min-h-[44px] z-10"
-                      style={{ color: isActive ? activeColor : "#64748b" }}
+                      className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer border-none z-10 ${isActive ? "" : "text-slate-400 hover:text-slate-200"}`}
+                      style={isActive ? { color: activeColor } : undefined}
                       aria-pressed={isActive}
                     >
                       {isActive && (
                         <motion.div
                           layoutId="avail-pill"
-                          className="absolute inset-0 rounded-lg"
+                          className="absolute inset-0 rounded-[9px]"
                           style={{
-                            background: `${activeColor}18`,
-                            boxShadow: `inset 0 0 0 1px ${activeColor}30`,
+                            // Over the card's color, not the track's: on the lighter
+                            // track, Window's indigo fell under 4.5:1.
+                            background: `color-mix(in srgb, ${activeColor} 12%, var(--color-card))`,
+                            boxShadow: `inset 0 0 0 1px ${activeColor}`,
                           }}
                           transition={{ type: "spring", stiffness: 420, damping: 34 }}
                         />
@@ -386,7 +392,7 @@ export default function AvailabilitySection({
                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                           {label}
                         </div>
-                        <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800 focus-within:border-indigo-500/70 transition-colors">
+                        <div className="w-full rounded-xl overflow-hidden border border-field bg-slate-800 focus-within:border-indigo-500 transition-colors">
                           <input
                             type="time"
                             value={val}
@@ -402,9 +408,7 @@ export default function AvailabilitySection({
                     ))}
                   </div>
 
-                  {sheetInvalid && (
-                    <div id="avail-time-error" role="alert" className="text-sm text-red-400">End time must be after start time</div>
-                  )}
+                  <FormError id="avail-time-error" size="sm" message={sheetInvalid ? "End time must be after start time" : null} />
 
                   {sheetShowBar && sheetStartMins !== null && sheetEndMins !== null && (
                     <AvailBar
@@ -418,7 +422,7 @@ export default function AvailabilitySection({
                   {/* Copy to */}
                   <div>
                     <div className="text-xs text-slate-500 mb-2">Apply this window to:</div>
-                    <div className="rounded-xl border border-slate-700/60 overflow-hidden divide-y divide-slate-700/60">
+                    <div className="flex flex-col gap-2">
                       {[
                         { key: "weekdays", label: "Weekdays", targets: WEEKDAYS },
                         { key: "weekends", label: "Weekends", targets: WEEKENDS },
@@ -429,10 +433,10 @@ export default function AvailabilitySection({
                           <button
                             key={key}
                             onClick={() => copyToTarget(activeDow, targets, key)}
-                            className={`w-full py-3 px-4 text-sm font-semibold text-left transition-colors cursor-pointer border-none ${
+                            className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
                               copied
-                                ? "bg-emerald-900/40 text-emerald-400"
-                                : "bg-slate-800/50 text-slate-300 hover:bg-slate-800"
+                                ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
+                                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-slate-200"
                             }`}
                           >
                             {copied ? `✓ ${label} updated` : label}

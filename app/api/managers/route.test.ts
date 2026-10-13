@@ -31,28 +31,47 @@ describe("GET /api/managers", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns the list of manager user_ids via notify_get_manager_ids RPC", async () => {
-    const rpcData = [{ user_id: MOCK_USER.id }, { user_id: "other-manager-uuid" }];
-    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, rpcData });
+  // The route's list query on managers resolves to `rows`; requireManager's
+  // own maybeSingle lookup keeps the helper's membership row.
+  function withManagerRows(client: any, rows: any[] | null, error: any = null) {
+    const from = client.from.getMockImplementation();
+    client.from.mockImplementation((table: string) => {
+      const b = from(table);
+      if (table === "managers")
+        b.then = (resolve: any, reject: any) =>
+          Promise.resolve({ data: rows, error }).then(resolve, reject);
+      return b;
+    });
+    return client;
+  }
+
+  it("returns the org's manager user_ids from the managers table", async () => {
+    const client = withManagerRows(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }),
+      [
+        { user_id: MOCK_USER.id, is_owner: false },
+        { user_id: "other-manager-uuid", is_owner: false },
+      ]
+    );
     mockCreateClient.mockResolvedValue(client as any);
 
     const res = await GET(new Request("http://localhost/api/managers"));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.managerUserIds).toContain(MOCK_USER.id);
-    expect(json.managerUserIds).toContain("other-manager-uuid");
+    expect(json.managerUserIds).toEqual([MOCK_USER.id, "other-manager-uuid"]);
     expect(json.ownerUserIds).toEqual([]);
-    expect(client.rpc).toHaveBeenCalledWith("notify_get_manager_ids", { p_org_id: expect.any(String) });
+    // notify_get_manager_ids is service-role only (migration 0038).
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   it("returns the org owner in ownerUserIds when one exists", async () => {
-    const rpcData = [{ user_id: MOCK_USER.id }];
-    const client = makeSupabaseClient({
-      user: MOCK_USER,
-      isManager: true,
-      ownerUserId: MOCK_USER.id,
-      rpcData,
-    });
+    const client = withManagerRows(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, ownerUserId: MOCK_USER.id }),
+      [
+        { user_id: MOCK_USER.id, is_owner: true },
+        { user_id: "other-manager-uuid", is_owner: false },
+      ]
+    );
     mockCreateClient.mockResolvedValue(client as any);
 
     const res = await GET(new Request("http://localhost/api/managers"));
@@ -61,12 +80,12 @@ describe("GET /api/managers", () => {
     expect(json.ownerUserIds).toEqual([MOCK_USER.id]);
   });
 
-  it("returns 500 on RPC error", async () => {
-    const client = makeSupabaseClient({
-      user: MOCK_USER,
-      isManager: true,
-      rpcError: { message: "db error" },
-    });
+  it("returns 500 on query error", async () => {
+    const client = withManagerRows(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true }),
+      null,
+      { message: "db error" }
+    );
     mockCreateClient.mockResolvedValue(client as any);
 
     const res = await GET(new Request("http://localhost/api/managers"));

@@ -283,7 +283,7 @@ export default function GeofenceMap({
         </button>
       </div>
 
-      <div className="absolute bottom-0.5 right-1 z-10 text-[9px] text-slate-300/70 bg-slate-900/60 px-1 rounded pointer-events-none">
+      <div className="absolute bottom-0.5 right-1 z-10 text-[9px] text-slate-300 bg-slate-900/60 px-1 rounded pointer-events-none">
         © OpenStreetMap contributors
       </div>
     </div>

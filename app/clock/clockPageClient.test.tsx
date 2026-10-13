@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase-browser", () => {
       auth: {
         signOut: vi.fn(),
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
         onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       },
       channel: () => channel,

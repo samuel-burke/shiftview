@@ -5,6 +5,9 @@ type QueryClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
+// Exactly the PunchRow columns — the reads below return nothing else.
+export const PUNCH_COLUMNS = "id, employee_id, schedule_id, punch_type, punched_at, lat, lng, is_manual, note";
+
 export type PunchRow = {
   id: number;
   employee_id: number;
@@ -33,7 +36,7 @@ export async function loadCurrentShift(
   const from = localDayBoundsUtc(addDaysToKey(today, -1), tz).start;
   const { data, error } = await supabase
     .from("punch_records")
-    .select("*")
+    .select(PUNCH_COLUMNS)
     .eq("org_id", orgId)
     .eq("employee_id", employeeId)
     .gte("punched_at", from.toISOString())
@@ -83,7 +86,7 @@ export async function loadCarriedOverPunches(
   const yesterday = addDaysToKey(today, -1);
   let query = supabase
     .from("punch_records")
-    .select("*")
+    .select(PUNCH_COLUMNS)
     .eq("org_id", orgId)
     .gte("punched_at", localDayBoundsUtc(yesterday, tz).start.toISOString())
     .lte("punched_at", new Date(nowMs).toISOString());

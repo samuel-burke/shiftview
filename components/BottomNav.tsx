@@ -76,21 +76,19 @@ function NavTab({
       className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200 ${isActive ? "text-slate-100" : "text-slate-500"}`}
       onClick={() => { if (!isActive) haptic(6); }}
     >
+      {/* Only the scale animates (a transform); the glow just switches. */}
       <motion.div
-        animate={{
-          scale: isActive ? 1.12 : 1,
-          filter: isActive ? "drop-shadow(0 0 6px rgba(129,140,248,0.6))" : "none",
-        }}
+        animate={{ scale: isActive ? 1.12 : 1 }}
+        style={{ filter: isActive ? "drop-shadow(0 0 6px rgba(129,140,248,0.6))" : "none" }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
         {children}
       </motion.div>
-      <motion.span
-        animate={{ opacity: isActive ? 1 : 0.6 }}
-        className="text-[10px] font-semibold tracking-wider uppercase"
-      >
+      {/* Inactive tabs are told apart by color alone (slate-500, 4.5:1), not
+          faded on top of it: at 60% opacity the label fell to ~2.3:1. */}
+      <span className="text-[10px] font-semibold tracking-wider uppercase">
         {label}
-      </motion.span>
+      </span>
     </Link>
   );
 }

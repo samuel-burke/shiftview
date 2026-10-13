@@ -101,22 +101,29 @@ async function findMembership(
 ): Promise<Membership | null> {
   // RLS already restricts these lookups to the user's own rows; the explicit
   // filters keep behavior identical in tests and with permissive policies.
+  // Every API request resolves this, so the two lookups run in parallel.
   let managerQuery = supabase
     .from("managers")
     .select("user_id, org_id, is_owner")
     .eq("user_id", userId);
   if (orgId) managerQuery = managerQuery.eq("org_id", orgId);
-  const { data: managerRow } = await managerQuery.order("org_id").limit(1).maybeSingle();
+  const employeeQuery = (org: string | null) => {
+    let q = supabase.from("employees").select("id, org_id").eq("user_id", userId);
+    if (org) q = q.eq("org_id", org);
+    return q.order("org_id").limit(1).maybeSingle();
+  };
+  const [{ data: managerRow }, { data: firstEmployeeRow }] = await Promise.all([
+    managerQuery.order("org_id").limit(1).maybeSingle(),
+    employeeQuery(orgId),
+  ]);
 
   // The employee row must be in the same org as the manager row, so a user
-  // who manages one org and works in another gets the right employee id.
-  const employeeOrg = orgId ?? managerRow?.org_id ?? null;
-  let employeeQuery = supabase
-    .from("employees")
-    .select("id, org_id")
-    .eq("user_id", userId);
-  if (employeeOrg) employeeQuery = employeeQuery.eq("org_id", employeeOrg);
-  const { data: employeeRow } = await employeeQuery.order("org_id").limit(1).maybeSingle();
+  // who manages one org and works in another gets the right employee id. Only
+  // that rare case needs a second lookup.
+  let employeeRow = firstEmployeeRow;
+  if (!orgId && managerRow && employeeRow && employeeRow.org_id !== managerRow.org_id) {
+    ({ data: employeeRow } = await employeeQuery(managerRow.org_id));
+  }
 
   const resolvedOrg: string | null = managerRow?.org_id ?? employeeRow?.org_id ?? null;
   if (!resolvedOrg) return null;

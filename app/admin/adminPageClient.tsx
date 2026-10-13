@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
+import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
 import { motion } from "framer-motion";
-import { useAppData } from "../../lib/AppDataContext";
+import DemoBanner from "@/components/DemoBanner";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -21,8 +22,6 @@ export default function AdminPageClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const { me } = useAppData();
-  const isDemo = me.isDemo;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [ownerUserIds, setOwnerUserIds] = useState<Set<string>>(new Set());
@@ -41,13 +40,15 @@ export default function AdminPageClient({
   }
   useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current); }, []);
 
+  // Loaded independently: a failed role lookup must not hide the roster.
   useEffect(() => {
-    Promise.all([
-      fetch("/api/employees").then((r) => r.ok ? r.json() : Promise.reject()),
-      fetch("/api/managers").then((r) => r.ok ? r.json() : Promise.reject()),
-    ])
-      .then(([emps, { managerUserIds: ids, ownerUserIds: ownerIds }]) => {
-        setEmployees(emps);
+    fetch("/api/employees")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((emps: Employee[]) => setEmployees(emps))
+      .catch(() => {});
+    fetch("/api/managers")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then(({ managerUserIds: ids, ownerUserIds: ownerIds }: { managerUserIds: string[]; ownerUserIds?: string[] }) => {
         setManagerUserIds(new Set(ids));
         setOwnerUserIds(new Set(ownerIds ?? []));
       })
@@ -137,13 +138,8 @@ export default function AdminPageClient({
 
   return (
     <AppShell active="admin" isManager>
-    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-screen desk:max-w-none desk:pb-0">
-      {isDemo && (
-        <div className="bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 flex items-center justify-between">
-          <span className="text-[11px] text-blue-400/80 font-medium">Demo Mode · Sample data resets nightly</span>
-          <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
-        </div>
-      )}
+    <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
+      <DemoBanner />
       <div
         className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
                    desk:px-6 desk:py-[14px] desk:pb-[14px] desk:gap-0"
@@ -165,11 +161,10 @@ export default function AdminPageClient({
             Roles
           </div>
 
-          {errorMsg && (
-            <div role="alert" className="mb-3 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/25 text-sm text-red-400">
-              {errorMsg}
-            </div>
-          )}
+          {/* Over the page, so it can't push the roles list down. */}
+          <ToastStack>
+            {errorMsg && <Toast>{errorMsg}</Toast>}
+          </ToastStack>
 
           <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (
@@ -184,23 +179,29 @@ export default function AdminPageClient({
 
                 return (
                   <motion.div key={emp.id} variants={listItem} className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-9 rounded-full bg-indigo-600/70 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
+                      {/* The role is a tag on the person, in the app's tag style (small,
+                          rounded, no border), so it doesn't read as a button beside
+                          Promote / Demote. */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</span>
+                        <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 ${
+                          isOwner
+                            ? "bg-amber-500/15 text-amber-300"
+                            : isMgr
+                            ? "bg-violet-500/15 text-violet-300"
+                            : "bg-slate-800 text-slate-400"
+                        }`}>
+                          {isOwner ? "Owner" : isMgr ? "Manager" : "Employee"}
+                        </span>
+                      </div>
                       {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs font-semibold py-1.5 rounded-lg w-20 text-center border ${
-                        isOwner
-                          ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
-                          : isMgr
-                          ? "bg-violet-500/15 text-violet-300 border-violet-500/25"
-                          : "bg-slate-700/60 text-slate-400 border-slate-700"
-                      }`}>
-                        {isOwner ? "Owner" : isMgr ? "Manager" : "Employee"}
-                      </span>
+                    {/* The action column has a fixed width so buttons line up row to row. */}
+                    <div className="flex items-center shrink-0">
                       {!emp.user_id ? (
                         <span className="text-xs text-slate-500 w-20 py-1.5 text-center">No account</span>
                       ) : isSelf ? (
@@ -212,7 +213,7 @@ export default function AdminPageClient({
                         </span>
                       ) : isOwner || !canManageRoles ? (
                         <span
-                          className="text-xs text-slate-600 w-20 py-1.5 text-center"
+                          className="text-xs text-slate-500 w-20 py-1.5 text-center"
                           aria-label={isOwner
                             ? "Organization owner — cannot be demoted"
                             : "Only the organization owner can change roles"}

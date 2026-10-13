@@ -5,23 +5,9 @@ import { Chessboard } from "react-chessboard";
 import type { PieceDropHandlerArgs } from "react-chessboard";
 import { Chess, type Square } from "chess.js";
 import { playMove, playCapture, playCastle, playCheck, playWin, playLose, playDraw } from "@/lib/chess-sounds";
+import type { ChessMessage } from "@/lib/chess-message";
 
-export type ChessMessage = {
-  fen: string;
-  white: string;
-  black: string;
-  status: "active" | "white_wins" | "black_wins" | "draw";
-  lastMoveFlags?: string; // chess.js move flags: c=capture, k/q=castle, e=en passant, p=promotion
-};
-
-export function parseChessMessage(body: string): ChessMessage | null {
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed._chess === true && parsed.fen && parsed.white && parsed.black && parsed.status)
-      return parsed as ChessMessage;
-  } catch {}
-  return null;
-}
+export { parseChessMessage, type ChessMessage } from "@/lib/chess-message";
 
 function soundForMove(flags: string | undefined, inCheck: boolean, status: ChessMessage["status"], amWhite: boolean) {
   if (status === "white_wins" || status === "black_wins") {

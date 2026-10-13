@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtMinutes } from "../data/types";
+import FormError from "./FormError";
 
 type Props = {
   firstDayOfWeek?: number;
@@ -81,7 +82,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
 
   function closeSheet() {
     setSheetOpen(false);
-    setTimeout(() => setActiveDow(null), 300);
+    setTimeout(() => setActiveDow(null), 250);
   }
 
   const handleEscape = useCallback((e: KeyboardEvent) => {
@@ -150,7 +151,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
               aria-label={`Edit ${DAY_FULL[dow]} store hours`}
               className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
             >
-              <span className="text-sm font-semibold text-slate-400 w-9 shrink-0">
+              <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
               <span className="flex-1 text-sm text-slate-200">
@@ -172,7 +173,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
         <>
           <div
             aria-hidden="true"
-            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
+            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
@@ -181,7 +182,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
             aria-modal="true"
             aria-labelledby="store-hours-sheet-title"
             data-testid="store-hours-sheet"
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
+            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
           >
             <div className="flex justify-center pt-3 pb-1 tablet:hidden">
               <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
@@ -211,7 +212,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                     <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                       {label}
                     </div>
-                    <div className="w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800 focus-within:border-indigo-500/70 transition-colors">
+                    <div className="w-full rounded-xl overflow-hidden border border-field bg-slate-800 focus-within:border-indigo-500 transition-colors">
                       <input
                         type="time"
                         aria-label={ariaLabel}
@@ -233,11 +234,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                 ))}
               </div>
 
-              {sheetInvalid && (
-                <div id="store-hours-error" role="alert" className="mt-3 text-sm text-red-400">
-                  Close time must be after open time
-                </div>
-              )}
+              <FormError id="store-hours-error" size="sm" message={sheetInvalid ? "Close time must be after open time" : null} className="mt-3" />
 
               {/* Copy to */}
               <div className="mt-5">

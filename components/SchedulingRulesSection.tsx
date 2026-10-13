@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MAX_WEEKLY_HOURS, type SchedulingRules } from "@/lib/scheduling-rules";
 import SegmentedControl from "./SegmentedControl";
 import SaveStatusText, { type SaveStatus } from "./SaveStatusText";
+import SettingsSectionLabel from "./SettingsSectionLabel";
 
 // Settings → Workplace → Scheduling Rules: the org-wide rules
 // Auto-schedule works within (lib/scheduling-rules.ts). Each change saves
@@ -20,19 +21,30 @@ const SHIFT_LENGTHS = Array.from({ length: 31 }, (_, i) => 60 + i * 30);
 const REST_OPTIONS = Array.from({ length: 17 }, (_, i) => i * 60);
 const DAY_COUNTS = [1, 2, 3, 4, 5, 6, 7];
 
+// Every rule's controls fill one column (see Row), and a select takes what's
+// left of it: a row's only select is the column's width, two share it.
 const selectClass =
-  "bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500/70 cursor-pointer";
+  "flex-1 min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500 cursor-pointer";
 const hoursInputClass =
-  "w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70";
+  "w-16 shrink-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500";
 
-function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+// A rule: its name and description, and its controls. The controls fill a
+// column of one width on every row (the row's width on phones, 260px beside
+// the name from the tablet size class up), so selects and segmented controls
+// line up from row to row. A problem with the row's values takes the
+// description's place, beside the fields it's about.
+function Row({ title, desc, error, children }: { title: string; desc?: string; error?: string | null; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 tablet:flex-row tablet:items-center tablet:justify-between tablet:gap-4">
       <div className="min-w-0">
         <div className="text-sm font-semibold text-slate-200">{title}</div>
-        {desc && <div className="text-xs text-slate-500 mt-0.5">{desc}</div>}
+        {error ? (
+          <div role="alert" className="text-xs text-red-400 mt-0.5">{error}</div>
+        ) : (
+          desc && <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
+        )}
       </div>
-      <div className="shrink-0 tablet:min-w-[220px] tablet:max-w-[260px] flex items-center gap-2 tablet:justify-end">{children}</div>
+      <div className="w-full shrink-0 tablet:w-[260px] flex items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -85,7 +97,8 @@ export default function SchedulingRulesSection({
 }) {
   const [draft, setDraft] = useState(rules);
   const [status, setStatus] = useState<SaveStatus>("idle");
-  const [problem, setProblem] = useState<string | null>(null);
+  // The employment type whose minimum hours are over its maximum.
+  const [problemRow, setProblemRow] = useState<"Full-Time" | "Part-Time" | null>(null);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Follow rules loaded after mount.
@@ -105,10 +118,10 @@ export default function SchedulingRulesSection({
   async function save(patch: Partial<SchedulingRules>) {
     const next = { ...draft, ...patch };
     if (next.fullTimeMinHours > next.fullTimeMaxHours || next.partTimeMinHours > next.partTimeMaxHours) {
-      setProblem("The minimum hours can't be more than the maximum.");
+      setProblemRow(next.fullTimeMinHours > next.fullTimeMaxHours ? "Full-Time" : "Part-Time");
       return;
     }
-    setProblem(null);
+    setProblemRow(null);
     const prev = draft;
     setDraft(next);
     setStatus("saving");
@@ -128,9 +141,9 @@ export default function SchedulingRulesSection({
 
   return (
     <section data-testid="scheduling-rules-section">
-      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
-        Scheduling Rules
-      </div>
+      <SettingsSectionLabel label="Scheduling Rules">
+        <SaveStatusText status={status} testId="scheduling-rules-status" />
+      </SettingsSectionLabel>
       <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
         <div className="text-xs text-slate-500 pb-4 mb-0 border-b border-slate-800/60">
           Auto-schedule (Week page, Draft mode) always follows these. Employees&apos; availability and approved time off come first.
@@ -147,7 +160,7 @@ export default function SchedulingRulesSection({
                 <option key={m} value={m}>{fmtHours(m)}</option>
               ))}
             </select>
-            <span className="text-xs text-slate-500">to</span>
+            <span className="shrink-0 text-xs text-slate-500">to</span>
             <select
               aria-label="Longest shift"
               value={draft.maxShiftMinutes}
@@ -233,19 +246,24 @@ export default function SchedulingRulesSection({
             { label: "Full-Time", minKey: "fullTimeMinHours", maxKey: "fullTimeMaxHours", daysKey: "fullTimeMaxDays" },
             { label: "Part-Time", minKey: "partTimeMinHours", maxKey: "partTimeMaxHours", daysKey: "partTimeMaxDays" },
           ] as const).map(({ label, minKey, maxKey, daysKey }) => (
-            <Row key={label} title={`${label} Default`} desc="Unless an employee has their own limits">
+            <Row
+              key={label}
+              title={`${label} Default`}
+              desc="Unless an employee has their own limits"
+              error={problemRow === label ? "The minimum hours can't be more than the maximum." : null}
+            >
               <HoursField
                 ariaLabel={`${label} minimum weekly hours`}
                 value={draft[minKey]}
                 onCommit={(h) => save({ [minKey]: h })}
               />
-              <span className="text-xs text-slate-500">–</span>
+              <span className="shrink-0 text-xs text-slate-500">–</span>
               <HoursField
                 ariaLabel={`${label} maximum weekly hours`}
                 value={draft[maxKey]}
                 onCommit={(h) => save({ [maxKey]: h })}
               />
-              <span className="text-xs text-slate-500">h ·</span>
+              <span className="shrink-0 text-xs text-slate-500">h ·</span>
               <select
                 aria-label={`${label} most days per week`}
                 value={draft[daysKey]}
@@ -259,9 +277,6 @@ export default function SchedulingRulesSection({
             </Row>
           ))}
         </div>
-
-        {problem && <div role="alert" className="text-xs text-red-400 mt-3">{problem}</div>}
-        <SaveStatusText status={status} testId="scheduling-rules-status" />
       </div>
     </section>
   );

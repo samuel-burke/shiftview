@@ -20,6 +20,8 @@ vi.mock("@/lib/supabase-browser", () => ({
   createClient: () => ({
     auth: {
       getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       signInWithOtp: () => Promise.resolve({ error: null }),
       verifyOtp: () => Promise.resolve({ error: null }),
       signOut: () => Promise.resolve({ error: null }),

@@ -26,7 +26,7 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIMES = Array.from({ length: 49 }, (_, i) => i * 30); // 12:00 AM … midnight
 
 const selectClass =
-  "bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500/70 cursor-pointer min-w-0";
+  "bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer min-w-0";
 
 type AdderKind = "coverage" | "employee_off" | "employee_hours";
 
@@ -205,7 +205,7 @@ export default function AutoScheduleSheet({
                 disabled={generating}
                 autoFocus
                 aria-label="Close"
-                className="size-10 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors disabled:opacity-50"
+                className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors disabled:opacity-50"
               >
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
               </button>
@@ -414,7 +414,7 @@ export default function AutoScheduleSheet({
                             step={0.5}
                             value={form.maxHours}
                             onChange={(e) => setForm({ ...form, maxHours: e.target.value })}
-                            className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500/70"
+                            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
                           />
                           <span className="text-xs text-slate-400 normal-case font-normal">h</span>
                         </span>
@@ -445,7 +445,7 @@ export default function AutoScheduleSheet({
                 onClick={() => onGenerate({ mode: draftCount > 0 ? mode : "replace", rules: { overtimePolicy, pendingTimeOff: pendingPolicy }, adjustments })}
                 disabled={!canGenerate}
                 aria-busy={generating}
-                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-violet-500 border-none cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {generating ? "Generating…" : "Generate Schedule"}
               </button>

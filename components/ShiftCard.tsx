@@ -51,7 +51,7 @@ export default function ShiftCard({
   const isWalkIn = schedule.startMinutes < 0;
   const shiftType = isWalkIn ? null : getShiftType(schedule.startMinutes, schedule.endMinutes, storeHours.open, storeHours.close);
   const here = isToday && !isWalkIn && isHere(schedule, nowMinutes, dayKey);
-  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "#94a3b8";
+  const shiftColor = shiftType ? SHIFT_COLORS[shiftType] : "var(--status-muted)";
 
   let arrivalText: string | null = null;
   if (!isWalkIn && isToday && !here && windowStart > nowMinutes) {
@@ -78,7 +78,7 @@ export default function ShiftCard({
 
   const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
 
-  const glowShadow = `0 0 18px ${shiftColor}20, inset 0 1px 0 rgba(255,255,255,0.04)`;
+  const glowShadow = `0 0 18px color-mix(in srgb, ${shiftColor} 13%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)`;
 
   const shiftTimeLabel = `${fromPrevDay ? "from yesterday, " : ""}${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
   const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
@@ -87,9 +87,10 @@ export default function ShiftCard({
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
-      whileHover={{ y: -1, boxShadow: `0 4px 24px ${shiftColor}30` }}
+      whileHover={{ y: -1, boxShadow: `0 4px 24px color-mix(in srgb, ${shiftColor} 19%, transparent)` }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       aria-label={cardAriaLabel}
+      data-scroll-anchor={`shift-${schedule.id}`}
       className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
       style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
     >
@@ -126,12 +127,14 @@ export default function ShiftCard({
             {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
           </div>
         )}
-        <div className="mt-[5px] flex justify-end items-center gap-1.5">
+        {/* The badge's row is always there, so a card is the same height
+            before and after the punches load (SkeletonShiftCard matches). */}
+        <div className="mt-[5px] min-h-6 flex justify-end items-center gap-1.5">
           {arrivalText && !badge && (
             <span className="text-xs text-slate-400">{arrivalText}</span>
           )}
           {badge && (
-            <span className={`text-[11px] font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 select-none ${badge.className}`}>
+            <span className={`text-[11px] leading-4 font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 select-none ${badge.className}`}>
               {(badge.label === "Clocked In" || badge.label === "Here") && (
                 <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />

@@ -33,12 +33,15 @@ export async function GET(request?: Request) {
     return NextResponse.json({ error }, { status: 403 });
 
   const { orgId, employeeId, isManager } = ctx!;
-  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  // Only the upcoming lists need the store's today; the dashboard's single-day
+  // read skips the timezone lookup.
+  const storeToday = async () => todayKeyInTz(await getOrgTimezone(supabase, orgId));
 
   // Employee's own call-outs (next 90 days), mirroring the time-off "mine" path.
   if (mine) {
     if (!employeeId) return NextResponse.json({ callouts: [] });
 
+    const today = await storeToday();
     const ninetyDaysOut = addDaysToKey(today, 90);
 
     const { data: emp } = await supabase
@@ -80,7 +83,7 @@ export async function GET(request?: Request) {
     .select("id, employee_id, date, reason")
     .eq("org_id", orgId)
     .order("date", { ascending: true });
-  query = date ? query.eq("date", date) : query.gte("date", today);
+  query = date ? query.eq("date", date) : query.gte("date", await storeToday());
 
   const { data: rows, error: fetchError } = await query;
   if (fetchError) {

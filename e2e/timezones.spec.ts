@@ -32,14 +32,20 @@ async function intercept(page: Page, requestedDates: string[]) {
     route.fulfill({ json: { defaults: {}, overrides: {} } })
   );
   // Alice works the store's today; Bob works the device's today.
+  // The dashboard reads a range (the day before through the day after); record
+  // every day a request covers.
   await page.route("**/api/schedules**", (route) => {
-    const date = new URL(route.request().url()).searchParams.get("date") ?? "";
-    requestedDates.push(date);
+    const params = new URL(route.request().url()).searchParams;
+    const from = params.get("from") ?? params.get("date") ?? "";
+    const to = params.get("to") ?? from;
+    for (let d = new Date(`${from}T12:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+      requestedDates.push(d.toISOString().slice(0, 10));
+    }
     route.fulfill({
       json: [
         { id: 1, employeeId: 1, date: STORE_TODAY, startMinutes: 360, endMinutes: 840 },
         { id: 2, employeeId: 2, date: "2026-10-05", startMinutes: 540, endMinutes: 1020 },
-      ].filter((s) => s.date === date),
+      ].filter((s) => s.date >= from && s.date <= to),
     });
   });
 }

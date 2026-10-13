@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
   const { data, error: dbError } = await supabase
     .from("schedules")
-    .select("*")
+    .select("id, employee_id, date, start_minutes, end_minutes")
     .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("date", from)
