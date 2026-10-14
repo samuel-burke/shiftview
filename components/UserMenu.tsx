@@ -59,7 +59,6 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
     <div ref={ref} className="relative">
       <motion.button
         onClick={() => setOpen((o) => !o)}
-        aria-label="User menu"
         aria-expanded={open}
         aria-haspopup="menu"
         whileHover={{ scale: 1.08, boxShadow: `0 0 14px ${tint("var(--color-accent)", 30)}` }}
@@ -67,7 +66,10 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
         transition={{ type: "spring", stiffness: 450, damping: 25 }}
         className="size-11 rounded-full bg-accent-solid/90 border border-accent/40 flex items-center justify-center text-sm font-bold text-on-accent cursor-pointer"
       >
-        {monogram ?? (
+        {/* Named by its text (WCAG 2.5.3): the monogram is a picture of the
+            user, so it's hidden and the button reads "User menu". */}
+        <span className="sr-only">User menu</span>
+        {monogram ? <span aria-hidden="true">{monogram}</span> : (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
             <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

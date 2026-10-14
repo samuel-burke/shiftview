@@ -19,7 +19,7 @@ test.describe("Week page", () => {
     await expect(page).toHaveURL(new RegExp(`/week\\?week=${NEXT_WEEK}$`));
     // The toggle shows the week's drafts from Live.
     const draftToggle = page.getByRole("radio", { name: /^Draft/ });
-    await expect(draftToggle).toHaveAccessibleName("Draft, 3 shifts");
+    await expect(draftToggle).toHaveAccessibleName(/^Draft ?, 3 shifts$/);
 
     await draftToggle.click();
     await expect(page).toHaveURL(new RegExp(`/week\\?mode=draft&week=${NEXT_WEEK}$`));
@@ -95,7 +95,7 @@ test.describe("Week page", () => {
     await expect(result).toContainText("1 draft stayed in Draft: Alice S. already has a live shift");
     expect(state.calls.at(-1)).toEqual({ method: "POST", path: "/api/drafts/publish", body: { weekStart: NEXT_WEEK } });
     // The kept draft still counts on the toggle.
-    await expect(page.getByRole("radio", { name: /^Draft/ })).toHaveAccessibleName("Draft, 1 shift");
+    await expect(page.getByRole("radio", { name: /^Draft/ })).toHaveAccessibleName(/^Draft ?, 1 shift$/);
   });
 
   test("one chart compares each day's scheduled hours with its budget", async ({ page }) => {
@@ -139,7 +139,7 @@ test.describe("Week page", () => {
       const chips = page.getByRole("group", { name: "Day" });
       await expect(chips.getByRole("button")).toHaveCount(7);
       await chips.getByRole("button", { name: longDay(NEXT_MON) }).click();
-      await expect(list.getByRole("button", { name: /^Alice Smith: 9:00 AM to 5:00 PM/ })).toBeVisible();
+      await expect(list.getByRole("button", { name: /^Alice S\. ?, 9:00 AM – 5:00 PM/ })).toBeVisible();
     } else {
       await expect(grid).toBeVisible();
       await expect(list).toBeHidden();

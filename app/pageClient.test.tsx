@@ -179,8 +179,8 @@ describe("pageClient — after midnight", () => {
       return makeJsonResponse({});
     });
     render(<Page />);
-    expect(await screen.findByRole("button", { name: /Casey.*from yesterday, 4:00 PM to 11:00 PM, Clocked In/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Nia.*from yesterday, 10:00 PM to 6:00 AM, Clocked In/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Casey.*Yesterday.*4:00 PM – 11:00 PM.*Clocked In/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Nia.*Yesterday.*10:00 PM – 6:00 AM.*Clocked In/ })).toBeInTheDocument();
     expect(screen.queryByText("Walk-in")).not.toBeInTheDocument();
   });
 });

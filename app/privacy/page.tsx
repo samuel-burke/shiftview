@@ -1,5 +1,7 @@
 import Link from "next/link";
-import Logo from "@/components/Logo";
+import MarketingShell from "@/components/marketing/MarketingShell";
+import { Container } from "@/components/marketing/ui";
+import { isSignedIn } from "@/lib/signed-in";
 
 export const metadata = { title: "Privacy Policy — ShiftView" };
 
@@ -29,24 +31,10 @@ function Table({ rows }: { rows: [string, string][] }) {
   );
 }
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
   return (
-    <main className="min-h-dvh bg-bg px-4 py-12">
-      <div className="mx-auto max-w-2xl">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-secondary transition-colors mb-8 py-3 -my-3"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M19 12H5M5 12l7-7M5 12l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Back
-        </Link>
-
-        <div className="mb-3">
-          <Logo className="h-5" />
-        </div>
-
+    <MarketingShell signedIn={await isSignedIn()}>
+      <Container className="max-w-2xl! py-12 sm:py-16">
         <h1 className="text-2xl font-extrabold text-fg tracking-tight mb-1">Privacy Policy</h1>
         <p className="text-xs text-fg-subtle mb-8">Last updated: October 9, 2026</p>
 
@@ -198,7 +186,7 @@ export default function PrivacyPage() {
             </p>
           </Section>
         </div>
-      </div>
-    </main>
+      </Container>
+    </MarketingShell>
   );
 }

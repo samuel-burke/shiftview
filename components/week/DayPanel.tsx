@@ -68,17 +68,19 @@ export function DayChips({
             // Placeholders can't be picked: the day under them is about to change.
             disabled={!ready}
             aria-pressed={ready ? active : undefined}
-            aria-label={ready ? formatDateKey(date, { weekday: "long", month: "long", day: "numeric" }) : undefined}
             className={`flex flex-col items-center py-2 rounded-xl cursor-pointer transition-colors border ${
               active
                 ? "bg-accent-solid/25 border-accent-fg text-accent-fg-max"
                 : "bg-card border-line/60 text-fg-muted hover:text-fg-body"
             }`}
           >
-            <span className="text-[11px] font-semibold uppercase">
+            {/* Named by its text, with the abbreviated day spelled out for
+                screen readers (WCAG 2.5.3). */}
+            {ready && <span className="sr-only">{formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}</span>}
+            <span aria-hidden={ready || undefined} className="text-[11px] font-semibold uppercase">
               {ready ? DAY_LABELS[dayOfWeek(date)] : <SkeletonText text="Sun" />}
             </span>
-            <span className="text-sm font-bold tabular-nums">
+            <span aria-hidden={ready || undefined} className="text-sm font-bold tabular-nums">
               {ready ? Number(date.slice(8, 10)) : <SkeletonText text="00" />}
             </span>
             <span
@@ -262,30 +264,20 @@ export function DayList({
           const week = weekHours(emp);
           const timeOffRequested = requested.has(emp.id);
           const isSel = selected?.employeeId === emp.id && selected.date === date;
-          const status = !isDraftMode || !s
-            ? ""
-            : clash
-            ? ", live shift; a draft for this day won't publish. Open the draft"
-            : isLiveContext
-            ? ", live shift (change it in Live mode)"
-            : s.generationRunId
-            ? ", auto draft"
-            : ", draft";
-          const label = s
-            ? `${emp.name}: ${fmtMinutes(s.startMinutes)} to ${fmtMinutes(s.endMinutes)}${status}${timeOffRequested ? ", time off requested" : ""}`
-            : `${emp.name}: off${timeOffRequested ? ", time off requested" : ""}. Add a ${isDraftMode ? "draft " : ""}shift`;
+          // Named by its text (WCAG 2.5.3): the monogram is hidden, sr-only
+          // commas keep the parts apart, and sr-only text says what a tap does.
           return (
             <button
               key={emp.id}
               type="button"
               onClick={() => onSelect(emp, date)}
-              aria-label={label}
               aria-pressed={isSel}
               className={`w-full min-h-14 flex items-center gap-3 px-4 py-3 border-none cursor-pointer text-left transition-colors ${
                 isSel ? "bg-accent/10" : "bg-transparent hover:bg-fill/40"
               }`}
             >
               <div
+                aria-hidden="true"
                 className={`size-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                   s ? "" : "bg-fill border border-line-strong text-fg-subtle"
                 }`}
@@ -302,7 +294,7 @@ export function DayList({
                 {getMonogram(emp.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className={`text-sm font-semibold truncate ${s ? "text-fg-body" : "text-fg-muted"}`}>{formatDisplayName(emp.name)}</div>
+                <div className={`text-sm font-semibold truncate ${s ? "text-fg-body" : "text-fg-muted"}`}>{formatDisplayName(emp.name)}<span className="sr-only">, </span></div>
                 <div className={`text-xs tabular-nums ${s ? "text-fg-muted" : "text-fg-subtle"}`}>
                   {s ? `${fmtMinutes(s.startMinutes)} – ${fmtMinutes(s.endMinutes)} · ${round1(shiftHours(s, timezone))} hrs` : "Off"}
                   {/* The week's hours wrap as one piece, never "56/40 h" | "week". */}
@@ -310,19 +302,29 @@ export function DayList({
                 </div>
                 {clash && cell.draft && (
                   <div className="text-xs text-warning-fg mt-0.5">
-                    Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
+                    <span className="sr-only">, </span>Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
                   </div>
                 )}
-                {timeOffRequested && <div className="text-xs text-warning-fg mt-0.5">Time off requested</div>}
+                {timeOffRequested && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested</div>}
               </div>
               {s ? (
                 isLiveContext ? (
-                  <Pill tone="live">Live</Pill>
+                  <>
+                    <span className="sr-only">, </span>
+                    <Pill tone="live">Live</Pill>
+                    <span className="sr-only">{clash ? " shift. Open the draft" : " shift, change it in Live mode"}</span>
+                  </>
                 ) : isDraftMode ? (
-                  s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>
+                  <>
+                    <span className="sr-only">, </span>
+                    {s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>}
+                  </>
                 ) : null
               ) : (
-                <span aria-hidden="true" className="text-[11px] font-semibold text-accent-fg shrink-0">+ Add</span>
+                <>
+                  <span aria-hidden="true" className="text-[11px] font-semibold text-accent-fg shrink-0">+ Add</span>
+                  <span className="sr-only">. Add a {isDraftMode ? "draft " : ""}shift</span>
+                </>
               )}
             </button>
           );

@@ -81,22 +81,20 @@ export default function ShiftCard({
 
   const glowShadow = `0 0 18px ${tint(shiftColor, 13)}, var(--shadow-card)`;
 
-  const shiftTimeLabel = `${fromPrevDay ? "from yesterday, " : ""}${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
-  const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
-
   return (
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
       whileHover={{ y: -1, boxShadow: `0 4px 24px ${tint(shiftColor, 19)}` }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      aria-label={cardAriaLabel}
       data-scroll-anchor={`shift-${schedule.id}`}
       className="w-full text-left bg-card border border-line-subtle rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
       style={{ borderLeft: `3px solid ${markColor(shiftColor)}`, boxShadow: glowShadow }}
     >
-      {/* Avatar */}
+      {/* Avatar. The button is named by its visible text (WCAG 2.5.3), so the
+          monogram is hidden and sr-only commas keep the parts apart. */}
       <div
+        aria-hidden="true"
         className="size-[38px] rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
           background: tint(shiftColor, 13),
@@ -114,6 +112,7 @@ export default function ShiftCard({
         </div>
         {(shiftType || isWalkIn) && (
           <div className="text-[11px] mt-0.5 capitalize flex items-center gap-1" style={{ color: shiftColor }}>
+            <span className="sr-only">, </span>
             {shiftType && <ShiftIcon shiftType={shiftType} size={12} color={shiftColor} />}
             {isWalkIn ? "Walk-in" : shiftType}
           </div>
@@ -124,6 +123,7 @@ export default function ShiftCard({
       <div className="text-right shrink-0">
         {!isWalkIn && (
           <div className="text-xs text-fg-muted whitespace-nowrap">
+            <span className="sr-only">, </span>
             {fromPrevDay && <span className="text-fg-subtle">Yesterday </span>}
             {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
           </div>
@@ -132,7 +132,7 @@ export default function ShiftCard({
             before and after the punches load (SkeletonShiftCard matches). */}
         <div className="mt-[5px] min-h-6 flex justify-end items-center gap-1.5">
           {arrivalText && !badge && (
-            <span className="text-xs text-fg-muted">{arrivalText}</span>
+            <span className="text-xs text-fg-muted"><span className="sr-only">, </span>{arrivalText}</span>
           )}
           {badge && (
             <span className={`text-[11px] leading-4 font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 select-none ${badge.className}`}>
@@ -149,6 +149,7 @@ export default function ShiftCard({
                   className="relative flex h-2 w-2 shrink-0 rounded-full bg-warning-mark"
                 />
               )}
+              <span className="sr-only">, </span>
               {badge.label}
             </span>
           )}

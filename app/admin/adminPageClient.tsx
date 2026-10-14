@@ -7,6 +7,7 @@ import { getMonogram } from "../../data/types";
 import BottomNav from "../../components/BottomNav";
 import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
+import HeaderActions from "../../components/HeaderActions";
 import { motion } from "framer-motion";
 import DemoBanner from "@/components/DemoBanner";
 
@@ -152,7 +153,8 @@ export default function AdminPageClient({
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-fg tracking-tight desk:text-xl">Admin</span>
+        <span className="flex-1 text-2xl font-extrabold text-fg tracking-tight desk:text-xl">Admin</span>
+        <HeaderActions className="hidden tablet:flex" />
       </div>
 
       <div className="px-4 pt-5 desk:max-w-2xl desk:mx-auto desk:px-6 flex flex-col gap-5">

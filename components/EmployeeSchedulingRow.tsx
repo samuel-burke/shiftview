@@ -115,11 +115,10 @@ export default function EmployeeSchedulingRow({
       <button
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        aria-label={`Scheduling for ${employee.name}`}
         className="flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-muted cursor-pointer bg-transparent border-none transition-colors py-2 -my-2 text-left"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        <span>Scheduling</span>
+        <span>Scheduling{" "}<span className="sr-only">for {employee.name},</span></span>
         <span aria-hidden="true">·</span>
         <span className={savedLimits.typeSet ? "text-fg-muted" : "text-warning-fg"}>{summary}</span>
       </button>
