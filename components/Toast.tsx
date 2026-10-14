@@ -13,9 +13,9 @@ import { createPortal } from "react-dom";
 type Tone = "error" | "warning" | "success";
 
 const TONES: Record<Tone, string> = {
-  error: "bg-red-500/10 border-red-500/25 text-red-400",
-  warning: "bg-amber-500/10 border-amber-500/25 text-amber-400",
-  success: "bg-emerald-500/10 border-emerald-500/25 text-emerald-400",
+  error: "bg-danger/10 border-danger/25 text-danger-fg",
+  warning: "bg-warning/10 border-warning/25 text-warning-fg",
+  success: "bg-success/10 border-success/25 text-success-fg",
 };
 
 const noop = () => () => {};
@@ -51,7 +51,7 @@ export function Toast({
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "role" | "className" | "children">) {
   return (
     // The card behind keeps the tinted message readable over the page.
-    <div className="toast-in pointer-events-auto rounded-xl bg-card shadow-xl shadow-black/40">
+    <div className="toast-in pointer-events-auto rounded-xl bg-card shadow-xl shadow-scrim/40">
       <div
         role={role ?? (tone === "error" ? "alert" : "status")}
         className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${TONES[tone]} ${className}`}

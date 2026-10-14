@@ -6,6 +6,7 @@ import type { PieceDropHandlerArgs } from "react-chessboard";
 import { Chess, type Square } from "chess.js";
 import { playMove, playCapture, playCastle, playCheck, playWin, playLose, playDraw } from "@/lib/chess-sounds";
 import type { ChessMessage } from "@/lib/chess-message";
+import { tint } from "@/lib/theme-colors";
 
 export { parseChessMessage, type ChessMessage } from "@/lib/chess-message";
 
@@ -213,7 +214,7 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between px-1">
         <div className={`text-xs font-medium ${
-          isOver ? "text-slate-400" : isMyTurn ? "text-emerald-400" : "text-slate-400"
+          isOver ? "text-fg-muted" : isMyTurn ? "text-success-fg" : "text-fg-muted"
         }`}>
           {statusMessage()}
         </div>
@@ -221,14 +222,14 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
           <button
             onClick={handleResign}
             disabled={moving}
-            className="text-[11px] text-slate-500 hover:text-red-400 transition-colors disabled:opacity-40"
+            className="text-[11px] text-fg-subtle hover:text-danger-fg transition-colors disabled:opacity-40"
           >
             Resign
           </button>
         )}
       </div>
 
-      <div className="rounded-xl overflow-hidden border border-slate-700/50">
+      <div className="rounded-xl overflow-hidden border border-line-strong/50">
         <Chessboard
           options={{
             position: displayFen,
@@ -239,11 +240,12 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
             showAnimations: true,
             animationDurationInMs: 150,
             boardStyle: { borderRadius: 0 },
+            // The board itself keeps fixed square colors in both themes, like a real board.
             darkSquareStyle: { backgroundColor: "#3b4a6b" },
             lightSquareStyle: { backgroundColor: "#e8edf5" },
             squareStyles: {
               ...(selectedSquare
-                ? { [selectedSquare]: { backgroundColor: "rgba(99,102,241,0.5)" } }
+                ? { [selectedSquare]: { backgroundColor: tint("var(--color-accent)", 50) } }
                 : {}),
               ...Object.fromEntries(
                 legalSquares.map((sq) => {
@@ -251,9 +253,9 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
                   return [
                     sq,
                     hasPiece
-                      ? { boxShadow: "inset 0 0 0 3px rgba(99,102,241,0.7)" }
+                      ? { boxShadow: `inset 0 0 0 3px ${tint("var(--color-accent)", 70)}` }
                       : {
-                          backgroundImage: "radial-gradient(circle, rgba(99,102,241,0.55) 28%, transparent 30%)",
+                          backgroundImage: `radial-gradient(circle, ${tint("var(--color-accent)", 55)} 28%, transparent 30%)`,
                         },
                   ];
                 })
@@ -263,7 +265,7 @@ export default function ChessBoard({ myUserId, otherName, game, onSend }: Props)
         />
       </div>
 
-      <div className="flex justify-between text-[11px] text-slate-500 px-1">
+      <div className="flex justify-between text-[11px] text-fg-subtle px-1">
         <span>{amWhite ? "You (white)" : `${otherName} (white)`}</span>
         <span>{amWhite ? `${otherName} (black)` : "You (black)"}</span>
       </div>

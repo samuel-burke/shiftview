@@ -36,7 +36,7 @@ const HINT: Record<WeekMode, string> = {
 };
 
 const navButton =
-  "size-10 shrink-0 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-40 disabled:cursor-default";
+  "size-10 shrink-0 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer hover:bg-fill hover:text-fg-body transition-colors disabled:opacity-40 disabled:cursor-default";
 
 export function Sparkle() {
   return (
@@ -59,11 +59,11 @@ function ModeToggle({
   onChange: (m: WeekMode) => void;
 }) {
   const options: { value: WeekMode; label: string; dot: string }[] = [
-    { value: "live", label: "Live", dot: "bg-emerald-400" },
-    { value: "draft", label: "Draft", dot: "bg-amber-400" },
+    { value: "live", label: "Live", dot: "bg-success-mark" },
+    { value: "draft", label: "Draft", dot: "bg-warning-mark" },
   ];
   return (
-    <div role="radiogroup" aria-label="Schedule" className="flex shrink-0 bg-card border border-slate-800 rounded-xl p-[3px] gap-[3px]">
+    <div role="radiogroup" aria-label="Schedule" className="flex shrink-0 bg-card border border-line rounded-xl p-[3px] gap-[3px]">
       {options.map((o) => {
         const active = o.value === mode;
         return (
@@ -76,13 +76,13 @@ function ModeToggle({
             disabled={disabled}
             onClick={() => { if (!active) onChange(o.value); }}
             className={`min-h-10 px-3 rounded-[9px] text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:cursor-default ${
-              active ? "bg-slate-800 text-slate-50 shadow ring-1 ring-inset ring-slate-500" : "bg-transparent text-slate-400 hover:text-slate-200"
+              active ? "bg-fill text-fg shadow ring-1 ring-inset ring-line-emphasis" : "bg-transparent text-fg-muted hover:text-fg-body"
             }`}
           >
-            <span aria-hidden="true" className={`size-1.5 rounded-full ${active ? o.dot : "bg-slate-600"}`} />
+            <span aria-hidden="true" className={`size-1.5 rounded-full ${active ? o.dot : "bg-fill-stronger"}`} />
             {o.label}
             {o.value === "draft" && draftCount > 0 && (
-              <span className="min-w-5 h-5 px-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[11px] font-bold text-amber-400 tabular-nums flex items-center justify-center">
+              <span className="min-w-5 h-5 px-1.5 rounded-full bg-warning/15 border border-warning/30 text-[11px] font-bold text-warning-fg tabular-nums flex items-center justify-center">
                 {draftCount}
               </span>
             )}
@@ -103,7 +103,7 @@ function WeekNav({ ready, isThisWeek, onPrevWeek, onNextWeek, onThisWeek }: Pick
         type="button"
         onClick={onThisWeek}
         disabled={isThisWeek || !ready}
-        className="h-10 px-2.5 tablet:px-3.5 rounded-xl bg-card border border-slate-800 text-xs tablet:text-sm font-semibold text-slate-200 cursor-pointer hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-default whitespace-nowrap"
+        className="h-10 px-2.5 tablet:px-3.5 rounded-xl bg-card border border-line text-xs tablet:text-sm font-semibold text-fg-body cursor-pointer hover:bg-fill transition-colors disabled:opacity-40 disabled:cursor-default whitespace-nowrap"
       >
         This week
       </button>
@@ -120,7 +120,7 @@ export default function WeekHeader(props: Props) {
 
   return (
     <div
-      className="px-4 pb-3 border-b border-slate-800 bg-bg tablet:px-6 desk:pb-[14px]"
+      className="px-4 pb-3 border-b border-line bg-bg tablet:px-6 desk:pb-[14px]"
       style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
     >
       {/* The week. Tablets and up keep its navigation on this row. */}
@@ -129,8 +129,8 @@ export default function WeekHeader(props: Props) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Week</div>
-          <h1 className="text-lg tablet:text-xl font-extrabold text-slate-100 tracking-tight tabular-nums" aria-busy={!ready}>
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">Week</div>
+          <h1 className="text-lg tablet:text-xl font-extrabold text-fg tracking-tight tabular-nums" aria-busy={!ready}>
             {ready ? weekLabel : <span className="skeleton inline-block align-middle h-5 w-44 rounded-md" />}
           </h1>
         </div>
@@ -146,7 +146,7 @@ export default function WeekHeader(props: Props) {
         <div className="ml-auto tablet:hidden">
           <WeekNav {...props} />
         </div>
-        <p className="w-full tablet:w-auto tablet:flex-1 tablet:min-w-0 text-xs text-slate-400" data-testid="week-mode-hint">
+        <p className="w-full tablet:w-auto tablet:flex-1 tablet:min-w-0 text-xs text-fg-muted" data-testid="week-mode-hint">
           {HINT[mode]}
         </p>
         {isDraft && (
@@ -158,7 +158,7 @@ export default function WeekHeader(props: Props) {
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
               data-testid="auto-schedule-button"
-              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-3.5 rounded-xl bg-violet-500/15 border border-violet-500/35 text-violet-200 font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-violet-500/25 transition-colors flex items-center justify-center gap-1.5"
+              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-3.5 rounded-xl bg-auto/15 border border-auto/35 text-auto-fg-max font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-auto/25 transition-colors flex items-center justify-center gap-1.5"
             >
               <Sparkle />
               Auto-schedule
@@ -169,7 +169,7 @@ export default function WeekHeader(props: Props) {
               disabled={busy || publishCount === 0}
               whileTap={{ scale: 0.97 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+              className="flex-1 tablet:flex-none min-h-11 tablet:min-h-10 px-4 rounded-xl bg-gradient-to-r from-brand-from to-brand-to border-none text-on-accent font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition-all"
             >
               Publish ({publishCount})
             </motion.button>

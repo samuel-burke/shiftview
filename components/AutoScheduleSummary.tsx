@@ -6,6 +6,7 @@ import { fmtMinutes, formatDisplayName, type Employee } from "../data/types";
 import { dayOfWeek } from "../lib/draft-metrics";
 import type { GapReasonCode, GenerationRun, SchedulerWarning, Suggestion } from "../lib/scheduler/types";
 import FormError from "./FormError";
+import { tint } from "@/lib/theme-colors";
 
 // What the last Auto-schedule run did for the week, what it couldn't cover and
 // why, and one-tap ways to improve it. Stays until the week is published, the
@@ -62,9 +63,9 @@ function suggestionLabel(s: Suggestion, nameOf: (id: number) => string): string 
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-sm font-bold text-slate-100 tabular-nums truncate">{value}</div>
-      <div className="text-[11px] text-slate-500 uppercase tracking-wider">{label}</div>
-      {detail && <div className="text-[11px] text-slate-500">{detail}</div>}
+      <div className="text-sm font-bold text-fg tabular-nums truncate">{value}</div>
+      <div className="text-[11px] text-fg-subtle uppercase tracking-wider">{label}</div>
+      {detail && <div className="text-[11px] text-fg-subtle">{detail}</div>}
     </div>
   );
 }
@@ -105,15 +106,15 @@ export default function AutoScheduleSummary({
       aria-labelledby="auto-summary-title"
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mx-4 mt-3 tablet:mx-6 bg-card rounded-2xl border border-violet-500/30 px-4 py-3.5"
-      style={{ background: "linear-gradient(180deg, rgba(139,92,246,0.06), transparent 60%)" }}
+      className="mx-4 mt-3 tablet:mx-6 bg-card rounded-2xl border border-auto/30 px-4 py-3.5"
+      style={{ background: `linear-gradient(180deg, ${tint("var(--color-auto)", 6)}, transparent 60%)` }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="auto-summary-title" className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+          <h2 id="auto-summary-title" className="text-sm font-bold text-fg flex items-center gap-1.5">
             <span aria-hidden="true">✨</span> Auto-scheduled {m.generatedShifts} shift{m.generatedShifts === 1 ? "" : "s"}
           </h2>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-fg-muted">
             {run.mode === "fill" ? "Around your drafts" : "Started fresh"} · {created}
             {run.adjustments.length > 0 && ` · ${run.adjustments.length} adjustment${run.adjustments.length === 1 ? "" : "s"}`}
           </div>
@@ -121,7 +122,7 @@ export default function AutoScheduleSummary({
         <button
           onClick={onDismiss}
           aria-label="Dismiss summary"
-          className="size-10 -mt-1.5 -mr-2 rounded-lg bg-transparent border-none text-slate-500 hover:text-slate-300 cursor-pointer flex items-center justify-center shrink-0"
+          className="size-10 -mt-1.5 -mr-2 rounded-lg bg-transparent border-none text-fg-subtle hover:text-fg-secondary cursor-pointer flex items-center justify-center shrink-0"
         >
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
         </button>
@@ -143,7 +144,7 @@ export default function AutoScheduleSummary({
       {run.warnings.length > 0 && (
         <ul className="mt-3 flex flex-col gap-1">
           {run.warnings.map((w) => (
-            <li key={w.code} className="flex items-start gap-1.5 text-xs text-amber-400">
+            <li key={w.code} className="flex items-start gap-1.5 text-xs text-warning-fg">
               <span aria-hidden="true">⚠</span>
               <span>{warningText(w, nameOf)}</span>
             </li>
@@ -153,17 +154,17 @@ export default function AutoScheduleSummary({
 
       {run.gaps.length > 0 ? (
         <div className="mt-3">
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-1.5">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-1.5">
             {run.gaps.length} gap{run.gaps.length === 1 ? "" : "s"} left
           </div>
           <ul className="flex flex-col gap-2">
             {gaps.map((g) => (
               <li key={`${g.date}-${g.startMinutes}`} className="text-xs">
-                <div className="text-slate-200 font-semibold tabular-nums">
+                <div className="text-fg-body font-semibold tabular-nums">
                   {DAY_SHORT[dayOfWeek(g.date)]} {fmtMinutes(g.startMinutes)}–{fmtMinutes(g.endMinutes)}
-                  <span className="text-red-400 font-normal"> · short {g.shortfall}</span>
+                  <span className="text-danger-fg font-normal"> · short {g.shortfall}</span>
                 </div>
-                <div className="text-slate-400">
+                <div className="text-fg-muted">
                   {g.reasons.length === 0
                     ? "Nobody on the roster"
                     : g.reasons.map((r) => `${r.employeeIds.length > 3 ? `${r.employeeIds.length} people` : names(r.employeeIds, nameOf)}: ${REASON_LABELS[r.code]}`).join(" · ")}
@@ -175,14 +176,14 @@ export default function AutoScheduleSummary({
             <button
               onClick={() => setShowAllGaps((v) => !v)}
               aria-expanded={showAllGaps}
-              className="mt-0.5 min-h-8 text-xs font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer p-0"
+              className="mt-0.5 min-h-8 text-xs font-semibold text-accent-fg hover:text-accent-fg-strong bg-transparent border-none cursor-pointer p-0"
             >
               {showAllGaps ? "Show fewer" : `Show all ${run.gaps.length}`}
             </button>
           )}
         </div>
       ) : (
-        <div className="mt-3 text-xs text-emerald-400">✓ Every hour of the coverage target is met.</div>
+        <div className="mt-3 text-xs text-success-fg">✓ Every hour of the coverage target is met.</div>
       )}
 
       {run.suggestions.length > 0 && (
@@ -192,7 +193,7 @@ export default function AutoScheduleSummary({
               key={s.employeeId}
               onClick={() => onApplySuggestion(s)}
               disabled={busy !== null}
-              className="min-h-9 text-xs font-semibold px-3 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-h-9 text-xs font-semibold px-3 rounded-lg bg-accent/15 text-accent-fg-strong border border-accent/30 hover:bg-accent/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {suggestionLabel(s, nameOf)}
             </button>
@@ -207,7 +208,7 @@ export default function AutoScheduleSummary({
           onClick={onTryAnother}
           disabled={busy !== null}
           aria-busy={busy === "another" || busy === "suggestion"}
-          className="min-h-10 text-xs font-semibold px-4 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-h-10 text-xs font-semibold px-4 rounded-lg bg-fill border border-line-strong text-fg-body hover:bg-fill-strong cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy === "another" || busy === "suggestion" ? "Generating…" : "Try Another Version"}
         </button>
@@ -215,7 +216,7 @@ export default function AutoScheduleSummary({
           onClick={onUndo}
           disabled={busy !== null}
           aria-busy={busy === "undo"}
-          className="min-h-10 text-xs font-semibold px-4 rounded-lg bg-transparent border border-slate-700 text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-h-10 text-xs font-semibold px-4 rounded-lg bg-transparent border border-line-strong text-fg-muted hover:text-fg-body cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy === "undo" ? "Undoing…" : "Undo"}
         </button>

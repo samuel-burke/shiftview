@@ -61,7 +61,7 @@ function Swatch({ color, className = "" }: { color: string; className?: string }
 
 function LegendChip({ colors, label }: { colors: string[]; label: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
+    <span className="flex items-center gap-1.5 text-[11px] text-fg-muted bg-fill/60 px-2 py-0.5 rounded-full border border-line-strong/40">
       <span className="flex gap-px">{colors.map((c) => <Swatch key={c} color={c} />)}</span>
       {label}
     </span>
@@ -73,7 +73,7 @@ function RangeChip({ range }: { range: HeatRange }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 text-xs tabular-nums rounded-full px-2.5 py-1 border ${
-        short ? "bg-amber-500/10 border-amber-500/25 text-amber-400" : "bg-blue-500/10 border-blue-500/25 text-blue-400"
+        short ? "bg-warning/10 border-warning/25 text-warning-fg" : "bg-info/10 border-info/25 text-info-fg"
       }`}
     >
       <Swatch color={`var(--color-cov-${range.kind}-${Math.min(3, Math.abs(range.diff))})`} />
@@ -112,11 +112,11 @@ export default function WeekCoverageHeatmap({
 
   const header = (
     <div className="flex items-center justify-between gap-2 mb-2 pl-1.5 pr-1">
-      <h2 id="coverage-heatmap-title" className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
+      <h2 id="coverage-heatmap-title" className="text-[11px] font-bold tracking-[0.1em] text-fg-muted uppercase">
         Coverage by Hour
       </h2>
       {hours.length > 0 && (
-        <div className="flex rounded-lg bg-slate-800/60 border border-slate-700/40 p-0.5" role="tablist" aria-label="Coverage by hour view">
+        <div className="flex rounded-lg bg-fill/60 border border-line-strong/40 p-0.5" role="tablist" aria-label="Coverage by hour view">
           {(["grid", "list"] as const).map((v) => (
             <button
               key={v}
@@ -124,7 +124,7 @@ export default function WeekCoverageHeatmap({
               aria-selected={view === v}
               onClick={() => setView(v)}
               className={`min-h-8 px-3 text-[11px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
-                view === v ? "bg-indigo-600/40 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-400 hover:text-slate-200"
+                view === v ? "bg-accent-solid/40 text-accent-fg-max ring-1 ring-inset ring-accent-fg" : "bg-transparent text-fg-muted hover:text-fg-body"
               }`}
             >
               {v === "grid" ? "Grid" : "List"}
@@ -143,7 +143,7 @@ export default function WeekCoverageHeatmap({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
-      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
       {header}
       {children}
@@ -151,7 +151,7 @@ export default function WeekCoverageHeatmap({
   );
 
   if (hours.length === 0) {
-    return card(<div className="px-1.5 pt-2 pb-4 text-sm text-slate-500">No coverage targets or shifts this week</div>);
+    return card(<div className="px-1.5 pt-2 pb-4 text-sm text-fg-subtle">No coverage targets or shifts this week</div>);
   }
 
   const activeCell = active ? rows[active.row]?.cells[active.col] : undefined;
@@ -183,7 +183,7 @@ export default function WeekCoverageHeatmap({
         <LegendChip colors={["var(--color-cov-short-3)", "var(--color-cov-short-2)", "var(--color-cov-short-1)"]} label="Short" />
         <LegendChip colors={["var(--color-cov-met)"]} label="Met" />
         <LegendChip colors={["var(--color-cov-over-1)", "var(--color-cov-over-2)", "var(--color-cov-over-3)"]} label="Over" />
-        <span className="ml-auto pr-1 text-[11px] text-slate-500 tabular-nums">
+        <span className="ml-auto pr-1 text-[11px] text-fg-subtle tabular-nums">
           {totals.short === 0 ? "No gaps" : `${totals.short} short hour${totals.short === 1 ? "" : "s"}`}
           {totals.over > 0 && ` · ${totals.over} over`}
         </span>
@@ -199,7 +199,7 @@ export default function WeekCoverageHeatmap({
             onKeyDown={move}
             onFocus={() => { if (!active) setActive({ row: 0, col: 0 }); }}
             onMouseLeave={() => setActive(null)}
-            className="grid gap-[2px] px-1 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="grid gap-[2px] px-1 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             style={{ gridTemplateColumns: `2.25rem repeat(${hours.length}, minmax(0, 1fr))` }}
           >
             <div role="row" className="contents">
@@ -209,7 +209,7 @@ export default function WeekCoverageHeatmap({
                   key={h}
                   role="columnheader"
                   aria-label={clockRange(h, h + 60)}
-                  className={`text-[11px] text-slate-500 tabular-nums leading-none pb-1.5 whitespace-nowrap overflow-visible ${labelClass(c)}`}
+                  className={`text-[11px] text-fg-subtle tabular-nums leading-none pb-1.5 whitespace-nowrap overflow-visible ${labelClass(c)}`}
                 >
                   {axisLabel(h)}
                 </div>
@@ -221,10 +221,10 @@ export default function WeekCoverageHeatmap({
                   role="rowheader"
                   onClick={() => onSelectDate?.(row.date)}
                   className={`text-[11px] font-semibold flex items-center ${onSelectDate ? "cursor-pointer" : ""} ${
-                    row.date === selectedDate ? "text-indigo-300" : "text-slate-400"
+                    row.date === selectedDate ? "text-accent-fg-strong" : "text-fg-muted"
                   }`}
                 >
-                  {row.date === selectedDate && <span aria-hidden="true" className="w-[3px] h-3.5 rounded-full bg-indigo-400 mr-1 -ml-1" />}
+                  {row.date === selectedDate && <span aria-hidden="true" className="w-[3px] h-3.5 rounded-full bg-accent-fg mr-1 -ml-1" />}
                   {DAY_SHORT[dayOfWeek(row.date)]}
                 </div>
                 {row.cells.map((cell, c) => {
@@ -243,7 +243,7 @@ export default function WeekCoverageHeatmap({
                         onSelectDate?.(row.date);
                       }}
                       className={`h-6 tablet:h-7 rounded-[4px] flex items-center justify-center cursor-pointer transition-shadow ${
-                        isActive ? "ring-2 ring-slate-100" : ""
+                        isActive ? "ring-2 ring-inverse" : ""
                       }`}
                       style={{ background: cellColor(cell) }}
                     >
@@ -259,29 +259,29 @@ export default function WeekCoverageHeatmap({
 
           <div
             aria-live="polite"
-            className="flex items-center gap-2 min-h-10 mt-3 mx-1 px-3 py-2 rounded-xl bg-slate-800/40 text-xs"
+            className="flex items-center gap-2 min-h-10 mt-3 mx-1 px-3 py-2 rounded-xl bg-fill/40 text-xs"
           >
             {activeCell && rows[active!.row] ? (
               <>
                 <Swatch color={activeCell.kind === "empty" ? "var(--color-cov-empty)" : cellColor(activeCell)} className="shrink-0" />
-                <span className="font-semibold text-slate-200 whitespace-nowrap">
+                <span className="font-semibold text-fg-body whitespace-nowrap">
                   {DAY_SHORT[dayOfWeek(rows[active!.row].date)]} {clockRange(activeCell.startMinutes, activeCell.startMinutes + 60)}
                 </span>
-                <span className="text-slate-400 tabular-nums min-w-0">{status(activeCell)}</span>
+                <span className="text-fg-muted tabular-nums min-w-0">{status(activeCell)}</span>
               </>
             ) : (
-              <span className="text-slate-500">Hover or tap an hour for details</span>
+              <span className="text-fg-subtle">Hover or tap an hour for details</span>
             )}
           </div>
           {totals.empty > 0 && (
-            <div className="flex items-center gap-1.5 mt-2 px-2 text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5 mt-2 px-2 text-[11px] text-fg-subtle">
               <span aria-hidden="true" className="size-1 rounded-full" style={{ background: "var(--color-cov-empty)" }} />
               No one needed
             </div>
           )}
         </>
       ) : (
-        <ul className="flex flex-col divide-y divide-slate-800/60 px-1.5" aria-label="Hours off target by day">
+        <ul className="flex flex-col divide-y divide-line/60 px-1.5" aria-label="Hours off target by day">
           {rows.map((row) => {
             const ranges = heatRanges(row);
             const needed = row.cells.some((c) => c.kind !== "empty");
@@ -292,7 +292,7 @@ export default function WeekCoverageHeatmap({
                   aria-pressed={row.date === selectedDate}
                   aria-label={`Select ${DAY_NAMES[dayOfWeek(row.date)]}`}
                   className={`w-11 min-h-8 -my-1 shrink-0 rounded-lg text-left pl-1.5 text-xs font-semibold border-none cursor-pointer ${
-                    row.date === selectedDate ? "bg-indigo-600/25 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-300 hover:text-slate-100"
+                    row.date === selectedDate ? "bg-accent-solid/25 text-accent-fg-max ring-1 ring-inset ring-accent-fg" : "bg-transparent text-fg-secondary hover:text-fg"
                   }`}
                 >
                   {DAY_SHORT[dayOfWeek(row.date)]}
@@ -301,9 +301,9 @@ export default function WeekCoverageHeatmap({
                   {ranges.length > 0 ? (
                     ranges.map((range) => <RangeChip key={`${range.kind}-${range.startMinutes}`} range={range} />)
                   ) : needed ? (
-                    <span className="pt-1 text-xs text-emerald-400">✓ Every hour covered</span>
+                    <span className="pt-1 text-xs text-success-fg">✓ Every hour covered</span>
                   ) : (
-                    <span className="pt-1 text-xs text-slate-500">No one needed</span>
+                    <span className="pt-1 text-xs text-fg-subtle">No one needed</span>
                   )}
                 </div>
               </li>

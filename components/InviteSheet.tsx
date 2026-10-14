@@ -79,7 +79,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
           <motion.div
             key="backdrop"
             aria-hidden="true"
-            className="fixed inset-0 bg-black/60 z-40"
+            className="fixed inset-0 bg-scrim/60 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -92,7 +92,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
               role="dialog"
               aria-modal="true"
               aria-labelledby="invite-sheet-title"
-              className="fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[420px]"
+              className="fixed top-1/2 left-1/2 z-50 bg-bg border border-line rounded-[20px] w-[420px]"
               initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
               animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
               exit={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
@@ -106,14 +106,14 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
               role="dialog"
               aria-modal="true"
               aria-labelledby="invite-sheet-title"
-              className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-line rounded-t-3xl max-w-[480px] mx-auto"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 32, stiffness: 300 }}
             >
               <div className="flex justify-center pt-3 pb-1">
-                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
+                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-strong" />
               </div>
               {sheetContent()}
             </motion.div>
@@ -128,11 +128,11 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
     return (
       <div className={padding}>
         <div className="flex items-center justify-between mb-6">
-          <div id="invite-sheet-title" className="text-lg font-bold text-slate-100">Add Employee</div>
+          <div id="invite-sheet-title" className="text-lg font-bold text-fg">Add Employee</div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -143,17 +143,17 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
         {sent ? (
           <div className="text-center py-6">
             <div className="text-[32px] mb-3">{existingAccount ? "👋" : "✉️"}</div>
-            <div className="text-base font-semibold text-slate-100 mb-2">
+            <div className="text-base font-semibold text-fg mb-2">
               {existingAccount ? "Added to your team" : "Invite sent!"}
             </div>
-            <div className="text-[13px] text-slate-400 mb-6">
+            <div className="text-[13px] text-fg-muted mb-6">
               {existingAccount
                 ? `${name} already has a ShiftView account. They can switch to your organization from the menu under their profile picture.`
                 : `${name} will receive an email to set up their account.`}
             </div>
             <button
               onClick={onClose}
-              className="px-8 py-3.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:bg-slate-700 hover:text-slate-200 transition-colors"
+              className="px-8 py-3.5 rounded-xl bg-fill border border-line-strong text-fg-muted font-semibold text-sm cursor-pointer hover:bg-fill-strong hover:text-fg-body transition-colors"
             >
               Done
             </button>
@@ -165,7 +165,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
               { label: "Email",     id: "invite-email", val: email, set: setEmail, type: "email", placeholder: "alice@example.com", autoFocus: false },
             ].map(({ label, id, val, set, type, placeholder, autoFocus }) => (
               <div key={label}>
-                <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
+                <label htmlFor={id} className="text-[11px] text-fg-muted uppercase tracking-[0.08em] mb-1.5 block">
                   {label}
                 </label>
                 <input
@@ -176,7 +176,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
                   autoFocus={autoFocus}
                   aria-required="true"
                   onChange={(e) => { set(e.target.value); setError(null); }}
-                  className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-fg text-base focus:outline-none focus:border-accent transition-colors"
                 />
               </div>
             ))}
@@ -186,7 +186,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
+              className="py-[14px] rounded-xl mt-1 bg-gradient-to-r from-brand-from to-brand-to border-none text-on-accent font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:brightness-110"
             >
               {saving ? "Sending…" : "Send Invite"}
             </button>
@@ -194,7 +194,7 @@ export default function InviteSheet({ open, onClose, onSuccess, onSubmit }: Prop
             <button
               onClick={onClose}
               disabled={saving}
-              className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="py-[14px] rounded-xl bg-transparent border-none text-fg-muted font-semibold text-sm cursor-pointer hover:text-fg-body disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>

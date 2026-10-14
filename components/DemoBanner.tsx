@@ -14,11 +14,11 @@ export default function DemoBanner({
   return (
     <div className="demo-only">
       <div
-        className={`bg-blue-500/8 border-b border-blue-500/15 px-4 py-1.5 items-center justify-between ${className}`}
+        className={`bg-info/8 border-b border-info/15 px-4 py-1.5 items-center justify-between ${className}`}
         style={style}
       >
-        <span className="text-[11px] text-blue-400 font-medium">Demo Mode · Sample data resets nightly</span>
-        <a href="/login" className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Sign In →</a>
+        <span className="text-[11px] text-info-fg font-medium">Demo Mode · Sample data resets nightly</span>
+        <a href="/login" className="text-[11px] font-bold text-info-fg hover:text-info-fg-strong transition-colors">Sign In →</a>
       </div>
     </div>
   );

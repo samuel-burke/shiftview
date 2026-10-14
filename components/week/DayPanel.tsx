@@ -22,6 +22,7 @@ import { SkeletonText } from "@/components/Skeleton";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
 import type { PendingTimeOff } from "../WeekGrid";
 import { varianceColor } from "./WeekInsights";
+import { tint } from "../../lib/theme-colors";
 
 // The selected day on the Week page. Phones pick it with DayChips and edit it
 // with DayList; tablets and up pick it with the grid's day headers. DayToolbar
@@ -70,8 +71,8 @@ export function DayChips({
             aria-label={ready ? formatDateKey(date, { weekday: "long", month: "long", day: "numeric" }) : undefined}
             className={`flex flex-col items-center py-2 rounded-xl cursor-pointer transition-colors border ${
               active
-                ? "bg-indigo-600/25 border-indigo-400 text-indigo-200"
-                : "bg-card border-slate-800/60 text-slate-400 hover:text-slate-200"
+                ? "bg-accent-solid/25 border-accent-fg text-accent-fg-max"
+                : "bg-card border-line/60 text-fg-muted hover:text-fg-body"
             }`}
           >
             <span className="text-[11px] font-semibold uppercase">
@@ -83,7 +84,7 @@ export function DayChips({
             <span
               aria-hidden="true"
               className={`mt-1 w-1.5 h-1.5 rounded-full ${
-                scheduled === 0 ? "bg-slate-700" : scheduled > budget && budget > 0 ? "bg-red-400" : "bg-green-500"
+                scheduled === 0 ? "bg-fill-strong" : scheduled > budget && budget > 0 ? "bg-danger-mark" : "bg-ok"
               }`}
             />
           </button>
@@ -120,16 +121,16 @@ export function DayToolbar({
 
   return (
     <section aria-label="Selected day" className="mb-3 flex flex-col gap-2 tablet:flex-row tablet:items-center tablet:gap-3">
-      <h2 className="hidden tablet:block text-sm font-bold text-slate-100 whitespace-nowrap" data-testid="selected-day">
+      <h2 className="hidden tablet:block text-sm font-bold text-fg whitespace-nowrap" data-testid="selected-day">
         {formatDateKey(date, { weekday: "long", month: "short", day: "numeric" })}
       </h2>
-      <div className="flex items-center gap-2 bg-card rounded-xl px-3 py-2 border border-slate-800/60 tablet:flex-1 tablet:max-w-sm">
-        <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold shrink-0">Coverage</span>
+      <div className="flex items-center gap-2 bg-card rounded-xl px-3 py-2 border border-line/60 tablet:flex-1 tablet:max-w-sm">
+        <span className="text-[11px] text-fg-subtle uppercase tracking-wider font-semibold shrink-0">Coverage</span>
         <select
           value={overrides[date] ?? ""}
           aria-label="Coverage profile for selected day"
           onChange={(e) => onAssignProfile(date, e.target.value === "" ? null : Number(e.target.value))}
-          className="flex-1 min-w-0 min-h-9 bg-bg border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+          className="flex-1 min-w-0 min-h-9 bg-bg border border-field rounded-lg px-2 py-1.5 text-xs text-fg focus:outline-none focus:border-accent transition-colors cursor-pointer"
         >
           <option value="">Default ({defaultName ?? "none"})</option>
           {profiles.map((p) => (
@@ -137,7 +138,7 @@ export function DayToolbar({
           ))}
         </select>
         {overrides[date] !== undefined && (
-          <span className="text-[11px] font-bold uppercase text-violet-300 bg-violet-500/15 border border-violet-500/25 rounded-full px-2 py-0.5 shrink-0">
+          <span className="text-[11px] font-bold uppercase text-auto-fg-strong bg-auto/15 border border-auto/25 rounded-full px-2 py-0.5 shrink-0">
             Override
           </span>
         )}
@@ -148,9 +149,9 @@ export function DayToolbar({
           { label: "Budget", value: `${budget} hrs`, color: "var(--status-info)" },
           { label: "Variance", value: `${variance > 0 ? "+" : ""}${variance} hrs`, color: varianceColor(variance) },
         ].map(({ label, value, color }) => (
-          <div key={label} className="flex-1 tablet:flex-none tablet:min-w-[92px] bg-card rounded-xl px-2 py-2 text-center border border-slate-800/60">
+          <div key={label} className="flex-1 tablet:flex-none tablet:min-w-[92px] bg-card rounded-xl px-2 py-2 text-center border border-line/60">
             <div className="text-xs font-bold tabular-nums" style={{ color }}>{value}</div>
-            <div className="text-[11px] text-slate-500 uppercase tracking-wider mt-0.5">{label}</div>
+            <div className="text-[11px] text-fg-subtle uppercase tracking-wider mt-0.5">{label}</div>
           </div>
         ))}
       </div>
@@ -160,9 +161,9 @@ export function DayToolbar({
 
 function Pill({ tone, children }: { tone: "live" | "draft" | "auto"; children: React.ReactNode }) {
   const tones = {
-    live: "text-slate-400 bg-slate-800 border-slate-700",
-    draft: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    auto: "text-violet-300 bg-violet-500/15 border-violet-500/25",
+    live: "text-fg-muted bg-fill border-line-strong",
+    draft: "text-warning-fg bg-warning/10 border-warning/20",
+    auto: "text-auto-fg-strong bg-auto/15 border-auto/25",
   };
   return (
     <span className={`text-[11px] font-bold uppercase rounded-full px-2 py-0.5 shrink-0 border ${tones[tone]}`}>{children}</span>
@@ -230,7 +231,7 @@ export function DayList({
 
   return (
     <div
-      className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60 mb-4"
+      className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60 mb-4"
       data-testid="day-list"
       aria-busy={loading || undefined}
     >
@@ -248,7 +249,7 @@ export function DayList({
           </div>
         ))
       ) : employees.length === 0 ? (
-        <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
+        <div className="px-4 py-6 text-center text-sm text-fg-subtle">No employees</div>
       ) : (
         <>
         {notice}
@@ -281,18 +282,18 @@ export function DayList({
               aria-label={label}
               aria-pressed={isSel}
               className={`w-full min-h-14 flex items-center gap-3 px-4 py-3 border-none cursor-pointer text-left transition-colors ${
-                isSel ? "bg-indigo-500/10" : "bg-transparent hover:bg-slate-800/40"
+                isSel ? "bg-accent/10" : "bg-transparent hover:bg-fill/40"
               }`}
             >
               <div
                 className={`size-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                  s ? "" : "bg-slate-800 border border-slate-700 text-slate-500"
+                  s ? "" : "bg-fill border border-line-strong text-fg-subtle"
                 }`}
                 style={
                   s
                     ? {
-                        background: `color-mix(in srgb, ${color} 14%, transparent)`,
-                        border: `1px solid color-mix(in srgb, ${color} 40%, transparent)`,
+                        background: tint(color, 14),
+                        border: `1px solid ${tint(color, 40)}`,
                         color,
                       }
                     : undefined
@@ -301,18 +302,18 @@ export function DayList({
                 {getMonogram(emp.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className={`text-sm font-semibold truncate ${s ? "text-slate-200" : "text-slate-400"}`}>{formatDisplayName(emp.name)}</div>
-                <div className={`text-xs tabular-nums ${s ? "text-slate-400" : "text-slate-500"}`}>
+                <div className={`text-sm font-semibold truncate ${s ? "text-fg-body" : "text-fg-muted"}`}>{formatDisplayName(emp.name)}</div>
+                <div className={`text-xs tabular-nums ${s ? "text-fg-muted" : "text-fg-subtle"}`}>
                   {s ? `${fmtMinutes(s.startMinutes)} – ${fmtMinutes(s.endMinutes)} · ${round1(shiftHours(s, timezone))} hrs` : "Off"}
                   {/* The week's hours wrap as one piece, never "56/40 h" | "week". */}
-                  {" "}<span className={`whitespace-nowrap ${week.over ? "text-red-400" : "text-slate-500"}`}>· {week.text}</span>
+                  {" "}<span className={`whitespace-nowrap ${week.over ? "text-danger-fg" : "text-fg-subtle"}`}>· {week.text}</span>
                 </div>
                 {clash && cell.draft && (
-                  <div className="text-xs text-amber-400 mt-0.5">
+                  <div className="text-xs text-warning-fg mt-0.5">
                     Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
                   </div>
                 )}
-                {timeOffRequested && <div className="text-xs text-amber-400 mt-0.5">Time off requested</div>}
+                {timeOffRequested && <div className="text-xs text-warning-fg mt-0.5">Time off requested</div>}
               </div>
               {s ? (
                 isLiveContext ? (
@@ -321,7 +322,7 @@ export function DayList({
                   s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>
                 ) : null
               ) : (
-                <span aria-hidden="true" className="text-[11px] font-semibold text-indigo-400 shrink-0">+ Add</span>
+                <span aria-hidden="true" className="text-[11px] font-semibold text-accent-fg shrink-0">+ Add</span>
               )}
             </button>
           );

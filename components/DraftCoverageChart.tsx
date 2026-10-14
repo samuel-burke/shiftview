@@ -7,7 +7,7 @@ import { Schedule, StoreHours, fmtMinutes } from "../data/types";
 import { dayOfWeek, headcountAt, scheduledHoursForDate } from "../lib/draft-metrics";
 import { CoverageBlock, SLOT_MINUTES, curveHours, targetAt } from "../lib/coverage";
 import { formatDateKey } from "../lib/dates";
-import { useTheme } from "./ThemeProvider";
+import { CHART_TOOLTIP_STYLE } from "@/lib/theme-colors";
 import SizedResponsiveContainer from "./SizedResponsiveContainer";
 
 // Budget vs scheduled, in one chart with two views.
@@ -18,7 +18,7 @@ import SizedResponsiveContainer from "./SizedResponsiveContainer";
 // from the blue for colorblind readers (indigo didn't: ΔE 4.5 under protanopia).
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const SCHEDULED = "#3b82f6";
+const SCHEDULED = "var(--chart-scheduled)";
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 type Props = {
@@ -45,17 +45,16 @@ function varianceWords(v: number): string {
   return `${Math.abs(v)} hrs ${v > 0 ? "over" : "under"} budget`;
 }
 
-function theme(isLight: boolean) {
-  return {
-    ink: isLight ? "#475569" : "#cbd5e1", // the budget (slate-600 / slate-300)
-    surface: isLight ? "#ffffff" : "#111827", // the card, for the marker's ring
-    axis: isLight ? "#64748b" : "#94a3b8",
-    // Over budget, under, on budget: the app's variance colors, per theme.
-    over: isLight ? "#dc2626" : "#f87171",
-    under: isLight ? "#b45309" : "#fbbf24",
-    met: isLight ? "#15803d" : "#22c55e",
-  };
-}
+// Chart colors (app/globals.css), the same in both themes' code paths.
+const colors = {
+  ink: "var(--chart-budget)", // the budget
+  surface: "var(--color-card)", // the card, for the marker's ring
+  axis: "var(--chart-axis)",
+  // Over budget, under, on budget: the app's variance colors.
+  over: "var(--chart-over)",
+  under: "var(--chart-under)",
+  met: "var(--chart-met)",
+};
 
 function LegendKey({ kind, color, label }: { kind: "column" | "line" | "dashed" | "marker"; color: string; label: string }) {
   const key =
@@ -72,7 +71,7 @@ function LegendKey({ kind, color, label }: { kind: "column" | "line" | "dashed" 
       />
     );
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
+    <span className="flex items-center gap-1.5 text-[11px] text-fg-muted bg-fill/60 px-2 py-0.5 rounded-full border border-line-strong/40">
       {key}
       {label}
     </span>
@@ -80,19 +79,9 @@ function LegendKey({ kind, color, label }: { kind: "column" | "line" | "dashed" 
 }
 
 export default function DraftCoverageChart({ drafts, dates, storeHours, curves, selectedDate, onPickDay, timezone, isManager = false }: Props) {
-  const { mode } = useTheme();
-  const isLight = mode === "light" ||
-    (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const colors = theme(isLight);
   const [view, setView] = useState<"day" | "hour">("day");
 
-  const tooltipStyle = {
-    background: isLight ? "#ffffff" : "#0f172a",
-    border: isLight ? "1px solid #e2e8f0" : "1px solid #334155",
-    borderRadius: 8,
-    fontSize: 12,
-    color: isLight ? "#0f172a" : "#f1f5f9",
-  };
+  const tooltipStyle = CHART_TOOLTIP_STYLE;
   const varianceColor = (v: number) => (v > 0 ? colors.over : v < 0 ? colors.under : colors.met);
 
   const byDay = useMemo(
@@ -148,12 +137,12 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
-      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+      style={{ boxShadow: "var(--shadow-card)" }}
       data-testid="budget-chart"
     >
       <div className="flex items-center justify-between mb-2 pl-1.5 pr-1 gap-2 flex-wrap">
-        <h2 className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">Budget vs Scheduled</h2>
-        <div className="flex rounded-lg bg-slate-800/60 border border-slate-700/40 p-0.5" role="tablist" aria-label="Budget view">
+        <h2 className="text-[11px] font-bold tracking-[0.1em] text-fg-muted uppercase">Budget vs Scheduled</h2>
+        <div className="flex rounded-lg bg-fill/60 border border-line-strong/40 p-0.5" role="tablist" aria-label="Budget view">
           {(["day", "hour"] as const).map((v) => (
             <button
               key={v}
@@ -161,7 +150,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
               aria-selected={view === v}
               onClick={() => setView(v)}
               className={`min-h-8 px-3 text-[11px] font-semibold rounded-md cursor-pointer transition-colors border-none ${
-                view === v ? "bg-indigo-600/40 text-indigo-200 ring-1 ring-inset ring-indigo-400" : "bg-transparent text-slate-400 hover:text-slate-200"
+                view === v ? "bg-accent-solid/40 text-accent-fg-max ring-1 ring-inset ring-accent-fg" : "bg-transparent text-fg-muted hover:text-fg-body"
               }`}
             >
               {v === "day" ? "By Day" : "By Hour"}
@@ -182,13 +171,13 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
             <LegendKey kind="dashed" color={colors.ink} label="Needed" />
             {/* The day comes from the Week page's day picker. */}
             <span className="ml-auto flex items-center gap-1 pr-1">
-              <span data-testid="coverage-chart-day" className="text-xs font-semibold text-slate-200 whitespace-nowrap">
+              <span data-testid="coverage-chart-day" className="text-xs font-semibold text-fg-body whitespace-nowrap">
                 {formatDateKey(hourDate, { weekday: "short", month: "short", day: "numeric" })}
               </span>
               {onPickDay && (
                 <button
                   onClick={onPickDay}
-                  className="min-h-8 px-2 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer"
+                  className="min-h-8 px-2 text-[11px] font-semibold text-accent-fg hover:text-accent-fg-strong bg-transparent border-none cursor-pointer"
                 >
                   Change day
                 </button>
@@ -226,7 +215,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
               />
               <YAxis tick={{ fill: colors.axis, fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
               <Tooltip
-                cursor={{ fill: isLight ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.08)" }}
+                cursor={{ fill: "var(--chart-cursor)" }}
                 content={({ active, payload }) => {
                   const row = active ? (payload?.[0]?.payload as DayRow | undefined) : undefined;
                   if (!row) return null;
@@ -314,7 +303,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
         <div className="flex justify-end pr-1 mt-1">
           <Link
             href="/coverage"
-            className="flex items-center min-h-8 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="flex items-center min-h-8 text-[11px] font-semibold text-accent-fg hover:text-accent-fg-strong transition-colors"
           >
             Edit coverage targets →
           </Link>
