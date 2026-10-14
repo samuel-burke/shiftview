@@ -94,8 +94,11 @@
   --color-timeoff-approved: #166534;
   --color-timeoff-denied:   #b91c1c;
 
-  --status-ok: #166534;
-  --status-warn: #92400e;
+  /* Clocked in / Here Now and On Break keep the dark theme's green and
+     amber: the darker 800s read as brown and olive against the light
+     theme. */
+  --status-ok: #22c55e;
+  --status-warn: #f59e0b;
   --status-caution: #92400e;
   --status-bad: #b91c1c;
   --status-muted: #576578;
