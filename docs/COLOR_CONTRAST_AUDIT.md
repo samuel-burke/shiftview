@@ -43,6 +43,7 @@ that only worked one way round.
 | Time fields in the availability and store hours sheets, edged by a wrapper the field-edge change missed | Both | `border-field` on the wrapper |
 | The ⇄ between the two shifts of a swap, slate-600: 2.6:1 / 2.3:1 | Both | slate-500 |
 | Requests' filter counts faded to 80%: 3.7–4.3:1 | Light | Full strength |
+| Clocked-in green and on-break amber as 800s read olive and brown on the Here Now line, dots and icons | Light | `--status-ok-mark` / `--status-warn-mark` (`#1ca04c`, `#c17c08`) for marks and large numbers: 3.1:1 on the page, 3.4 on a card; small text keeps the 800s |
 
 ## Not changed
 

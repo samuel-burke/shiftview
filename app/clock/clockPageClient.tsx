@@ -719,7 +719,7 @@ export default function ClockPageClient() {
                 <>
                   <div
                     className="text-4xl font-mono font-extrabold tabular-nums"
-                    style={{ color: STATUS_COLORS["on_break"] }}
+                    style={{ color: "var(--status-warn-mark)" }}
                     aria-live="polite"
                     aria-label={`Current break duration: ${fmtElapsed(breakElapsed)}`}
                   >
@@ -950,9 +950,9 @@ export default function ClockPageClient() {
                         className="size-2 rounded-full shrink-0"
                         style={{
                           background:
-                            p.punchType === "clock_in"   ? "var(--status-ok)" :
+                            p.punchType === "clock_in"   ? "var(--status-ok-mark)" :
                             p.punchType === "clock_out"  ? "var(--status-muted)" :
-                            p.punchType === "break_start"? "var(--status-warn)" :
+                            p.punchType === "break_start"? "var(--status-warn-mark)" :
                                                            "var(--status-info)",
                         }}
                       />

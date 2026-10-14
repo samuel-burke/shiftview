@@ -22,9 +22,9 @@ const PUNCH_LABELS: Record<PunchType, string> = {
 };
 
 const PUNCH_COLORS: Record<PunchType, string> = {
-  clock_in: "var(--status-ok)",
+  clock_in: "var(--status-ok-mark)",
   clock_out: "var(--status-muted)",
-  break_start: "var(--status-warn)",
+  break_start: "var(--status-warn-mark)",
   break_end: "var(--status-info)",
 };
 

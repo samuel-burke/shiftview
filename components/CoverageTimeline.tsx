@@ -47,7 +47,7 @@ function fmtMinutes(m: number): string {
 // the whole chart every frame for as long as the dashboard was open, while a
 // CSS transform/opacity animation runs on the compositor. The dot reports its
 // position (in SVG coordinates) so the ring can sit on it.
-function NowDot({ cx, cy, color = "var(--status-ok)", onPlace }: {
+function NowDot({ cx, cy, color = "var(--status-ok-mark)", onPlace }: {
   cx?: number;
   cy?: number;
   color?: string;
@@ -240,7 +240,7 @@ function CoverageTimeline({
 
   if (range === 0) return null;
 
-  const nowDotColor = nowDataPoint?.actual != null ? "var(--status-ok)" : "var(--status-blue)";
+  const nowDotColor = nowDataPoint?.actual != null ? "var(--status-ok-mark)" : "var(--status-blue)";
 
   const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
   // Pixel position of the badge within the container
@@ -336,8 +336,8 @@ function CoverageTimeline({
                 <stop offset="95%" stopColor="var(--status-blue)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--status-ok)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="var(--status-ok)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--status-ok-mark)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--status-ok-mark)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
@@ -395,7 +395,7 @@ function CoverageTimeline({
             <Area
               type="monotone"
               dataKey="actual"
-              stroke="var(--status-ok)"
+              stroke="var(--status-ok-mark)"
               strokeWidth={2.5}
               fill="url(#actualGrad)"
               dot={false}

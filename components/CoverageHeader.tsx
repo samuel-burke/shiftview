@@ -87,7 +87,7 @@ export default function CoverageHeader({
       return { icon: <WarningIcon size={13} color="var(--status-caution)" />, message: `Below coverage target — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "var(--status-caution)" };
     // On target: a calm status rather than nothing, so the line is there in
     // every state and the dashboard under it never moves when it changes.
-    return { icon: <TimeOffApprovedIcon size={13} color="var(--status-ok)" />, message: `On target — ${hereCount} here now`, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.22)", text: "var(--status-ok)", calm: true };
+    return { icon: <TimeOffApprovedIcon size={13} color="var(--status-ok-mark)" />, message: `On target — ${hereCount} here now`, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.22)", text: "var(--status-ok)", calm: true };
   })();
 
   const alertKey = alertConfig.message;

@@ -846,7 +846,7 @@ export default function Page() {
             index={0}
             value={hereNowCount}
             label="Here Now"
-            color="var(--status-ok)"
+            color="var(--status-ok-mark)"
             loading={isLoading}
           />
         )}

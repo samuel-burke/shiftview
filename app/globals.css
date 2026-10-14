@@ -36,6 +36,10 @@
      one set per theme so each reads on that theme's surfaces. */
   --status-ok: #22c55e;      /* clocked in, on target, approved */
   --status-warn: #f59e0b;    /* on break */
+  /* The same, for marks rather than small text: lines, dots, icons and
+     large numbers, which need 3:1 rather than 4.5. Light values below. */
+  --status-ok-mark: var(--status-ok);
+  --status-warn-mark: var(--status-warn);
   --status-caution: #fbbf24; /* below target, pending */
   --status-bad: #f87171;     /* critical, denied, late */
   --status-muted: #94a3b8;   /* off, closed, walk-in */
@@ -94,12 +98,15 @@
   --color-timeoff-approved: #166534;
   --color-timeoff-denied:   #b91c1c;
 
-  /* Clocked in / Here Now and On Break keep the dark theme's green and
-     amber: the darker 800s read as brown and olive against the light
-     theme. */
-  --status-ok: #22c55e;
-  --status-warn: #f59e0b;
+  --status-ok: #166534;
+  --status-warn: #92400e;
   --status-caution: #92400e;
+  /* Clocked-in green and on-break amber for marks (the Here Now line and
+     number, status dots and icons): the 800s above read as olive and brown
+     there. These are the brightest of each hue at 3:1 on the page (3.1)
+     and on a card (3.4). */
+  --status-ok-mark: #1ca04c;
+  --status-warn-mark: #c17c08;
   --status-bad: #b91c1c;
   --status-muted: #576578;
   --status-info: #4338ca;
