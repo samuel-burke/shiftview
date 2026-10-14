@@ -3,6 +3,7 @@
 import { Schedule, StoreHours, TimeOffRequest, getShiftType, SHIFT_COLORS, TIME_OFF_COLORS, CALLOUT_COLOR } from "../data/types";
 import { ShiftIcon, TimeOffPendingIcon, TimeOffApprovedIcon, TimeOffDeniedIcon, MegaphoneIcon } from "./ShiftIcons";
 import { localDateKey } from "@/lib/dates";
+import { markColor } from "@/lib/theme-colors";
 
 const TIME_OFF_LABELS: Record<TimeOffRequest["status"], string> = {
   pending: "REQ",
@@ -85,23 +86,23 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
             aria-pressed={isSelected}
             className={`flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 transition-colors cursor-pointer ${
               isSelected
-                ? "border border-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/20"
-                : "border border-slate-800 bg-card hover:bg-slate-800/60"
+                ? "border border-accent bg-accent/10 hover:bg-accent/20"
+                : "border border-line bg-card hover:bg-fill/60"
             }`}
           >
-            <div className="text-[9px] text-slate-400 font-semibold tracking-wider mb-1.5 select-none">
+            <div className="text-[9px] text-fg-muted font-semibold tracking-wider mb-1.5 select-none">
               {DAY_LABELS[i]}
             </div>
             <div
               className={`size-7 flex items-center justify-center rounded-full text-sm font-bold mb-1.5 ${
-                isToday ? "bg-indigo-500 text-white" : "text-slate-100"
+                isToday ? "bg-accent text-on-accent" : "text-fg"
               }`}
             >
               {d.getDate()}
             </div>
             <div
               className="w-6 h-[3px] rounded-full mb-1"
-              style={{ background: labelColor ?? "transparent", visibility: (calledOut || shiftColor || timeOff) ? "visible" : "hidden" }}
+              style={{ background: labelColor ? markColor(labelColor) : "transparent", visibility: (calledOut || shiftColor || timeOff) ? "visible" : "hidden" }}
             />
             <div className="mb-0.5 h-[14px] flex items-center justify-center">
               {calledOut ? (
@@ -116,7 +117,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
                 <TimeOffDeniedIcon size={13} color={TIME_OFF_COLORS.denied} />
               ) : (
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="var(--color-slate-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M14 8.5A6 6 0 1 1 7.5 2a4.5 4.5 0 0 0 6.5 6.5Z" stroke="var(--color-fg-subtle)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
             </div>
@@ -130,7 +131,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
                 with them, and a long time ("11:30a–7:30p") that wraps in a
                 narrow cell doesn't grow the strip when it arrives
                 (SkeletonWeekCalendar matches). */}
-            <div className="text-[8px] text-slate-400 mt-0.5 leading-tight min-h-5">
+            <div className="text-[8px] text-fg-muted mt-0.5 leading-tight min-h-5">
               {!calledOut && schedule && shiftType
                 ? <>{shortTime(schedule.startMinutes)}–{shortTime(schedule.endMinutes)}</>
                 : "\u00a0"}

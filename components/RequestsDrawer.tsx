@@ -71,9 +71,9 @@ function formatShortDate(dateStr: string): string {
 
 function SectionHeading({ label, count }: { label: string; count: number }) {
   return (
-    <div className="flex items-center gap-2 mb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+    <div className="flex items-center gap-2 mb-2 text-[11px] font-semibold text-fg-muted uppercase tracking-wider px-1">
       {label}
-      <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
+      <span className="bg-warning/10 border border-warning/30 rounded-full px-2 py-px text-[11px] text-warning-fg">
         {count}
       </span>
     </div>
@@ -120,7 +120,7 @@ export default function RequestsDrawer({
           <motion.div
             key="backdrop"
             aria-hidden="true"
-            className="fixed inset-0 bg-black/60 z-40"
+            className="fixed inset-0 bg-scrim/60 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -135,8 +135,8 @@ export default function RequestsDrawer({
             data-testid="requests-drawer"
             className={`fixed z-50 bg-bg ${
               isDesktop
-                ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
-                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto max-h-[80dvh] overflow-y-auto"
+                ? "inset-y-0 right-0 w-[420px] border-l border-line overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-line rounded-t-3xl max-w-[480px] mx-auto max-h-[80dvh] overflow-y-auto"
             }`}
             initial={isDesktop ? { x: "100%" } : { y: "100%" }}
             animate={isDesktop ? { x: 0 } : { y: 0 }}
@@ -145,7 +145,7 @@ export default function RequestsDrawer({
           >
             {!isDesktop && (
               <div className="flex justify-center pt-3 pb-1">
-                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
+                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-strong" />
               </div>
             )}
 
@@ -153,8 +153,8 @@ export default function RequestsDrawer({
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <div id="requests-drawer-title" className="text-lg font-bold text-slate-100">Requests</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
+                  <div id="requests-drawer-title" className="text-lg font-bold text-fg">Requests</div>
+                  <div className="text-xs text-fg-muted mt-0.5">
                     {total === 0
                       ? "No pending requests"
                       : `${total} awaiting approval`}
@@ -164,7 +164,7 @@ export default function RequestsDrawer({
                   onClick={onClose}
                   aria-label="Close"
                   autoFocus
-                  className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                     <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -178,7 +178,7 @@ export default function RequestsDrawer({
               </ToastStack>
 
               {total === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-sm">
+                <div className="text-center py-10 text-fg-muted text-sm">
                   All caught up — no pending requests.
                 </div>
               ) : (
@@ -265,20 +265,20 @@ function TimeOffCard({
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
+    <div className="bg-card rounded-2xl border border-line/60 px-4 py-3">
       <div className="flex items-center gap-3 mb-3">
-        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-accent-solid/90 border border-accent/30 flex items-center justify-center text-xs font-bold text-on-accent shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm text-slate-100 truncate">
+          <div className="font-semibold text-sm text-fg truncate">
             {request.employeeName}
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-fg-muted">
             <TimeOffPendingIcon size={11} color="var(--status-caution)" />
             {formatShortDate(request.date)}
             {request.note && (
-              <span className="text-slate-500 truncate">· &ldquo;{request.note}&rdquo;</span>
+              <span className="text-fg-subtle truncate">· &ldquo;{request.note}&rdquo;</span>
             )}
           </div>
         </div>
@@ -290,7 +290,7 @@ function TimeOffCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s time off request`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -299,7 +299,7 @@ function TimeOffCard({
           disabled={loading !== null}
           aria-busy={loading === "deny"}
           aria-label={`Deny ${request.employeeName}'s time off request`}
-          className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-transparent border border-line-strong text-danger-fg font-semibold text-xs cursor-pointer hover:bg-danger/20 hover:border-danger/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "deny" ? "…" : "Deny"}
         </button>
@@ -334,17 +334,17 @@ function SwapCard({
   }
 
   return (
-    <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4">
-      <div className="text-sm font-semibold text-slate-100 mb-1">
+    <div className="bg-card border border-line/60 rounded-2xl px-4 py-4">
+      <div className="text-sm font-semibold text-fg mb-1">
         {swap.requesterName} wants to swap with {swap.targetName}
       </div>
-      <div className="text-xs text-slate-400 mb-1">
+      <div className="text-xs text-fg-muted mb-1">
         {formatLongDate(swap.date)}
       </div>
-      <div className="flex gap-2 text-xs text-slate-400 mb-3">
-        <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.requesterName}: {swap.scheduleATime}</span>
-        <span className="text-slate-500" aria-hidden="true">⇄</span>
-        <span className="bg-slate-800 rounded-lg px-2 py-1">{swap.targetName}: {swap.scheduleBTime}</span>
+      <div className="flex gap-2 text-xs text-fg-muted mb-3">
+        <span className="bg-fill rounded-lg px-2 py-1">{swap.requesterName}: {swap.scheduleATime}</span>
+        <span className="text-fg-subtle" aria-hidden="true">⇄</span>
+        <span className="bg-fill rounded-lg px-2 py-1">{swap.targetName}: {swap.scheduleBTime}</span>
       </div>
       <div className="flex gap-2">
         <button
@@ -352,7 +352,7 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -361,7 +361,7 @@ function SwapCard({
           disabled={loading !== null}
           aria-busy={loading === "deny"}
           aria-label={`Deny swap between ${swap.requesterName} and ${swap.targetName}`}
-          className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-transparent border border-line-strong text-danger-fg font-semibold text-xs cursor-pointer hover:bg-danger/20 hover:border-danger/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "deny" ? "…" : "Deny"}
         </button>
@@ -396,19 +396,19 @@ function PunchCorrectionCard({
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3" data-testid="punch-correction-card">
+    <div className="bg-card rounded-2xl border border-line/60 px-4 py-3" data-testid="punch-correction-card">
       <div className="flex items-center gap-3 mb-2">
-        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-accent-solid/90 border border-accent/30 flex items-center justify-center text-xs font-bold text-on-accent shrink-0">
           {getMonogram(request.employeeName)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm text-slate-100 truncate">{request.employeeName}</div>
-          <div className="mt-0.5 text-xs text-slate-400">
-            Missed <span className="font-semibold text-amber-300">{request.punchLabel.toLowerCase()}</span> · {request.when}
+          <div className="font-semibold text-sm text-fg truncate">{request.employeeName}</div>
+          <div className="mt-0.5 text-xs text-fg-muted">
+            Missed <span className="font-semibold text-warning-fg-strong">{request.punchLabel.toLowerCase()}</span> · {request.when}
           </div>
         </div>
       </div>
-      <div className="mb-3 px-3 py-2 rounded-xl bg-slate-800/60 text-xs text-slate-300">
+      <div className="mb-3 px-3 py-2 rounded-xl bg-fill/60 text-xs text-fg-secondary">
         &ldquo;{request.note}&rdquo;
       </div>
 
@@ -418,7 +418,7 @@ function PunchCorrectionCard({
           disabled={loading !== null}
           aria-busy={loading === "approve"}
           aria-label={`Approve ${request.employeeName}'s punch correction`}
-          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-xs cursor-pointer border border-transparent hover:brightness-110 transition-[filter] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "approve" ? "…" : "Approve"}
         </button>
@@ -427,7 +427,7 @@ function PunchCorrectionCard({
           disabled={loading !== null}
           aria-busy={loading === "deny"}
           aria-label={`Deny ${request.employeeName}'s punch correction`}
-          className="flex-1 py-3.5 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 rounded-xl bg-transparent border border-line-strong text-danger-fg font-semibold text-xs cursor-pointer hover:bg-danger/20 hover:border-danger/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading === "deny" ? "…" : "Deny"}
         </button>

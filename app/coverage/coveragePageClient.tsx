@@ -164,8 +164,8 @@ export default function CoveragePageClient() {
       <AppShell active="settings" isManager={isManager}>
         <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh flex flex-col items-center justify-center px-6 text-center desk:max-w-none">
           <div className="text-4xl mb-3" aria-hidden="true">📈</div>
-          <h1 className="text-lg font-bold text-slate-100 mb-1.5">Coverage Profiles</h1>
-          <p className="text-sm text-slate-400">Only managers can manage coverage profiles.</p>
+          <h1 className="text-lg font-bold text-fg mb-1.5">Coverage Profiles</h1>
+          <p className="text-sm text-fg-muted">Only managers can manage coverage profiles.</p>
           <BottomNav active="settings" />
         </main>
       </AppShell>
@@ -177,20 +177,20 @@ export default function CoveragePageClient() {
       <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8">
         {/* Header */}
         <div
-          className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
+          className="px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg
                      desk:px-6 desk:py-[14px] desk:pb-[14px]"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
           <button
             onClick={() => router.back()}
-            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors desk:hidden"
+            className="size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer shrink-0 hover:bg-fill hover:text-fg-body transition-colors desk:hidden"
             aria-label="Back"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
           <div className="flex-1 min-w-0">
-            <span className="text-xl font-extrabold text-slate-100 tracking-tight">Coverage Profiles</span>
-            <div className="text-xs text-slate-400 mt-0.5">Target staffing curves, in 15-minute steps</div>
+            <span className="text-xl font-extrabold text-fg tracking-tight">Coverage Profiles</span>
+            <div className="text-xs text-fg-muted mt-0.5">Target staffing curves, in 15-minute steps</div>
           </div>
         </div>
 
@@ -208,11 +208,11 @@ export default function CoveragePageClient() {
           {/* Profiles */}
           <section>
             <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Profiles</span>
+              <span className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">Profiles</span>
               {!editing && (
                 <button
                   onClick={() => { setEditing({ id: null, name: "", blocks: [{ startMinutes: 540, endMinutes: 1020, headcount: 2 }] }); setEditError(null); }}
-                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer transition-colors py-[14px] -my-[14px] px-2 -mx-2"
+                  className="text-[11px] font-semibold text-accent-fg hover:text-accent-fg-strong bg-transparent border-none cursor-pointer transition-colors py-[14px] -my-[14px] px-2 -mx-2"
                 >
                   + New Profile
                 </button>
@@ -224,7 +224,7 @@ export default function CoveragePageClient() {
                 {/* Shaped like a profile card: name and staff-hours, then the
                     90px curve preview. */}
                 {[0, 1].map((i) => (
-                  <div key={i} aria-hidden="true" className="bg-card rounded-2xl border border-slate-800/60 px-4 pt-3 pb-2">
+                  <div key={i} aria-hidden="true" className="bg-card rounded-2xl border border-line/60 px-4 pt-3 pb-2">
                     <div className="mb-1">
                       <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-32 rounded" /></div>
                       <div className="text-[11px]"><SkeletonText text="00 staff-hrs / day" /></div>
@@ -250,7 +250,7 @@ export default function CoveragePageClient() {
                 </AnimatePresence>
 
                 {profiles.length === 0 && !editing && (
-                  <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-6 text-center text-sm text-slate-500">
+                  <div className="bg-card rounded-2xl border border-line/60 px-4 py-6 text-center text-sm text-fg-subtle">
                     No coverage profiles yet. Create one to set staffing targets.
                   </div>
                 )}
@@ -271,12 +271,12 @@ export default function CoveragePageClient() {
                       key={p.id}
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-card rounded-2xl border border-slate-800/60 px-4 pt-3 pb-2"
+                      className="bg-card rounded-2xl border border-line/60 px-4 pt-3 pb-2"
                     >
                       <div className="flex items-center justify-between mb-1">
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-slate-100 truncate">{p.name}</div>
-                          <div className="text-[11px] text-indigo-400 font-semibold tabular-nums">
+                          <div className="text-sm font-bold text-fg truncate">{p.name}</div>
+                          <div className="text-[11px] text-accent-fg font-semibold tabular-nums">
                             {Math.round(curveHours(p.blocks) * 10) / 10} staff-hrs / day
                           </div>
                         </div>
@@ -288,13 +288,13 @@ export default function CoveragePageClient() {
                               <button
                                 onClick={() => handleDeleteProfile(p.id)}
                                 disabled={saving}
-                                className="text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50 relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
+                                className="text-xs font-semibold text-danger-fg bg-danger/10 border border-danger/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-danger/20 transition-colors disabled:opacity-50 relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Confirm
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="text-xs font-semibold text-slate-400 bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-slate-200 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
+                                className="text-xs font-semibold text-fg-muted bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-fg-body transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Cancel
                               </button>
@@ -303,13 +303,13 @@ export default function CoveragePageClient() {
                             <>
                               <button
                                 onClick={() => { setEditing({ id: p.id, name: p.name, blocks: p.blocks.map((b) => ({ ...b })) }); setEditError(null); setConfirmDeleteId(null); }}
-                                className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-indigo-500/20 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
+                                className="text-xs font-semibold text-accent-fg bg-accent/10 border border-accent/25 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-accent/20 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(p.id)}
-                                className="text-xs font-semibold text-slate-500 bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-red-400 transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
+                                className="text-xs font-semibold text-fg-subtle bg-transparent border border-transparent rounded-lg px-2.5 py-1.5 cursor-pointer hover:text-danger-fg transition-colors relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']"
                               >
                                 Delete
                               </button>
@@ -330,19 +330,19 @@ export default function CoveragePageClient() {
               rather than being pushed down. */}
           {!loading && (
             <section>
-              <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+              <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
                 Weekly Defaults
               </div>
-              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+              <div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60">
                 {DAY_NAMES.map((dayName, dow) => (
                   <div key={dow} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="text-sm font-semibold text-slate-300 w-24 shrink-0">{dayName}</span>
+                    <span className="text-sm font-semibold text-fg-secondary w-24 shrink-0">{dayName}</span>
                     <select
                       value={defaults[dow] ?? ""}
                       disabled={loading || savingDefaultDow === dow}
                       aria-label={`Default coverage profile for ${dayName}`}
                       onChange={(e) => handleSetDefault(dow, e.target.value === "" ? null : Number(e.target.value))}
-                      className="flex-1 min-w-0 bg-bg border border-field rounded-lg px-2 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
+                      className="flex-1 min-w-0 bg-bg border border-field rounded-lg px-2 py-2 text-xs text-fg focus:outline-none focus:border-accent transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <option value="">No coverage target</option>
                       {profiles.map((p) => (
@@ -352,7 +352,7 @@ export default function CoveragePageClient() {
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-500 mt-2 px-1">
+              <p className="text-[11px] text-fg-subtle mt-2 px-1">
                 Specific dates (holidays, events) can be overridden on the Week page: pick the day, then its coverage.
               </p>
             </section>
@@ -385,9 +385,9 @@ function ProfileEditorCard({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="bg-card rounded-2xl border border-indigo-500/30 px-4 pt-4 pb-4"
+      className="bg-card rounded-2xl border border-accent/30 px-4 pt-4 pb-4"
     >
-      <label htmlFor="profile-name" className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
+      <label htmlFor="profile-name" className="text-[11px] text-fg-muted uppercase tracking-[0.08em] mb-1.5 block">
         Profile Name
       </label>
       <input
@@ -397,7 +397,7 @@ function ProfileEditorCard({
         maxLength={60}
         placeholder="e.g. Weekday, Saturday, Holiday"
         onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-        className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm mb-4 focus:outline-none focus:border-indigo-500 transition-colors"
+        className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-fg text-sm mb-4 focus:outline-none focus:border-accent transition-colors"
       />
 
       <CoverageCurveEditor
@@ -412,14 +412,14 @@ function ProfileEditorCard({
           onClick={onSave}
           disabled={saving}
           aria-busy={saving}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent text-white font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to border border-transparent text-on-accent font-bold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 transition-all"
         >
           {saving ? "Saving…" : editing.id === null ? "Create Profile" : "Save Profile"}
         </button>
         <button
           onClick={onCancel}
           disabled={saving}
-          className="px-5 py-3 rounded-xl bg-transparent border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:text-slate-200 transition-colors"
+          className="px-5 py-3 rounded-xl bg-transparent border border-line-strong text-fg-muted font-semibold text-sm cursor-pointer hover:text-fg-body transition-colors"
         >
           Cancel
         </button>

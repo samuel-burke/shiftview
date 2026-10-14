@@ -40,23 +40,23 @@ function SwapRow({ swap, responding, onAccept, onDecline }: {
   onDecline: (id: number) => void;
 }) {
   return (
-    <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 mb-2">
+    <div className="bg-card rounded-2xl border border-line/60 px-4 py-3 mb-2">
       <div className="flex items-center gap-3 mb-2">
-        <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+        <div className="size-9 rounded-full bg-accent-solid/90 border border-accent/30 flex items-center justify-center text-xs font-bold text-on-accent shrink-0">
           {getMonogram(swap.requesterName)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm text-slate-100 truncate">
+          <div className="font-semibold text-sm text-fg truncate">
             {swap.requesterName} wants to swap
           </div>
-          <div className="text-xs text-slate-400 mt-0.5">{formatDate(swap.date)}</div>
+          <div className="text-xs text-fg-muted mt-0.5">{formatDate(swap.date)}</div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
-        <span className="bg-slate-800 rounded-lg px-2 py-1">You take: {swap.scheduleATime}</span>
-        <span className="text-slate-500" aria-hidden="true">⇄</span>
-        <span className="bg-slate-800 rounded-lg px-2 py-1">You give: {swap.scheduleBTime}</span>
+      <div className="flex items-center gap-2 text-xs text-fg-muted mb-3">
+        <span className="bg-fill rounded-lg px-2 py-1">You take: {swap.scheduleATime}</span>
+        <span className="text-fg-subtle" aria-hidden="true">⇄</span>
+        <span className="bg-fill rounded-lg px-2 py-1">You give: {swap.scheduleBTime}</span>
       </div>
 
       <div className="flex gap-2">
@@ -65,7 +65,7 @@ function SwapRow({ swap, responding, onAccept, onDecline }: {
           disabled={responding}
           aria-label={`Decline swap with ${swap.requesterName}`}
           aria-busy={responding}
-          className="flex-1 py-3 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 py-3 rounded-xl bg-transparent border border-line-strong text-danger-fg font-semibold text-xs cursor-pointer hover:bg-danger/20 hover:border-danger/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Decline
         </button>
@@ -74,7 +74,7 @@ function SwapRow({ swap, responding, onAccept, onDecline }: {
           disabled={responding}
           aria-label={`Accept swap with ${swap.requesterName}`}
           aria-busy={responding}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent text-white font-bold text-xs cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter]"
+          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to border border-transparent text-on-accent font-bold text-xs cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-[filter]"
         >
           Accept
         </button>
@@ -88,13 +88,13 @@ export default function IncomingSwapRequests({ swaps, respondingId, onAccept, on
 
   return (
     <div className="mt-4">
-      <div className="flex items-center gap-2 mb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+      <div className="flex items-center gap-2 mb-2 text-[11px] font-semibold text-fg-muted uppercase tracking-wider px-1">
         Swap Requests for You
-        <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
+        <span className="bg-warning/10 border border-warning/30 rounded-full px-2 py-px text-[11px] text-warning-fg">
           {swaps.length}
         </span>
       </div>
-      <p className="text-xs text-slate-500 px-1 mb-2">
+      <p className="text-xs text-fg-subtle px-1 mb-2">
         Accepting sends it to a manager for final approval.
       </p>
       <motion.div variants={listContainer} initial="hidden" animate="show">

@@ -141,23 +141,23 @@ export default function AdminPageClient({
     <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
       <DemoBanner />
       <div
-        className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
+        className="px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg
                    desk:px-6 desk:py-[14px] desk:pb-[14px] desk:gap-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors tablet:hidden"
+          className="size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer shrink-0 hover:bg-fill hover:text-fg-body transition-colors tablet:hidden"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight desk:text-xl">Admin</span>
+        <span className="text-2xl font-extrabold text-fg tracking-tight desk:text-xl">Admin</span>
       </div>
 
       <div className="px-4 pt-5 desk:max-w-2xl desk:mx-auto desk:px-6 flex flex-col gap-5">
         <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Roles
           </div>
 
@@ -166,9 +166,9 @@ export default function AdminPageClient({
             {errorMsg && <Toast>{errorMsg}</Toast>}
           </ToastStack>
 
-          <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
+          <motion.div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
+              <div className="px-4 py-6 text-center text-sm text-fg-subtle">No employees</div>
             ) : (
               employees.map((emp) => {
                 const isSelf = emp.user_id === currentUserId;
@@ -179,7 +179,7 @@ export default function AdminPageClient({
 
                 return (
                   <motion.div key={emp.id} variants={listItem} className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    <div className="size-9 rounded-full bg-accent-solid/90 border border-accent/30 flex items-center justify-center text-xs font-bold text-on-accent shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -187,33 +187,33 @@ export default function AdminPageClient({
                           rounded, no border), so it doesn't read as a button beside
                           Promote / Demote. */}
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</span>
+                        <span className="text-sm font-semibold text-fg-body truncate" title={emp.name}>{emp.name}</span>
                         <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5 ${
                           isOwner
-                            ? "bg-amber-500/15 text-amber-300"
+                            ? "bg-warning/15 text-warning-fg-strong"
                             : isMgr
-                            ? "bg-violet-500/15 text-violet-300"
-                            : "bg-slate-800 text-slate-400"
+                            ? "bg-auto/15 text-auto-fg-strong"
+                            : "bg-fill text-fg-muted"
                         }`}>
                           {isOwner ? "Owner" : isMgr ? "Manager" : "Employee"}
                         </span>
                       </div>
-                      {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
+                      {emp.email && <div className="text-xs text-fg-subtle truncate" title={emp.email}>{emp.email}</div>}
                     </div>
                     {/* The action column has a fixed width so buttons line up row to row. */}
                     <div className="flex items-center shrink-0">
                       {!emp.user_id ? (
-                        <span className="text-xs text-slate-500 w-20 py-1.5 text-center">No account</span>
+                        <span className="text-xs text-fg-subtle w-20 py-1.5 text-center">No account</span>
                       ) : isSelf ? (
                         <span
-                          className="text-xs text-slate-500 w-20 py-1.5 text-center"
+                          className="text-xs text-fg-subtle w-20 py-1.5 text-center"
                           aria-label="You — cannot change your own role"
                         >
                           You
                         </span>
                       ) : isOwner || !canManageRoles ? (
                         <span
-                          className="text-xs text-slate-500 w-20 py-1.5 text-center"
+                          className="text-xs text-fg-subtle w-20 py-1.5 text-center"
                           aria-label={isOwner
                             ? "Organization owner — cannot be demoted"
                             : "Only the organization owner can change roles"}
@@ -227,10 +227,10 @@ export default function AdminPageClient({
                           aria-busy={isToggling}
                           className={`text-xs font-semibold py-3 rounded-lg border transition-colors cursor-pointer w-20 text-center disabled:opacity-50 disabled:cursor-not-allowed ${
                             hasError
-                              ? "bg-red-500/20 text-red-400 border-red-500/30"
+                              ? "bg-danger/20 text-danger-fg border-danger/30"
                               : isMgr
-                              ? "bg-amber-500/15 text-amber-400 border-amber-500/25 hover:bg-amber-500/25"
-                              : "bg-indigo-500/15 text-indigo-400 border-indigo-500/25 hover:bg-indigo-500/25"
+                              ? "bg-warning/15 text-warning-fg border-warning/25 hover:bg-warning/25"
+                              : "bg-accent/15 text-accent-fg border-accent/25 hover:bg-accent/25"
                           }`}
                           aria-label={isMgr ? `Demote ${emp.name}` : `Promote ${emp.name}`}
                         >

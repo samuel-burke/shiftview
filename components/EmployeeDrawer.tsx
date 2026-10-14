@@ -22,6 +22,7 @@ import {
 } from "../data/types";
 import { useScrollLock } from "@/lib/scroll-lock";
 import FormError from "./FormError";
+import { tint } from "../lib/theme-colors";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -149,7 +150,7 @@ export default function EmployeeDrawer({
   if (isDraft) {
     statusLabel = !schedule ? "Off" : schedule.generationRunId ? "Auto draft" : "Draft";
     // Theme variables, so light mode gets its darker amber and violet.
-    statusColor = !schedule ? "var(--status-muted)" : schedule.generationRunId ? "var(--color-violet-400, #a78bfa)" : "var(--color-amber-400, #fbbf24)";
+    statusColor = !schedule ? "var(--status-muted)" : schedule.generationRunId ? "var(--status-violet)" : "var(--status-caution)";
   } else if (readOnly) {
     statusLabel = "Live";
     statusColor = "var(--status-muted)";
@@ -238,7 +239,7 @@ export default function EmployeeDrawer({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-[60] flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+          style={{ background: "color-mix(in oklab, var(--color-scrim) 75%, transparent)", backdropFilter: "blur(4px)" }}
           onClick={() => setConflict(null)}
         >
           <motion.div
@@ -249,32 +250,32 @@ export default function EmployeeDrawer({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 4 }}
             transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className="w-full max-w-[360px] bg-card border border-slate-700 rounded-2xl overflow-hidden"
-            style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)" }}
+            className="w-full max-w-[360px] bg-card border border-line-strong rounded-2xl overflow-hidden"
+            style={{ boxShadow: "var(--shadow-dialog)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
+              <div className="size-12 rounded-full bg-warning/15 border border-warning/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
-                <div id="conflict-modal-title" className="text-base font-bold text-slate-100">
+                <div id="conflict-modal-title" className="text-base font-bold text-fg">
                   {conflict.type === "time_off" ? "Time Off Conflict" : "Availability Conflict"}
                 </div>
-                <div className="text-sm text-slate-400 mt-1.5">{conflict.message}</div>
+                <div className="text-sm text-fg-muted mt-1.5">{conflict.message}</div>
                 {conflict.type === "availability" && conflict.window && (
-                  <div className="mt-2 text-sm font-semibold text-amber-400">
+                  <div className="mt-2 text-sm font-semibold text-warning-fg">
                     Available: {fmtMinutes(conflict.window.startMinutes)} – {fmtMinutes(conflict.window.endMinutes)}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex border-t border-slate-800">
+            <div className="flex border-t border-line">
               <button
                 onClick={() => setConflict(null)}
                 disabled={saving}
                 autoFocus
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-r border-slate-800 bg-transparent border-t-0 border-l-0 border-b-0 hover:bg-slate-800/50 hover:text-slate-200"
+                className="flex-1 py-3.5 text-sm font-semibold text-fg-secondary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-r border-line bg-transparent border-t-0 border-l-0 border-b-0 hover:bg-fill/50 hover:text-fg-body"
               >
                 Cancel
               </button>
@@ -282,7 +283,7 @@ export default function EmployeeDrawer({
                 onClick={handleOverride}
                 disabled={saving}
                 aria-busy={saving}
-                className="flex-1 py-3.5 text-sm font-semibold text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none hover:text-amber-300 hover:bg-amber-500/10"
+                className="flex-1 py-3.5 text-sm font-semibold text-warning-fg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none hover:text-warning-fg-strong hover:bg-warning/10"
               >
                 {saving ? "Saving…" : "Override & Save"}
               </button>
@@ -298,7 +299,7 @@ export default function EmployeeDrawer({
             {!isPane && <motion.div
               key="backdrop"
               aria-hidden="true"
-              className="fixed inset-0 bg-black/60 z-40"
+              className="fixed inset-0 bg-scrim/60 z-40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -313,8 +314,8 @@ export default function EmployeeDrawer({
               data-testid="employee-drawer"
               className={`fixed z-50 bg-bg ${
                 isDesktop
-                  ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
-                  : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto"
+                  ? "inset-y-0 right-0 w-[420px] border-l border-line overflow-y-auto"
+                  : "bottom-0 left-0 right-0 border-t border-line rounded-t-3xl max-w-[480px] mx-auto"
               }`}
               initial={isDesktop ? { x: "100%" } : { y: "100%" }}
               animate={isDesktop ? { x: 0 } : { y: 0 }}
@@ -338,7 +339,7 @@ export default function EmployeeDrawer({
                   style={{ touchAction: "none" }}
                   onPointerDown={(e) => dragControls.start(e)}
                 >
-                  <div aria-hidden="true" className="w-10 h-[3px] rounded-full bg-slate-700/80" />
+                  <div aria-hidden="true" className="w-10 h-[3px] rounded-full bg-fill-strong/80" />
                 </div>
               )}
 
@@ -349,15 +350,15 @@ export default function EmployeeDrawer({
                     <div
                       className="size-[52px] rounded-[14px] flex items-center justify-center text-base font-extrabold"
                       style={{
-                        background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`,
-                        border: `2px solid color-mix(in srgb, ${shiftColor} 33%, transparent)`,
+                        background: tint(shiftColor, 13),
+                        border: `2px solid ${tint(shiftColor, 33)}`,
                         color: shiftColor,
                       }}
                     >
                       {getMonogram(employee.name)}
                     </div>
                     <div>
-                      <div id="employee-drawer-title" className="text-lg font-bold text-slate-100">{employee.name}</div>
+                      <div id="employee-drawer-title" className="text-lg font-bold text-fg">{employee.name}</div>
                       <div className="text-xs mt-[3px]">
                         {shiftType && (
                           <span className="capitalize mr-1.5" style={{ color: shiftColor }}>{shiftType}</span>
@@ -369,10 +370,10 @@ export default function EmployeeDrawer({
                   <motion.button
                     onClick={onClose}
                     aria-label="Close"
-                    whileHover={{ scale: 1.1, backgroundColor: "rgba(71,85,105,0.8)" }}
+                    whileHover={{ scale: 1.1, backgroundColor: "color-mix(in oklab, var(--color-fill-stronger) 80%, transparent)" }}
                     whileTap={{ scale: 0.88 }}
                     transition={{ type: "spring", stiffness: 450, damping: 25 }}
-                    className="size-11 rounded-full bg-slate-800 border-none text-slate-400 text-base cursor-pointer flex items-center justify-center"
+                    className="size-11 rounded-full bg-fill border-none text-fg-muted text-base cursor-pointer flex items-center justify-center"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -382,23 +383,23 @@ export default function EmployeeDrawer({
 
                 {/* Availability banner */}
                 {availRecord && (
-                  <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+                  <div className="mb-4 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-warning-fg text-xs">
                     {availRecord.startMinutes === null || availRecord.endMinutes === null ? (
                       <>
                         <span aria-hidden="true">⚠</span> Usually unavailable on {DAY_NAMES[dayOfWeek]}s
-                        {availRecord.note && <div className="mt-0.5 text-amber-300">{availRecord.note}</div>}
+                        {availRecord.note && <div className="mt-0.5 text-warning-fg-strong">{availRecord.note}</div>}
                       </>
                     ) : (
                       <>
                         <span aria-hidden="true">⚠</span> Available {DAY_NAMES[dayOfWeek]} {fmtMinutes(availRecord.startMinutes)} – {fmtMinutes(availRecord.endMinutes)} only
-                        {availRecord.note && <div className="mt-0.5 text-amber-300">{availRecord.note}</div>}
+                        {availRecord.note && <div className="mt-0.5 text-warning-fg-strong">{availRecord.note}</div>}
                       </>
                     )}
                   </div>
                 )}
 
                 {notice && (
-                  <div role="note" className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+                  <div role="note" className="mb-4 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-warning-fg text-xs">
                     {notice}
                   </div>
                 )}
@@ -410,7 +411,7 @@ export default function EmployeeDrawer({
                       { label: "End time",   id: "edit-shift-end",   val: endVal,   set: setEndVal,   autoFocus: false },
                     ].map(({ label, id, val, set, autoFocus }) => (
                       <div key={label}>
-                        <label htmlFor={id} className="text-[11px] text-slate-400 uppercase tracking-[0.08em] mb-1.5 block">
+                        <label htmlFor={id} className="text-[11px] text-fg-muted uppercase tracking-[0.08em] mb-1.5 block">
                           {label}
                         </label>
                         <input
@@ -419,13 +420,13 @@ export default function EmployeeDrawer({
                           value={val}
                           autoFocus={autoFocus}
                           onChange={(e) => { set(e.target.value); setError(null); setConflict(null); }}
-                          className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-base focus:outline-none focus:border-indigo-500 transition-colors"
+                          className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-fg text-base focus:outline-none focus:border-accent transition-colors"
                         />
                       </div>
                     ))}
 
                     {startVal && endVal && endVal <= startVal && (
-                      <div className="text-xs text-indigo-300 -mt-1" data-testid="edit-shift-overnight">Ends the next day (overnight shift)</div>
+                      <div className="text-xs text-accent-fg-strong -mt-1" data-testid="edit-shift-overnight">Ends the next day (overnight shift)</div>
                     )}
 
                     <FormError message={error} className="text-center" />
@@ -434,10 +435,10 @@ export default function EmployeeDrawer({
                       onClick={() => handleSave(false)}
                       disabled={saving}
                       aria-busy={saving}
-                      whileHover={!saving ? { scale: 1.02, boxShadow: "0 6px 24px rgba(139,92,246,0.3)" } : {}}
+                      whileHover={!saving ? { scale: 1.02, boxShadow: `0 6px 24px ${tint("var(--color-brand-to)", 30)}` } : {}}
                       whileTap={!saving ? { scale: 0.97 } : {}}
                       transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-blue-600 to-violet-600 border-none text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
+                      className={`py-[14px] rounded-xl mt-1 bg-gradient-to-r from-brand-from to-brand-to border-none text-on-accent font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition-opacity hover:brightness-110 ${saving ? "opacity-70" : "opacity-100"}`}
                     >
                       {saving ? "Saving…" : isDraft ? "Save Draft" : "Save Shift"}
                     </motion.button>
@@ -449,7 +450,7 @@ export default function EmployeeDrawer({
                         whileHover={!saving ? { scale: 1.01 } : {}}
                         whileTap={!saving ? { scale: 0.97 } : {}}
                         transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                        className={`py-[14px] rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-sm cursor-pointer disabled:cursor-not-allowed transition-[opacity,background-color] hover:bg-red-500/10 ${saving ? "opacity-70" : "opacity-100"}`}
+                        className={`py-[14px] rounded-xl bg-transparent border border-line-strong text-danger-fg font-semibold text-sm cursor-pointer disabled:cursor-not-allowed transition-[opacity,background-color] hover:bg-danger/10 ${saving ? "opacity-70" : "opacity-100"}`}
                       >
                         {isDraft ? "Remove Draft" : "Mark as Off"}
                       </motion.button>
@@ -460,7 +461,7 @@ export default function EmployeeDrawer({
                       disabled={saving}
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                      className="py-[14px] rounded-xl bg-transparent border-none text-slate-400 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:text-slate-200 transition-colors"
+                      className="py-[14px] rounded-xl bg-transparent border-none text-fg-muted font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:text-fg-body transition-colors"
                     >
                       Cancel
                     </motion.button>
@@ -485,17 +486,17 @@ export default function EmployeeDrawer({
                             hidden: { opacity: 0, y: 6, scale: 0.97 },
                             show:   { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 340, damping: 26 } },
                           }}
-                          className="bg-card rounded-xl px-[14px] py-3 border border-white/[0.05]"
-                          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                          className="bg-card rounded-xl px-[14px] py-3 border border-line-subtle"
+                          style={{ boxShadow: "var(--shadow-card)" }}
                         >
-                          <div className="text-[10px] text-slate-400 uppercase tracking-[0.08em] mb-1 select-none">{label}</div>
-                          <div className="text-sm font-semibold text-slate-100">{value}</div>
+                          <div className="text-[10px] text-fg-muted uppercase tracking-[0.08em] mb-1 select-none">{label}</div>
+                          <div className="text-sm font-semibold text-fg">{value}</div>
                         </motion.div>
                       ))}
                     </motion.div>
 
                     {readOnly && (
-                      <div className="mb-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 text-xs text-slate-400">
+                      <div className="mb-3 rounded-xl border border-line-strong bg-fill/40 px-4 py-3 text-xs text-fg-muted">
                         This shift is live. Change it in Live mode; drafts can&apos;t replace it.
                       </div>
                     )}
@@ -506,7 +507,7 @@ export default function EmployeeDrawer({
                           onClick={onSwitchToLive}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-600 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-info-solid border-none text-on-accent font-bold text-sm cursor-pointer hover:bg-info-solid-hover transition-colors"
                         >
                           Switch to Live
                         </motion.button>
@@ -514,10 +515,10 @@ export default function EmployeeDrawer({
                       {isManager && !readOnly && (
                         <motion.button
                           onClick={() => setEditing(true)}
-                          whileHover={{ scale: 1.02, boxShadow: "0 6px 24px rgba(59,130,246,0.3)" }}
+                          whileHover={{ scale: 1.02, boxShadow: `0 6px 24px ${tint("var(--color-info)", 30)}` }}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-blue-600 border-none text-white font-bold text-sm cursor-pointer hover:bg-blue-700 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-info-solid border-none text-on-accent font-bold text-sm cursor-pointer hover:bg-info-solid-hover transition-colors"
                         >
                           {schedule ? (isDraft ? "Edit Draft" : "Edit Shift") : isDraft ? "Add Draft" : "Add Shift"}
                         </motion.button>
@@ -528,7 +529,7 @@ export default function EmployeeDrawer({
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                          className="flex-1 py-[14px] rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:bg-slate-700 hover:text-slate-200 transition-colors"
+                          className="flex-1 py-[14px] rounded-xl bg-fill border border-line-strong text-fg-muted font-semibold text-sm cursor-pointer hover:bg-fill-strong hover:text-fg-body transition-colors"
                         >
                           Message
                         </motion.button>
@@ -541,7 +542,7 @@ export default function EmployeeDrawer({
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                        className="w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-slate-700 text-slate-300 font-semibold text-sm cursor-pointer hover:bg-slate-800 hover:text-slate-100 transition-colors flex items-center justify-center gap-2"
+                        className="w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-line-strong text-fg-secondary font-semibold text-sm cursor-pointer hover:bg-fill hover:text-fg transition-colors flex items-center justify-center gap-2"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                           <rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="1.5" />
@@ -569,7 +570,7 @@ export default function EmployeeDrawer({
                         whileHover={!inviteSent ? { scale: 1.01 } : {}}
                         whileTap={!inviteSent ? { scale: 0.97 } : {}}
                         transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-slate-700 font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-green-500 border-green-900" : "text-slate-400 hover:text-slate-200 hover:border-slate-500"}`}
+                        className={`w-full mt-2.5 py-[14px] rounded-xl bg-transparent border border-dashed border-line-strong font-semibold text-sm cursor-pointer transition-colors ${inviteSent ? "text-ok-fg border-ok" : "text-fg-muted hover:text-fg-body hover:border-line-emphasis"}`}
                       >
                         {inviteSent ? "Invite sent ✓" : saving ? "Sending…" : "Resend Invite"}
                       </motion.button>

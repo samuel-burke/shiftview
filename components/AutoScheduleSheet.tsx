@@ -26,7 +26,7 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIMES = Array.from({ length: 49 }, (_, i) => i * 30); // 12:00 AM … midnight
 
 const selectClass =
-  "bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer min-w-0";
+  "bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg focus:outline-none focus:border-accent cursor-pointer min-w-0";
 
 type AdderKind = "coverage" | "employee_off" | "employee_hours";
 
@@ -53,12 +53,12 @@ function Check({ ok, children }: { ok: boolean | "warn"; children: React.ReactNo
       <span
         aria-hidden="true"
         className={`mt-px size-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-          ok === true ? "bg-emerald-500/15 text-emerald-400" : ok === "warn" ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400"
+          ok === true ? "bg-success/15 text-success-fg" : ok === "warn" ? "bg-warning/15 text-warning-fg" : "bg-danger/15 text-danger-fg"
         }`}
       >
         {ok === true ? "✓" : "!"}
       </span>
-      <div className="min-w-0 flex-1 text-slate-300">{children}</div>
+      <div className="min-w-0 flex-1 text-fg-secondary">{children}</div>
     </li>
   );
 }
@@ -179,7 +179,7 @@ export default function AutoScheduleSheet({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-[60] flex items-end justify-center tablet:items-center tablet:px-4"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          style={{ background: "color-mix(in oklab, var(--color-scrim) 70%, transparent)", backdropFilter: "blur(4px)" }}
           onClick={() => { if (!generating) onClose(); }}
         >
           <motion.div
@@ -192,20 +192,20 @@ export default function AutoScheduleSheet({
             exit={{ y: 30, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[480px] tablet:max-w-[560px] max-h-[88dvh] flex flex-col bg-card border border-slate-700 rounded-t-3xl tablet:rounded-3xl overflow-hidden"
-            style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
+            className="w-full max-w-[480px] tablet:max-w-[560px] max-h-[88dvh] flex flex-col bg-card border border-line-strong rounded-t-3xl tablet:rounded-3xl overflow-hidden"
+            style={{ boxShadow: "var(--shadow-dialog)" }}
           >
-            <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 border-b border-slate-800">
+            <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 border-b border-line">
               <div className="min-w-0">
-                <h2 id="auto-schedule-title" className="text-lg font-bold text-slate-100">Auto-schedule</h2>
-                <div className="text-xs text-slate-400 tabular-nums">{weekLabel}</div>
+                <h2 id="auto-schedule-title" className="text-lg font-bold text-fg">Auto-schedule</h2>
+                <div className="text-xs text-fg-muted tabular-nums">{weekLabel}</div>
               </div>
               <button
                 onClick={onClose}
                 disabled={generating}
                 autoFocus
                 aria-label="Close"
-                className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors disabled:opacity-50"
+                className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors disabled:opacity-50"
               >
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
               </button>
@@ -214,13 +214,13 @@ export default function AutoScheduleSheet({
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
               {/* Readiness */}
               <section aria-labelledby="as-ready">
-                <h3 id="as-ready" className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2">Before you start</h3>
+                <h3 id="as-ready" className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2">Before you start</h3>
                 <ul className="flex flex-col gap-2">
                   <Check ok={daysWithTarget.length === 0 ? false : daysWithout.length ? "warn" : true}>
                     {daysWithTarget.length === 0 ? (
-                      <>No coverage targets this week, so there&apos;s nothing to schedule. <Link href="/coverage" className="text-indigo-400 font-semibold">Set coverage</Link></>
+                      <>No coverage targets this week, so there&apos;s nothing to schedule. <Link href="/coverage" className="text-accent-fg font-semibold">Set coverage</Link></>
                     ) : daysWithout.length ? (
-                      <>No coverage target on {daysWithout.map((d) => DAY_SHORT[dayOfWeek(d)]).join(", ")}; nobody will be scheduled then. <Link href="/coverage" className="text-indigo-400 font-semibold">Edit coverage</Link></>
+                      <>No coverage target on {daysWithout.map((d) => DAY_SHORT[dayOfWeek(d)]).join(", ")}; nobody will be scheduled then. <Link href="/coverage" className="text-accent-fg font-semibold">Edit coverage</Link></>
                     ) : (
                       "Coverage targets set for every day"
                     )}
@@ -236,7 +236,7 @@ export default function AutoScheduleSheet({
                         <button
                           onClick={() => setShowUntyped((v) => !v)}
                           aria-expanded={showUntyped}
-                          className="text-indigo-400 font-semibold bg-transparent border-none px-0 py-1 cursor-pointer"
+                          className="text-accent-fg font-semibold bg-transparent border-none px-0 py-1 cursor-pointer"
                         >
                           {showUntyped ? "Hide" : "Set them now"}
                         </button>
@@ -244,13 +244,13 @@ export default function AutoScheduleSheet({
                           <ul className="mt-2 flex flex-col gap-1.5">
                             {untyped.map((e) => (
                               <li key={e.id} className="flex items-center gap-2">
-                                <span className="flex-1 min-w-0 truncate text-slate-200">{formatDisplayName(e.name)}</span>
+                                <span className="flex-1 min-w-0 truncate text-fg-body">{formatDisplayName(e.name)}</span>
                                 {(["full_time", "part_time"] as const).map((t) => (
                                   <button
                                     key={t}
                                     onClick={() => setType(e.id, t)}
                                     disabled={typeSaving === e.id}
-                                    className="min-h-9 text-xs font-semibold px-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-slate-100 cursor-pointer disabled:opacity-50"
+                                    className="min-h-9 text-xs font-semibold px-3 rounded-lg bg-fill border border-line-strong text-fg-secondary hover:text-fg cursor-pointer disabled:opacity-50"
                                   >
                                     {t === "full_time" ? "Full-time" : "Part-time"}
                                   </button>
@@ -275,7 +275,7 @@ export default function AutoScheduleSheet({
               {/* Mode */}
               {draftCount > 0 && (
                 <section aria-labelledby="as-mode">
-                  <h3 id="as-mode" className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2">Your {draftCount} draft{draftCount === 1 ? "" : "s"}</h3>
+                  <h3 id="as-mode" className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2">Your {draftCount} draft{draftCount === 1 ? "" : "s"}</h3>
                   <SegmentedControl
                     ariaLabel="What to do with your drafts"
                     value={mode}
@@ -285,7 +285,7 @@ export default function AutoScheduleSheet({
                       { value: "replace", label: "Start fresh" },
                     ]}
                   />
-                  <div className="text-[11px] text-slate-500 mt-1.5">
+                  <div className="text-[11px] text-fg-subtle mt-1.5">
                     {mode === "fill" ? "Your drafts stay as they are; new shifts fill the rest." : "Your drafts are replaced. Undo brings them back."}
                   </div>
                 </section>
@@ -293,9 +293,9 @@ export default function AutoScheduleSheet({
 
               {/* Run rules */}
               <section aria-labelledby="as-rules" className="flex flex-col gap-3">
-                <h3 id="as-rules" className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Rules for this week</h3>
+                <h3 id="as-rules" className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">Rules for this week</h3>
                 <div className="flex flex-col gap-1.5">
-                  <div className="text-xs font-semibold text-slate-300">Overtime</div>
+                  <div className="text-xs font-semibold text-fg-secondary">Overtime</div>
                   <SegmentedControl
                     ariaLabel="Overtime"
                     value={overtimePolicy}
@@ -307,7 +307,7 @@ export default function AutoScheduleSheet({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <div className="text-xs font-semibold text-slate-300">Pending time off</div>
+                  <div className="text-xs font-semibold text-fg-secondary">Pending time off</div>
                   <SegmentedControl
                     ariaLabel="Pending time off"
                     value={pendingPolicy}
@@ -318,24 +318,24 @@ export default function AutoScheduleSheet({
                     ]}
                   />
                 </div>
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[11px] text-fg-subtle">
                   Shifts {rules.minShiftMinutes / 60}–{rules.maxShiftMinutes / 60} h · {rules.minRestMinutes / 60} h rest · up to {rules.maxConsecutiveDays} days in a row.{" "}
-                  <Link href="/settings#settings-workplace" className="text-indigo-400 font-semibold">Change in Settings</Link>
+                  <Link href="/settings#settings-workplace" className="text-accent-fg font-semibold">Change in Settings</Link>
                 </div>
               </section>
 
               {/* Adjustments */}
               <section aria-labelledby="as-adjust" className="flex flex-col gap-2">
-                <h3 id="as-adjust" className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">This week only</h3>
+                <h3 id="as-adjust" className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">This week only</h3>
                 {adjustments.length > 0 && (
                   <ul className="flex flex-wrap gap-1.5">
                     {adjustments.map((a, i) => (
-                      <li key={i} className="flex items-center gap-1 text-[11px] text-indigo-200 bg-indigo-500/15 border border-indigo-500/30 rounded-full pl-2.5 pr-1 py-1">
+                      <li key={i} className="flex items-center gap-1 text-[11px] text-accent-fg-max bg-accent/15 border border-accent/30 rounded-full pl-2.5 pr-1 py-1">
                         <span>{describeAdjustment(a, nameOf)}</span>
                         <button
                           onClick={() => setAdjustments((list) => list.filter((_, j) => j !== i))}
                           aria-label={`Remove ${describeAdjustment(a, nameOf)}`}
-                          className="size-7 -my-1 -mr-0.5 rounded-full bg-transparent border-none text-base leading-none text-indigo-300 hover:text-indigo-100 cursor-pointer flex items-center justify-center"
+                          className="size-7 -my-1 -mr-0.5 rounded-full bg-transparent border-none text-base leading-none text-accent-fg-strong hover:text-accent-fg-max cursor-pointer flex items-center justify-center"
                         >
                           ×
                         </button>
@@ -354,7 +354,7 @@ export default function AutoScheduleSheet({
                       onClick={() => setAdder(adder === kind ? null : kind)}
                       aria-expanded={adder === kind}
                       className={`min-h-9 text-xs font-semibold px-3 rounded-lg border cursor-pointer transition-colors ${
-                        adder === kind ? "bg-slate-700 border-slate-600 text-slate-100" : "bg-slate-800 border-slate-700 text-slate-300 hover:text-slate-100"
+                        adder === kind ? "bg-fill-strong border-line-stronger text-fg" : "bg-fill border-line-strong text-fg-secondary hover:text-fg"
                       }`}
                     >
                       {label}
@@ -362,9 +362,9 @@ export default function AutoScheduleSheet({
                   ))}
                 </div>
                 {adder && (
-                  <div className="flex flex-wrap items-end gap-2 bg-slate-800/50 border border-slate-800 rounded-xl p-3">
+                  <div className="flex flex-wrap items-end gap-2 bg-fill/50 border border-line rounded-xl p-3">
                     {adder !== "coverage" && (
-                      <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] text-fg-subtle font-semibold uppercase">
                         Who
                         <select aria-label="Employee" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: Number(e.target.value) })} className={selectClass}>
                           {employees.map((e) => <option key={e.id} value={e.id}>{formatDisplayName(e.name)}</option>)}
@@ -372,7 +372,7 @@ export default function AutoScheduleSheet({
                       </label>
                     )}
                     {adder !== "employee_hours" && (
-                      <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] text-fg-subtle font-semibold uppercase">
                         Day
                         <select aria-label="Day" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={selectClass}>
                           {dates.map((d) => <option key={d} value={d}>{DAY_SHORT[dayOfWeek(d)]} {Number(d.slice(8, 10))}</option>)}
@@ -381,19 +381,19 @@ export default function AutoScheduleSheet({
                     )}
                     {adder === "coverage" && (
                       <>
-                        <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
+                        <label className="flex flex-col gap-1 text-[11px] text-fg-subtle font-semibold uppercase">
                           From
                           <select aria-label="From" value={form.start} onChange={(e) => setForm({ ...form, start: Number(e.target.value) })} className={selectClass}>
                             {TIMES.slice(0, -1).map((t) => <option key={t} value={t}>{fmtMinutes(t)}</option>)}
                           </select>
                         </label>
-                        <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
+                        <label className="flex flex-col gap-1 text-[11px] text-fg-subtle font-semibold uppercase">
                           To
                           <select aria-label="To" value={form.end} onChange={(e) => setForm({ ...form, end: Number(e.target.value) })} className={selectClass}>
                             {TIMES.slice(1).map((t) => <option key={t} value={t}>{t === 1440 ? "Midnight" : fmtMinutes(t)}</option>)}
                           </select>
                         </label>
-                        <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
+                        <label className="flex flex-col gap-1 text-[11px] text-fg-subtle font-semibold uppercase">
                           People
                           <select aria-label="People" value={form.delta} onChange={(e) => setForm({ ...form, delta: Number(e.target.value) })} className={selectClass}>
                             {[-3, -2, -1, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n > 0 ? `+${n}` : `−${-n}`}</option>)}
@@ -402,7 +402,7 @@ export default function AutoScheduleSheet({
                       </>
                     )}
                     {adder === "employee_hours" && (
-                      <label className="flex flex-col gap-1 text-[11px] text-slate-500 font-semibold uppercase">
+                      <label className="flex flex-col gap-1 text-[11px] text-fg-subtle font-semibold uppercase">
                         Up to
                         <span className="flex items-center gap-1">
                           <input
@@ -414,15 +414,15 @@ export default function AutoScheduleSheet({
                             step={0.5}
                             value={form.maxHours}
                             onChange={(e) => setForm({ ...form, maxHours: e.target.value })}
-                            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
+                            className="w-16 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg text-right tabular-nums focus:outline-none focus:border-accent"
                           />
-                          <span className="text-xs text-slate-400 normal-case font-normal">h</span>
+                          <span className="text-xs text-fg-muted normal-case font-normal">h</span>
                         </span>
                       </label>
                     )}
                     <button
                       onClick={addAdjustment}
-                      className="min-h-9 text-xs font-semibold px-4 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer"
+                      className="min-h-9 text-xs font-semibold px-4 rounded-lg bg-accent/20 text-accent-fg-strong border border-accent/30 hover:bg-accent/30 cursor-pointer"
                     >
                       Add
                     </button>
@@ -430,14 +430,14 @@ export default function AutoScheduleSheet({
                 )}
               </section>
 
-              {error && <div role="alert" className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</div>}
+              {error && <div role="alert" className="text-sm text-danger-fg bg-danger/10 border border-danger/20 rounded-xl px-3 py-2">{error}</div>}
             </div>
 
-            <div className="flex items-center gap-2 px-5 py-4 border-t border-slate-800" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
+            <div className="flex items-center gap-2 px-5 py-4 border-t border-line" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
               <button
                 onClick={onClose}
                 disabled={generating}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 cursor-pointer hover:bg-slate-700 disabled:opacity-50"
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-fg-secondary bg-fill border border-line-strong cursor-pointer hover:bg-fill-strong disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -445,7 +445,7 @@ export default function AutoScheduleSheet({
                 onClick={() => onGenerate({ mode: draftCount > 0 ? mode : "replace", rules: { overtimePolicy, pendingTimeOff: pendingPolicy }, adjustments })}
                 disabled={!canGenerate}
                 aria-busy={generating}
-                className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-[2] py-3 rounded-xl text-sm font-bold text-on-accent bg-gradient-to-r from-brand-from to-brand-to border border-transparent cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {generating ? "Generating…" : "Generate Schedule"}
               </button>

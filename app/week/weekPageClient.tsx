@@ -304,8 +304,8 @@ export default function WeekPageClient() {
   const showDraftsEmpty = isDraftMode && !loading && !week.draftsUnavailable && drafts.length === 0 && !auto.currentRun && employees.length > 0;
   const draftsEmptyText = (
     <div className="flex-1 min-w-0">
-      <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
-      <div className="text-xs text-slate-400 mt-0.5">
+      <div className="text-sm font-semibold text-fg">No drafts for this week yet</div>
+      <div className="text-xs text-fg-muted mt-0.5">
         Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
       </div>
     </div>
@@ -354,7 +354,7 @@ export default function WeekPageClient() {
               <div className="font-semibold">
                 Published {banner.published} shift{banner.published === 1 ? "" : "s"}. The team can see {banner.published === 1 ? "it" : "them"} now.
               </div>
-              {skippedText && <div className="text-xs text-amber-400 mt-1">{skippedText}</div>}
+              {skippedText && <div className="text-xs text-warning-fg mt-1">{skippedText}</div>}
             </Toast>
           )}
         </ToastStack>
@@ -394,7 +394,7 @@ export default function WeekPageClient() {
           <div className="tablet:hidden">
             <DayList
               notice={showDraftsEmpty ? (
-                <div data-testid="auto-schedule-empty" className="px-4 py-3.5 bg-violet-500/[0.06] flex items-center gap-3">
+                <div data-testid="auto-schedule-empty" className="px-4 py-3.5 bg-auto/[0.06] flex items-center gap-3">
                   {draftsEmptyText}
                 </div>
               ) : null}
@@ -430,20 +430,20 @@ export default function WeekPageClient() {
             {showDraftsEmpty && (
               <div
                 data-testid="auto-schedule-empty"
-                className="mt-3 px-4 py-3.5 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] flex items-center gap-3"
+                className="mt-3 px-4 py-3.5 rounded-2xl border border-auto/25 bg-auto/[0.06] flex items-center gap-3"
               >
                 {draftsEmptyText}
                 <button
                   type="button"
                   onClick={auto.openSheet}
-                  className="px-3.5 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/35 text-violet-100 font-bold text-xs cursor-pointer hover:bg-violet-500/30 transition-colors shrink-0 flex items-center gap-1.5"
+                  className="px-3.5 py-2.5 rounded-xl bg-auto/20 border border-auto/35 text-auto-fg-max font-bold text-xs cursor-pointer hover:bg-auto/30 transition-colors shrink-0 flex items-center gap-1.5"
                 >
                   <Sparkle />
                   Auto-schedule
                 </button>
               </div>
             )}
-            <p className="hidden desk:block mt-3 text-xs text-slate-500">
+            <p className="hidden desk:block mt-3 text-xs text-fg-subtle">
               Click a cell to {isDraftMode ? "draft" : "edit or add"} a shift, or a day to see its coverage.{" "}
               <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> change the week, <kbd className="font-mono">T</kbd> returns to this week.
             </p>

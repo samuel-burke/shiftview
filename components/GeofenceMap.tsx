@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { tint } from "@/lib/theme-colors";
 
 interface GeofenceMapProps {
   lat: number;
@@ -225,7 +226,7 @@ export default function GeofenceMap({
   return (
     <div
       ref={containerRef}
-      className="relative w-full rounded-xl overflow-hidden border border-slate-700"
+      className="relative w-full rounded-xl overflow-hidden border border-line-strong"
       style={{ height: MAP_HEIGHT }}
     >
       <div
@@ -258,9 +259,9 @@ export default function GeofenceMap({
           height={MAP_HEIGHT}
           aria-hidden="true"
         >
-          <circle cx={cx} cy={cy} r={radiusPx} fill="rgba(99,102,241,0.18)" stroke="#6366f1" strokeWidth={2} />
-          <circle cx={cx} cy={cy} r={8} fill="#6366f1" />
-          <circle cx={cx} cy={cy} r={3.5} fill="white" />
+          <circle cx={cx} cy={cy} r={radiusPx} fill={tint("var(--color-accent)", 18)} stroke="var(--color-accent)" strokeWidth={2} />
+          <circle cx={cx} cy={cy} r={8} fill="var(--color-accent)" />
+          <circle cx={cx} cy={cy} r={3.5} fill="var(--color-on-accent)" />
         </svg>
       </div>
 
@@ -269,7 +270,7 @@ export default function GeofenceMap({
           onClick={(e) => { e.stopPropagation(); onZoomChange(Math.min(MAX_ZOOM, zoom + 1)); }}
           aria-label="Zoom in"
           disabled={zoom >= MAX_ZOOM}
-          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="size-11 rounded-xl bg-well/95 border border-line-stronger text-fg text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-fill disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <span aria-hidden="true">+</span>
         </button>
@@ -277,13 +278,13 @@ export default function GeofenceMap({
           onClick={(e) => { e.stopPropagation(); onZoomChange(Math.max(MIN_ZOOM, zoom - 1)); }}
           aria-label="Zoom out"
           disabled={zoom <= MIN_ZOOM}
-          className="size-11 rounded-xl bg-slate-900/95 border border-slate-600 text-slate-100 text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="size-11 rounded-xl bg-well/95 border border-line-stronger text-fg text-2xl font-bold flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-[transform,background-color] hover:bg-fill disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <span aria-hidden="true">−</span>
         </button>
       </div>
 
-      <div className="absolute bottom-0.5 right-1 z-10 text-[9px] text-slate-300 bg-slate-900/60 px-1 rounded pointer-events-none">
+      <div className="absolute bottom-0.5 right-1 z-10 text-[9px] text-fg-secondary bg-well/60 px-1 rounded pointer-events-none">
         © OpenStreetMap contributors
       </div>
     </div>

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Employee, Schedule, StoreHours, AttendanceStatus, getMonogram, formatDisplayName } from "../data/types";
 import ShiftCard from "./ShiftCard";
 import { shiftWindowOn } from "@/lib/shift-times";
+import { tint } from "../lib/theme-colors";
 
 const cardContainer = {
   hidden: {},
@@ -40,10 +41,10 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       data-testid="team-section-header"
-      className="flex items-center gap-2 mb-[10px] text-xs font-bold text-slate-400 uppercase tracking-[0.08em] select-none"
+      className="flex items-center gap-2 mb-[10px] text-xs font-bold text-fg-muted uppercase tracking-[0.08em] select-none"
     >
       {label}
-      <span className="bg-slate-800 border border-slate-700/80 rounded-full px-2 py-px text-[11px] text-slate-400 tabular-nums">
+      <span className="bg-fill border border-line-strong/80 rounded-full px-2 py-px text-[11px] text-fg-muted tabular-nums">
         {count}
       </span>
     </motion.div>
@@ -110,11 +111,11 @@ export default function TeamSection({
         {employees.map((emp) => {
           const inner = (
             <>
-              <div className="size-[38px] rounded-full bg-slate-800/70 border-[1.5px] border-slate-700/60 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
+              <div className="size-[38px] rounded-full bg-fill/70 border-[1.5px] border-line-strong/60 flex items-center justify-center text-xs font-bold text-fg-subtle shrink-0">
                 {getMonogram(emp.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-slate-500 truncate">
+                <div className="font-semibold text-sm text-fg-subtle truncate">
                   {formatDisplayName(emp.name)}
                 </div>
               </div>
@@ -123,24 +124,24 @@ export default function TeamSection({
                   className="text-[11px] font-bold px-2 py-0.5 rounded-md border"
                   style={{
                     color: statusColor,
-                    background: `color-mix(in srgb, ${statusColor} 14%, transparent)`,
-                    borderColor: `color-mix(in srgb, ${statusColor} 35%, transparent)`,
+                    background: tint(statusColor, 14),
+                    borderColor: tint(statusColor, 35),
                   }}
                 >
                   {statusLabel}
                 </div>
               ) : (
-                <div className="text-[11px] font-medium text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded-md border border-slate-700/40">
+                <div className="text-[11px] font-medium text-fg-subtle bg-fill/50 px-2 py-0.5 rounded-md border border-line-strong/40">
                   {statusLabel}
                 </div>
               )}
             </>
           );
           const baseClass =
-            "flex items-center gap-3 w-full bg-card/60 border border-white/[0.05] border-l-[3px] rounded-xl px-[14px] py-3 mb-2";
+            "flex items-center gap-3 w-full bg-card/60 border border-line-subtle border-l-[3px] rounded-xl px-[14px] py-3 mb-2";
           const baseStyle = statusColor
-            ? { borderLeftColor: `color-mix(in srgb, ${statusColor} 55%, transparent)` }
-            : { borderLeftColor: "rgb(51 65 85 / 0.5)" };
+            ? { borderLeftColor: tint(statusColor, 55) }
+            : { borderLeftColor: "color-mix(in oklab, var(--color-line-strong) 50%, transparent)" };
           const selectable = onSelectOff && (!canSelectOff || canSelectOff(emp));
           return (
             <motion.div key={emp.id} variants={cardItem} data-scroll-anchor={`${label}-${emp.id}`}>
@@ -148,7 +149,7 @@ export default function TeamSection({
                 <motion.button
                   onClick={() => onSelectOff(emp)}
                   whileTap={{ scale: 0.97 }}
-                  whileHover={{ y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.25)" }}
+                  whileHover={{ y: -1, boxShadow: "var(--shadow-hover)" }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className={`${baseClass} cursor-pointer text-left`}
                   style={baseStyle}

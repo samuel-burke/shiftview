@@ -53,6 +53,7 @@ import { BREAKPOINTS } from "@/hooks/useBreakpoint";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { Toast, ToastStack } from "../../components/Toast";
+import { tint } from "@/lib/theme-colors";
 
 type ManagerTimeOffRequest = {
   id: number;
@@ -849,10 +850,10 @@ export default function SchedulePageClient() {
       {/* MY SCHEDULE label + Week/Month toggle */}
       <div className="flex items-start justify-between mb-1">
         <div>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">
             My Schedule
           </div>
-          <div className="text-[28px] font-extrabold text-slate-100 leading-tight mt-0.5">
+          <div className="text-[28px] font-extrabold text-fg leading-tight mt-0.5">
             {/* Holds the line while the name loads, rather than an empty, 0px row. */}
             {firstName || <span aria-hidden="true" className="skeleton inline-block align-middle h-7 w-28 rounded-md" />}
           </div>
@@ -864,13 +865,13 @@ export default function SchedulePageClient() {
                 key={v}
                 onClick={() => switchView(v)}
                 aria-pressed={view === v}
-                className={`relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${view === v ? "text-slate-50" : "text-slate-500"}`}
+                className={`relative px-4 py-3 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${view === v ? "text-fg" : "text-fg-subtle"}`}
               >
                 {view === v && (
                   <motion.div
                     layoutId="view-pill"
-                    className="absolute inset-0 rounded-[9px] bg-slate-700"
-                    style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                    className="absolute inset-0 rounded-[9px] bg-fill-strong"
+                    style={{ boxShadow: "var(--shadow-segment)" }}
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
@@ -890,12 +891,12 @@ export default function SchedulePageClient() {
           aria-label={`${rangeLabel}. Open date picker`}
           aria-expanded={pickerOpen}
           aria-haspopup="dialog"
-          whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
+          whileHover={{ scale: 1.04, boxShadow: `0 0 16px ${tint("var(--color-accent)", 25)}` }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className="flex items-center gap-1.5 min-h-11 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 @max-[23.25rem]:px-3 cursor-pointer"
+          className="flex items-center gap-1.5 min-h-11 bg-fill/70 border border-line-strong/60 rounded-xl px-4 @max-[23.25rem]:px-3 cursor-pointer"
         >
-          <span className="text-base font-bold text-slate-100 tracking-tight">
+          <span className="text-base font-bold text-fg tracking-tight">
             {view === "week" ? (
               <>
                 {weekRange.range}
@@ -908,7 +909,7 @@ export default function SchedulePageClient() {
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
             className="inline-block"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-info-fg"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
         </motion.button>
         <div className="flex items-center gap-2">
@@ -918,7 +919,7 @@ export default function SchedulePageClient() {
               whileTap={{ scale: 0.93 }}
               whileHover={{ scale: 1.04 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="text-[12px] font-bold text-slate-100 bg-slate-700 border border-slate-600 rounded-[9px] px-3 py-3 cursor-pointer hover:bg-slate-600 transition-colors"
+              className="text-[12px] font-bold text-fg bg-fill-strong border border-line-stronger rounded-[9px] px-3 py-3 cursor-pointer hover:bg-fill-stronger transition-colors"
             >
               Today
             </motion.button>
@@ -927,9 +928,9 @@ export default function SchedulePageClient() {
             onClick={goToPrev}
             aria-label={`Previous ${view === "week" ? "week" : "month"}`}
             whileTap={{ scale: 0.88 }}
-            whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
+            whileHover={{ scale: 1.08, boxShadow: `0 0 12px ${tint("var(--color-accent)", 25)}` }}
             transition={{ type: "spring", stiffness: 450, damping: 25 }}
-            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer hover:bg-fill hover:text-fg-body transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.button>
@@ -937,9 +938,9 @@ export default function SchedulePageClient() {
             onClick={goToNext}
             aria-label={`Next ${view === "week" ? "week" : "month"}`}
             whileTap={{ scale: 0.88 }}
-            whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
+            whileHover={{ scale: 1.08, boxShadow: `0 0 12px ${tint("var(--color-accent)", 25)}` }}
             transition={{ type: "spring", stiffness: 450, damping: 25 }}
-            className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer hover:bg-fill hover:text-fg-body transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.button>
@@ -966,7 +967,7 @@ export default function SchedulePageClient() {
       ) : scheduleError ? (
         // The week calendar's height, so an error doesn't move what's below.
         <div className="h-[128px] mb-3 flex items-center justify-center">
-          <div role="alert" className="text-sm text-red-400 text-center">{scheduleError}</div>
+          <div role="alert" className="text-sm text-danger-fg text-center">{scheduleError}</div>
         </div>
       ) : view === "week" ? (
         <WeekView
@@ -997,8 +998,8 @@ export default function SchedulePageClient() {
   );
 
   const nextShiftCard = (
-    <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4 mb-4">
-      <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Next Shift</div>
+    <div className="bg-card border border-line/60 rounded-2xl px-4 py-4 mb-4">
+      <div className="text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-2">Next Shift</div>
       {/* One height for every state (loading, a shift, none), so the calendar
           under it never moves: the date line and the time line, 56px. */}
       <div className="min-h-14">
@@ -1006,20 +1007,20 @@ export default function SchedulePageClient() {
           <SkeletonNextShift />
         ) : nextShift ? (
           <>
-            <div className="text-slate-300 font-semibold text-sm">
+            <div className="text-fg-secondary font-semibold text-sm">
               {formatNextShiftDate(nextShift.date, todayKey)}
               {getDaysUntil(nextShift.date, todayKey) > 1 && (
-                <span className="text-xs font-normal text-slate-400">
+                <span className="text-xs font-normal text-fg-muted">
                   {" "}· in {getDaysUntil(nextShift.date, todayKey)} days
                 </span>
               )}
             </div>
-            <div className="text-2xl font-extrabold text-slate-100 mt-1">
+            <div className="text-2xl font-extrabold text-fg mt-1">
               {fmtMinutes(nextShift.startMinutes)} – {fmtMinutes(nextShift.endMinutes)}
             </div>
           </>
         ) : (
-          <div className="text-slate-400 text-sm">No upcoming shifts scheduled</div>
+          <div className="text-fg-muted text-sm">No upcoming shifts scheduled</div>
         )}
       </div>
     </div>
@@ -1029,13 +1030,13 @@ export default function SchedulePageClient() {
     <>
       {/* Detail card */}
       {dayCardLoading ? <SkeletonDetailCard /> : null}
-      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60${dayCardLoading ? " hidden" : ""}`}>
+      <div className={`bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-line/60${dayCardLoading ? " hidden" : ""}`}>
         <div className="min-h-6 flex items-center justify-between mb-1">
-          <span className="text-sm text-slate-400">{selectedDayLabel}</span>
+          <span className="text-sm text-fg-muted">{selectedDayLabel}</span>
           {shiftLabel && shiftColor && (
             <span
               className="text-xs font-semibold px-3 py-1 rounded-full"
-              style={{ background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`, color: shiftColor }}
+              style={{ background: tint(shiftColor, 13), color: shiftColor }}
             >
               {shiftLabel}
             </span>
@@ -1043,42 +1044,42 @@ export default function SchedulePageClient() {
         </div>
         {selectedSchedule ? (
           <>
-            <div className="text-2xl font-bold text-slate-100 mt-1">
+            <div className="text-2xl font-bold text-fg mt-1">
               {fmtMinutes(selectedSchedule.startMinutes)} – {fmtMinutes(selectedSchedule.endMinutes)}
             </div>
-            <div className="text-sm text-slate-400 mt-0.5">
+            <div className="text-sm text-fg-muted mt-0.5">
               {shiftHours === 1 ? `${shiftHours} hr` : `${shiftHours} hrs`}
             </div>
           </>
         ) : (
-          <div className="text-2xl font-bold text-slate-400 mt-1">Day Off</div>
+          <div className="text-2xl font-bold text-fg-muted mt-1">Day Off</div>
         )}
 
         {/* Time-off request status or action */}
         {selectedTimeOff?.status === "pending" && !selectedSchedule && (
-          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-            <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
-            <span className="text-sm text-yellow-300 font-semibold">Time-off request pending</span>
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/30">
+            <TimeOffPendingIcon size={16} color="var(--status-caution-mark)" />
+            <span className="text-sm text-warning-fg-strong font-semibold">Time-off request pending</span>
           </div>
         )}
         {selectedTimeOff?.status === "approved" && !selectedSchedule && (
-          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-            <TimeOffApprovedIcon size={16} color="rgb(52 211 153)" />
-            <span className="text-sm text-emerald-300 font-semibold">Time off approved</span>
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-success/10 border border-success/30">
+            <TimeOffApprovedIcon size={16} color="var(--status-teal-mark)" />
+            <span className="text-sm text-success-fg-strong font-semibold">Time off approved</span>
           </div>
         )}
         {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
           <div className="mt-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
-              <TimeOffDeniedIcon size={16} color="rgb(248 113 113)" />
-              <span className="text-sm text-red-300 font-semibold">Time-off request denied</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 mb-2">
+              <TimeOffDeniedIcon size={16} color="var(--status-bad-mark)" />
+              <span className="text-sm text-danger-fg-strong font-semibold">Time-off request denied</span>
             </div>
             {employeeId !== null && (
               <button
                 onClick={handleRequestDayOff}
                 disabled={timeOffStatus === "loading"}
                 aria-busy={timeOffStatus === "loading"}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
               >
                 {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
               </button>
@@ -1088,14 +1089,14 @@ export default function SchedulePageClient() {
         {canRequestDayOff && (
           <div className="mt-3">
             {timeOffStatus === "success" ? (
-              <div role="status" aria-live="polite" className="text-sm text-emerald-400 font-semibold">Request submitted ✓</div>
+              <div role="status" aria-live="polite" className="text-sm text-success-fg font-semibold">Request submitted ✓</div>
             ) : (
               <>
                 <button
                   onClick={handleRequestDayOff}
                   disabled={timeOffStatus === "loading"}
                   aria-busy={timeOffStatus === "loading"}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
                 >
                   {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
                 </button>
@@ -1107,15 +1108,15 @@ export default function SchedulePageClient() {
         {/* Call-out status / action */}
         {selectedCallout ? (
           <div className="mt-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 mb-2">
-              <MegaphoneIcon size={16} color="rgb(248 113 113)" />
-              <span className="text-sm text-red-300 font-semibold">Called out{isSelectedToday ? " today" : ""}</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 mb-2">
+              <MegaphoneIcon size={16} color="var(--status-bad-mark)" />
+              <span className="text-sm text-danger-fg-strong font-semibold">Called out{isSelectedToday ? " today" : ""}</span>
             </div>
             <button
               onClick={() => handleUndoCallOut(selectedCallout.id)}
               disabled={calloutStatus === "loading"}
               aria-busy={calloutStatus === "loading"}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-fill text-fg-secondary border border-line-strong font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fill-strong transition-colors"
             >
               {calloutStatus === "loading" ? "…" : "Undo call-out"}
             </button>
@@ -1126,9 +1127,9 @@ export default function SchedulePageClient() {
               onClick={handleCallOut}
               disabled={calloutStatus === "loading"}
               aria-busy={calloutStatus === "loading"}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-red-500/30 text-red-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-500/10 transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-danger/30 text-danger-fg-strong font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-danger/10 transition-colors"
             >
-              <MegaphoneIcon size={15} color="rgb(248 113 113)" />
+              <MegaphoneIcon size={15} color="var(--status-bad-mark)" />
               {calloutStatus === "loading" ? "Submitting…" : "Can't make this shift? Call out"}
             </button>
           </div>
@@ -1136,18 +1137,18 @@ export default function SchedulePageClient() {
 
         {/* Shift swap status / action */}
         {selectedSwapBadge ? (
-          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-            <TimeOffPendingIcon size={16} color="rgb(250 204 21)" />
-            <span className="text-sm text-yellow-300 font-semibold">{selectedSwapBadge}</span>
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/30">
+            <TimeOffPendingIcon size={16} color="var(--status-caution-mark)" />
+            <span className="text-sm text-warning-fg-strong font-semibold">{selectedSwapBadge}</span>
           </div>
         ) : canRequestSwap ? (
           <div className="mt-3">
             {swapRequestStatus === "success" ? (
-              <div role="status" aria-live="polite" className="text-sm text-emerald-400 font-semibold">Swap requested ✓</div>
+              <div role="status" aria-live="polite" className="text-sm text-success-fg font-semibold">Swap requested ✓</div>
             ) : (
               <button
                 onClick={openSwapSheet}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-indigo-500/30 text-indigo-300 font-semibold text-sm cursor-pointer hover:bg-indigo-500/10 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-transparent border border-accent/30 text-accent-fg-strong font-semibold text-sm cursor-pointer hover:bg-accent/10 transition-colors"
               >
                 <span aria-hidden="true">⇄</span>
                 Request Shift Swap
@@ -1172,21 +1173,21 @@ export default function SchedulePageClient() {
           whose height depends on the day (a shift and its buttons, or a day
           off), so a placeholder here would only jump. */}
       <div className={`flex gap-2${dayCardLoading ? " hidden" : ""}`}>
-        <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
-          <div className="text-3xl font-extrabold text-indigo-400">{totalShifts}</div>
-          <div className="text-xs text-slate-400 mt-1">
+        <div className="flex-1 bg-card border border-line/60 rounded-2xl px-3 py-4">
+          <div className="text-3xl font-extrabold text-accent-fg">{totalShifts}</div>
+          <div className="text-xs text-fg-muted mt-1">
             {view === "week" ? "Shifts this week" : "Shifts this month"}
           </div>
         </div>
-        <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
-          <div className="text-3xl font-extrabold text-indigo-400">{totalHoursDisplay}</div>
-          <div className="text-xs text-slate-400 mt-1">
+        <div className="flex-1 bg-card border border-line/60 rounded-2xl px-3 py-4">
+          <div className="text-3xl font-extrabold text-accent-fg">{totalHoursDisplay}</div>
+          <div className="text-xs text-fg-muted mt-1">
             {view === "week" ? "Hours" : "Est. hours"}
           </div>
         </div>
-        <div className="flex-1 bg-card border border-slate-800/60 rounded-2xl px-3 py-4">
-          <div className="text-3xl font-extrabold text-indigo-400">{daysOff}</div>
-          <div className="text-xs text-slate-400 mt-1">Days off</div>
+        <div className="flex-1 bg-card border border-line/60 rounded-2xl px-3 py-4">
+          <div className="text-3xl font-extrabold text-accent-fg">{daysOff}</div>
+          <div className="text-xs text-fg-muted mt-1">Days off</div>
         </div>
       </div>
 
@@ -1197,7 +1198,7 @@ export default function SchedulePageClient() {
           onClick={() => router.push("/week?mode=draft")}
           whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
+          className="w-full mt-4 py-3 text-sm font-bold text-on-accent bg-gradient-to-r from-brand-from to-brand-to border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
         >
           Plan Draft Schedule
         </motion.button>
@@ -1207,11 +1208,11 @@ export default function SchedulePageClient() {
         <button
           // Phones review requests in the drawer; wider screens get the full inbox page.
           onClick={() => (window.matchMedia(`(min-width: ${BREAKPOINTS.tablet}px)`).matches ? router.push("/requests") : setSwapDrawerOpen(true))}
-          className="w-full mt-3 py-3 text-sm font-bold text-slate-200 bg-card border border-slate-800/60 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors flex items-center justify-center gap-2"
+          className="w-full mt-3 py-3 text-sm font-bold text-fg-body bg-card border border-line/60 rounded-xl cursor-pointer hover:border-accent/50 transition-colors flex items-center justify-center gap-2"
         >
           Requests
           {pendingRequestsCount > 0 && (
-            <span className="bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-px text-[11px] text-amber-400">
+            <span className="bg-warning/10 border border-warning/30 rounded-full px-2 py-px text-[11px] text-warning-fg">
               {pendingRequestsCount}
             </span>
           )}
@@ -1229,15 +1230,15 @@ export default function SchedulePageClient() {
     >
       <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
         {/* Desktop header (hidden on mobile) */}
-        <div className="hidden desk:flex border-b border-slate-800 px-6 py-[14px] items-center justify-between">
+        <div className="hidden desk:flex border-b border-line px-6 py-[14px] items-center justify-between">
           <div>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">My Schedule</div>
-            <div className="text-xl font-extrabold text-slate-100 mt-0.5">
+            <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">My Schedule</div>
+            <div className="text-xl font-extrabold text-fg mt-0.5">
               {firstName || <span aria-hidden="true" className="skeleton inline-block align-middle h-5 w-24 rounded-md" />}
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">{todayStr}</span>
+            <span className="text-sm text-fg-muted">{todayStr}</span>
             <NotificationBell />
             <UserMenu
               name={sharedLoading ? null : employeeName}

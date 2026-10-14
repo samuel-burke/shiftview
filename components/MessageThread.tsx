@@ -371,7 +371,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 bg-black/60 z-[60] transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-scrim/60 z-[60] transition-opacity duration-200 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       />
@@ -379,26 +379,26 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         role="dialog"
         aria-modal="true"
         aria-label={`Message thread with ${otherName}`}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[420px] bg-well border-l border-line flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
         {/* Header */}
         <div
-          className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
+          className="flex items-center gap-3 px-5 border-b border-line shrink-0"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: 16 }}
         >
-          <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
+          <div className="size-9 rounded-full bg-accent-solid/90 border border-accent/30 flex items-center justify-center text-sm font-bold text-on-accent shrink-0">
             {initials(otherName)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-slate-100 truncate">{otherName}</div>
-            <div className="text-[11px] text-slate-500">Direct message</div>
+            <div className="text-sm font-bold text-fg truncate">{otherName}</div>
+            <div className="text-[11px] text-fg-subtle">Direct message</div>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center shrink-0 hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -409,21 +409,21 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         {/* Chess full-screen overlay — opened on top of everything for a larger board */}
         {chessOpen && myUserId && latestChessGame && (
           <div
-            className="fixed inset-0 z-[80] bg-slate-950 flex flex-col"
+            className="fixed inset-0 z-[80] bg-bg flex flex-col"
             role="dialog"
             aria-modal="true"
             aria-label="Chess board"
           >
             <div
-              className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
+              className="flex items-center gap-3 px-5 border-b border-line shrink-0"
               style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)", paddingBottom: 14 }}
             >
-              <div className="text-sm font-bold text-slate-100">Chess</div>
-              <div className="text-sm text-slate-500">vs {otherName}</div>
+              <div className="text-sm font-bold text-fg">Chess</div>
+              <div className="text-sm text-fg-subtle">vs {otherName}</div>
               <button
                 onClick={() => { setChessOpen(false); if (openedViaChessRef.current) onClose(); }}
                 aria-label="Close chess board"
-                className="ml-auto size-9 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="ml-auto size-9 rounded-full bg-fill text-fg-muted flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                   <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -442,7 +442,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                   <button
                     onClick={() => { setChessOpen(false); startChessGame(); }}
                     disabled={sending}
-                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-white text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
+                    className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-br from-brand-from to-brand-to text-on-accent text-sm font-semibold hover:opacity-80 transition-opacity disabled:opacity-40"
                   >
                     New game
                   </button>
@@ -455,15 +455,15 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
         {/* Messages list */}
         <div ref={listRef} onScroll={handleListScroll} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
           {loading && (
-            <div role="status" aria-label="Loading messages" className="text-center text-sm text-slate-500 mt-8">Loading…</div>
+            <div role="status" aria-label="Loading messages" className="text-center text-sm text-fg-subtle mt-8">Loading…</div>
           )}
           {!loading && loadingOlder && (
-            <div role="status" aria-label="Loading older messages" className="text-center text-[11px] text-slate-500 py-2">
+            <div role="status" aria-label="Loading older messages" className="text-center text-[11px] text-fg-subtle py-2">
               Loading older messages…
             </div>
           )}
           {!loading && messages.length === 0 && (
-            <div className="text-center text-sm text-slate-500 mt-8">
+            <div className="text-center text-sm text-fg-subtle mt-8">
               No messages yet. Say hi!
             </div>
           )}
@@ -487,7 +487,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
             return (
               <div key={msg.id}>
                 {showTime && (
-                  <div className="text-center text-[11px] text-slate-500 my-2">
+                  <div className="text-center text-[11px] text-fg-subtle my-2">
                     {timeLabel(msg.created_at)}
                   </div>
                 )}
@@ -496,7 +496,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                   <div className="flex justify-center my-1">
                     <button
                       onClick={() => setChessOpen(true)}
-                      className="text-[11px] text-slate-500 bg-slate-800/60 rounded-full px-3 py-1 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
+                      className="text-[11px] text-fg-subtle bg-fill/60 rounded-full px-3 py-1 hover:text-accent-fg-strong hover:bg-fill transition-colors"
                     >
                       ♟ {myUserId ? chessResultLabel(latestChessGame, myUserId, otherName) : "Chess"}
                     </button>
@@ -504,15 +504,15 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                 ) : (
                   <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                     {!isMine && (
-                      <div aria-hidden="true" className="size-6 rounded-full bg-indigo-600/50 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mr-1.5 mt-auto mb-0.5">
+                      <div aria-hidden="true" className="size-6 rounded-full bg-accent-solid/50 flex items-center justify-center text-[10px] font-bold text-on-accent shrink-0 mr-1.5 mt-auto mb-0.5">
                         {initials(otherName)}
                       </div>
                     )}
                     <div
                       className={`max-w-[72%] px-3.5 py-2 text-sm leading-relaxed break-words ${
                         isMine
-                          ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white rounded-2xl rounded-br-[6px]"
-                          : "bg-slate-800 text-slate-100 rounded-2xl rounded-bl-[6px]"
+                          ? "bg-gradient-to-br from-brand-from to-brand-to text-on-accent rounded-2xl rounded-br-[6px]"
+                          : "bg-fill text-fg rounded-2xl rounded-bl-[6px]"
                       }`}
                     >
                       {msg.body}
@@ -521,7 +521,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
                 )}
 
                 {isLastReadByMe && !isChess && (
-                  <div className="text-right text-[10px] text-slate-400 pr-1 mt-0.5">Read</div>
+                  <div className="text-right text-[10px] text-fg-muted pr-1 mt-0.5">Read</div>
                 )}
               </div>
             );
@@ -531,7 +531,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
 
         {/* Input */}
         <div
-          className="px-4 border-t border-slate-800 shrink-0"
+          className="px-4 border-t border-line shrink-0"
           style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         >
           <div className="flex gap-2 items-end">
@@ -544,7 +544,7 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
               placeholder={`Message ${otherName}…`}
               aria-label={`Message to ${otherName}`}
               rows={1}
-              className="flex-1 bg-slate-800 border border-field rounded-2xl px-4 py-[10px] text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
+              className="flex-1 bg-fill border border-field rounded-2xl px-4 py-[10px] text-sm text-fg placeholder-fg-subtle resize-none focus:outline-none focus:border-accent transition-colors"
               style={{ maxHeight: 120 }}
             />
             <button
@@ -552,15 +552,15 @@ export default function MessageThread({ open, otherUserId, otherName, onClose, o
               disabled={!body.trim() || sending}
               aria-label="Send message"
               aria-busy={sending}
-              className="size-11 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 border-none text-white flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
+              className="size-11 rounded-full bg-gradient-to-br from-brand-from to-brand-to border-none text-on-accent flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-opacity hover:opacity-80"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M22 2L15 22 11 13 2 9l20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 2L11 13" stroke="var(--color-on-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 2L15 22 11 13 2 9l20-7z" stroke="var(--color-on-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
-          <div className="text-[10px] text-slate-500 mt-1.5 text-center">
+          <div className="text-[10px] text-fg-subtle mt-1.5 text-center">
             Enter to send · Shift+Enter for new line · /chess to play
           </div>
         </div>

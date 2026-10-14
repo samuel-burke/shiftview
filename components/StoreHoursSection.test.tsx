@@ -122,7 +122,7 @@ describe("StoreHoursSection", () => {
     await screen.findByTestId("day-row-0");
 
     await openSheet(0);
-    const backdrop = container.querySelector(".fixed.inset-0.bg-black\\/60") as HTMLElement;
+    const backdrop = container.querySelector(".fixed.inset-0.bg-scrim\\/60") as HTMLElement;
     expect(backdrop).toBeTruthy();
     await act(async () => {
       fireEvent.click(backdrop);

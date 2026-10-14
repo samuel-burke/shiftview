@@ -24,9 +24,9 @@ const DAY_COUNTS = [1, 2, 3, 4, 5, 6, 7];
 // Every rule's controls fill one column (see Row), and a select takes what's
 // left of it: a row's only select is the column's width, two share it.
 const selectClass =
-  "flex-1 min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 tabular-nums focus:outline-none focus:border-indigo-500 cursor-pointer";
+  "flex-1 min-w-0 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg tabular-nums focus:outline-none focus:border-accent cursor-pointer";
 const hoursInputClass =
-  "w-16 shrink-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500";
+  "w-16 shrink-0 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg text-right tabular-nums focus:outline-none focus:border-accent";
 
 // A rule: its name and description, and its controls. The controls fill a
 // column of one width on every row (the row's width on phones, 260px beside
@@ -37,11 +37,11 @@ function Row({ title, desc, error, children }: { title: string; desc?: string; e
   return (
     <div className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 tablet:flex-row tablet:items-center tablet:justify-between tablet:gap-4">
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-slate-200">{title}</div>
+        <div className="text-sm font-semibold text-fg-body">{title}</div>
         {error ? (
-          <div role="alert" className="text-xs text-red-400 mt-0.5">{error}</div>
+          <div role="alert" className="text-xs text-danger-fg mt-0.5">{error}</div>
         ) : (
-          desc && <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
+          desc && <div className="text-xs text-fg-subtle mt-0.5">{desc}</div>
         )}
       </div>
       <div className="w-full shrink-0 tablet:w-[260px] flex items-center gap-2">{children}</div>
@@ -144,11 +144,11 @@ export default function SchedulingRulesSection({
       <SettingsSectionLabel label="Scheduling Rules">
         <SaveStatusText status={status} testId="scheduling-rules-status" />
       </SettingsSectionLabel>
-      <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-        <div className="text-xs text-slate-500 pb-4 mb-0 border-b border-slate-800/60">
+      <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
+        <div className="text-xs text-fg-subtle pb-4 mb-0 border-b border-line/60">
           Auto-schedule (Week page, Draft mode) always follows these. Employees&apos; availability and approved time off come first.
         </div>
-        <div className="flex flex-col divide-y divide-slate-800/60 pt-4">
+        <div className="flex flex-col divide-y divide-line/60 pt-4">
           <Row title="Shift Length" desc="Generated shifts fall in this range">
             <select
               aria-label="Shortest shift"
@@ -160,7 +160,7 @@ export default function SchedulingRulesSection({
                 <option key={m} value={m}>{fmtHours(m)}</option>
               ))}
             </select>
-            <span className="shrink-0 text-xs text-slate-500">to</span>
+            <span className="shrink-0 text-xs text-fg-subtle">to</span>
             <select
               aria-label="Longest shift"
               value={draft.maxShiftMinutes}
@@ -257,13 +257,13 @@ export default function SchedulingRulesSection({
                 value={draft[minKey]}
                 onCommit={(h) => save({ [minKey]: h })}
               />
-              <span className="shrink-0 text-xs text-slate-500">–</span>
+              <span className="shrink-0 text-xs text-fg-subtle">–</span>
               <HoursField
                 ariaLabel={`${label} maximum weekly hours`}
                 value={draft[maxKey]}
                 onCommit={(h) => save({ [maxKey]: h })}
               />
-              <span className="shrink-0 text-xs text-slate-500">h ·</span>
+              <span className="shrink-0 text-xs text-fg-subtle">h ·</span>
               <select
                 aria-label={`${label} most days per week`}
                 value={draft[daysKey]}

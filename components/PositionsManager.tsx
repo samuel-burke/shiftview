@@ -33,7 +33,7 @@ export default function PositionsManager({
 
   return (
     <div data-testid="positions-manager" className="flex flex-col gap-3">
-      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Positions</div>
+      <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">Positions</div>
 
       <div className="flex gap-2">
         <input
@@ -42,11 +42,11 @@ export default function PositionsManager({
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Add a position (e.g. Cashier)"
           aria-label="Position name"
-          className="flex-1 h-11 rounded-xl bg-card border border-field px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-600"
+          className="flex-1 h-11 rounded-xl bg-card border border-field px-3 text-sm text-fg placeholder:text-fg-subtle outline-none focus:border-line-stronger"
         />
         <button
           onClick={submit}
-          className="h-11 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-sm font-bold text-white cursor-pointer border-none hover:brightness-110 transition-[filter]"
+          className="h-11 rounded-xl bg-gradient-to-r from-brand-from to-brand-to px-4 text-sm font-bold text-on-accent cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Add
         </button>
@@ -54,16 +54,16 @@ export default function PositionsManager({
       <FormError message={error} />
 
       {positions.length === 0 ? (
-        <div className="text-center py-4 text-slate-400 text-sm">No positions yet</div>
+        <div className="text-center py-4 text-fg-muted text-sm">No positions yet</div>
       ) : (
         <div className="flex flex-col gap-1.5">
           {positions.map((p) => (
             <div
               key={p.id}
               data-testid={`position-row-${p.id}`}
-              className="flex items-center justify-between rounded-xl bg-card border border-slate-800/60 px-3 py-2"
+              className="flex items-center justify-between rounded-xl bg-card border border-line/60 px-3 py-2"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-slate-100">
+              <span className="flex items-center gap-2 text-sm font-medium text-fg">
                 <span
                   aria-hidden="true"
                   className="size-3 rounded-full"
@@ -74,7 +74,7 @@ export default function PositionsManager({
               <button
                 onClick={() => onDelete(p.id)}
                 aria-label={`Delete ${p.name}`}
-                className="text-xs font-semibold text-red-400 cursor-pointer bg-transparent border-none hover:text-red-300"
+                className="text-xs font-semibold text-danger-fg cursor-pointer bg-transparent border-none hover:text-danger-fg-strong"
               >
                 Remove
               </button>

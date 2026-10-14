@@ -15,7 +15,7 @@ export default function FormError({
 }) {
   const text = size === "sm" ? "min-h-5 text-sm leading-5" : "min-h-4 text-xs leading-4";
   return (
-    <div className={`${text} text-red-400 ${className}`}>
+    <div className={`${text} text-danger-fg ${className}`}>
       {message ? <div id={id} role="alert">{message}</div> : null}
     </div>
   );

@@ -172,10 +172,10 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-dvh bg-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-[360px] bg-card rounded-2xl border border-slate-800 p-8">
+      <div className="w-full max-w-[360px] bg-card rounded-2xl border border-line p-8">
         <div className="text-center mb-8">
           <Logo className="h-7" />
-          <div className="text-xs text-slate-500 mt-1.5" aria-live="polite">
+          <div className="text-xs text-fg-subtle mt-1.5" aria-live="polite">
             {step === "details" ? "Create your organization" : `Code sent to ${email}`}
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function SignupPage() {
                 maxLength={80}
                 onChange={(e) => { setOrgName(e.target.value); setError(null); }}
                 autoFocus
-                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-fg text-sm focus:outline-none focus:border-accent transition-colors"
               />
               <label htmlFor="signup-owner-name" className="sr-only">Your name</label>
               <input
@@ -204,24 +204,24 @@ export default function SignupPage() {
                 value={ownerName}
                 maxLength={80}
                 onChange={(e) => { setOwnerName(e.target.value); setError(null); }}
-                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-fg text-sm focus:outline-none focus:border-accent transition-colors"
               />
               {sessionEmail ? (
                 <>
-                  <div className="text-xs text-slate-500 text-center">
-                    Signed in as <span className="text-slate-300 font-semibold">{sessionEmail}</span>
+                  <div className="text-xs text-fg-subtle text-center">
+                    Signed in as <span className="text-fg-secondary font-semibold">{sessionEmail}</span>
                   </div>
                   <FormError id="signup-error" message={error} className="text-center" />
                   <button
                     onClick={handleCreateSignedIn}
                     disabled={loading}
-                    className={`w-full bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                    className={`w-full bg-gradient-to-r from-brand-from to-brand-to border border-transparent rounded-[10px] px-[14px] py-3 text-on-accent text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
                   >
                     {loading ? "Creating…" : "Create Organization"}
                   </button>
                   <button
                     onClick={handleSwitchAccount}
-                    className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
+                    className="w-full bg-transparent border border-line rounded-[10px] px-[14px] py-3 text-fg-subtle text-sm cursor-pointer hover:text-fg-secondary hover:border-line-strong transition-colors"
                   >
                     Use a different account
                   </button>
@@ -237,20 +237,20 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setError(null); }}
                     onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
-                    className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-fg text-sm focus:outline-none focus:border-accent transition-colors"
                   />
                   <FormError id="signup-error" message={error} className="text-center" />
                   <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
                   <button
                     onClick={handleSendCode}
                     disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
-                    className={`w-full bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
+                    className={`w-full bg-gradient-to-r from-brand-from to-brand-to border border-transparent rounded-[10px] px-[14px] py-3 text-on-accent text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
                   >
                     {loading ? "Sending…" : "Send Code"}
                   </button>
                   <Link
                     href="/login"
-                    className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm text-center cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
+                    className="w-full bg-transparent border border-line rounded-[10px] px-[14px] py-3 text-fg-subtle text-sm text-center cursor-pointer hover:text-fg-secondary hover:border-line-strong transition-colors"
                   >
                     Already have an account? Sign in
                   </Link>
@@ -259,7 +259,7 @@ export default function SignupPage() {
             </>
           ) : (
             <>
-              <div className="text-[13px] text-slate-500 text-center mb-1">
+              <div className="text-[13px] text-fg-subtle text-center mb-1">
                 Enter the 6-digit code from your email
               </div>
               <label htmlFor="signup-code" className="sr-only">6-digit verification code</label>
@@ -277,20 +277,20 @@ export default function SignupPage() {
                 onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 autoFocus
-                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-slate-100 text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-indigo-500 transition-colors caret-transparent disabled:opacity-50"
+                className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-fg text-2xl font-bold text-center tracking-[0.3em] focus:outline-none focus:border-accent transition-colors caret-transparent disabled:opacity-50"
               />
               <FormError id="signup-error" message={error} className="text-center" />
               <button
                 onClick={handleVerify}
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-[10px] px-[14px] py-3 text-white text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
+                className={`w-full bg-gradient-to-r from-brand-from to-brand-to border border-transparent rounded-[10px] px-[14px] py-3 text-on-accent text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? (verified ? "Creating…" : "Verifying…") : verified ? "Retry" : "Verify & Create"}
               </button>
               {!verified && (
                 <button
                   onClick={() => { setStep("details"); setCode(""); setError(null); }}
-                  className="w-full bg-transparent border border-slate-800 rounded-[10px] px-[14px] py-3 text-slate-500 text-sm cursor-pointer hover:text-slate-300 hover:border-slate-700 transition-colors"
+                  className="w-full bg-transparent border border-line rounded-[10px] px-[14px] py-3 text-fg-subtle text-sm cursor-pointer hover:text-fg-secondary hover:border-line-strong transition-colors"
                 >
                   Back
                 </button>
@@ -299,8 +299,8 @@ export default function SignupPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-500 mt-6">
-          <Link href="/privacy" className="hover:text-slate-300 transition-colors py-2 -my-2 inline-block">
+        <p className="text-center text-xs text-fg-subtle mt-6">
+          <Link href="/privacy" className="hover:text-fg-secondary transition-colors py-2 -my-2 inline-block">
             Privacy Policy
           </Link>
         </p>

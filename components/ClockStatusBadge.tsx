@@ -44,8 +44,8 @@ function OffIcon({ color }: { color: string }) {
 }
 
 const STATUS: Record<AttendanceStatus, { color: string; label: string; Icon: typeof ClockIcon }> = {
-  clocked_in:     { color: "var(--status-ok)",    label: "Clocked In", Icon: ClockIcon },
-  on_break:       { color: "var(--status-warn)",  label: "On Break",   Icon: BreakIcon },
+  clocked_in:     { color: "var(--status-ok-mark)",    label: "Clocked In", Icon: ClockIcon },
+  on_break:       { color: "var(--status-warn-mark)",  label: "On Break",   Icon: BreakIcon },
   clocked_out:    { color: "var(--status-muted)", label: "Off",        Icon: OffIcon },
   not_clocked_in: { color: "var(--status-muted)", label: "Off",        Icon: OffIcon },
 };

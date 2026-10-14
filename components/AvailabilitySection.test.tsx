@@ -145,7 +145,7 @@ describe("AvailabilitySection", () => {
 
     await openSheet(0);
     // backdrop is the div immediately before the sheet panel (fixed inset-0)
-    const backdrop = container.querySelector(".fixed.inset-0.bg-black\\/60") as HTMLElement;
+    const backdrop = container.querySelector(".fixed.inset-0.bg-scrim\\/60") as HTMLElement;
     expect(backdrop).toBeTruthy();
     await act(async () => {
       fireEvent.click(backdrop);

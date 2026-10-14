@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { AvailabilityRecord, fmtMinutes } from "../data/types";
 import FormError from "./FormError";
+import { tint } from "../lib/theme-colors";
 
 type Props = {
   employeeId: number;
@@ -53,9 +54,9 @@ function AvailBar({ storeOpen, storeClose, availStart, availEnd }: BarProps) {
   const adjAfter  = clamp(100 - beforePct - windowPct, 0, 100);
   return (
     <div className="flex h-2.5 rounded-full overflow-hidden gap-px" aria-label="availability bar">
-      {beforePct > 0 && <div className="bg-slate-700/60"    style={{ width: `${beforePct}%` }} />}
-      {windowPct > 0 && <div className="bg-emerald-500/80"  style={{ width: `${windowPct}%` }} />}
-      {adjAfter  > 0 && <div className="bg-slate-700/60"    style={{ width: `${adjAfter}%`  }} />}
+      {beforePct > 0 && <div className="bg-fill-strong/60"    style={{ width: `${beforePct}%` }} />}
+      {windowPct > 0 && <div className="bg-success/80"  style={{ width: `${windowPct}%` }} />}
+      {adjAfter  > 0 && <div className="bg-fill-strong/60"    style={{ width: `${adjAfter}%`  }} />}
     </div>
   );
 }
@@ -237,24 +238,24 @@ export default function AvailabilitySection({
       {/* The "no restrictions" note shares the label's line, so the card keeps
           its height when the saved availability loads (or is changed). */}
       <div className="flex items-baseline justify-between gap-2 mb-2 px-1">
-        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+        <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">
           Availability
         </div>
         {allAny && (
-          <div className="text-xs text-emerald-400 truncate">
+          <div className="text-xs text-success-fg truncate">
             ✓ No restrictions set — available any time.
           </div>
         )}
       </div>
-      <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
+      <div className="bg-card rounded-2xl border border-line/60 overflow-hidden">
 
       {/* Day rows, the same as Store Hours' */}
-      <div className="flex flex-col divide-y divide-slate-800/60">
+      <div className="flex flex-col divide-y divide-line/60">
         {orderedDays.map((dow) => {
           const cfg = days[dow];
           const dot =
-            cfg.state === "off"    ? "bg-red-400" :
-            cfg.state === "window" ? "bg-indigo-400" : "bg-emerald-400";
+            cfg.state === "off"    ? "bg-danger-mark" :
+            cfg.state === "window" ? "bg-accent-fg" : "bg-success-mark";
           const label =
             cfg.state === "off"
               ? "Off"
@@ -262,8 +263,8 @@ export default function AvailabilitySection({
               ? `${fmtMinutes(timeStrToMinutes(cfg.startVal))} – ${fmtMinutes(timeStrToMinutes(cfg.endVal))}`
               : "Any time";
           const labelColor =
-            cfg.state === "off"    ? "text-red-400" :
-            cfg.state === "window" ? "text-indigo-300" : "text-emerald-400";
+            cfg.state === "off"    ? "text-danger-fg" :
+            cfg.state === "window" ? "text-accent-fg-strong" : "text-success-fg";
 
           return (
             <button
@@ -271,9 +272,9 @@ export default function AvailabilitySection({
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
               aria-label={`Edit availability for ${DAY_FULL[dow]}`}
-              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
+              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-fill/30 transition-colors"
             >
-              <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
+              <span className="text-sm font-semibold text-fg-secondary w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
               <span className={`flex items-center gap-2 flex-1 text-sm ${labelColor}`}>
@@ -282,13 +283,13 @@ export default function AvailabilitySection({
               </span>
               <span role="status" aria-live="polite" aria-atomic="true" className="shrink-0">
                 {cfg.saveStatus === "saving" && (
-                  <span className="text-[11px] text-slate-500">Saving…</span>
+                  <span className="text-[11px] text-fg-subtle">Saving…</span>
                 )}
                 {cfg.saveStatus === "error" && (
-                  <span className="text-[11px] text-red-400">Error</span>
+                  <span className="text-[11px] text-danger-fg">Error</span>
                 )}
               </span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-fg-subtle shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );
         })}
@@ -301,7 +302,7 @@ export default function AvailabilitySection({
           {/* Backdrop */}
           <div
             aria-hidden="true"
-            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
+            className={`fixed inset-0 bg-scrim/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
@@ -311,22 +312,22 @@ export default function AvailabilitySection({
             aria-modal="true"
             aria-labelledby="avail-sheet-title"
             data-testid="availability-sheet"
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
+            className={`fixed bottom-0 left-0 right-0 z-50 bg-well border-t border-line rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 tablet:hidden">
-              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
+              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-strong" />
             </div>
 
             <div className="px-5 pb-10 pt-2 tablet:px-6 tablet:pt-6 tablet:pb-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
-                <h3 id="avail-sheet-title" className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
+                <h3 id="avail-sheet-title" className="text-lg font-bold text-fg">{DAY_FULL[activeDow]}</h3>
                 <button
                   onClick={closeSheet}
                   autoFocus
                   aria-label="Close"
-                  className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                 </button>
@@ -335,7 +336,7 @@ export default function AvailabilitySection({
               {/* Segmented control */}
               <LayoutGroup id={`avail-pill-${activeDow}`}>
               <div
-                className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px] mb-6"
+                className="flex bg-fill rounded-xl p-[3px] gap-[3px] mb-6"
                 role="group"
                 aria-label={`${DAY_FULL[activeDow]} availability`}
               >
@@ -350,7 +351,7 @@ export default function AvailabilitySection({
                     <button
                       key={s}
                       onClick={() => handlePillClick(activeDow, s)}
-                      className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer border-none z-10 ${isActive ? "" : "text-slate-400 hover:text-slate-200"}`}
+                      className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer border-none z-10 ${isActive ? "" : "text-fg-muted hover:text-fg-body"}`}
                       style={isActive ? { color: activeColor } : undefined}
                       aria-pressed={isActive}
                     >
@@ -361,7 +362,7 @@ export default function AvailabilitySection({
                           style={{
                             // Over the card's color, not the track's: on the lighter
                             // track, Window's indigo fell under 4.5:1.
-                            background: `color-mix(in srgb, ${activeColor} 12%, var(--color-card))`,
+                            background: tint(activeColor, 12, "var(--color-card)"),
                             boxShadow: `inset 0 0 0 1px ${activeColor}`,
                           }}
                           transition={{ type: "spring", stiffness: 420, damping: 34 }}
@@ -377,7 +378,7 @@ export default function AvailabilitySection({
               {/* Window time inputs */}
               {sheetDay?.state === "window" && (
                 <div className="flex flex-col gap-4 w-full">
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-fg-subtle">
                     Store open: {fmtMinutes(sheetStoreHours.open)} – {fmtMinutes(sheetStoreHours.close)}
                   </div>
 
@@ -389,16 +390,16 @@ export default function AvailabilitySection({
                         onChange: (v: string) => setDays((prev) => ({ ...prev, [activeDow]: { ...prev[activeDow], endVal: v } })) },
                     ].map(({ label, val, ariaLabel, onChange, isEnd }) => (
                       <div key={label} className="min-w-0 w-full">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                        <div className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5">
                           {label}
                         </div>
-                        <div className="w-full rounded-xl overflow-hidden border border-field bg-slate-800 focus-within:border-indigo-500 transition-colors">
+                        <div className="w-full rounded-xl overflow-hidden border border-field bg-fill focus-within:border-accent transition-colors">
                           <input
                             type="time"
                             value={val}
                             onChange={(e) => onChange(e.target.value)}
                             onBlur={() => handleTimeBlur(activeDow)}
-                            className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base outline-none"
+                            className="block w-full min-w-0 bg-transparent px-3 py-3 text-fg text-base outline-none"
                             aria-label={ariaLabel}
                             aria-describedby={isEnd && sheetInvalid ? "avail-time-error" : undefined}
                             aria-invalid={isEnd && sheetInvalid ? true : undefined}
@@ -421,7 +422,7 @@ export default function AvailabilitySection({
 
                   {/* Copy to */}
                   <div>
-                    <div className="text-xs text-slate-500 mb-2">Apply this window to:</div>
+                    <div className="text-xs text-fg-subtle mb-2">Apply this window to:</div>
                     <div className="flex flex-col gap-2">
                       {[
                         { key: "weekdays", label: "Weekdays", targets: WEEKDAYS },
@@ -435,8 +436,8 @@ export default function AvailabilitySection({
                             onClick={() => copyToTarget(activeDow, targets, key)}
                             className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
                               copied
-                                ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
-                                : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-slate-200"
+                                ? "bg-success/40 border-success/50 text-success-fg"
+                                : "bg-fill border-line-strong text-fg-secondary hover:bg-fill-strong hover:border-line-stronger hover:text-fg-body"
                             }`}
                           >
                             {copied ? `✓ ${label} updated` : label}
@@ -451,13 +452,13 @@ export default function AvailabilitySection({
               {/* Save status */}
               <div aria-live="polite" aria-atomic="true" className="mt-5 h-5 text-center">
                 {sheetDay?.saveStatus === "saving" && (
-                  <span className="text-sm text-slate-400">Saving…</span>
+                  <span className="text-sm text-fg-muted">Saving…</span>
                 )}
                 {sheetDay?.saveStatus === "saved" && (
-                  <span className="text-sm text-emerald-400">Saved ✓</span>
+                  <span className="text-sm text-success-fg">Saved ✓</span>
                 )}
                 {sheetDay?.saveStatus === "error" && (
-                  <span className="text-sm text-red-400">Failed to save</span>
+                  <span className="text-sm text-danger-fg">Failed to save</span>
                 )}
               </div>
             </div>

@@ -96,7 +96,7 @@ export default function TryDemoButton({
       </button>
       <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
       {error && (
-        <div role="alert" className="text-xs text-red-400 text-center">
+        <div role="alert" className="text-xs text-danger-fg text-center">
           {error}
         </div>
       )}

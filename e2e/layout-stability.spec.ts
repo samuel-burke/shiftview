@@ -43,7 +43,7 @@ const DELAYS: Record<string, number> = {
 };
 
 async function mockApis(page: Page, role: "manager" | "employee") {
-  const me = { isManager: role === "manager", employeeId: role === "manager" ? 1 : 2, employeeName: role === "manager" ? "Alice Smith" : "Bob Jones", isDemo: false, orgId: "org-1", organizations: [] };
+  const me = { isManager: role === "manager", employeeId: role === "manager" ? 1 : 2, employeeName: role === "manager" ? "Alice Smith" : "Bob Jones", isDemo: false, orgId: "00000000-0000-0000-0000-00000000e2e1", organizations: [] };
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
