@@ -188,7 +188,7 @@ test.describe("Auto-schedule", () => {
       await expect(page.getByTestId("day-list").getByText("Auto", { exact: true })).toHaveCount(3);
       await expect(page.getByText("8/40 h week")).toBeVisible();
     } else {
-      await expect(page.getByTestId("week-grid").getByRole("button", { name: /, auto draft$/ })).toHaveCount(3);
+      await expect(page.getByTestId("week-grid").getByRole("button", { name: /, Auto · / })).toHaveCount(3);
     }
     await expect(page.getByTestId("coverage-heatmap").getByRole("grid")).toBeVisible();
     await expect(page.getByTestId("draft-hours-panel")).toBeVisible();

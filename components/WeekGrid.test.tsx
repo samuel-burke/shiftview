@@ -44,8 +44,8 @@ describe("WeekGrid", () => {
 
   it("labels each shift cell with the person, day, type and time", () => {
     renderGrid();
-    expect(screen.getByRole("button", { name: "Alice Smith, Monday, October 5: Opener 6a to 2p" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Alice Smith, Tuesday, October 6: Closer 1p to 10p" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^6a–2p.*Opener.*Alice Smith, Monday, October 5$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^1p–10p.*Closer.*Alice Smith, Tuesday, October 6$/ })).toBeInTheDocument();
   });
 
   it("marks today's column", () => {
@@ -57,7 +57,7 @@ describe("WeekGrid", () => {
 
   it("passes the shift, or null for an empty day, to onSelect", async () => {
     const { onSelect } = renderGrid();
-    await userEvent.click(screen.getByRole("button", { name: /Bob Jones, Monday, October 5: Mid/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Mid.*Bob Jones, Monday, October 5/ }));
     expect(onSelect).toHaveBeenCalledWith(EMPLOYEES[1], "2026-10-05", SCHEDULES[2]);
 
     await userEvent.click(screen.getByRole("button", { name: /Bob Jones, Tuesday, October 6: off/ }));
@@ -77,7 +77,7 @@ describe("WeekGrid", () => {
       timeOff: [{ id: 1, employeeId: 2, date: "2026-10-07", status: "pending" }],
       selected: { employeeId: 1, date: "2026-10-05" },
     });
-    expect(screen.getByRole("button", { name: /Bob Jones, Wednesday, October 7: off, time off requested/ })).toHaveTextContent("Time off requested");
+    expect(screen.getByRole("button", { name: /^Time off requested.*Bob Jones, Wednesday, October 7: off/ })).toHaveTextContent("Time off requested");
     expect(screen.getByRole("button", { name: /Alice Smith, Monday, October 5/ })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -92,15 +92,15 @@ describe("WeekGrid", () => {
 
     it("tags drafts and shows live shifts as read-only context", () => {
       renderGrid({ mode: "draft", schedules: [...LIVE, ...DRAFTS] });
-      expect(screen.getByRole("button", { name: "Bob Jones, Tuesday, October 6: Mid 9a to 5p, auto draft" })).toHaveTextContent("Auto · Mid");
-      expect(screen.getByRole("button", { name: "Bob Jones, Wednesday, October 7: Opener 6a to 2p, draft" })).toHaveTextContent("Draft · Opener");
-      expect(screen.getByRole("button", { name: "Bob Jones, Monday, October 5: Mid 9a to 5p, live shift (change it in Live mode)" })).toHaveTextContent("Live");
+      expect(screen.getByRole("button", { name: /^9a–5p.*Auto · Mid.*Bob Jones, Tuesday, October 6$/ })).toHaveTextContent("Auto · Mid");
+      expect(screen.getByRole("button", { name: /^6a–2p.*Draft · Opener.*Bob Jones, Wednesday, October 7$/ })).toHaveTextContent("Draft · Opener");
+      expect(screen.getByRole("button", { name: /^9a–5p.*Live.*Bob Jones, Monday, October 5, live shift \(change it in Live mode\)$/ })).toHaveTextContent("Live");
       expect(screen.getByRole("button", { name: /Bob Jones, Thursday, October 8: off\. Add a draft shift/ })).toBeInTheDocument();
     });
 
     it("keeps the live shift where an older draft clashes, and opens the draft", async () => {
       const { onSelect } = renderGrid({ mode: "draft", schedules: [...LIVE, ...DRAFTS] });
-      const cell = screen.getByRole("button", { name: /Alice Smith, Monday, October 5: Opener 6a to 2p, live shift; a draft for this day won't publish/ });
+      const cell = screen.getByRole("button", { name: /^6a–2p.*Alice Smith, Monday, October 5, live shift; a draft for this day won't publish/ });
       expect(cell).toHaveTextContent("Clash");
       await userEvent.click(cell);
       expect(onSelect).toHaveBeenCalledWith(EMPLOYEES[0], "2026-10-05", DRAFTS[2]);

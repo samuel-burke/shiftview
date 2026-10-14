@@ -148,10 +148,11 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
               key={dow}
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
-              aria-label={`Edit ${DAY_FULL[dow]} store hours`}
               className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-fill/30 transition-colors"
             >
-              <span className="text-sm font-semibold text-fg-secondary w-9 shrink-0">
+              {/* Named by its text, the day spelled out (WCAG 2.5.3). */}
+              <span className="sr-only">Edit {DAY_FULL[dow]} store hours, </span>
+              <span aria-hidden="true" className="text-sm font-semibold text-fg-secondary w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
               <span className="flex-1 text-sm text-fg-body">
