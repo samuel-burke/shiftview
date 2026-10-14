@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase-browser";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import AppShell from "../../components/AppShell";
+import HeaderActions from "../../components/HeaderActions";
 import InviteSheet from "../../components/InviteSheet";
 import StoreHoursSection from "../../components/StoreHoursSection";
 import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
@@ -829,8 +830,9 @@ export default function SettingsPageClient({
             <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <span className="text-xl font-extrabold text-fg tracking-tight">Settings</span>
-        {isDemo && <span className="ml-auto text-[11px] text-info-fg font-medium">Demo Mode</span>}
+        <span className="flex-1 text-xl font-extrabold text-fg tracking-tight">Settings</span>
+        {isDemo && <span className="text-[11px] text-info-fg font-medium">Demo Mode</span>}
+        <HeaderActions className="hidden tablet:flex" />
       </div>
 
       <div className="tablet:px-2 desk:grid desk:grid-cols-[180px_minmax(0,720px)] desk:justify-center desk:gap-10 desk:px-6">

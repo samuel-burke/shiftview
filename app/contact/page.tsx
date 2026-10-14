@@ -3,15 +3,16 @@ import Link from "next/link";
 import MarketingShell from "@/components/marketing/MarketingShell";
 import ContactForm from "@/components/marketing/ContactForm";
 import { Container } from "@/components/marketing/ui";
+import { isSignedIn } from "@/lib/signed-in";
 
 export const metadata: Metadata = {
   title: "Contact · ShiftView",
   description: "Questions, bug reports or feature requests: send the ShiftView team a message.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
   return (
-    <MarketingShell>
+    <MarketingShell signedIn={await isSignedIn()}>
       <section>
         <Container className="grid gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16 lg:py-28">
           <div>

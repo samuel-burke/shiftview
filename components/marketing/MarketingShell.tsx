@@ -10,31 +10,41 @@ import { Arrow, Container, REPO_URL, primaryBtn, secondaryBtn } from "./ui";
 // its text when Inter arrives.
 const inter = Inter({ subsets: ["latin"], display: "optional" });
 
-// Shared chrome for the public marketing pages (/ and /contact).
-export default function MarketingShell({ children }: { children: React.ReactNode }) {
+// Shared chrome for the public pages (/, /contact and /privacy). The last two
+// are open to signed-in people too, who get a way back into the app in place
+// of Sign in and Get started.
+export default function MarketingShell({ children, signedIn = false }: { children: React.ReactNode; signedIn?: boolean }) {
   return (
     <main className={`${inter.className} min-h-dvh bg-bg text-fg overflow-x-hidden antialiased`}>
       <MotionProvider>
-        <MarketingNav />
+        <MarketingNav signedIn={signedIn} />
         {children}
-        <MarketingFooter />
+        <MarketingFooter signedIn={signedIn} />
       </MotionProvider>
     </main>
   );
 }
 
-function MarketingNav() {
+function MarketingNav({ signedIn }: { signedIn: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line/60 bg-bg/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
         <Link href="/" aria-label="ShiftView home"><Logo className="h-[22px]" /></Link>
         <nav aria-label="Site navigation" className="flex items-center gap-1 sm:gap-2">
-          <Link href="/login" className="whitespace-nowrap px-2 py-2 text-sm font-medium text-fg-secondary transition-colors hover:text-fg sm:px-3">
-            Sign in
-          </Link>
-          <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-gradient-to-r from-brand-from to-brand-to px-3.5 py-2 text-sm font-semibold text-on-accent transition-[filter] hover:brightness-110">
-            Get started
-          </Link>
+          {signedIn ? (
+            <Link href="/" className="whitespace-nowrap rounded-lg bg-gradient-to-r from-brand-from to-brand-to px-3.5 py-2 text-sm font-semibold text-on-accent transition-[filter] hover:brightness-110">
+              Open app
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="whitespace-nowrap px-2 py-2 text-sm font-medium text-fg-secondary transition-colors hover:text-fg sm:px-3">
+                Sign in
+              </Link>
+              <Link href="/signup" className="ml-1 hidden whitespace-nowrap rounded-lg min-[360px]:block bg-gradient-to-r from-brand-from to-brand-to px-3.5 py-2 text-sm font-semibold text-on-accent transition-[filter] hover:brightness-110">
+                Get started
+              </Link>
+            </>
+          )}
         </nav>
       </Container>
     </header>
@@ -62,7 +72,7 @@ export function ClosingCta({ title = "See a real week before you set one up." }:
   );
 }
 
-function MarketingFooter() {
+function MarketingFooter({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="border-t border-line/60">
       <Container className="flex flex-col gap-4 py-8 text-sm text-fg-muted sm:flex-row sm:items-center sm:justify-between">
@@ -72,8 +82,11 @@ function MarketingFooter() {
         </div>
         {/* Padding offset by negative margins: 36px to tap, same layout. */}
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/#features" className="py-2 -my-2 transition-colors hover:text-fg-body">Features</Link>
-          <Link href="/login" className="py-2 -my-2 transition-colors hover:text-fg-body">Sign in</Link>
+          {/* Signed in, "/" is the dashboard, which has no features section. */}
+          {!signedIn && <Link href="/#features" className="py-2 -my-2 transition-colors hover:text-fg-body">Features</Link>}
+          {signedIn
+            ? <Link href="/" className="py-2 -my-2 transition-colors hover:text-fg-body">Open app</Link>
+            : <Link href="/login" className="py-2 -my-2 transition-colors hover:text-fg-body">Sign in</Link>}
           <Link href="/contact" className="py-2 -my-2 transition-colors hover:text-fg-body">Contact</Link>
           <Link href="/privacy" className="py-2 -my-2 transition-colors hover:text-fg-body">Privacy</Link>
           <a href={REPO_URL} className="py-2 -my-2 transition-colors hover:text-fg-body">GitHub</a>
