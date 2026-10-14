@@ -77,6 +77,10 @@ describe("GET /api/templates", () => {
     expect(body.templates[0].rowCount).toBe(2);
     // Org scoping: templates query must filter by org_id
     expect(templatesBuilder.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
+    // The rows embed must name one FK; an unhinted embed is ambiguous (PGRST201)
+    expect(templatesBuilder.select).toHaveBeenCalledWith(
+      expect.stringContaining("schedule_template_rows!template_rows_template_org_fkey(id)")
+    );
   });
 });
 

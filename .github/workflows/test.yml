@@ -64,6 +64,12 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The specs mock every /api/* call and bypass auth, so no Supabase is
+    # needed. Point the client at an unreachable address so test runs never
+    # open Realtime subscriptions (with mock org ids) against production.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: e2e-placeholder-anon-key
     steps:
       - uses: actions/checkout@v4
 
@@ -85,14 +91,8 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
 
       - run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - run: npm run test:e2e -- --project=mobile-chrome --project=mobile-chrome-far-timezone --project=tablet-chrome --project=tablet-landscape-chrome --project=desktop-chrome
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - uses: actions/upload-artifact@v4
         if: failure()

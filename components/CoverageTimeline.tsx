@@ -10,11 +10,11 @@ import {
   Tooltip,
   ReferenceLine,
   ReferenceDot,
-  ResponsiveContainer,
 } from "recharts";
 import { Schedule, PunchRecord, isHere } from "../data/types";
 import { CoverageBlock, targetAt } from "../lib/coverage";
 import { useTheme } from "./ThemeProvider";
+import SizedResponsiveContainer from "./SizedResponsiveContainer";
 import { DEFAULT_TIMEZONE, getLocalMinutes } from "@/lib/dates";
 
 type Props = {
@@ -321,7 +321,7 @@ function CoverageTimeline({
         onTouchEnd={() => setShowTooltip(false)}
         onTouchCancel={() => setShowTooltip(false)}
       >
-        <ResponsiveContainer
+        <SizedResponsiveContainer
           width="100%"
           height="100%"
           style={{ overflow: "visible" }}
@@ -418,7 +418,7 @@ function CoverageTimeline({
               />
             )}
           </ComposedChart>
-        </ResponsiveContainer>
+        </SizedResponsiveContainer>
 
         {isToday && nowDataPoint && dotAt && chartRect && (
           <span
