@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { WeekMode } from "@/lib/week-params";
+import HeaderActions from "@/components/HeaderActions";
 
 // The Week page's header: the week and its navigation, the Live | Draft
 // toggle, and (Draft only) Auto-schedule and Publish.
@@ -137,6 +138,7 @@ export default function WeekHeader(props: Props) {
         <div className="hidden tablet:block">
           <WeekNav {...props} />
         </div>
+        <HeaderActions className="hidden tablet:flex" />
       </div>
 
       {/* Live | Draft, what it means, and Draft's actions. Phones: the week's

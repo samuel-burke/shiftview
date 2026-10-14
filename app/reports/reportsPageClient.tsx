@@ -8,6 +8,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { motion } from "framer-motion";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
+import HeaderActions from "../../components/HeaderActions";
 import PunctualityReport, { type PunctualityRow } from "../../components/PunctualityReport";
 import { CoverageProfile, curveForDate } from "../../lib/coverage";
 import type { PunctualitySummary } from "../../lib/punctuality";
@@ -691,7 +692,8 @@ export default function ReportsPageClient() {
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-fg tracking-tight desk:text-xl">Reports</span>
+        <span className="flex-1 text-2xl font-extrabold text-fg tracking-tight desk:text-xl">Reports</span>
+        <HeaderActions className="hidden tablet:flex" />
       </div>
 
       {/* Tab bar */}

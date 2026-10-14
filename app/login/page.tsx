@@ -63,10 +63,23 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-bg flex items-center justify-center p-4">
+    <main className="min-h-dvh bg-bg flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-[360px] mb-4">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-secondary transition-colors py-3 -my-3"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M19 12H5M5 12l7-7M5 12l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Home
+        </Link>
+      </div>
       <div className="w-full max-w-[360px] bg-card rounded-2xl border border-line p-8">
         <div className="text-center mb-8">
-          <Logo className="h-7" />
+          <Link href="/" aria-label="ShiftView home" className="inline-block">
+            <Logo className="h-7" />
+          </Link>
           <div className="text-xs text-fg-subtle mt-1.5" aria-live="polite">
             {step === "email" ? "Sign in to your account" : `Code sent to ${email}`}
           </div>

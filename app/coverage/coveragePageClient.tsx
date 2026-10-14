@@ -13,6 +13,7 @@ import {
 } from "../../lib/coverage";
 import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
+import HeaderActions from "../../components/HeaderActions";
 import BottomNav from "../../components/BottomNav";
 import CoverageCurveEditor, { CoverageCurvePreview } from "../../components/CoverageCurveEditor";
 import { createApiFetch } from "@/lib/api-fetch";
@@ -192,6 +193,7 @@ export default function CoveragePageClient() {
             <span className="text-xl font-extrabold text-fg tracking-tight">Coverage Profiles</span>
             <div className="text-xs text-fg-muted mt-0.5">Target staffing curves, in 15-minute steps</div>
           </div>
+          <HeaderActions className="hidden tablet:flex" />
         </div>
 
         {/* Over the page, so a message can't push the profiles down. */}
