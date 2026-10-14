@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { NavItem } from "./AppShell";
 import { motion } from "framer-motion";
 import { haptic } from "../lib/haptic";
+import { tint } from "@/lib/theme-colors";
 
 type Props = {
   active: NavItem;
@@ -25,7 +26,7 @@ export default function BottomNav({ active }: Props) {
        * already 95% opaque, so dropping the blur for a solid bg is a no-op
        * visually but keeps the nav reliably pinned to the bottom.
        */
-      className="tablet:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-slate-800/80 max-w-[480px] mx-auto"
+      className="tablet:hidden fixed bottom-0 left-0 right-0 z-30 bg-bg border-t border-line/80 max-w-[480px] mx-auto"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex relative">
@@ -38,8 +39,8 @@ export default function BottomNav({ active }: Props) {
           <div
             className="h-full w-8 rounded-full"
             style={{
-              background: "linear-gradient(90deg, #818cf8, #6366f1)",
-              boxShadow: "0 0 10px #6366f1aa, 0 0 20px #6366f155",
+              background: "linear-gradient(90deg, var(--color-accent-fg), var(--color-accent))",
+              boxShadow: `0 0 10px ${tint("var(--color-accent)", 67)}, 0 0 20px ${tint("var(--color-accent)", 33)}`,
             }}
           />
         </div>}
@@ -73,13 +74,13 @@ function NavTab({
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200 ${isActive ? "text-slate-100" : "text-slate-500"}`}
+      className={`flex-1 flex flex-col items-center pt-3 pb-2 gap-0.5 transition-colors duration-200 ${isActive ? "text-fg" : "text-fg-subtle"}`}
       onClick={() => { if (!isActive) haptic(6); }}
     >
       {/* Only the scale animates (a transform); the glow just switches. */}
       <motion.div
         animate={{ scale: isActive ? 1.12 : 1 }}
-        style={{ filter: isActive ? "drop-shadow(0 0 6px rgba(129,140,248,0.6))" : "none" }}
+        style={{ filter: isActive ? `drop-shadow(0 0 6px ${tint("var(--color-accent-fg)", 60)})` : "none" }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
         {children}

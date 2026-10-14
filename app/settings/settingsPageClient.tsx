@@ -88,16 +88,16 @@ function groupId(label: string) {
 // A row that opens another page or a sheet: the same as Store Hours' and
 // Availability's day rows, edge to edge in its card, with a chevron.
 const linkRow =
-  "flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors";
+  "flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-fill/30 transition-colors";
 const chevron = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-fg-subtle shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
 );
 
 function SettingsGroupHeader({ label }: { label: string }) {
   return (
     <div id={groupId(label)} className="flex items-center gap-3 mt-3 first:mt-0 select-none scroll-mt-24">
-      <span className="text-sm font-bold text-slate-100 tracking-tight">{label}</span>
-      <div className="flex-1 h-px bg-slate-800" />
+      <span className="text-sm font-bold text-fg tracking-tight">{label}</span>
+      <div className="flex-1 h-px bg-fill" />
     </div>
   );
 }
@@ -148,7 +148,7 @@ function EmployeeAvailabilityRow({
         onClick={toggle}
         aria-expanded={expanded}
         aria-label="Toggle typical week"
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none transition-colors py-2 -my-2"
+        className="flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-muted cursor-pointer bg-transparent border-none transition-colors py-2 -my-2"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span>Typical Week</span>
@@ -157,9 +157,9 @@ function EmployeeAvailabilityRow({
       {expanded && (
         <div className="mt-2 pl-1">
           {records === null ? (
-            <div role="status" className="text-xs text-slate-500">Loading…</div>
+            <div role="status" className="text-xs text-fg-subtle">Loading…</div>
           ) : allFree ? (
-            <div className="text-xs text-slate-500">No restrictions set</div>
+            <div className="text-xs text-fg-subtle">No restrictions set</div>
           ) : (
             <div className="flex flex-col gap-2">
               {restricted.map((rec) => {
@@ -168,11 +168,11 @@ function EmployeeAvailabilityRow({
                 return (
                   <div key={rec.dayOfWeek} className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-slate-400 w-7 shrink-0">
+                      <span className="text-[11px] font-semibold text-fg-muted w-7 shrink-0">
                         {DAY_SHORT[rec.dayOfWeek]}
                       </span>
                       {isOff ? (
-                        <span className="text-xs text-slate-500">Unavailable</span>
+                        <span className="text-xs text-fg-subtle">Unavailable</span>
                       ) : (
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <div className="flex-1 min-w-0">
@@ -189,27 +189,27 @@ function EmployeeAvailabilityRow({
                                   className="flex h-1 rounded-full overflow-hidden gap-px"
                                   aria-label={`${DAY_SHORT[rec.dayOfWeek]} availability bar`}
                                 >
-                                  {bPct > 0 && <div className="bg-slate-700/60" style={{ width: `${bPct}%` }} />}
-                                  {wPct > 0 && <div className="bg-emerald-500/70" style={{ width: `${wPct}%` }} />}
-                                  {aPct > 0 && <div className="bg-slate-700/60" style={{ width: `${aPct}%` }} />}
+                                  {bPct > 0 && <div className="bg-fill-strong/60" style={{ width: `${bPct}%` }} />}
+                                  {wPct > 0 && <div className="bg-success/70" style={{ width: `${wPct}%` }} />}
+                                  {aPct > 0 && <div className="bg-fill-strong/60" style={{ width: `${aPct}%` }} />}
                                 </div>
                               );
                             })()}
                           </div>
-                          <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
+                          <span className="text-[11px] text-fg-muted shrink-0 tabular-nums">
                             {fmtMinutes(rec.startMinutes!)} – {fmtMinutes(rec.endMinutes!)}
                           </span>
                         </div>
                       )}
                     </div>
                     {rec.note && (
-                      <div className="text-[11px] text-slate-500 italic pl-9">{rec.note}</div>
+                      <div className="text-[11px] text-fg-subtle italic pl-9">{rec.note}</div>
                     )}
                   </div>
                 );
               })}
               {freeDows.length > 0 && (
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[11px] text-fg-subtle">
                   {freeDows.map((d) => DAY_SHORT[d]).join(", ")} — no restrictions
                 </div>
               )}
@@ -801,7 +801,7 @@ export default function SettingsPageClient({
   return (
     <AppShell active="settings" isManager={isManager}>
     <motion.div
-      className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/60 backdrop-blur-sm
+      className="fixed inset-0 z-50 flex items-stretch justify-end bg-scrim/60 backdrop-blur-sm
                  tablet:static tablet:z-auto tablet:block tablet:bg-transparent tablet:backdrop-blur-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -810,27 +810,27 @@ export default function SettingsPageClient({
     <motion.div role="main"
       className="relative w-full max-w-[480px] h-full bg-bg overflow-y-auto flex flex-col
                  tablet:max-w-none tablet:h-auto tablet:min-h-dvh tablet:overflow-visible tablet:shadow-none! tablet:transform-none!"
-      style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)" }}
+      style={{ boxShadow: "var(--shadow-dialog)" }}
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.8 }}
     >
       {/* Header */}
       <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg shrink-0 tablet:px-6 desk:py-[14px]"
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg shrink-0 tablet:px-6 desk:py-[14px]"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="tablet:hidden size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          className="tablet:hidden size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer shrink-0 hover:bg-fill hover:text-fg-body transition-colors"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <span className="text-xl font-extrabold text-slate-100 tracking-tight">Settings</span>
-        {isDemo && <span className="ml-auto text-[11px] text-blue-400 font-medium">Demo Mode</span>}
+        <span className="text-xl font-extrabold text-fg tracking-tight">Settings</span>
+        {isDemo && <span className="ml-auto text-[11px] text-info-fg font-medium">Demo Mode</span>}
       </div>
 
       <div className="tablet:px-2 desk:grid desk:grid-cols-[180px_minmax(0,720px)] desk:justify-center desk:gap-10 desk:px-6">
@@ -840,7 +840,7 @@ export default function SettingsPageClient({
             <a
               key={g}
               href={`#${groupId(g)}`}
-              className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              className="px-3 py-2 rounded-lg text-sm font-semibold text-fg-muted hover:text-fg hover:bg-fill transition-colors"
             >
               {g}
             </a>
@@ -873,24 +873,24 @@ export default function SettingsPageClient({
 
         {/* Appearance — all users */}
         <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Appearance
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
             <LayoutGroup id="theme-pill">
-            <div className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px]">
+            <div className="flex bg-fill rounded-xl p-[3px] gap-[3px]">
               {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setThemeMode(m)}
                   aria-pressed={themeMode === m}
-                  className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-slate-50" : "text-slate-400"}`}
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${themeMode === m ? "text-fg" : "text-fg-muted"}`}
                 >
                   {themeMode === m && (
                     <motion.div
                       layoutId="theme-active"
-                      className="absolute inset-0 rounded-[9px] bg-slate-600"
-                      style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      className="absolute inset-0 rounded-[9px] bg-fill-stronger"
+                      style={{ boxShadow: "var(--shadow-segment)" }}
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
@@ -923,14 +923,14 @@ export default function SettingsPageClient({
 
         {/* Sounds — all users (device-local) */}
         <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Sounds
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-200">Sound Effects</div>
-                <div className="text-xs text-slate-500 mt-0.5">Punch, message, and notification sounds on this device</div>
+                <div className="text-sm font-semibold text-fg-body">Sound Effects</div>
+                <div className="text-xs text-fg-subtle mt-0.5">Punch, message, and notification sounds on this device</div>
               </div>
               <button
                 role="switch"
@@ -939,11 +939,11 @@ export default function SettingsPageClient({
                 data-testid="toggle-sound-effects"
                 onClick={toggleSound}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  soundEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                  soundEnabled ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                     soundEnabled ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
@@ -955,15 +955,15 @@ export default function SettingsPageClient({
         {/* Push Notifications — all users */}
         {pushSupported && (
           <section>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
               Notifications
             </div>
-            <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+            <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
               {/* Master push toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-semibold text-slate-200">Push Notifications</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Receive alerts on this device when the app is closed</div>
+                  <div className="text-sm font-semibold text-fg-body">Push Notifications</div>
+                  <div className="text-xs text-fg-subtle mt-0.5">Receive alerts on this device when the app is closed</div>
                 </div>
                 <button
                   role="switch"
@@ -973,11 +973,11 @@ export default function SettingsPageClient({
                   aria-busy={pushSaving}
                   onClick={togglePush}
                   className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                    pushSubscribed ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                    pushSubscribed ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                    className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                       pushSubscribed ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
@@ -986,7 +986,7 @@ export default function SettingsPageClient({
 
               {/* Per-type toggles — only visible when push is enabled */}
               {pushSubscribed && (
-                <div className="mt-4 pt-4 border-t border-slate-800 space-y-0">
+                <div className="mt-4 pt-4 border-t border-line space-y-0">
                   {(
                     [
                       ...( isManager ? [
@@ -1009,11 +1009,11 @@ export default function SettingsPageClient({
                   ).map(({ key, label, desc }, i, arr) => (
                     <div
                       key={key}
-                      className={`flex items-center justify-between py-3 ${i < arr.length - 1 ? "border-b border-slate-800/60" : ""}`}
+                      className={`flex items-center justify-between py-3 ${i < arr.length - 1 ? "border-b border-line/60" : ""}`}
                     >
                       <div>
-                        <div className="text-sm font-medium text-slate-300">{label}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
+                        <div className="text-sm font-medium text-fg-secondary">{label}</div>
+                        <div className="text-xs text-fg-subtle mt-0.5">{desc}</div>
                       </div>
                       <button
                         role="switch"
@@ -1022,11 +1022,11 @@ export default function SettingsPageClient({
                         disabled={!!notifPrefsSaving[key]}
                         onClick={() => toggleNotifPref(key)}
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ml-4 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                          notifPrefs[key] ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                          notifPrefs[key] ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                         }`}
                       >
                         <span
-                          className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                          className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                             notifPrefs[key] ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
@@ -1045,7 +1045,7 @@ export default function SettingsPageClient({
         {/* Store Hours — manager only */}
         {isManager && (
         <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Store Hours
           </div>
           <StoreHoursSection firstDayOfWeek={firstDayOfWeek} />
@@ -1054,15 +1054,15 @@ export default function SettingsPageClient({
 
         {/* Coverage — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Coverage Thresholds
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+          <div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60">
             {/* Parent toggle */}
             <div className="flex items-center justify-between gap-3 px-4 py-4">
               <div>
-                <div className="text-sm font-semibold text-slate-200">Coverage Alerts</div>
-                <div className="text-xs text-slate-500 mt-0.5">Show banners when staffing is low</div>
+                <div className="text-sm font-semibold text-fg-body">Coverage Alerts</div>
+                <div className="text-xs text-fg-subtle mt-0.5">Show banners when staffing is low</div>
               </div>
               <button
                 role="switch"
@@ -1075,10 +1075,10 @@ export default function SettingsPageClient({
                   saveCoverageAlerts(next);
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  coverageAlertsEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                  coverageAlertsEnabled ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                 }`}
               >
-                <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                   coverageAlertsEnabled ? "translate-x-5" : "translate-x-0"
                 }`} />
               </button>
@@ -1090,8 +1090,8 @@ export default function SettingsPageClient({
               className={linkRow}
             >
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-200">Coverage Profiles</div>
-                <div className="text-xs text-slate-500 mt-0.5">Target staffing curves per day, in 15-minute steps</div>
+                <div className="text-sm font-semibold text-fg-body">Coverage Profiles</div>
+                <div className="text-xs text-fg-subtle mt-0.5">Target staffing curves per day, in 15-minute steps</div>
               </div>
               {chevron}
             </button>
@@ -1110,14 +1110,14 @@ export default function SettingsPageClient({
         {isManager && <section>
           <SettingsSectionLabel label="Time Clock">
             <div role="status" aria-live="polite" aria-atomic="true" className="text-xs leading-4">
-              {timeclockSaved && <div className="text-emerald-400">Saved ✓</div>}
+              {timeclockSaved && <div className="text-success-fg">Saved ✓</div>}
             </div>
           </SettingsSectionLabel>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
-            <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-800/60">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4 space-y-4">
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-line/60">
               <div>
-                <div className="text-sm font-semibold text-slate-200">Allow Manual Punch Corrections</div>
-                <div className="text-xs text-slate-500 mt-0.5">Employees can report missed punches</div>
+                <div className="text-sm font-semibold text-fg-body">Allow Manual Punch Corrections</div>
+                <div className="text-xs text-fg-subtle mt-0.5">Employees can report missed punches</div>
               </div>
               <button
                 role="switch"
@@ -1131,20 +1131,20 @@ export default function SettingsPageClient({
                   saveTimeclockSetting({ manualPunchesEnabled: next });
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  manualPunchesEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                  manualPunchesEnabled ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                     manualPunchesEnabled ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>
             </div>
-            <div className={`flex items-center justify-between gap-3 ${gpsRequired ? "pb-4 border-b border-slate-800/60" : ""}`}>
+            <div className={`flex items-center justify-between gap-3 ${gpsRequired ? "pb-4 border-b border-line/60" : ""}`}>
               <div>
-                <div className="text-sm font-semibold text-slate-200">Require GPS for Clock-In</div>
-                <div className="text-xs text-slate-500 mt-0.5">Block clock-in if location is denied</div>
+                <div className="text-sm font-semibold text-fg-body">Require GPS for Clock-In</div>
+                <div className="text-xs text-fg-subtle mt-0.5">Block clock-in if location is denied</div>
               </div>
               <button
                 role="switch"
@@ -1158,11 +1158,11 @@ export default function SettingsPageClient({
                   saveTimeclockSetting({ gpsRequired: next });
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                  gpsRequired ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                  gpsRequired ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                  className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                     gpsRequired ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
@@ -1174,8 +1174,8 @@ export default function SettingsPageClient({
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-200">Enforce Geofence</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Only allow clock-in within a set radius</div>
+                    <div className="text-sm font-semibold text-fg-body">Enforce Geofence</div>
+                    <div className="text-xs text-fg-subtle mt-0.5">Only allow clock-in within a set radius</div>
                   </div>
                   <button
                     role="switch"
@@ -1190,11 +1190,11 @@ export default function SettingsPageClient({
                       if (next && geofenceLat === null) captureCurrentLocation();
                     }}
                     className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                      geofenceEnabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                      geofenceEnabled ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                      className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${
                         geofenceEnabled ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
@@ -1205,7 +1205,7 @@ export default function SettingsPageClient({
                   <div className="space-y-3 pt-1">
                     {/* Address autocomplete */}
                     <div className="relative">
-                      <div className="text-xs text-slate-400 mb-1.5">Location</div>
+                      <div className="text-xs text-fg-muted mb-1.5">Location</div>
                       <div className="flex gap-2">
                         <input
                           aria-label="Search geofence address"
@@ -1214,13 +1214,13 @@ export default function SettingsPageClient({
                           onFocus={() => { setAddressInput(""); setShowSuggestions(false); }}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                           placeholder="Search address…"
-                          className="flex-1 bg-slate-800 border border-field rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                          className="flex-1 bg-fill border border-field rounded-lg px-3 py-2.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
                         />
                         <button
                           onClick={captureCurrentLocation}
                           disabled={gettingLocation}
                           title="Use my current location"
-                          className="size-11 shrink-0 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="size-11 shrink-0 rounded-lg bg-fill-strong border border-line-stronger text-fg-body flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-fill-stronger transition-colors"
                         >
                           {gettingLocation ? (
                             <span className="text-xs font-bold">…</span>
@@ -1233,12 +1233,12 @@ export default function SettingsPageClient({
                         </button>
                       </div>
                       {showSuggestions && addressSuggestions.length > 0 && (
-                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-fill border border-line-strong rounded-xl shadow-xl overflow-hidden">
                           {addressSuggestions.map((s, i) => (
                             <button
                               key={i}
                               onMouseDown={() => selectSuggestion(s)}
-                              className="w-full text-left px-3 py-3 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-b border-slate-700/50 last:border-0 cursor-pointer leading-snug"
+                              className="w-full text-left px-3 py-3 text-sm text-fg-body hover:bg-fill-strong transition-colors border-b border-line-strong/50 last:border-0 cursor-pointer leading-snug"
                             >
                               {shortAddress(s)}
                             </button>
@@ -1261,14 +1261,14 @@ export default function SettingsPageClient({
                         {/* Radius control */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-slate-400">Geofence Radius</span>
-                            <span className="text-xs font-bold text-slate-200 tabular-nums">{geofenceRadius}m</span>
+                            <span className="text-xs text-fg-muted">Geofence Radius</span>
+                            <span className="text-xs font-bold text-fg-body tabular-nums">{geofenceRadius}m</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.max(50, r - 25))}
                               aria-label="Decrease geofence radius"
-                              className="size-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                              className="size-11 rounded-lg bg-fill border border-line-strong text-fg-secondary text-xl flex items-center justify-center cursor-pointer select-none hover:bg-fill-strong transition-colors"
                             >
                               −
                             </button>
@@ -1280,17 +1280,17 @@ export default function SettingsPageClient({
                               value={geofenceRadius}
                               aria-label="Geofence radius in meters"
                               onChange={(e) => setGeofenceRadius(Number(e.target.value))}
-                              className="flex-1 accent-indigo-500"
+                              className="flex-1 accent-accent"
                             />
                             <button
                               onClick={() => setGeofenceRadius((r) => Math.min(5000, r + 25))}
                               aria-label="Increase geofence radius"
-                              className="size-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xl flex items-center justify-center cursor-pointer select-none hover:bg-slate-700 transition-colors"
+                              className="size-11 rounded-lg bg-fill border border-line-strong text-fg-secondary text-xl flex items-center justify-center cursor-pointer select-none hover:bg-fill-strong transition-colors"
                             >
                               +
                             </button>
                           </div>
-                          <div className="flex justify-between text-[10px] text-slate-500 mt-1 px-0.5" aria-hidden="true">
+                          <div className="flex justify-between text-[10px] text-fg-subtle mt-1 px-0.5" aria-hidden="true">
                             <span>50m</span>
                             <span>5km</span>
                           </div>
@@ -1304,7 +1304,7 @@ export default function SettingsPageClient({
                       onClick={saveGeofence}
                       disabled={geofenceSaving || geofenceLat === null || geofenceLng === null}
                       aria-busy={geofenceSaving}
-                      className="w-full py-3 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                      className="w-full py-3 rounded-xl text-sm font-bold bg-accent/20 text-accent-fg border border-accent/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-accent/30 transition-colors"
                     >
                       {geofenceSaving ? "Saving…" : geofenceSaved ? "Saved ✓" : "Save Geofence"}
                     </button>
@@ -1321,7 +1321,7 @@ export default function SettingsPageClient({
           <SettingsSectionLabel label="Punch Violations">
             <SaveStatusText status={punchPolicyStatus} testId="punch-policy-status" />
           </SettingsSectionLabel>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4 space-y-4">
             {([
               { enabledKey: "lateInEnabled",     minutesKey: "lateInMinutes",     label: "Late Clock-In",   desc: "Flag when clocking in past the scheduled start" },
               { enabledKey: "earlyInEnabled",    minutesKey: "earlyInMinutes",    label: "Early Clock-In",  desc: "Flag when clocking in before the scheduled start" },
@@ -1335,10 +1335,10 @@ export default function SettingsPageClient({
                 const enabled = punchPolicy[enabledKey] as boolean;
                 const minutes = punchPolicy[minutesKey] as number;
                 return (
-                  <div key={enabledKey} className={`flex items-center justify-between gap-3 ${i < arr.length - 1 ? "pb-4 border-b border-slate-800/60" : ""}`}>
+                  <div key={enabledKey} className={`flex items-center justify-between gap-3 ${i < arr.length - 1 ? "pb-4 border-b border-line/60" : ""}`}>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-200">{label}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{desc}</div>
+                      <div className="text-sm font-semibold text-fg-body">{label}</div>
+                      <div className="text-xs text-fg-subtle mt-0.5">{desc}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {enabled && (
@@ -1354,9 +1354,9 @@ export default function SettingsPageClient({
                               const v = clamp(Math.round(Number(e.target.value) || 0), 1, 1440);
                               if (v !== (DEFAULT_PUNCH_POLICY[minutesKey] as number) || v !== minutes) savePunchPolicy({ [minutesKey]: v } as Partial<PunchPolicy>);
                             }}
-                            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
+                            className="w-16 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg text-right tabular-nums focus:outline-none focus:border-accent"
                           />
-                          <span className="text-xs text-slate-500">min</span>
+                          <span className="text-xs text-fg-subtle">min</span>
                         </div>
                       )}
                       <button
@@ -1365,10 +1365,10 @@ export default function SettingsPageClient({
                         aria-checked={enabled}
                         onClick={() => savePunchPolicy({ [enabledKey]: !enabled } as Partial<PunchPolicy>)}
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 after:content-[''] after:absolute after:-inset-y-[10px] after:inset-x-0 ${
-                          enabled ? "bg-indigo-500" : "bg-slate-700 ring-1 ring-inset ring-field"
+                          enabled ? "bg-accent" : "bg-fill-strong ring-1 ring-inset ring-field"
                         }`}
                       >
-                        <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+                        <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-on-accent shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
                       </button>
                     </div>
                   </div>
@@ -1377,10 +1377,10 @@ export default function SettingsPageClient({
             )}
 
             {/* Max breaks per shift — a hard cap enforced by the punch state machine */}
-            <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-line">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-200">Max Breaks Per Shift</div>
-                <div className="text-xs text-slate-500 mt-0.5">Block extra breaks at clock-in time · 0 = unlimited</div>
+                <div className="text-sm font-semibold text-fg-body">Max Breaks Per Shift</div>
+                <div className="text-xs text-fg-subtle mt-0.5">Block extra breaks at clock-in time · 0 = unlimited</div>
               </div>
               <input
                 type="number"
@@ -1393,7 +1393,7 @@ export default function SettingsPageClient({
                   const v = clamp(Math.round(Number(e.target.value) || 0), 0, 20);
                   savePunchPolicy({ maxBreaksPerShift: v });
                 }}
-                className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500 shrink-0"
+                className="w-16 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg text-right tabular-nums focus:outline-none focus:border-accent shrink-0"
               />
             </div>
           </div>
@@ -1404,21 +1404,21 @@ export default function SettingsPageClient({
           <SettingsSectionLabel label="Week Start">
             <SaveStatusText status={firstDayStatus} testId="week-start-status" />
           </SettingsSectionLabel>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
             <LayoutGroup id="week-start-pill">
-            <div className="flex bg-slate-800 rounded-xl p-[3px] gap-[3px]">
+            <div className="flex bg-fill rounded-xl p-[3px] gap-[3px]">
               {FIRST_DAY_OPTIONS.map(({ label, value }) => (
                 <button
                   key={value}
                   onClick={() => saveFirstDay(value)}
                   aria-pressed={firstDayOfWeek === value}
-                  className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-slate-50" : "text-slate-400"}`}
+                  className={`relative flex-1 min-h-11 px-2.5 rounded-[9px] text-sm font-semibold cursor-pointer z-10 transition-colors ${firstDayOfWeek === value ? "text-fg" : "text-fg-muted"}`}
                 >
                   {firstDayOfWeek === value && (
                     <motion.div
                       layoutId="week-start-active"
-                      className="absolute inset-0 rounded-[9px] bg-slate-600"
-                      style={{ boxShadow: "inset 0 0 0 1px var(--color-slate-500), 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                      className="absolute inset-0 rounded-[9px] bg-fill-stronger"
+                      style={{ boxShadow: "var(--shadow-segment)" }}
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
@@ -1435,12 +1435,12 @@ export default function SettingsPageClient({
           <SettingsSectionLabel label="Timezone">
             <SaveStatusText status={timezoneStatus} testId="timezone-status" />
           </SettingsSectionLabel>
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
             <select
               aria-label="Timezone"
               value={timezone}
               onChange={(e) => saveTimezone(e.target.value)}
-              className="w-full bg-slate-800 border border-field rounded-xl px-3 py-2.5 text-sm text-slate-100 cursor-pointer focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-fill border border-field rounded-xl px-3 py-2.5 text-sm text-fg cursor-pointer focus:outline-none focus:border-accent transition-colors"
             >
               <optgroup label="Common">
                 {TIMEZONE_OPTIONS.map(({ label, value }) => (
@@ -1467,23 +1467,23 @@ export default function SettingsPageClient({
 
         {/* Employees — manager only */}
         {isManager && <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Employees
           </div>
           <button
             onClick={() => setShowInvite(true)}
-            className="w-full mb-2 py-3 rounded-2xl bg-transparent border border-dashed border-slate-700 text-slate-400 font-semibold text-sm cursor-pointer hover:border-slate-600 hover:text-slate-300 transition-colors"
+            className="w-full mb-2 py-3 rounded-2xl bg-transparent border border-dashed border-line-strong text-fg-muted font-semibold text-sm cursor-pointer hover:border-line-stronger hover:text-fg-secondary transition-colors"
           >
             + Add Employee
           </button>
-          <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
+          <motion.div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60" variants={listContainer} initial="hidden" animate="show">
             {employees.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-slate-500">No employees</div>
+              <div className="px-4 py-6 text-center text-sm text-fg-subtle">No employees</div>
             ) : (
               employees.map((emp) => (
                 <motion.div key={emp.id} variants={listItem} className="flex flex-col">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="size-9 rounded-full bg-indigo-600/90 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    <div className="size-9 rounded-full bg-accent-solid/90 border border-accent/30 flex items-center justify-center text-xs font-bold text-on-accent shrink-0">
                       {getMonogram(emp.name)}
                     </div>
                     {editingId === emp.id ? (
@@ -1494,14 +1494,14 @@ export default function SettingsPageClient({
                           value={editingName}
                           onChange={(e) => { setEditingName(e.target.value); setEditError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") saveEditName(emp.id); if (e.key === "Escape") setEditingId(null); }}
-                          className="w-full bg-slate-800 border border-field rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                          className="w-full bg-fill border border-field rounded-lg px-2.5 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                         />
                         <FormError message={editError} />
                       </div>
                     ) : (
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-200 truncate" title={emp.name}>{emp.name}</div>
-                        {emp.email && <div className="text-xs text-slate-500 truncate" title={emp.email}>{emp.email}</div>}
+                        <div className="text-sm font-semibold text-fg-body truncate" title={emp.name}>{emp.name}</div>
+                        {emp.email && <div className="text-xs text-fg-subtle truncate" title={emp.email}>{emp.email}</div>}
                       </div>
                     )}
                     {editingId === emp.id ? (
@@ -1510,13 +1510,13 @@ export default function SettingsPageClient({
                           onClick={() => saveEditName(emp.id)}
                           disabled={editSaving}
                           aria-busy={editSaving}
-                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-accent/20 text-accent-fg border border-accent/30 hover:bg-accent/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <StableLabel labels={["Save", "…"]} active={editSaving ? 1 : 0} />
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-slate-700 text-slate-300 border border-slate-600 cursor-pointer hover:bg-slate-600 transition-colors"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-fill-strong text-fg-secondary border border-line-stronger cursor-pointer hover:bg-fill-stronger transition-colors"
                         >
                           Cancel
                         </button>
@@ -1525,7 +1525,7 @@ export default function SettingsPageClient({
                       <div className="flex items-center gap-3 shrink-0">
                         <button
                           onClick={() => { setEditingId(emp.id); setEditingName(emp.name); setEditError(null); }}
-                          className="size-10 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                          className="size-10 rounded-lg bg-fill border border-line-strong text-fg-muted hover:text-fg-body flex items-center justify-center cursor-pointer transition-colors"
                           aria-label={`Edit name for ${emp.name}`}
                           aria-expanded={editingId === emp.id}
                         >
@@ -1538,7 +1538,7 @@ export default function SettingsPageClient({
                           <button
                             disabled
                             aria-label="Cannot remove yourself"
-                            className="size-10 rounded-lg border border-red-500/10 bg-red-500/5 text-red-400/30 flex items-center justify-center cursor-not-allowed opacity-40"
+                            className="size-10 rounded-lg border border-danger/10 bg-danger/5 text-danger-fg/30 flex items-center justify-center cursor-not-allowed opacity-40"
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                               <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1551,8 +1551,8 @@ export default function SettingsPageClient({
                             aria-label={`Remove ${emp.name}`}
                             className={`size-10 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
-                                ? "bg-red-500/20 text-red-300 border-red-500/40"
-                                : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                                ? "bg-danger/20 text-danger-fg-strong border-danger/40"
+                                : "bg-danger/10 text-danger-fg border-danger/20 hover:bg-danger/20"
                             }`}
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1583,26 +1583,26 @@ export default function SettingsPageClient({
         {/* Templates — manager only */}
         {isManager && (
           <section>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
               Schedule Templates
             </div>
-            <motion.div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60" variants={listContainer} initial="hidden" animate="show">
+            <motion.div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60" variants={listContainer} initial="hidden" animate="show">
               {templates.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-slate-500">No templates yet</div>
+                <div className="px-4 py-6 text-center text-sm text-fg-subtle">No templates yet</div>
               ) : (
                 templates.map((tpl) => (
                   <motion.div key={tpl.id} variants={listItem} className="flex flex-col px-4 py-3 gap-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm font-semibold text-slate-200">{tpl.name}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{tpl.rowCount} row{tpl.rowCount !== 1 ? "s" : ""}</div>
+                        <div className="text-sm font-semibold text-fg-body">{tpl.name}</div>
+                        <div className="text-xs text-fg-subtle mt-0.5">{tpl.rowCount} row{tpl.rowCount !== 1 ? "s" : ""}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: applyDateInput[tpl.id] ? "" : upcomingWeekStartKey(timezone, firstDayOfWeek) }))}
                           aria-label={`Apply ${tpl.name} template`}
                           aria-expanded={!!(applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "")}
-                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-accent/20 text-accent-fg border border-accent/30 hover:bg-accent/30 cursor-pointer transition-colors"
                         >
                           Apply
                         </button>
@@ -1616,7 +1616,7 @@ export default function SettingsPageClient({
                           disabled={deletingTemplateId === tpl.id}
                           aria-label={`Delete ${tpl.name} template`}
                           aria-busy={deletingTemplateId === tpl.id}
-                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-danger/10 text-danger-fg border border-danger/20 hover:bg-danger/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <StableLabel labels={["Delete", "…"]} active={deletingTemplateId === tpl.id ? 1 : 0} />
                         </button>
@@ -1624,13 +1624,13 @@ export default function SettingsPageClient({
                     </div>
                     {applyDateInput[tpl.id] !== undefined && applyDateInput[tpl.id] !== "" && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400 shrink-0">Week starting</span>
+                        <span className="text-xs text-fg-muted shrink-0">Week starting</span>
                         <input
                           type="date"
                           aria-label={`Apply date for ${tpl.name ?? "schedule template"}`}
                           value={applyDateInput[tpl.id]}
                           onChange={(e) => setApplyDateInput((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
-                          className="flex-1 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                          className="flex-1 bg-fill border border-field rounded-lg px-2 py-1.5 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                         />
                         <button
                           disabled={applyingId === tpl.id}
@@ -1651,7 +1651,7 @@ export default function SettingsPageClient({
                             }
                             setApplyDateInput((prev) => ({ ...prev, [tpl.id]: "" }));
                           }}
-                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="h-10 text-xs font-semibold px-3 rounded-lg bg-success/20 text-success-fg border border-success/30 cursor-pointer hover:bg-success/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <StableLabel labels={["Confirm", "Applying…"]} active={applyingId === tpl.id ? 1 : 0} />
                         </button>
@@ -1672,16 +1672,16 @@ export default function SettingsPageClient({
         {/* Admin */}
         {isManager && (
         <section>
-          <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+          <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
             Admin
           </div>
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+          <div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60">
             <button onClick={() => router.push("/reports")} className={linkRow}>
-              <span className="flex-1 text-sm font-semibold text-slate-200">View Reports</span>
+              <span className="flex-1 text-sm font-semibold text-fg-body">View Reports</span>
               {chevron}
             </button>
             <button onClick={() => router.push("/admin")} className={linkRow}>
-              <span className="flex-1 text-sm font-semibold text-slate-200">Manage Roles</span>
+              <span className="flex-1 text-sm font-semibold text-fg-body">Manage Roles</span>
               {chevron}
             </button>
           </div>
@@ -1695,7 +1695,7 @@ export default function SettingsPageClient({
         <section className="pb-2">
           <button
             onClick={handleSignOut}
-            className="w-full py-3 rounded-2xl bg-card border border-slate-800/60 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+            className="w-full py-3 rounded-2xl bg-card border border-line/60 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer"
           >
             Sign Out
           </button>
@@ -1704,7 +1704,7 @@ export default function SettingsPageClient({
         {/* Danger Zone — hidden in demo (anonymous throwaway sessions) */}
         {!isDemo && (
           <section className="pb-2">
-            <div className="text-[11px] text-red-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            <div className="text-[11px] text-danger-fg font-semibold tracking-wider uppercase mb-2 px-1">
               Danger Zone
             </div>
             <div className="flex flex-col gap-2">
@@ -1716,7 +1716,7 @@ export default function SettingsPageClient({
                     setDeleteOrgError(null);
                     setConfirmDeleteOrg(true);
                   }}
-                  className="w-full py-3 rounded-2xl bg-card border border-red-500/20 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                  className="w-full py-3 rounded-2xl bg-card border border-danger/20 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer"
                 >
                   Delete Organization
                 </button>
@@ -1727,7 +1727,7 @@ export default function SettingsPageClient({
                   setDeleteAccountError(null);
                   setConfirmDeleteAccount(true);
                 }}
-                className="w-full py-3 rounded-2xl bg-card border border-red-500/20 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-card border border-danger/20 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer"
               >
                 Delete Account
               </button>
@@ -1754,23 +1754,23 @@ export default function SettingsPageClient({
         <div
           aria-hidden="true"
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          style={{ background: "color-mix(in oklab, var(--color-scrim) 60%, transparent)", backdropFilter: "blur(4px)" }}
           onClick={() => { if (!deletingAccount) setConfirmDeleteAccount(false); }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-delete-account-heading"
-            className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full max-w-[440px] bg-card border border-line-strong rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
+              <div className="size-12 rounded-full bg-danger/15 border border-danger/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
-                <div id="confirm-delete-account-heading" className="text-base font-bold text-slate-100">Delete your account?</div>
-                <div className="text-sm text-slate-400 mt-1">
+                <div id="confirm-delete-account-heading" className="text-base font-bold text-fg">Delete your account?</div>
+                <div className="text-sm text-fg-muted mt-1">
                   Your login and personal data will be permanently deleted. This cannot be undone.
                   {isOwner
                     ? " You own this organization — delete the organization first."
@@ -1779,12 +1779,12 @@ export default function SettingsPageClient({
               </div>
               <FormError message={deleteAccountError} />
             </div>
-            <div className="flex border-t border-slate-800">
+            <div className="flex border-t border-line">
               <button
                 onClick={() => setConfirmDeleteAccount(false)}
                 autoFocus
                 disabled={deletingAccount}
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 text-sm font-semibold text-fg-secondary hover:bg-fill transition-colors cursor-pointer border-r border-line disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -1792,7 +1792,7 @@ export default function SettingsPageClient({
                 onClick={deleteAccount}
                 disabled={deletingAccount}
                 aria-busy={deletingAccount}
-                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deletingAccount ? "Deleting…" : "Delete Account"}
               </button>
@@ -1806,32 +1806,32 @@ export default function SettingsPageClient({
         <div
           aria-hidden="true"
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          style={{ background: "color-mix(in oklab, var(--color-scrim) 60%, transparent)", backdropFilter: "blur(4px)" }}
           onClick={() => { if (!deletingOrg) setConfirmDeleteOrg(false); }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-delete-org-heading"
-            className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full max-w-[440px] bg-card border border-line-strong rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
+              <div className="size-12 rounded-full bg-danger/15 border border-danger/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
-                <div id="confirm-delete-org-heading" className="text-base font-bold text-slate-100">
+                <div id="confirm-delete-org-heading" className="text-base font-bold text-fg">
                   Delete {orgName ?? "this organization"}?
                 </div>
-                <div className="text-sm text-slate-400 mt-1">
+                <div className="text-sm text-fg-muted mt-1">
                   All employees, schedules, time clock records, and settings will be permanently
                   deleted for everyone in the organization. This cannot be undone.
                 </div>
               </div>
               <div className="w-full text-left">
-                <label htmlFor="confirm-org-name" className="text-xs text-slate-400">
-                  Type <span className="font-semibold text-slate-300">{orgName ?? "the organization name"}</span> to confirm
+                <label htmlFor="confirm-org-name" className="text-xs text-fg-muted">
+                  Type <span className="font-semibold text-fg-secondary">{orgName ?? "the organization name"}</span> to confirm
                 </label>
                 <input
                   id="confirm-org-name"
@@ -1839,16 +1839,16 @@ export default function SettingsPageClient({
                   value={orgNameInput}
                   onChange={(e) => setOrgNameInput(e.target.value)}
                   placeholder={orgName ?? "Organization name"}
-                  className="mt-1.5 w-full bg-slate-800 border border-field rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-red-500/70 transition-colors"
+                  className="mt-1.5 w-full bg-fill border border-field rounded-lg px-3 py-2.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-danger/70 transition-colors"
                 />
               </div>
               <FormError message={deleteOrgError} />
             </div>
-            <div className="flex border-t border-slate-800">
+            <div className="flex border-t border-line">
               <button
                 onClick={() => setConfirmDeleteOrg(false)}
                 disabled={deletingOrg}
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 text-sm font-semibold text-fg-secondary hover:bg-fill transition-colors cursor-pointer border-r border-line disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -1856,7 +1856,7 @@ export default function SettingsPageClient({
                 onClick={deleteOrganization}
                 disabled={deletingOrg || orgNameInput.trim() !== (orgName ?? "")}
                 aria-busy={deletingOrg}
-                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deletingOrg ? "Deleting…" : "Delete Organization"}
               </button>
@@ -1870,38 +1870,38 @@ export default function SettingsPageClient({
         <div
           aria-hidden="true"
           className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          style={{ background: "color-mix(in oklab, var(--color-scrim) 60%, transparent)", backdropFilter: "blur(4px)" }}
           onClick={() => setConfirmDeleteEmployee(null)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-delete-heading"
-            className="w-full max-w-[440px] bg-card border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full max-w-[440px] bg-card border border-line-strong rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col items-center text-center gap-3">
-              <div className="size-12 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center text-2xl" aria-hidden="true">
+              <div className="size-12 rounded-full bg-danger/15 border border-danger/25 flex items-center justify-center text-2xl" aria-hidden="true">
                 ⚠️
               </div>
               <div>
-                <div id="confirm-delete-heading" className="text-base font-bold text-slate-100">Delete {confirmDeleteEmployee.name}?</div>
-                <div className="text-sm text-slate-400 mt-1">
+                <div id="confirm-delete-heading" className="text-base font-bold text-fg">Delete {confirmDeleteEmployee.name}?</div>
+                <div className="text-sm text-fg-muted mt-1">
                   This will permanently delete their account and all of their shifts. This cannot be undone.
                 </div>
               </div>
             </div>
-            <div className="flex border-t border-slate-800">
+            <div className="flex border-t border-line">
               <button
                 onClick={() => setConfirmDeleteEmployee(null)}
                 autoFocus
-                className="flex-1 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer border-r border-slate-800"
+                className="flex-1 py-3.5 text-sm font-semibold text-fg-secondary hover:bg-fill transition-colors cursor-pointer border-r border-line"
               >
                 Cancel
               </button>
               <button
                 onClick={() => deleteEmployee(confirmDeleteEmployee.id)}
-                className="flex-1 py-3.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                className="flex-1 py-3.5 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer"
               >
                 Delete
               </button>

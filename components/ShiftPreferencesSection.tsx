@@ -59,8 +59,8 @@ function Chip({
 }) {
   const activeClass =
     tone === "indigo"
-      ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-200"
-      : "bg-red-500/15 border-red-500/35 text-red-300";
+      ? "bg-accent/20 border-accent/40 text-accent-fg-max"
+      : "bg-danger/15 border-danger/35 text-danger-fg-strong";
   return (
     <button
       type="button"
@@ -68,7 +68,7 @@ function Chip({
       aria-label={ariaLabel}
       onClick={onClick}
       className={`min-h-[40px] ${fill ? "px-1 justify-center" : "px-3"} rounded-xl border text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 ${
-        active ? activeClass : "bg-bg border-slate-700 text-slate-400 hover:text-slate-200"
+        active ? activeClass : "bg-bg border-line-strong text-fg-muted hover:text-fg-body"
       }`}
     >
       {dotColor && <span aria-hidden="true" className="size-2 rounded-full" style={{ background: dotColor }} />}
@@ -164,11 +164,11 @@ export default function ShiftPreferencesSection({
   const loading = form === null;
   const shown = form ?? toForm(emptyPreferences(employeeId));
   const body = loadError ? (
-    <div className="text-xs text-slate-500">Shift preferences aren&apos;t available right now.</div>
+    <div className="text-xs text-fg-subtle">Shift preferences aren&apos;t available right now.</div>
   ) : (
     <fieldset disabled={loading} aria-busy={loading || undefined} className="min-w-0 flex flex-col gap-4">
       <div>
-        <div className="text-xs font-semibold text-slate-300 mb-2">Shifts {employeeName ? "they" : "I"} like</div>
+        <div className="text-xs font-semibold text-fg-secondary mb-2">Shifts {employeeName ? "they" : "I"} like</div>
         <div className="flex flex-wrap gap-2">
           {SHIFT_TYPES.map((t) => (
             <Chip
@@ -185,7 +185,7 @@ export default function ShiftPreferencesSection({
       </div>
 
       <div>
-        <div className="text-xs font-semibold text-slate-300 mb-2">Days {employeeName ? "they'd" : "I'd"} like to work</div>
+        <div className="text-xs font-semibold text-fg-secondary mb-2">Days {employeeName ? "they'd" : "I'd"} like to work</div>
         <div className="grid grid-cols-7 gap-1.5">
           {orderedDays.map((d) => (
             <Chip
@@ -206,7 +206,7 @@ export default function ShiftPreferencesSection({
       </div>
 
       <div>
-        <div className="text-xs font-semibold text-slate-300 mb-2">Days {employeeName ? "they'd" : "I'd"} rather not work</div>
+        <div className="text-xs font-semibold text-fg-secondary mb-2">Days {employeeName ? "they'd" : "I'd"} rather not work</div>
         <div className="grid grid-cols-7 gap-1.5">
           {orderedDays.map((d) => (
             <Chip
@@ -227,7 +227,7 @@ export default function ShiftPreferencesSection({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor={`desired-hours-${employeeId}`} className="text-xs font-semibold text-slate-300">
+        <label htmlFor={`desired-hours-${employeeId}`} className="text-xs font-semibold text-fg-secondary">
           Hours {employeeName ? "they'd" : "I'd"} like each week
         </label>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -241,14 +241,14 @@ export default function ShiftPreferencesSection({
             placeholder="Any"
             value={shown.desiredHours}
             onChange={(e) => setForm({ ...shown, desiredHours: e.target.value })}
-            className="w-16 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums focus:outline-none focus:border-indigo-500"
+            className="w-16 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg text-right tabular-nums focus:outline-none focus:border-accent"
           />
-          <span className="text-xs text-slate-500">h</span>
+          <span className="text-xs text-fg-subtle">h</span>
         </div>
       </div>
 
       <div>
-        <label htmlFor={`pref-note-${employeeId}`} className="text-xs font-semibold text-slate-300 mb-2 block">
+        <label htmlFor={`pref-note-${employeeId}`} className="text-xs font-semibold text-fg-secondary mb-2 block">
           {employeeName ? "Note" : "Anything else your manager should know"}
         </label>
         <textarea
@@ -258,7 +258,7 @@ export default function ShiftPreferencesSection({
           value={shown.note}
           placeholder="e.g. Class until 2 PM on Tuesdays"
           onChange={(e) => setForm({ ...shown, note: e.target.value })}
-          className="w-full bg-slate-800 border border-field rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+          className="w-full bg-fill border border-field rounded-lg px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent resize-none"
         />
       </div>
 
@@ -266,7 +266,7 @@ export default function ShiftPreferencesSection({
           line of its own, so the form ends at its button. */}
       <div className="flex items-center gap-3 min-h-10">
         <div className="flex-1 min-w-0">
-          {problem && <div role="alert" className="text-xs leading-4 text-red-400">{problem}</div>}
+          {problem && <div role="alert" className="text-xs leading-4 text-danger-fg">{problem}</div>}
           <SaveStatusText status={status} testId={`preferences-status-${employeeId}`} />
         </div>
         <button
@@ -274,7 +274,7 @@ export default function ShiftPreferencesSection({
           onClick={save}
           disabled={!dirty || status === "saving"}
           aria-busy={status === "saving"}
-          className="shrink-0 h-10 text-xs font-semibold px-4 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 h-10 text-xs font-semibold px-4 rounded-lg bg-accent/20 text-accent-fg-strong border border-accent/30 hover:bg-accent/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save Preferences
         </button>
@@ -292,11 +292,11 @@ export default function ShiftPreferencesSection({
 
   return (
     <section data-testid="shift-preferences-section">
-      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+      <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
         Shift Preferences
       </div>
-      <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4">
-        <div className="text-xs text-slate-500 mb-4">
+      <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
+        <div className="text-xs text-fg-subtle mb-4">
           Your manager&apos;s scheduler uses these when it can. Availability and approved time off always come first.
         </div>
         {body}

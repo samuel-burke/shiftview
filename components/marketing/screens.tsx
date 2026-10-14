@@ -53,6 +53,7 @@ import {
   workedAt,
   type Scene,
 } from "./scene";
+import { markColor, tint } from "@/lib/theme-colors";
 
 const noop = () => {};
 const initialsOf = (scene: Scene, id: number) => getMonogram(employeeOf(scene, id).name);
@@ -157,7 +158,7 @@ export function DashboardScreen({ scene, t, size, unread = 0, pane = false, over
     );
   }
 
-  const button = "mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-slate-300";
+  const button = "mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-line-strong bg-fill py-3 text-sm font-semibold text-fg-secondary";
   return (
     <div className="relative flex h-full bg-bg">
       <SideNav active="team" status={managerStatus} />
@@ -167,11 +168,11 @@ export function DashboardScreen({ scene, t, size, unread = 0, pane = false, over
         <div className="mx-auto grid max-w-[1680px] grid-cols-[minmax(0,1fr)_340px] items-start gap-x-8 px-6 pt-6">
           <div className="col-start-1 row-start-1">{overview(pane ? 360 : 780)}</div>
           <div className="col-start-2 row-start-1 -mt-4">
-            <div className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3 text-center text-sm font-bold text-white">Plan Draft Schedule</div>
+            <div className="mt-4 w-full rounded-xl bg-gradient-to-r from-brand-from to-brand-to py-3 text-center text-sm font-bold text-on-accent">Plan Draft Schedule</div>
             <div className={button}>Team week</div>
             <div className={button}>
               Export CSV
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-slate-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-fg-subtle"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
           </div>
           <div className="col-span-2 col-start-1 row-start-2 mt-2 grid grid-cols-3 items-start gap-x-6">{sections}</div>
@@ -186,15 +187,15 @@ export function DashboardScreen({ scene, t, size, unread = 0, pane = false, over
 function TabletStatusBar({ t, date }: { t: number; date: string }) {
   const h = Math.floor(t / 3600) % 24;
   return (
-    <div className="flex h-[26px] shrink-0 items-center justify-between bg-bg px-6 text-[13px] font-semibold text-slate-100">
+    <div className="flex h-[26px] shrink-0 items-center justify-between bg-bg px-6 text-[13px] font-semibold text-fg">
       <span className="tabular-nums">
         {statusBarTime(t)} {h < 12 ? "AM" : "PM"}&nbsp;&nbsp;{formatDateKey(date, { weekday: "short", month: "short", day: "numeric" }).replace(",", "")}
       </span>
       <span className="flex items-center gap-1.5">
         <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.5c2.2 0 4.2.9 5.7 2.3l1.1-1.1A9.6 9.6 0 0 0 8 1 9.6 9.6 0 0 0 1.2 3.7l1.1 1.1A8.1 8.1 0 0 1 8 2.5Zm0 3c1.4 0 2.6.5 3.6 1.4l1.1-1.1A6.6 6.6 0 0 0 8 4a6.6 6.6 0 0 0-4.7 1.8l1.1 1.1c1-.9 2.2-1.4 3.6-1.4Zm0 3c-.6 0-1.1.2-1.5.6L8 10.6l1.5-1.5c-.4-.4-.9-.6-1.5-.6Z" /></svg>
         <span className="text-[12px]">84%</span>
-        <span className="relative inline-flex h-[12px] w-[24px] items-center rounded-[4px] border border-slate-100/40 p-[2px]">
-          <span className="h-full w-[84%] rounded-[2px] bg-slate-100" />
+        <span className="relative inline-flex h-[12px] w-[24px] items-center rounded-[4px] border border-inverse/40 p-[2px]">
+          <span className="h-full w-[84%] rounded-[2px] bg-inverse" />
         </span>
       </span>
     </div>
@@ -204,12 +205,12 @@ function TabletStatusBar({ t, date }: { t: number; date: string }) {
 // ── Time clock (employee) ───────────────────────────────────
 
 const PUNCH_LABEL = { clock_in: "Clock In", clock_out: "Clock Out", break_start: "Break Start", break_end: "Break End" } as const;
-const PUNCH_DOT = { clock_in: "#22c55e", clock_out: "#94a3b8", break_start: "#f59e0b", break_end: "#818cf8" } as const;
+const PUNCH_DOT = { clock_in: "var(--status-ok-mark)", clock_out: "var(--status-muted-mark)", break_start: "var(--status-warn-mark)", break_end: "var(--status-info-mark)" } as const;
 const STATUS_STYLE = {
-  clocked_in: { label: "Clocked In", color: "#22c55e" },
-  on_break: { label: "On Break", color: "#f59e0b" },
-  clocked_out: { label: "Clocked Out", color: "#94a3b8" },
-  not_clocked_in: { label: "Not Clocked In", color: "#94a3b8" },
+  clocked_in: { label: "Clocked In", color: "var(--status-ok)" },
+  on_break: { label: "On Break", color: "var(--status-warn)" },
+  clocked_out: { label: "Clocked Out", color: "var(--status-muted)" },
+  not_clocked_in: { label: "Not Clocked In", color: "var(--status-muted)" },
 } as const;
 
 /**
@@ -248,75 +249,75 @@ export function ClockScreen({
       <StatusBar time={statusBarTime(t)} />
       <TopBar status={status} initials={initialsOf(scene, employeeId)} />
       <div className="mt-4 space-y-3 px-4">
-        <div className="rounded-2xl border border-slate-800/60 bg-card px-4 py-4" style={{ borderLeft: `3px solid ${color}` }}>
+        <div className="rounded-2xl border border-line/60 bg-card px-4 py-4" style={{ borderLeft: `3px solid ${color}` }}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Today&apos;s Shift</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">Today&apos;s Shift</span>
             <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize" style={{ color }}>{type}</span>
           </div>
-          <div className="mt-1.5 text-2xl font-bold text-slate-100">{fmtMinutes(shift.startMinutes)} – {fmtMinutes(shift.endMinutes)}</div>
-          {lateBy > 5 && <div className="mt-1 text-xs font-semibold text-[#ef4444]">{lateBy}m late</div>}
+          <div className="mt-1.5 text-2xl font-bold text-fg">{fmtMinutes(shift.startMinutes)} – {fmtMinutes(shift.endMinutes)}</div>
+          {lateBy > 5 && <div className="mt-1 text-xs font-semibold text-danger-fg">{lateBy}m late</div>}
         </div>
 
-        <div className="rounded-2xl border border-slate-800/60 bg-card px-4 py-5 text-center">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `${style.color}22`, color: style.color, border: `1px solid ${style.color}44` }}>
-            <span className="size-2 rounded-full" style={{ background: style.color, boxShadow: shown === "clocked_in" ? `0 0 6px ${style.color}` : "none" }} />
+        <div className="rounded-2xl border border-line/60 bg-card px-4 py-5 text-center">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: tint(style.color, 13), color: style.color, border: `1px solid ${tint(style.color, 27)}` }}>
+            <span className="size-2 rounded-full" style={{ background: markColor(style.color), boxShadow: shown === "clocked_in" ? `0 0 6px ${markColor(style.color)}` : "none" }} />
             {style.label}
           </div>
           {shown === "on_break" ? (
             <>
-              <div className="font-mono text-4xl font-extrabold tabular-nums" style={{ color: STATUS_STYLE.on_break.color }}>{fmtElapsed(breakFor)}</div>
-              <div className="mt-1 text-xs text-slate-400">Current break duration</div>
-              <div className="mt-3 border-t border-slate-800/60 pt-3">
-                <div className="font-mono text-xl font-bold tabular-nums text-slate-500">{fmtElapsed(workedAt(scene, employeeId, t))}</div>
-                <div className="mt-0.5 text-xs text-slate-500">Total time worked today</div>
+              <div className="font-mono text-4xl font-extrabold tabular-nums" style={{ color: markColor(STATUS_STYLE.on_break.color) }}>{fmtElapsed(breakFor)}</div>
+              <div className="mt-1 text-xs text-fg-muted">Current break duration</div>
+              <div className="mt-3 border-t border-line/60 pt-3">
+                <div className="font-mono text-xl font-bold tabular-nums text-fg-subtle">{fmtElapsed(workedAt(scene, employeeId, t))}</div>
+                <div className="mt-0.5 text-xs text-fg-subtle">Total time worked today</div>
               </div>
             </>
           ) : shown === "clocked_in" ? (
             <>
-              <div className="font-mono text-4xl font-extrabold tabular-nums text-slate-100">{fmtElapsed(workedAt(scene, employeeId, t))}</div>
-              <div className="mt-1 text-xs text-slate-400">Total time worked today</div>
+              <div className="font-mono text-4xl font-extrabold tabular-nums text-fg">{fmtElapsed(workedAt(scene, employeeId, t))}</div>
+              <div className="mt-1 text-xs text-fg-muted">Total time worked today</div>
             </>
           ) : null}
         </div>
 
         <div className="grid gap-3">
           {shown === "not_clocked_in" && (
-            <motion.div animate={pressed("clock_in")} transition={{ duration: 0.3 }} className="w-full rounded-2xl bg-green-700 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-green-500/20">
+            <motion.div animate={pressed("clock_in")} transition={{ duration: 0.3 }} className="w-full rounded-2xl bg-ok-solid py-4 text-center text-lg font-extrabold text-on-accent shadow-lg shadow-ok/20">
               Clock In
             </motion.div>
           )}
           {shown === "clocked_in" && (
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/20 py-4 text-center text-base font-bold text-amber-400">Start Break</div>
-              <motion.div animate={pressed("end_shift")} transition={{ duration: 0.3 }} className="rounded-2xl border border-slate-600 bg-slate-700 py-4 text-center text-base font-bold text-slate-200">
+              <div className="rounded-2xl border border-warning/30 bg-warning/20 py-4 text-center text-base font-bold text-warning-fg">Start Break</div>
+              <motion.div animate={pressed("end_shift")} transition={{ duration: 0.3 }} className="rounded-2xl border border-line-stronger bg-fill-strong py-4 text-center text-base font-bold text-fg-body">
                 End Shift
               </motion.div>
             </div>
           )}
           {shown === "on_break" && (
-            <div className="w-full rounded-2xl bg-amber-700 py-4 text-center text-lg font-extrabold text-white shadow-lg shadow-amber-500/20">End Break</div>
+            <div className="w-full rounded-2xl bg-warning-solid py-4 text-center text-lg font-extrabold text-on-accent shadow-lg shadow-warning/20">End Break</div>
           )}
         </div>
 
         {/* The page offers a call-out only before clocking in for the day. */}
         {!clockIn && (
-          <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-800/60 bg-card px-4 py-3.5 text-sm font-semibold text-slate-300">
-            <MegaphoneIcon size={15} color="#94a3b8" />
+          <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line/60 bg-card px-4 py-3.5 text-sm font-semibold text-fg-secondary">
+            <MegaphoneIcon size={15} color="var(--status-muted)" />
             Can&apos;t make it in today? Call out
           </div>
         )}
 
         {punches.length > 0 && (
           <div>
-            <div className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Today&apos;s Punches</div>
-            <div className="divide-y divide-slate-800 rounded-2xl border border-slate-800/60 bg-card">
+            <div className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-fg-muted">Today&apos;s Punches</div>
+            <div className="divide-y divide-line rounded-2xl border border-line/60 bg-card">
               {punches.map((p) => (
                 <motion.div key={`${p.type}-${p.at}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <span className="size-2 shrink-0 rounded-full" style={{ background: PUNCH_DOT[p.type] }} />
-                    <span className="text-sm font-medium text-slate-200">{PUNCH_LABEL[p.type]}</span>
+                    <span className="text-sm font-medium text-fg-body">{PUNCH_LABEL[p.type]}</span>
                   </div>
-                  <div className="text-sm tabular-nums text-slate-300">{punchTime(p.at)}</div>
+                  <div className="text-sm tabular-nums text-fg-secondary">{punchTime(p.at)}</div>
                 </motion.div>
               ))}
             </div>
@@ -324,9 +325,9 @@ export function ClockScreen({
         )}
 
         {["Report Missed Punch", "Export Timesheet"].map((label) => (
-          <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-800/60 bg-card px-4 py-3.5">
-            <span className="text-sm font-semibold text-slate-300">{label}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-slate-500"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <div key={label} className="flex items-center justify-between rounded-2xl border border-line/60 bg-card px-4 py-3.5">
+            <span className="text-sm font-semibold text-fg-secondary">{label}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-fg-subtle"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
         ))}
       </div>
@@ -334,23 +335,23 @@ export function ClockScreen({
 
       <AnimatePresence>
         {warning && (
-          <motion.div key="late" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
+          <motion.div key="late" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 z-50 flex items-end justify-center bg-scrim/60 backdrop-blur-sm">
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 32, stiffness: 300 }}
-              className="w-full space-y-4 rounded-t-3xl border border-slate-700 bg-card px-6 pb-10 pt-6"
+              className="w-full space-y-4 rounded-t-3xl border border-line-strong bg-card px-6 pb-10 pt-6"
             >
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-600" />
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-fill-stronger" />
               <div className="text-center">
                 <div className="mb-1 text-2xl">⏰</div>
-                <div className="text-lg font-extrabold text-slate-100">Late Clock-In</div>
-                <div className="mt-1 text-sm text-slate-400">Your shift started at {fmtMinutes(shift.startMinutes)}. You&apos;re clocking in {minutesLate} min late.</div>
+                <div className="text-lg font-extrabold text-fg">Late Clock-In</div>
+                <div className="mt-1 text-sm text-fg-muted">Your shift started at {fmtMinutes(shift.startMinutes)}. You&apos;re clocking in {minutesLate} min late.</div>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="rounded-2xl border border-slate-700 bg-slate-800 py-3.5 text-center text-sm font-bold text-slate-300">Cancel</div>
-                <motion.div animate={pressed("confirm")} transition={{ duration: 0.3 }} className="rounded-2xl border border-green-500/30 bg-green-500/20 py-3.5 text-center text-sm font-bold text-green-400">
+                <div className="rounded-2xl border border-line-strong bg-fill py-3.5 text-center text-sm font-bold text-fg-secondary">Cancel</div>
+                <motion.div animate={pressed("confirm")} transition={{ duration: 0.3 }} className="rounded-2xl border border-ok/30 bg-ok/20 py-3.5 text-center text-sm font-bold text-ok-fg">
                   Clock In Anyway
                 </motion.div>
               </div>
@@ -382,9 +383,9 @@ export function TimeCardScreen({ scene, employeeId, t, open, scrolled }: { scene
       {/* The manager opened it from the employee's detail pane, which is under it. */}
       <DashboardScreen scene={scene} t={t} size="desktop" pane />
       {/* The drawer's backdrop and panel, as components/TimeCardDrawer.tsx draws them. */}
-      <div className={`absolute inset-0 z-[60] bg-black/60 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`} />
+      <div className={`absolute inset-0 z-[60] bg-scrim/60 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`} />
       <div
-        className={`absolute inset-y-0 right-0 z-[70] flex w-full max-w-[560px] flex-col border-l border-slate-800 bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute inset-y-0 right-0 z-[70] flex w-full max-w-[560px] flex-col border-l border-line bg-bg transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "translate-x-0" : "translate-x-full"}`}
       >
         <TimeCardPanel
           employee={{ id: employeeId, name: employeeOf(scene, employeeId).name }}
@@ -441,7 +442,7 @@ export function ScheduleScreen({
   const totalHours = schedules.reduce((sum, s) => sum + (s.endMinutes - s.startMinutes) / 60, 0);
   const first = employeeOf(scene, employeeId).name.split(" ")[0];
   const arrow = (d: string) => (
-    <span className="flex size-11 items-center justify-center rounded-xl border border-slate-800 bg-card text-slate-400">
+    <span className="flex size-11 items-center justify-center rounded-xl border border-line bg-card text-fg-muted">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </span>
   );
@@ -454,33 +455,33 @@ export function ScheduleScreen({
           inside each block but not between them. */}
       <div className="flex flex-col px-4 pt-4">
         <div>
-          <div className="mb-4 rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Next Shift</div>
-            <div className="text-sm font-semibold text-slate-300">
+          <div className="mb-4 rounded-2xl border border-line/60 bg-card px-4 py-4">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Next Shift</div>
+            <div className="text-sm font-semibold text-fg-secondary">
               {daysUntil === 1 ? "Tomorrow" : formatDateKey(upcoming.date, { weekday: "long", month: "long", day: "numeric" })}
             </div>
-            <div className="mt-1 text-2xl font-extrabold text-slate-100">{fmtMinutes(upcoming.startMinutes)} – {fmtMinutes(upcoming.endMinutes)}</div>
-            {daysUntil > 1 && <div className="mt-1 text-xs text-slate-400">in {daysUntil} days</div>}
+            <div className="mt-1 text-2xl font-extrabold text-fg">{fmtMinutes(upcoming.startMinutes)} – {fmtMinutes(upcoming.endMinutes)}</div>
+            {daysUntil > 1 && <div className="mt-1 text-xs text-fg-muted">in {daysUntil} days</div>}
           </div>
         </div>
 
         <div className="min-w-0">
           <div className="mb-1 flex items-start justify-between">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">My Schedule</div>
-              <div className="mt-0.5 text-[28px] font-extrabold leading-tight text-slate-100">{first}</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">My Schedule</div>
+              <div className="mt-0.5 text-[28px] font-extrabold leading-tight text-fg">{first}</div>
             </div>
             <div className="relative mt-1 flex rounded-xl bg-card p-[3px]">
-              <span className="relative rounded-[9px] bg-slate-700 px-4 py-3 text-sm font-semibold text-slate-50" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" }}>Week</span>
-              <span className="px-4 py-3 text-sm font-semibold text-slate-500">Month</span>
+              <span className="relative rounded-[9px] bg-fill-strong px-4 py-3 text-sm font-semibold text-fg" style={{ boxShadow: "var(--shadow-segment)" }}>Week</span>
+              <span className="px-4 py-3 text-sm font-semibold text-fg-subtle">Month</span>
             </div>
           </div>
           <div className="mb-4 mt-5 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 rounded-xl border border-slate-700/60 bg-slate-800/70 px-4 py-2.5">
-              <span className="text-base font-bold tracking-tight text-slate-100">
+            <span className="flex items-center gap-1.5 rounded-xl border border-line-strong/60 bg-fill/70 px-4 py-2.5">
+              <span className="text-base font-bold tracking-tight text-fg">
                 {formatDateKey(week[0], { month: "short", day: "numeric" })} – {formatDateKey(week[6], { month: "short", day: "numeric", year: "numeric" })}
               </span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-info-fg"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </span>
             <div className="flex items-center gap-2">
               {arrow("M15 18l-6-6 6-6")}
@@ -499,30 +500,30 @@ export function ScheduleScreen({
         </div>
 
         <div className="min-w-0">
-          <div className="mb-3 mt-1 rounded-2xl border border-slate-800/60 bg-card px-4 py-4">
+          <div className="mb-3 mt-1 rounded-2xl border border-line/60 bg-card px-4 py-4">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-fg-muted">
                 {selected === scene.date ? "Today" : formatDateKey(selected, { weekday: "long", month: "short", day: "numeric" })}
               </span>
               {type && color && <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ color }}>{SHIFT_TYPE_LABELS[type]}</span>}
             </div>
             {pick ? (
               <>
-                <div className="mt-1 text-2xl font-bold text-slate-100">{fmtMinutes(pick.startMinutes)} – {fmtMinutes(pick.endMinutes)}</div>
-                <div className="mt-0.5 text-sm text-slate-400">{(pick.endMinutes - pick.startMinutes) / 60} hrs</div>
+                <div className="mt-1 text-2xl font-bold text-fg">{fmtMinutes(pick.startMinutes)} – {fmtMinutes(pick.endMinutes)}</div>
+                <div className="mt-0.5 text-sm text-fg-muted">{(pick.endMinutes - pick.startMinutes) / 60} hrs</div>
                 {isTomorrow && (
-                  <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 py-2.5 text-sm font-semibold text-red-300">
-                    <MegaphoneIcon size={15} color="rgb(248 113 113)" />
+                  <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-danger/30 py-2.5 text-sm font-semibold text-danger-fg-strong">
+                    <MegaphoneIcon size={15} color="var(--status-bad-mark)" />
                     Can&apos;t make this shift? Call out
                   </div>
                 )}
-                <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 py-2.5 text-sm font-semibold text-indigo-300">
+                <div className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-accent/30 py-2.5 text-sm font-semibold text-accent-fg-strong">
                   <span>⇄</span>
                   Request Shift Swap
                 </div>
               </>
             ) : (
-              <div className="mt-1 text-2xl font-bold text-slate-400">Day Off</div>
+              <div className="mt-1 text-2xl font-bold text-fg-muted">Day Off</div>
             )}
           </div>
 
@@ -532,9 +533,9 @@ export function ScheduleScreen({
               { value: Math.round(totalHours), label: "Hours" },
               { value: 7 - schedules.length, label: "Days off" },
             ].map((s) => (
-              <div key={s.label} className="flex-1 rounded-2xl border border-slate-800/60 bg-card px-3 py-4">
-                <div className="text-3xl font-extrabold text-indigo-400">{s.value}</div>
-                <div className="mt-1 text-xs text-slate-400">{s.label}</div>
+              <div key={s.label} className="flex-1 rounded-2xl border border-line/60 bg-card px-3 py-4">
+                <div className="text-3xl font-extrabold text-accent-fg">{s.value}</div>
+                <div className="mt-1 text-xs text-fg-muted">{s.label}</div>
               </div>
             ))}
           </div>
@@ -555,31 +556,31 @@ function SwapSheet({ scene, employeeId, shift, dayLabel }: { scene: Scene; emplo
     .sort((a, b) => a.startMinutes - b.startMinutes || a.employeeId - b.employeeId);
   return (
     <div className="absolute inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-slate-800 bg-bg">
-        <div className="flex justify-center pb-1 pt-3"><div className="h-1 w-10 rounded-full bg-slate-700" /></div>
+      <div className="absolute inset-0 bg-scrim/60" />
+      <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-line bg-bg">
+        <div className="flex justify-center pb-1 pt-3"><div className="h-1 w-10 rounded-full bg-fill-strong" /></div>
         <div className="px-6 pb-11 pt-2">
           <div className="mb-1 flex items-start justify-between">
             <div>
-              <div className="text-lg font-bold text-slate-100">Request a Swap</div>
-              <div className="mt-0.5 text-xs text-slate-400">{dayLabel} · your shift {fmtMinutes(shift.startMinutes)} – {fmtMinutes(shift.endMinutes)}</div>
+              <div className="text-lg font-bold text-fg">Request a Swap</div>
+              <div className="mt-0.5 text-xs text-fg-muted">{dayLabel} · your shift {fmtMinutes(shift.startMinutes)} – {fmtMinutes(shift.endMinutes)}</div>
             </div>
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-fill text-fg-muted">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
             </span>
           </div>
-          <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pick a coworker to swap with</div>
+          <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Pick a coworker to swap with</div>
           <div className="flex flex-col gap-2">
             {coworkers.map((c) => {
               const name = employeeOf(scene, c.employeeId).name;
               return (
-                <div key={c.employeeId} className="flex w-full items-center gap-3 rounded-2xl border border-slate-800/60 bg-card px-4 py-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-indigo-500/30 bg-indigo-600/90 text-xs font-bold text-white">{getMonogram(name)}</div>
+                <div key={c.employeeId} className="flex w-full items-center gap-3 rounded-2xl border border-line/60 bg-card px-4 py-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent-solid/90 text-xs font-bold text-on-accent">{getMonogram(name)}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-slate-100">{name}</div>
-                    <div className="mt-0.5 text-xs text-slate-400">{fmtMinutes(c.startMinutes)} – {fmtMinutes(c.endMinutes)}</div>
+                    <div className="truncate text-sm font-semibold text-fg">{name}</div>
+                    <div className="mt-0.5 text-xs text-fg-muted">{fmtMinutes(c.startMinutes)} – {fmtMinutes(c.endMinutes)}</div>
                   </div>
-                  <span className="shrink-0 text-base text-slate-500">⇄</span>
+                  <span className="shrink-0 text-base text-fg-subtle">⇄</span>
                 </div>
               );
             })}
@@ -605,34 +606,34 @@ export function RequestScreen({ scene, employeeId, date, note, pending, t }: { s
   return (
     <div className="relative h-full bg-bg">
       <StatusBar time={statusBarTime(t)} />
-      <div className="flex items-center gap-3 border-b border-slate-800 bg-bg px-4 pb-3 pt-[14px]">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-card text-slate-400">
+      <div className="flex items-center gap-3 border-b border-line bg-bg px-4 pb-3 pt-[14px]">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-card text-fg-muted">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
-        <div className="flex-1 text-xl font-extrabold tracking-tight text-slate-100">
+        <div className="flex-1 text-xl font-extrabold tracking-tight text-fg">
           Requests
-          <span className="ml-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 align-middle text-xs font-bold tabular-nums text-amber-400">{pending}</span>
+          <span className="ml-2 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 align-middle text-xs font-bold tabular-nums text-warning-fg">{pending}</span>
         </div>
       </div>
       <div className="px-4 pt-4">
-        <div className="flex flex-col gap-5 rounded-2xl border border-slate-800 bg-card p-5">
+        <div className="flex flex-col gap-5 rounded-2xl border border-line bg-card p-5">
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-[#a78bfa]">Time off</div>
-            <div className="mt-1 text-lg font-extrabold text-slate-100">{name}</div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-auto-fg">Time off</div>
+            <div className="mt-1 text-lg font-extrabold text-fg">{name}</div>
           </div>
-          <div className="min-w-0 rounded-xl border border-slate-800 bg-slate-800/40 px-3.5 py-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Day</div>
-            <div className="text-sm font-semibold text-slate-100">{formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}</div>
+          <div className="min-w-0 rounded-xl border border-line bg-fill/40 px-3.5 py-2.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Day</div>
+            <div className="text-sm font-semibold text-fg">{formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}</div>
           </div>
-          <div className="rounded-xl border-l-2 border-slate-600 bg-slate-800/30 px-4 py-3 text-sm text-slate-300">&ldquo;{note}&rdquo;</div>
+          <div className="rounded-xl border-l-2 border-line-stronger bg-fill/30 px-4 py-3 text-sm text-fg-secondary">&ldquo;{note}&rdquo;</div>
           <div>
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
               On the schedule {shortDate}
-              <span className="ml-1 normal-case tracking-normal text-slate-400">· {day.length} shifts</span>
+              <span className="ml-1 normal-case tracking-normal text-fg-muted">· {day.length} shifts</span>
             </div>
             <div className="flex flex-col gap-1">
               {day.map((s) => (
-                <div key={s.name} className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-sm ${s.name === name ? "bg-amber-500/10 font-semibold text-amber-300" : "text-slate-300"}`}>
+                <div key={s.name} className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-sm ${s.name === name ? "bg-warning/10 font-semibold text-warning-fg-strong" : "text-fg-secondary"}`}>
                   <span className="truncate">{s.name}</span>
                   <span className="text-xs tabular-nums">{fmtMinutes(s.start)} – {fmtMinutes(s.end)}</span>
                 </div>
@@ -640,8 +641,8 @@ export function RequestScreen({ scene, employeeId, date, note, pending, t }: { s
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="flex-1 rounded-xl border border-red-500/25 bg-red-500/10 py-3 text-center text-sm font-bold text-red-400">Deny</div>
-            <div className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3 text-center text-sm font-bold text-white">Approve</div>
+            <div className="flex-1 rounded-xl border border-danger/25 bg-danger/10 py-3 text-center text-sm font-bold text-danger-fg">Deny</div>
+            <div className="flex-1 rounded-xl bg-gradient-to-r from-brand-from to-brand-to py-3 text-center text-sm font-bold text-on-accent">Approve</div>
           </div>
         </div>
       </div>
@@ -687,7 +688,7 @@ export function WeekDraftScreen({
   const budget = Math.round(curveHours(week.curves[day] ?? []) * 10) / 10;
   const variance = Math.round((scheduled - budget) * 10) / 10;
   const defaultProfile = DEMO_COVERAGE_PROFILES.find((p) => p.id === DEMO_COVERAGE_DEFAULTS[dayOfWeekForKey(day)])?.name ?? "none";
-  const navButton = "flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-card text-slate-400";
+  const navButton = "flex size-10 shrink-0 items-center justify-center rounded-xl border border-line bg-card text-fg-muted";
   const chevron = (d: string) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   const tap = (which: "auto" | "generate") => (press === which ? { scale: [1, 0.95, 1] } : { scale: 1 });
 
@@ -696,39 +697,39 @@ export function WeekDraftScreen({
       <SideNav active="week" status={statusAt(scene, MANAGER_ID, scene.late.at)} />
       <div className="min-w-0 flex-1 overflow-hidden">
         {/* Header: the week, Live | Draft, Auto-schedule and Publish */}
-        <div className="border-b border-slate-800 bg-bg px-6 pb-[14px] pt-[14px]">
+        <div className="border-b border-line bg-bg px-6 pb-[14px] pt-[14px]">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Week</div>
-              <div className="text-xl font-extrabold tabular-nums tracking-tight text-slate-100">{label}</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Week</div>
+              <div className="text-xl font-extrabold tabular-nums tracking-tight text-fg">{label}</div>
             </div>
             <div className="flex items-center gap-2">
               <span className={navButton}>{chevron("M15 18l-6-6 6-6")}</span>
-              <span className="flex h-10 items-center whitespace-nowrap rounded-xl border border-slate-800 bg-card px-3.5 text-sm font-semibold text-slate-200">This week</span>
+              <span className="flex h-10 items-center whitespace-nowrap rounded-xl border border-line bg-card px-3.5 text-sm font-semibold text-fg-body">This week</span>
               <span className={navButton}>{chevron("M9 18l6-6-6-6")}</span>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2.5">
-            <div className="flex shrink-0 gap-[3px] rounded-xl border border-slate-800 bg-card p-[3px]">
-              <span className="flex min-h-10 items-center gap-1.5 rounded-[9px] px-3 text-sm font-semibold text-slate-400">
-                <span className="size-1.5 rounded-full bg-slate-600" />
+            <div className="flex shrink-0 gap-[3px] rounded-xl border border-line bg-card p-[3px]">
+              <span className="flex min-h-10 items-center gap-1.5 rounded-[9px] px-3 text-sm font-semibold text-fg-muted">
+                <span className="size-1.5 rounded-full bg-fill-stronger" />
                 Live
               </span>
-              <span className="flex min-h-10 items-center gap-1.5 rounded-[9px] bg-slate-800 px-3 text-sm font-semibold text-slate-50 shadow">
-                <span className="size-1.5 rounded-full bg-amber-400" />
+              <span className="flex min-h-10 items-center gap-1.5 rounded-[9px] bg-fill px-3 text-sm font-semibold text-fg shadow">
+                <span className="size-1.5 rounded-full bg-warning-mark" />
                 Draft
                 {drafts.length > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 text-[11px] font-bold tabular-nums text-amber-400">{drafts.length}</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full border border-warning/30 bg-warning/15 px-1.5 text-[11px] font-bold tabular-nums text-warning-fg">{drafts.length}</span>
                 )}
               </span>
             </div>
-            <p className="min-w-0 flex-1 text-xs text-slate-400">Private until you publish. Live shifts stay as they are.</p>
+            <p className="min-w-0 flex-1 text-xs text-fg-muted">Private until you publish. Live shifts stay as they are.</p>
             <div className="flex items-center gap-2">
-              <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-500/15 px-3.5 text-xs font-bold text-violet-200">
+              <span className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-auto/35 bg-auto/15 px-3.5 text-xs font-bold text-auto-fg-max">
                 <Sparkle />
                 Auto-schedule
               </span>
-              <span className={`flex min-h-10 items-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-xs font-bold text-white ${drafts.length ? "" : "opacity-40"}`}>
+              <span className={`flex min-h-10 items-center rounded-xl bg-gradient-to-r from-brand-from to-brand-to px-4 text-xs font-bold text-on-accent ${drafts.length ? "" : "opacity-40"}`}>
                 Publish ({drafts.length})
               </span>
             </div>
@@ -738,17 +739,17 @@ export function WeekDraftScreen({
         {phase === "done" ? (
           <AutoScheduleSummary run={week.run} employees={scene.employees} busy={null} error={null} onUndo={noop} onTryAnother={noop} onApplySuggestion={noop} onDismiss={noop} />
         ) : (
-          <div className="mx-6 mt-3 flex items-center gap-3 rounded-2xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3.5">
+          <div className="mx-6 mt-3 flex items-center gap-3 rounded-2xl border border-auto/25 bg-auto/[0.06] px-4 py-3.5">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-slate-100">No drafts for this week yet</div>
-              <div className="mt-0.5 text-xs text-slate-400">
+              <div className="text-sm font-semibold text-fg">No drafts for this week yet</div>
+              <div className="mt-0.5 text-xs text-fg-muted">
                 Auto-schedule drafts the week from your coverage targets, availability, time off and hours, around the shifts already live. You review it before anything is published.
               </div>
             </div>
             <motion.span
               animate={tap("auto")}
               transition={{ duration: 0.3 }}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-500/20 px-3.5 py-2.5 text-xs font-bold text-violet-100"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-auto/35 bg-auto/20 px-3.5 py-2.5 text-xs font-bold text-auto-fg-max"
             >
               <Sparkle />
               Auto-schedule
@@ -761,27 +762,27 @@ export function WeekDraftScreen({
             <WeekStats shifts={drafts} dates={week.dates} curves={week.curves} loading={false} />
           </div>
           <section className="mb-3 flex flex-row items-center gap-3">
-            <div className="whitespace-nowrap text-sm font-bold text-slate-100">{formatDateKey(day, { weekday: "long", month: "short", day: "numeric" })}</div>
-            <div className="flex max-w-sm flex-1 items-center gap-2 rounded-xl border border-slate-800/60 bg-card px-3 py-2">
-              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Coverage</span>
+            <div className="whitespace-nowrap text-sm font-bold text-fg">{formatDateKey(day, { weekday: "long", month: "short", day: "numeric" })}</div>
+            <div className="flex max-w-sm flex-1 items-center gap-2 rounded-xl border border-line/60 bg-card px-3 py-2">
+              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Coverage</span>
               {/* A real <select>, as on the page: the browser draws it, at the app's 16px minimum. */}
               <select
                 defaultValue=""
                 aria-label="Coverage profile for selected day"
-                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-field bg-bg px-2 py-1.5 text-xs text-slate-100 transition-colors focus:border-indigo-500 focus:outline-none"
+                className="min-h-9 min-w-0 flex-1 cursor-pointer rounded-lg border border-field bg-bg px-2 py-1.5 text-xs text-fg transition-colors focus:border-accent focus:outline-none"
               >
                 <option value="">Default ({defaultProfile})</option>
               </select>
             </div>
             <div className="ml-auto flex gap-2">
               {[
-                { label: "Scheduled", value: `${scheduled} hrs`, color: "#3b82f6" },
-                { label: "Budget", value: `${budget} hrs`, color: "#818cf8" },
-                { label: "Variance", value: `${variance > 0 ? "+" : ""}${variance} hrs`, color: variance > 0 ? "#f87171" : variance < 0 ? "#fbbf24" : "#22c55e" },
+                { label: "Scheduled", value: `${scheduled} hrs`, color: "var(--status-blue)" },
+                { label: "Budget", value: `${budget} hrs`, color: "var(--status-info)" },
+                { label: "Variance", value: `${variance > 0 ? "+" : ""}${variance} hrs`, color: variance > 0 ? "var(--status-bad)" : variance < 0 ? "var(--status-caution)" : "var(--status-ok)" },
               ].map(({ label: l, value, color }) => (
-                <div key={l} className="min-w-[92px] rounded-xl border border-slate-800/60 bg-card px-2 py-2 text-center">
+                <div key={l} className="min-w-[92px] rounded-xl border border-line/60 bg-card px-2 py-2 text-center">
                   <div className="text-xs font-bold tabular-nums" style={{ color }}>{value}</div>
-                  <div className="mt-0.5 text-[11px] uppercase tracking-wider text-slate-500">{l}</div>
+                  <div className="mt-0.5 text-[11px] uppercase tracking-wider text-fg-subtle">{l}</div>
                 </div>
               ))}
             </div>
@@ -816,10 +817,10 @@ const UNTYPED = Object.values(DEMO_EMPLOYMENT).filter((e) => !e.type).length;
 function Check({ ok, children }: { ok: true | "warn"; children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2 text-xs">
-      <span className={`mt-px flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${ok === true ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
+      <span className={`mt-px flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${ok === true ? "bg-success/15 text-success-fg" : "bg-warning/15 text-warning-fg"}`}>
         {ok === true ? "✓" : "!"}
       </span>
-      <div className="min-w-0 flex-1 text-slate-300">{children}</div>
+      <div className="min-w-0 flex-1 text-fg-secondary">{children}</div>
     </li>
   );
 }
@@ -832,7 +833,7 @@ function Check({ ok, children }: { ok: true | "warn"; children: React.ReactNode 
 function AutoScheduleSheet({ week, label, generating, tap }: { week: DraftWeek; label: string; generating: boolean; tap: { scale: number | number[] } }) {
   const pending = week.timeOff.length;
   const allTargets = week.dates.every((d) => (week.curves[d] ?? []).some((b) => b.headcount > 0));
-  const heading = "mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400";
+  const heading = "mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted";
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -840,22 +841,22 @@ function AutoScheduleSheet({ week, label, generating, tap }: { week: DraftWeek; 
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
       className="absolute inset-0 z-[60] flex items-center justify-center px-4"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+      style={{ background: "color-mix(in oklab, var(--color-scrim) 70%, transparent)", backdropFilter: "blur(4px)" }}
     >
       <motion.div
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: "spring", stiffness: 380, damping: 32 }}
-        className="flex max-h-[88%] w-full max-w-[560px] flex-col overflow-hidden rounded-3xl border border-slate-700 bg-card"
-        style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
+        className="flex max-h-[88%] w-full max-w-[560px] flex-col overflow-hidden rounded-3xl border border-line-strong bg-card"
+        style={{ boxShadow: "var(--shadow-dialog)" }}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-5 pb-3 pt-5">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 pb-3 pt-5">
           <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-100">Auto-schedule</div>
-            <div className="text-xs tabular-nums text-slate-400">{label}</div>
+            <div className="text-lg font-bold text-fg">Auto-schedule</div>
+            <div className="text-xs tabular-nums text-fg-muted">{label}</div>
           </div>
-          <span className={`flex size-10 items-center justify-center rounded-full bg-slate-800 text-slate-400 ${generating ? "opacity-50" : ""}`}>
+          <span className={`flex size-10 items-center justify-center rounded-full bg-fill text-fg-muted ${generating ? "opacity-50" : ""}`}>
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
           </span>
         </div>
@@ -870,7 +871,7 @@ function AutoScheduleSheet({ week, label, generating, tap }: { week: DraftWeek; 
               ) : (
                 <Check ok="warn">
                   {UNTYPED} {UNTYPED === 1 ? "person has" : "people have"} no employment type and will be scheduled as part-time.{" "}
-                  <span className="inline-block py-1 font-semibold text-indigo-400">Set them now</span>
+                  <span className="inline-block py-1 font-semibold text-accent-fg">Set them now</span>
                 </Check>
               )}
               <Check ok={pending === 0 ? true : "warn"}>
@@ -880,37 +881,37 @@ function AutoScheduleSheet({ week, label, generating, tap }: { week: DraftWeek; 
           </section>
 
           <section className="flex flex-col gap-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Rules for this week</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Rules for this week</div>
             <div className="flex flex-col gap-1.5">
-              <div className="text-xs font-semibold text-slate-300">Overtime</div>
+              <div className="text-xs font-semibold text-fg-secondary">Overtime</div>
               <SegmentedControl ariaLabel="Overtime" value={RULES.overtimePolicy} onChange={noop} options={[{ value: "never", label: "Never" }, { value: "when_needed", label: "To fill gaps" }]} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <div className="text-xs font-semibold text-slate-300">Pending time off</div>
+              <div className="text-xs font-semibold text-fg-secondary">Pending time off</div>
               <SegmentedControl ariaLabel="Pending time off" value={RULES.pendingTimeOff} onChange={noop} options={[{ value: "avoid", label: "Avoid those days" }, { value: "ignore", label: "Ignore" }]} />
             </div>
-            <div className="text-[11px] text-slate-500">
+            <div className="text-[11px] text-fg-subtle">
               Shifts {RULES.minShiftMinutes / 60}–{RULES.maxShiftMinutes / 60} h · {RULES.minRestMinutes / 60} h rest · up to {RULES.maxConsecutiveDays} days in a row.{" "}
-              <span className="font-semibold text-indigo-400">Change in Settings</span>
+              <span className="font-semibold text-accent-fg">Change in Settings</span>
             </div>
           </section>
 
           <section className="flex flex-col gap-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">This week only</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">This week only</div>
             <div className="flex flex-wrap gap-1.5">
               {["+ Extra people", "+ Keep someone off", "+ Someone's hours"].map((l) => (
-                <span key={l} className="flex min-h-9 items-center rounded-lg border border-slate-700 bg-slate-800 px-3 text-xs font-semibold text-slate-300">{l}</span>
+                <span key={l} className="flex min-h-9 items-center rounded-lg border border-line-strong bg-fill px-3 text-xs font-semibold text-fg-secondary">{l}</span>
               ))}
             </div>
           </section>
         </div>
 
-        <div className="flex items-center gap-2 border-t border-slate-800 px-5 py-4">
-          <span className={`flex-1 rounded-xl border border-slate-700 bg-slate-800 py-3 text-center text-sm font-semibold text-slate-300 ${generating ? "opacity-50" : ""}`}>Cancel</span>
+        <div className="flex items-center gap-2 border-t border-line px-5 py-4">
+          <span className={`flex-1 rounded-xl border border-line-strong bg-fill py-3 text-center text-sm font-semibold text-fg-secondary ${generating ? "opacity-50" : ""}`}>Cancel</span>
           <motion.span
             animate={tap}
             transition={{ duration: 0.3 }}
-            className={`flex-[2] rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3 text-center text-sm font-bold text-white ${generating ? "opacity-40" : ""}`}
+            className={`flex-[2] rounded-xl bg-gradient-to-r from-brand-from to-brand-to py-3 text-center text-sm font-bold text-on-accent ${generating ? "opacity-40" : ""}`}
           >
             {generating ? "Generating…" : "Generate Schedule"}
           </motion.span>

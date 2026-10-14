@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { getMonogram } from "../data/types";
 import { useAppData } from "../lib/AppDataContext";
+import { tint } from "@/lib/theme-colors";
 
 type Props = {
   name: string | null;
@@ -61,10 +62,10 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
         aria-label="User menu"
         aria-expanded={open}
         aria-haspopup="menu"
-        whileHover={{ scale: 1.08, boxShadow: "0 0 14px rgba(99,102,241,0.3)" }}
+        whileHover={{ scale: 1.08, boxShadow: `0 0 14px ${tint("var(--color-accent)", 30)}` }}
         whileTap={{ scale: 0.9 }}
         transition={{ type: "spring", stiffness: 450, damping: 25 }}
-        className="size-11 rounded-full bg-indigo-600/90 border border-indigo-500/40 flex items-center justify-center text-sm font-bold text-white cursor-pointer"
+        className="size-11 rounded-full bg-accent-solid/90 border border-accent/40 flex items-center justify-center text-sm font-bold text-on-accent cursor-pointer"
       >
         {monogram ?? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -82,12 +83,12 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.96 }}
           transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className={`absolute right-0 top-11 ${organizations.length ? "w-60" : "w-44"} bg-card border border-slate-700 rounded-xl z-50 overflow-hidden`}
-          style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)" }}
+          className={`absolute right-0 top-11 ${organizations.length ? "w-60" : "w-44"} bg-card border border-line-strong rounded-xl z-50 overflow-hidden`}
+          style={{ boxShadow: "var(--shadow-popover)" }}
         >
           {organizations.length > 0 && (
-            <div role="group" aria-label="Organization" className="border-b border-slate-700/70 py-1">
-              <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Organization</div>
+            <div role="group" aria-label="Organization" className="border-b border-line-strong/70 py-1">
+              <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">Organization</div>
               {organizations.map((org) => {
                 const current = org.id === me.orgId;
                 return (
@@ -97,27 +98,27 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
                     aria-checked={current}
                     disabled={switchingTo !== null}
                     onClick={() => pickOrganization(org.id)}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-700/50 cursor-pointer transition-colors disabled:cursor-default disabled:opacity-60"
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-fg-secondary hover:bg-fill-strong/50 cursor-pointer transition-colors disabled:cursor-default disabled:opacity-60"
                   >
                     <span className="flex-1 min-w-0 truncate" title={org.name}>{org.name}</span>
                     {switchingTo === org.id ? (
-                      <span className="text-xs text-slate-500">Switching…</span>
+                      <span className="text-xs text-fg-subtle">Switching…</span>
                     ) : current ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-indigo-400">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-accent-fg">
                         <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     ) : null}
                   </button>
                 );
               })}
-              {switchError && <div role="alert" className="px-4 pb-2 text-xs text-red-400">{switchError}</div>}
+              {switchError && <div role="alert" className="px-4 pb-2 text-xs text-danger-fg">{switchError}</div>}
             </div>
           )}
           <Link
             href={settingsHref}
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-fg-secondary hover:bg-fill-strong/50 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -129,7 +130,7 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
             href="/contact?topic=feedback"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-fg-secondary hover:bg-fill-strong/50 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -140,7 +141,7 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
             href="/privacy"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-2 w-full px-4 py-3 text-sm text-fg-secondary hover:bg-fill-strong/50 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -151,7 +152,7 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
             <button
               role="menuitem"
               onClick={() => { setOpen(false); onSignOut(); }}
-              className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 cursor-pointer transition-colors"
+              className="w-full text-left px-4 py-3 text-sm text-fg-secondary hover:bg-fill-strong/50 cursor-pointer transition-colors"
             >
               Sign Out
             </button>
@@ -160,7 +161,7 @@ export default function UserMenu({ name, onSignOut, onSignIn }: Props) {
             <button
               role="menuitem"
               onClick={() => { setOpen(false); onSignIn(); }}
-              className="w-full text-left px-4 py-3 text-sm text-blue-400 hover:bg-slate-700/50 cursor-pointer transition-colors"
+              className="w-full text-left px-4 py-3 text-sm text-info-fg hover:bg-fill-strong/50 cursor-pointer transition-colors"
             >
               Sign In
             </button>

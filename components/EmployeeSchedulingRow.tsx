@@ -105,7 +105,7 @@ export default function EmployeeSchedulingRow({
   }
 
   const inputClass =
-    "w-0 flex-1 min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 text-right tabular-nums placeholder:text-slate-500 focus:outline-none focus:border-indigo-500";
+    "w-0 flex-1 min-w-0 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg text-right tabular-nums placeholder:text-fg-subtle focus:outline-none focus:border-accent";
   // The hours and the days fill one 160px column, so the two rows' controls
   // line up and the select is as wide as the hours beside it.
   const controlColumn = "w-40 shrink-0 flex items-center gap-2";
@@ -116,18 +116,18 @@ export default function EmployeeSchedulingRow({
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
         aria-label={`Scheduling for ${employee.name}`}
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 cursor-pointer bg-transparent border-none transition-colors py-2 -my-2 text-left"
+        className="flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-muted cursor-pointer bg-transparent border-none transition-colors py-2 -my-2 text-left"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span>Scheduling</span>
         <span aria-hidden="true">·</span>
-        <span className={savedLimits.typeSet ? "text-slate-400" : "text-amber-400"}>{summary}</span>
+        <span className={savedLimits.typeSet ? "text-fg-muted" : "text-warning-fg"}>{summary}</span>
       </button>
 
       {expanded && (
         <div className="mt-3 pl-1 flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <div className="text-xs font-semibold text-slate-300">Employment</div>
+            <div className="text-xs font-semibold text-fg-secondary">Employment</div>
             <SegmentedControl
               ariaLabel={`Employment type for ${employee.name}`}
               value={type}
@@ -141,7 +141,7 @@ export default function EmployeeSchedulingRow({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs font-semibold text-slate-300">Weekly hours</div>
+            <div className="text-xs font-semibold text-fg-secondary">Weekly hours</div>
             <div className={controlColumn}>
               <input
                 type="number"
@@ -155,7 +155,7 @@ export default function EmployeeSchedulingRow({
                 onChange={(e) => setMinText(e.target.value)}
                 className={inputClass}
               />
-              <span className="shrink-0 text-xs text-slate-500">–</span>
+              <span className="shrink-0 text-xs text-fg-subtle">–</span>
               <input
                 type="number"
                 inputMode="decimal"
@@ -168,18 +168,18 @@ export default function EmployeeSchedulingRow({
                 onChange={(e) => setMaxText(e.target.value)}
                 className={inputClass}
               />
-              <span className="shrink-0 text-xs text-slate-500">h</span>
+              <span className="shrink-0 text-xs text-fg-subtle">h</span>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs font-semibold text-slate-300">Most days per week</div>
+            <div className="text-xs font-semibold text-fg-secondary">Most days per week</div>
             <div className={controlColumn}>
               <select
                 aria-label={`Most days per week for ${employee.name}`}
                 value={maxDays}
                 onChange={(e) => setMaxDays(e.target.value)}
-                className="w-full min-w-0 bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                className="w-full min-w-0 bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg focus:outline-none focus:border-accent cursor-pointer"
               >
                 <option value="">Default ({typeDefaults.maxDays})</option>
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => (
@@ -189,13 +189,13 @@ export default function EmployeeSchedulingRow({
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-500 -mt-2">Blank fields use the {type === "full_time" ? "full-time" : "part-time"} default from Scheduling Rules.</div>
+          <div className="text-[11px] text-fg-subtle -mt-2">Blank fields use the {type === "full_time" ? "full-time" : "part-time"} default from Scheduling Rules.</div>
 
           {/* The form's problem or its save status, beside Save: neither needs
               a line of its own, so the form ends at its button. */}
           <div className="flex items-center gap-3 min-h-10">
             <div className="flex-1 min-w-0">
-              {problem && <div role="alert" className="text-xs leading-4 text-red-400">{problem}</div>}
+              {problem && <div role="alert" className="text-xs leading-4 text-danger-fg">{problem}</div>}
               <SaveStatusText status={status} testId={`employee-scheduling-status-${employee.id}`} />
             </div>
             <button
@@ -203,14 +203,14 @@ export default function EmployeeSchedulingRow({
               onClick={save}
               disabled={status === "saving"}
               aria-busy={status === "saving"}
-              className="shrink-0 h-10 text-xs font-semibold px-4 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="shrink-0 h-10 text-xs font-semibold px-4 rounded-lg bg-accent/20 text-accent-fg-strong border border-accent/30 hover:bg-accent/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save Limits
             </button>
           </div>
 
-          <div className="pt-4 border-t border-slate-800/60">
-            <div className="text-xs font-semibold text-slate-300 mb-3">Shift preferences</div>
+          <div className="pt-4 border-t border-line/60">
+            <div className="text-xs font-semibold text-fg-secondary mb-3">Shift preferences</div>
             <ShiftPreferencesSection
               employeeId={employee.id}
               firstDayOfWeek={firstDayOfWeek}

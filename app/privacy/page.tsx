@@ -6,7 +6,7 @@ export const metadata = { title: "Privacy Policy — ShiftView" };
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-8">
-      <h2 className="text-base font-semibold text-slate-100 mb-3">{title}</h2>
+      <h2 className="text-base font-semibold text-fg mb-3">{title}</h2>
       {children}
     </section>
   );
@@ -15,11 +15,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Table({ rows }: { rows: [string, string][] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm text-slate-400 border-collapse">
+      <table className="w-full text-sm text-fg-muted border-collapse">
         <tbody>
           {rows.map(([a, b]) => (
-            <tr key={a} className="border-t border-slate-800">
-              <th scope="row" className="py-2 pr-6 font-medium text-slate-300 whitespace-nowrap text-left">{a}</th>
+            <tr key={a} className="border-t border-line">
+              <th scope="row" className="py-2 pr-6 font-medium text-fg-secondary whitespace-nowrap text-left">{a}</th>
               <td className="py-2">{b}</td>
             </tr>
           ))}
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
       <div className="mx-auto max-w-2xl">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-8 py-3 -my-3"
+          className="inline-flex items-center gap-1.5 text-xs text-fg-subtle hover:text-fg-secondary transition-colors mb-8 py-3 -my-3"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M19 12H5M5 12l7-7M5 12l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -47,10 +47,10 @@ export default function PrivacyPage() {
           <Logo className="h-5" />
         </div>
 
-        <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight mb-1">Privacy Policy</h1>
-        <p className="text-xs text-slate-500 mb-8">Last updated: October 9, 2026</p>
+        <h1 className="text-2xl font-extrabold text-fg tracking-tight mb-1">Privacy Policy</h1>
+        <p className="text-xs text-fg-subtle mb-8">Last updated: October 9, 2026</p>
 
-        <div className="bg-card border border-slate-800/60 rounded-2xl px-5 py-6 [@media(min-width:640px)]:px-7 [@media(min-width:640px)]:py-7 text-sm text-slate-400 leading-relaxed space-y-1">
+        <div className="bg-card border border-line/60 rounded-2xl px-5 py-6 [@media(min-width:640px)]:px-7 [@media(min-width:640px)]:py-7 text-sm text-fg-muted leading-relaxed space-y-1">
           <Section title="1. Who We Are">
             <p>
               ShiftView is a shift management tool for retail and hospitality teams. The service is operated by the
@@ -92,14 +92,14 @@ export default function PrivacyPage() {
 
           <Section title="4. Message Encryption">
             <p>
-              Message text is encrypted at rest using <span className="text-slate-300 font-medium">AES-256-GCM</span> before
+              Message text is encrypted at rest using <span className="text-fg-secondary font-medium">AES-256-GCM</span> before
               it is stored with the message. The server decrypts it only to show the message to its sender or its
               recipient.
             </p>
             <p className="mt-3">
               When you receive a message, ShiftView also creates a notification for you, shown in the app and, if you
               allow it, as a push notification. That notification includes the message text as a preview, and it is
-              stored in the database <span className="text-slate-300 font-medium">without</span> this encryption.
+              stored in the database <span className="text-fg-secondary font-medium">without</span> this encryption.
               Clearing a notification hides it from you but does not delete it (see Data Retention).
             </p>
             <p className="mt-3">Messages and notifications in transit are protected by TLS (HTTPS).</p>
@@ -124,14 +124,14 @@ export default function PrivacyPage() {
               </li>
               <li>Push subscriptions are removed automatically when a device unsubscribes or the subscription becomes stale.</li>
               <li>
-                <span className="text-slate-300">Account deletion:</span> you can delete your account at any time from
+                <span className="text-fg-secondary">Account deletion:</span> you can delete your account at any time from
                 Settings → Delete Account. This permanently removes your login, push subscriptions, and notification
                 preferences. Your name and your past schedule and clock records are retained by your organization as
                 part of its business records (for example, payroll); ask your administrator to remove your employee
                 record if you want those deleted as well.
               </li>
               <li>
-                <span className="text-slate-300">Organization deletion:</span> an organization owner can permanently
+                <span className="text-fg-secondary">Organization deletion:</span> an organization owner can permanently
                 delete the entire organization from Settings → Delete Organization. This removes all of the
                 organization&apos;s data — employee records, schedules, clock records, messages, settings, and audit
                 logs. Members&apos; accounts are not deleted; they keep their logins and can join or create other
@@ -143,10 +143,10 @@ export default function PrivacyPage() {
           <Section title="7. Your Rights">
             <p>Depending on where you are located, you may have the right to:</p>
             <ul className="list-disc list-inside space-y-1 mt-2">
-              <li><span className="text-slate-300">Access</span> the personal data we hold about you</li>
-              <li><span className="text-slate-300">Correct</span> inaccurate information</li>
-              <li><span className="text-slate-300">Request deletion</span> of your account and associated data</li>
-              <li><span className="text-slate-300">Object to or restrict</span> certain types of processing</li>
+              <li><span className="text-fg-secondary">Access</span> the personal data we hold about you</li>
+              <li><span className="text-fg-secondary">Correct</span> inaccurate information</li>
+              <li><span className="text-fg-secondary">Request deletion</span> of your account and associated data</li>
+              <li><span className="text-fg-secondary">Object to or restrict</span> certain types of processing</li>
             </ul>
             <p className="mt-3">
               You can delete your account yourself at any time from Settings → Delete Account (organization owners
@@ -157,7 +157,7 @@ export default function PrivacyPage() {
 
           <Section title="8. Cookies and Local Storage">
             <p>
-              ShiftView uses browser storage (cookies and <code className="text-slate-300">localStorage</code>) only to
+              ShiftView uses browser storage (cookies and <code className="text-fg-secondary">localStorage</code>) only to
               maintain your authentication session. No third-party tracking cookies are used.
             </p>
           </Section>
@@ -193,7 +193,7 @@ export default function PrivacyPage() {
             <p>
               If you have questions about this privacy policy or how your data is handled, please contact the
               administrator of your ShiftView account, or write to us through the{" "}
-              <Link href="/contact" className="text-slate-300 underline underline-offset-2 hover:text-slate-100">contact form</Link>.
+              <Link href="/contact" className="text-fg-secondary underline underline-offset-2 hover:text-fg">contact form</Link>.
               Contact form messages are delivered to us by email and kept only as long as needed to respond.
             </p>
           </Section>

@@ -103,11 +103,11 @@ function fmtMins(mins: number): string {
 
 // Classifies a day's headcount against the peak of its target coverage curve.
 function cellClass(count: number, peakTarget: number) {
-  if (peakTarget <= 0)  return "bg-slate-800 text-slate-500 border border-slate-700";
-  if (count >= peakTarget) return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-  if (count >= Math.ceil(peakTarget / 2)) return "bg-amber-500/20  text-amber-400  border border-amber-500/30";
-  if (count > 0)        return "bg-red-500/20    text-red-400    border border-red-500/30";
-  return "bg-slate-800 text-slate-500 border border-slate-700";
+  if (peakTarget <= 0)  return "bg-fill text-fg-subtle border border-line-strong";
+  if (count >= peakTarget) return "bg-success/20 text-success-fg border border-success/30";
+  if (count >= Math.ceil(peakTarget / 2)) return "bg-warning/20  text-warning-fg  border border-warning/30";
+  if (count > 0)        return "bg-danger/20    text-danger-fg    border border-danger/30";
+  return "bg-fill text-fg-subtle border border-line-strong";
 }
 
 // ─── Audit helpers ────────────────────────────────────────────────────────────
@@ -246,14 +246,14 @@ function auditDetail(entry: AuditEntry, tz: string): string | null {
 }
 
 function auditBadgeClass(action: string): string {
-  if (action.startsWith("schedule."))    return "text-indigo-400 bg-indigo-500/10";
-  if (action.startsWith("employee."))    return "text-violet-400 bg-violet-500/10";
-  if (action.startsWith("time_off."))    return "text-amber-400 bg-amber-500/10";
-  if (action.startsWith("swap."))        return "text-cyan-400 bg-cyan-500/10";
-  if (action.startsWith("punch."))       return "text-emerald-400 bg-emerald-500/10";
-  if (action.startsWith("manager."))     return "text-rose-400 bg-rose-500/10";
-  if (action.startsWith("template."))    return "text-blue-400 bg-blue-500/10";
-  return "text-slate-400 bg-slate-500/10";
+  if (action.startsWith("schedule."))    return "text-accent-fg bg-accent/10";
+  if (action.startsWith("employee."))    return "text-auto-fg bg-auto/10";
+  if (action.startsWith("time_off."))    return "text-warning-fg bg-warning/10";
+  if (action.startsWith("swap."))        return "text-tag-cyan-fg bg-tag-cyan/10";
+  if (action.startsWith("punch."))       return "text-success-fg bg-success/10";
+  if (action.startsWith("manager."))     return "text-tag-rose-fg bg-tag-rose/10";
+  if (action.startsWith("template."))    return "text-info-fg bg-info/10";
+  return "text-fg-muted bg-fill/10";
 }
 
 function auditBadgeLabel(action: string): string {
@@ -680,18 +680,18 @@ export default function ReportsPageClient() {
 
       {/* Top bar — sticky on mobile, static on desktop */}
       <div
-        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg
+        className="sticky top-0 z-20 px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg
                    desk:static desk:px-6 desk:py-[14px] desk:pb-[14px] desk:gap-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
       >
         <button
           onClick={() => router.back()}
-          className="size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors tablet:hidden"
+          className="size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer shrink-0 hover:bg-fill hover:text-fg-body transition-colors tablet:hidden"
           aria-label="Back"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-2xl font-extrabold text-slate-100 tracking-tight desk:text-xl">Reports</span>
+        <span className="text-2xl font-extrabold text-fg tracking-tight desk:text-xl">Reports</span>
       </div>
 
       {/* Tab bar */}
@@ -703,8 +703,8 @@ export default function ReportsPageClient() {
             aria-pressed={activeTab === tab}
             className={`flex-1 py-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === tab
-                ? "bg-indigo-600 text-white"
-                : "bg-card border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                ? "bg-accent-solid text-on-accent"
+                : "bg-card border border-line text-fg-muted hover:bg-fill hover:text-fg-body"
             }`}
           >
             {tab === "coverage" ? "Coverage" : tab === "payroll" ? "Payroll" : tab === "punctuality" ? "Punctuality" : "Activity"}
@@ -717,19 +717,19 @@ export default function ReportsPageClient() {
         <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-5 flex flex-col gap-5">
           {/* Coverage heatmap */}
           <section>
-            <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mb-2 px-1">
+            <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase mb-2 px-1">
               Coverage — Last 4 Weeks
             </div>
             {/* The days are known before the counts: while they load, the same
                 card with placeholder cells, so it doesn't grow when they land. */}
             <div
-              className="bg-card rounded-2xl border border-slate-800/60 p-3"
+              className="bg-card rounded-2xl border border-line/60 p-3"
               role={loading ? "status" : undefined}
               aria-label={loading ? "Loading coverage heatmap" : undefined}
             >
               <div className="grid grid-cols-7 gap-1 mb-1" role="row">
                 {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
-                  <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-slate-500 font-semibold">{d}</div>
+                  <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-fg-subtle font-semibold">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -749,14 +749,14 @@ export default function ReportsPageClient() {
               </div>
               <div className="flex gap-3 mt-2 justify-center">
                 {[
-                  { label: "Optimal",  cls: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" },
-                  { label: "Low",      cls: "bg-amber-500/20 text-amber-400 border border-amber-500/30" },
-                  { label: "Critical", cls: "bg-red-500/20 text-red-400 border border-red-500/30" },
-                  { label: "None",     cls: "bg-slate-800 text-slate-500 border border-slate-700" },
+                  { label: "Optimal",  cls: "bg-success/20 text-success-fg border border-success/30" },
+                  { label: "Low",      cls: "bg-warning/20 text-warning-fg border border-warning/30" },
+                  { label: "Critical", cls: "bg-danger/20 text-danger-fg border border-danger/30" },
+                  { label: "None",     cls: "bg-fill text-fg-subtle border border-line-strong" },
                 ].map(({ label, cls }) => (
                   <div key={label} className="flex items-center gap-1">
                     <div aria-hidden="true" className={`size-3 rounded ${cls}`} />
-                    <span className="text-[10px] text-slate-400">{label}</span>
+                    <span className="text-[10px] text-fg-muted">{label}</span>
                   </div>
                 ))}
               </div>
@@ -766,17 +766,17 @@ export default function ReportsPageClient() {
           {/* Week selector + hours table */}
           <section>
             <div className="flex items-center justify-between mb-2 px-1">
-              <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">
+              <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">
                 Hours — {formatWeekLabel(selectedWeekStart)}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Previous week" className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
+                <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Previous week" className="size-9 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer hover:bg-fill hover:text-fg-body transition-colors">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
                 {weekOffset !== 0 && (
-                  <button onClick={() => setWeekOffset(0)} className="text-[11px] text-slate-400 bg-card border border-slate-800 rounded-lg px-2 py-2 -my-px cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">Now</button>
+                  <button onClick={() => setWeekOffset(0)} className="text-[11px] text-fg-muted bg-card border border-line rounded-lg px-2 py-2 -my-px cursor-pointer hover:bg-fill hover:text-fg-body transition-colors">Now</button>
                 )}
-                <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Next week" className="size-9 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer hover:bg-slate-800 hover:text-slate-200 transition-colors">
+                <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Next week" className="size-9 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer hover:bg-fill hover:text-fg-body transition-colors">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
               </div>
@@ -787,12 +787,12 @@ export default function ReportsPageClient() {
               // real rows' height. Later weeks keep the table up (below).
               // Its own key: otherwise React would reuse these placeholder rows
               // (keyed 0..n) for the employees with those ids, and move them.
-              <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
-                <div aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
+              <div key="loading" role="status" aria-label="Loading hours table" className="bg-card rounded-2xl border border-line/60 overflow-hidden">
+                <div aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-line/60 bg-fill/30">
                   <div className="text-[10px] font-semibold"><SkeletonText text="Employee" /></div>
                 </div>
                 {Array.from({ length: employees.length || 6 }, (_, i) => (
-                  <div key={i} aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
+                  <div key={i} aria-hidden="true" className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-line/60 last:border-b-0">
                     <div className="text-xs font-medium"><SkeletonText text="Name" /></div>
                   </div>
                 ))}
@@ -803,34 +803,34 @@ export default function ReportsPageClient() {
               <div
                 key="table"
                 aria-busy={weekLoading || undefined}
-                className={`bg-card rounded-2xl border border-slate-800/60 overflow-hidden transition-opacity ${weekLoading ? "opacity-60" : ""}`}
+                className={`bg-card rounded-2xl border border-line/60 overflow-hidden transition-opacity ${weekLoading ? "opacity-60" : ""}`}
               >
-                <div className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
-                  <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
+                <div className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-line/60 bg-fill/30">
+                  <div className="text-[10px] text-fg-subtle font-semibold">Employee</div>
                   {weekDates.map((d) => (
-                    <div key={d} className="text-[10px] text-slate-500 font-semibold text-center" title={new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}>
+                    <div key={d} className="text-[10px] text-fg-subtle font-semibold text-center" title={new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}>
                       {new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" })}
                     </div>
                   ))}
-                  <div className="text-[10px] text-slate-500 font-semibold text-right">Tot</div>
+                  <div className="text-[10px] text-fg-subtle font-semibold text-right">Tot</div>
                 </div>
                 {employees.length === 0 ? (
-                  <div className="px-3 py-4 text-center text-sm text-slate-500">No employees</div>
+                  <div className="px-3 py-4 text-center text-sm text-fg-subtle">No employees</div>
                 ) : (
                   employees.map((emp) => {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
-                      <div key={emp.id} className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
-                        <div className="text-xs text-slate-200 font-medium truncate" title={emp.name}>{emp.name.split(" ")[0]}</div>
+                      <div key={emp.id} className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-line/60 last:border-b-0">
+                        <div className="text-xs text-fg-body font-medium truncate" title={emp.name}>{emp.name.split(" ")[0]}</div>
                         {weekDates.map((d) => {
                           const h = employeeHours[emp.id]?.[d];
                           return (
-                            <div key={d} className={`text-center text-[11px] leading-4 font-semibold tabular-nums rounded px-0.5 ${h ? "text-indigo-300" : "text-slate-500"}`}>
+                            <div key={d} className={`text-center text-[11px] leading-4 font-semibold tabular-nums rounded px-0.5 ${h ? "text-accent-fg-strong" : "text-fg-subtle"}`}>
                               {h ? h.toFixed(0) : "-"}
                             </div>
                           );
                         })}
-                        <div className="text-right text-[11px] leading-4 font-bold text-slate-300 tabular-nums">
+                        <div className="text-right text-[11px] leading-4 font-bold text-fg-secondary tabular-nums">
                           {total > 0 ? total.toFixed(0) : "-"}
                         </div>
                       </div>
@@ -846,7 +846,7 @@ export default function ReportsPageClient() {
             <section>
               <button
                 onClick={exportCSV}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
               >
                 Export CSV
               </button>
@@ -859,36 +859,36 @@ export default function ReportsPageClient() {
       {activeTab === "payroll" && (
         <div className="px-4 pt-4 flex flex-col gap-4">
           {/* Controls */}
-          <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
+          <div className="bg-card rounded-2xl border border-line/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="flex-1">
-                <label htmlFor="payroll-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+                <label htmlFor="payroll-from" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">From</label>
                 <input
                   id="payroll-from"
                   type="date"
                   value={payrollFrom}
                   onChange={(e) => setPayrollFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
                 />
               </div>
               <div className="flex-1">
-                <label htmlFor="payroll-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+                <label htmlFor="payroll-to" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">To</label>
                 <input
                   id="payroll-to"
                   type="date"
                   value={payrollTo}
                   onChange={(e) => setPayrollTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
             <div>
-              <label htmlFor="payroll-format" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Export Format</label>
+              <label htmlFor="payroll-format" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">Export Format</label>
               <select
                 id="payroll-format"
                 value={payrollFormat}
                 onChange={(e) => setPayrollFormat(e.target.value)}
-                className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
               >
                 <option value="summary">Summary CSV — Universal</option>
                 <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
@@ -900,54 +900,54 @@ export default function ReportsPageClient() {
               onClick={generatePayroll}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
               aria-busy={payrollLoading}
-              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-3 rounded-xl bg-accent-solid text-on-accent font-semibold text-sm cursor-pointer hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {payrollLoading ? "Generating…" : "Generate Report"}
             </button>
           </div>
 
           {payrollError && (
-            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
+            <div role="alert" className="bg-danger/10 border border-danger/30 rounded-2xl px-4 py-3 text-sm text-danger-fg">
               {payrollError}
             </div>
           )}
 
           {payrollData !== null && payrollData.length === 0 && (
-            <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
-              <div className="text-slate-400 text-sm font-medium">No punch records in this period</div>
-              <div className="text-slate-500 text-xs mt-1">Employees need to clock in before payroll data is available</div>
+            <div className="bg-card rounded-2xl border border-line/60 px-4 py-10 text-center">
+              <div className="text-fg-muted text-sm font-medium">No punch records in this period</div>
+              <div className="text-fg-subtle text-xs mt-1">Employees need to clock in before payroll data is available</div>
             </div>
           )}
 
           {payrollData !== null && payrollData.length > 0 && (
             <>
               {/* Preview table */}
-              <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden">
-                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-slate-800/60 bg-slate-800/30">
-                  <div className="text-[10px] text-slate-500 font-semibold">Employee</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9" title="Regular hours">Reg</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9" title="Overtime hours">OT</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-9" title="Break hours">Brk</div>
-                  <div className="text-[10px] text-slate-500 font-semibold text-right w-10">Total</div>
+              <div className="bg-card rounded-2xl border border-line/60 overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-line/60 bg-fill/30">
+                  <div className="text-[10px] text-fg-subtle font-semibold">Employee</div>
+                  <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Regular hours">Reg</div>
+                  <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Overtime hours">OT</div>
+                  <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Break hours">Brk</div>
+                  <div className="text-[10px] text-fg-subtle font-semibold text-right w-10">Total</div>
                 </div>
                 {payrollData.map((emp) => (
-                  <div key={emp.employeeId} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-slate-800/60 last:border-b-0">
-                    <div className="text-xs text-slate-200 font-medium truncate flex items-center gap-1" title={emp.employeeName}>
+                  <div key={emp.employeeId} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-line/60 last:border-b-0">
+                    <div className="text-xs text-fg-body font-medium truncate flex items-center gap-1" title={emp.employeeName}>
                       {emp.employeeName.split(" ")[0]}
                       {emp.weeks.some((w) => w.hasIncomplete) && (
-                        <span className="text-amber-400 text-[10px]" aria-label="Incomplete punch pair" role="img">⚠</span>
+                        <span className="text-warning-fg text-[10px]" aria-label="Incomplete punch pair" role="img">⚠</span>
                       )}
                     </div>
-                    <div className="text-right text-[11px] font-semibold text-emerald-400 tabular-nums w-9">
+                    <div className="text-right text-[11px] font-semibold text-success-fg tabular-nums w-9">
                       {emp.totalRegularHours.toFixed(1)}
                     </div>
-                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-amber-400" : "text-slate-500"}`}>
+                    <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-warning-fg" : "text-fg-subtle"}`}>
                       {emp.totalOvertimeHours > 0 ? emp.totalOvertimeHours.toFixed(1) : "—"}
                     </div>
-                    <div className="text-right text-[11px] text-slate-500 tabular-nums w-9">
+                    <div className="text-right text-[11px] text-fg-subtle tabular-nums w-9">
                       {emp.totalBreakHours.toFixed(1)}
                     </div>
-                    <div className="text-right text-[11px] font-bold text-slate-200 tabular-nums w-10">
+                    <div className="text-right text-[11px] font-bold text-fg-body tabular-nums w-10">
                       {emp.totalWorkedHours.toFixed(1)}
                     </div>
                   </div>
@@ -959,28 +959,28 @@ export default function ReportsPageClient() {
                   const brk  = payrollData.reduce((s, e) => s + e.totalBreakHours, 0);
                   const tot  = payrollData.reduce((s, e) => s + e.totalWorkedHours, 0);
                   return (
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-800/40 border-t border-slate-700/60">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Total</div>
-                      <div className="text-right text-[11px] font-bold text-emerald-400 tabular-nums w-9">{reg.toFixed(1)}</div>
-                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-amber-400" : "text-slate-500"}`}>
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-fill/40 border-t border-line-strong/60">
+                      <div className="text-[10px] text-fg-muted font-bold uppercase">Total</div>
+                      <div className="text-right text-[11px] font-bold text-success-fg tabular-nums w-9">{reg.toFixed(1)}</div>
+                      <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-warning-fg" : "text-fg-subtle"}`}>
                         {ot > 0 ? ot.toFixed(1) : "—"}
                       </div>
-                      <div className="text-right text-[11px] font-bold text-slate-500 tabular-nums w-9">{brk.toFixed(1)}</div>
-                      <div className="text-right text-[11px] font-bold text-white tabular-nums w-10">{tot.toFixed(1)}</div>
+                      <div className="text-right text-[11px] font-bold text-fg-subtle tabular-nums w-9">{brk.toFixed(1)}</div>
+                      <div className="text-right text-[11px] font-bold text-on-accent tabular-nums w-10">{tot.toFixed(1)}</div>
                     </div>
                   );
                 })()}
               </div>
 
               {payrollData.some((e) => e.weeks.some((w) => w.hasIncomplete)) && (
-                <div className="text-[11px] text-amber-400 px-1 leading-snug">
+                <div className="text-[11px] text-warning-fg px-1 leading-snug">
                   <span aria-hidden="true">⚠</span> Some employees have incomplete punch pairs (no clock-out). Those periods are excluded from totals.
                 </div>
               )}
 
               <button
                 onClick={downloadPayroll}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-700 text-white font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-success-solid to-success-solid-alt text-on-accent font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
               >
                 {payrollFormat === "qb-iif"
                   ? "Download QuickBooks Desktop (.iif)"
@@ -999,20 +999,20 @@ export default function ReportsPageClient() {
       {activeTab === "punctuality" && (
         <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex flex-col gap-4">
           {/* Date picker */}
-          <div className="bg-card rounded-2xl border border-slate-800/60 p-3">
-            <label htmlFor="punctuality-date" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Date</label>
+          <div className="bg-card rounded-2xl border border-line/60 p-3">
+            <label htmlFor="punctuality-date" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">Date</label>
             <input
               id="punctuality-date"
               type="date"
               value={punctualityDate}
               max={todayKey}
               onChange={(e) => setPunctualityDate(e.target.value)}
-              className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 [color-scheme:dark]"
+              className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent [color-scheme:dark]"
             />
           </div>
 
           {punctualityError && (
-            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-400">
+            <div role="alert" className="bg-danger/10 border border-danger/30 rounded-2xl px-4 py-3 text-sm text-danger-fg">
               {punctualityError}
             </div>
           )}
@@ -1020,7 +1020,7 @@ export default function ReportsPageClient() {
           {punctualityLoading ? (
             <div role="status" aria-label="Loading punctuality report" className="flex flex-col gap-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} aria-hidden="true" className="h-14 bg-slate-800 rounded-xl animate-pulse" />
+                <div key={i} aria-hidden="true" className="h-14 bg-fill rounded-xl animate-pulse" />
               ))}
             </div>
           ) : punctualityRows !== null && punctualitySummary !== null ? (
@@ -1033,37 +1033,37 @@ export default function ReportsPageClient() {
       {activeTab === "activity" && (
         <div className="px-4 desk:px-6 desk:max-w-4xl desk:mx-auto pt-4 flex flex-col gap-4">
           {/* Filters */}
-          <div className="bg-card rounded-2xl border border-slate-800/60 p-3 flex flex-col gap-3">
+          <div className="bg-card rounded-2xl border border-line/60 p-3 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="flex-1">
-                <label htmlFor="pending-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+                <label htmlFor="pending-from" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">From</label>
                 <input
                   id="pending-from"
                   type="date"
                   value={pendingFrom}
                   onChange={(e) => setPendingFrom(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
                 />
               </div>
               <div className="flex-1">
-                <label htmlFor="pending-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+                <label htmlFor="pending-to" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">To</label>
                 <input
                   id="pending-to"
                   type="date"
                   value={pendingTo}
                   onChange={(e) => setPendingTo(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <label htmlFor="pending-category" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">Category</label>
+                <label htmlFor="pending-category" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">Category</label>
                 <select
                   id="pending-category"
                   value={pendingCategory}
                   onChange={(e) => setPendingCategory(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -1071,12 +1071,12 @@ export default function ReportsPageClient() {
                 </select>
               </div>
               <div className="flex-1">
-                <label htmlFor="pending-actor" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">User</label>
+                <label htmlFor="pending-actor" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">User</label>
                 <select
                   id="pending-actor"
                   value={pendingActorId}
                   onChange={(e) => setPendingActorId(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
                 >
                   <option value="">All users</option>
                   {employees
@@ -1089,7 +1089,7 @@ export default function ReportsPageClient() {
             </div>
             <button
               onClick={applyFilters}
-              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm cursor-pointer hover:bg-indigo-500 transition-colors"
+              className="w-full py-3 rounded-xl bg-accent-solid text-on-accent font-semibold text-sm cursor-pointer hover:bg-accent transition-colors"
             >
               Apply filters
             </button>
@@ -1099,40 +1099,40 @@ export default function ReportsPageClient() {
           {auditLoading && auditEntries.length === 0 ? (
             <div role="status" aria-label="Loading activity log" className="flex flex-col gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} aria-hidden="true" className="h-16 bg-slate-800 rounded-2xl animate-pulse" />
+                <div key={i} aria-hidden="true" className="h-16 bg-fill rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : auditEntries.length === 0 ? (
-            <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
-              <div className="text-slate-400 text-sm font-medium">No activity in this period</div>
-              <div className="text-slate-500 text-xs mt-1">Try expanding the date range or changing the category filter</div>
+            <div className="bg-card rounded-2xl border border-line/60 px-4 py-10 text-center">
+              <div className="text-fg-muted text-sm font-medium">No activity in this period</div>
+              <div className="text-fg-subtle text-xs mt-1">Try expanding the date range or changing the category filter</div>
             </div>
           ) : (
             <>
-              <div className="text-[11px] text-slate-500 px-1">
+              <div className="text-[11px] text-fg-subtle px-1">
                 {auditTotal.toLocaleString()} {auditTotal === 1 ? "event" : "events"} found
               </div>
               <motion.div className="flex flex-col gap-2" variants={listContainer} initial="hidden" animate="show">
                 {auditEntries.map((entry) => {
                   const detail = auditDetail(entry, timezone);
                   return (
-                    <motion.div key={entry.id} variants={listItem} data-scroll-anchor={`audit-${entry.id}`} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3 flex flex-col gap-1">
+                    <motion.div key={entry.id} variants={listItem} data-scroll-anchor={`audit-${entry.id}`} className="bg-card rounded-2xl border border-line/60 px-4 py-3 flex flex-col gap-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${auditBadgeClass(entry.action)}`}>
                           {auditBadgeLabel(entry.action)}
                         </span>
-                        <span className="text-[10px] text-slate-500 shrink-0">
+                        <span className="text-[10px] text-fg-subtle shrink-0">
                           {formatAuditTime(entry.createdAt, timezone)}
                         </span>
                       </div>
-                      <div className="text-sm font-semibold text-slate-100 leading-snug">
+                      <div className="text-sm font-semibold text-fg leading-snug">
                         {auditTitle(entry)}
                       </div>
                       {detail && (
-                        <div className="text-xs text-slate-400">{detail}</div>
+                        <div className="text-xs text-fg-muted">{detail}</div>
                       )}
                       {entry.actorName && (
-                        <div className="text-[11px] text-slate-500 mt-0.5">by {entry.actorName}</div>
+                        <div className="text-[11px] text-fg-subtle mt-0.5">by {entry.actorName}</div>
                       )}
                     </motion.div>
                   );
@@ -1143,7 +1143,7 @@ export default function ReportsPageClient() {
                   onClick={() => fetchAuditPage(auditPage + 1, false)}
                   disabled={auditLoading}
                   aria-busy={auditLoading}
-                  className="w-full py-3 rounded-2xl bg-card border border-slate-800 text-slate-300 font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                  className="w-full py-3 rounded-2xl bg-card border border-line text-fg-secondary font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-fill hover:text-fg-body transition-colors"
                 >
                   {auditLoading ? "Loading…" : "Load more"}
                 </button>

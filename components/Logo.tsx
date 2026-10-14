@@ -52,7 +52,7 @@ export function LogoMark({ className = "", label }: { className?: string; label?
 export default function Logo({ className = "h-6" }: { className?: string }) {
   const id = useId();
   return (
-    <span className="inline-flex items-center whitespace-nowrap text-slate-100">
+    <span className="inline-flex items-center whitespace-nowrap text-fg">
       <svg viewBox="0 0 398.9 73" fill="none" role="img" aria-label="ShiftView" className={`w-auto shrink-0 ${className}`}>
         <g transform="translate(-13.5 -13.5)">
           <MarkShapes gradientId={`${id}mark`} />

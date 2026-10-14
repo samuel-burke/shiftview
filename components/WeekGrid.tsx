@@ -13,6 +13,7 @@ import { dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week-cells";
 import { shortTime } from "./WeekView";
+import { markColor, tint } from "../lib/theme-colors";
 
 /** A pending time-off request as the manager's GET /api/time-off returns it. */
 export type PendingTimeOff = TimeOffRequest & { employeeId: number };
@@ -83,15 +84,15 @@ export default function WeekGrid({
   const weekHours = dayTotals.reduce((n, d) => n + d.hours, 0);
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-card" data-testid="week-grid">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-card" data-testid="week-grid">
       <table className="w-full min-w-[680px] table-fixed border-collapse text-left">
         <colgroup>
           <col className="w-[150px] desk:w-[20%]" />
           {dates.map((d) => <col key={d} />)}
         </colgroup>
         <thead>
-          <tr className="border-b border-slate-800">
-            <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <tr className="border-b border-line">
+            <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
               Team · {employees.length}
             </th>
             {dates.map((date) => {
@@ -99,13 +100,13 @@ export default function WeekGrid({
               const isPicked = date === selectedDate;
               const label = (
                 <>
-                  <span className={`block text-[11px] font-semibold uppercase tracking-wider ${isPicked || isToday ? "text-indigo-300" : "text-slate-400"}`}>
+                  <span className={`block text-[11px] font-semibold uppercase tracking-wider ${isPicked || isToday ? "text-accent-fg-strong" : "text-fg-muted"}`}>
                     {formatDateKey(date, { weekday: "short" })}
                   </span>
-                  <span className={`block text-sm font-bold tabular-nums ${isPicked || isToday ? "text-indigo-200" : "text-slate-200"}`}>
+                  <span className={`block text-sm font-bold tabular-nums ${isPicked || isToday ? "text-accent-fg-max" : "text-fg-body"}`}>
                     {formatDateKey(date, { month: "short", day: "numeric" })}
                   </span>
-                  {isToday && <span aria-hidden="true" className="mx-auto mt-0.5 block size-1 rounded-full bg-indigo-400" />}
+                  {isToday && <span aria-hidden="true" className="mx-auto mt-0.5 block size-1 rounded-full bg-accent-fg" />}
                 </>
               );
               return (
@@ -113,7 +114,7 @@ export default function WeekGrid({
                   key={date}
                   scope="col"
                   aria-current={isToday ? "date" : undefined}
-                  className={`px-1 py-2 text-center ${isPicked ? "bg-indigo-500/[0.07]" : ""}`}
+                  className={`px-1 py-2 text-center ${isPicked ? "bg-accent/[0.07]" : ""}`}
                 >
                   {onSelectDate ? (
                     <button
@@ -122,7 +123,7 @@ export default function WeekGrid({
                       aria-pressed={isPicked}
                       aria-label={`${formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}${isToday ? ", today" : ""}`}
                       className={`w-full min-h-11 rounded-lg py-1 cursor-pointer border transition-colors ${
-                        isPicked ? "bg-indigo-600/25 border-indigo-400" : "bg-transparent border-transparent hover:bg-slate-800/60"
+                        isPicked ? "bg-accent-solid/25 border-accent-fg" : "bg-transparent border-transparent hover:bg-fill/60"
                       }`}
                     >
                       {label}
@@ -143,15 +144,15 @@ export default function WeekGrid({
               return n + (s ? hoursOf(s) : 0);
             }, 0);
             return (
-              <tr key={emp.id} className="border-b border-slate-800/70 last:border-b-0">
+              <tr key={emp.id} className="border-b border-line/70 last:border-b-0">
                 <th scope="row" className="px-4 py-1.5 font-normal">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="size-8 shrink-0 rounded-full border border-slate-700 bg-slate-800 text-[11px] font-bold text-slate-300 flex items-center justify-center">
+                    <span className="size-8 shrink-0 rounded-full border border-line-strong bg-fill text-[11px] font-bold text-fg-secondary flex items-center justify-center">
                       {getMonogram(emp.name)}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-100">{formatDisplayName(emp.name)}</span>
-                      <span className="block text-[11px] text-slate-500 tabular-nums">{fmtHours(weekly)} hrs</span>
+                      <span className="block truncate text-sm font-semibold text-fg">{formatDisplayName(emp.name)}</span>
+                      <span className="block text-[11px] text-fg-subtle tabular-nums">{fmtHours(weekly)} hrs</span>
                     </span>
                   </div>
                 </th>
@@ -197,14 +198,14 @@ export default function WeekGrid({
                   // Clicking a clash opens the draft so it can be removed.
                   const target = isDraftMode ? (clash ? cell.draft : s) : cell.live;
                   return (
-                    <td key={date} className={`p-1 align-middle ${date === selectedDate ? "bg-indigo-500/[0.07]" : ""}`}>
+                    <td key={date} className={`p-1 align-middle ${date === selectedDate ? "bg-accent/[0.07]" : ""}`}>
                       <button
                         type="button"
                         onClick={() => onSelect(emp, date, target)}
                         aria-label={label}
                         aria-pressed={isSel}
                         className={`group relative w-full h-12 rounded-lg text-left px-2 transition-colors cursor-pointer border ${
-                          isSel ? "ring-2 ring-indigo-400 ring-offset-1 ring-offset-bg" : ""
+                          isSel ? "ring-2 ring-accent-fg ring-offset-1 ring-offset-bg" : ""
                         } ${
                           // A live shift in Draft mode reads as muted by its slate
                           // colors, not by fading the whole cell (which took its
@@ -212,14 +213,14 @@ export default function WeekGrid({
                           s
                             ? "border-transparent"
                             : requested
-                            ? "border-dashed border-slate-500 bg-transparent"
-                            : "border-transparent hover:border-slate-700 hover:bg-slate-800/60 focus-visible:border-slate-700"
+                            ? "border-dashed border-line-emphasis bg-transparent"
+                            : "border-transparent hover:border-line-strong hover:bg-fill/60 focus-visible:border-line-strong"
                         }`}
                         style={
                           s
                             ? {
-                                background: `color-mix(in srgb, ${color} ${isLiveContext ? 14 : 18}%, transparent)`,
-                                boxShadow: `inset 3px 0 0 ${clash ? "var(--status-warn)" : color}`,
+                                background: tint(color, isLiveContext ? 14 : 18),
+                                boxShadow: `inset 3px 0 0 ${markColor(clash ? "var(--status-warn)" : color)}`,
                               }
                             : undefined
                         }
@@ -229,7 +230,7 @@ export default function WeekGrid({
                             {/* In a narrow column (tablet portrait) the times wrap after
                                 the dash instead of being cut off; on a tight line, two
                                 of them and the label still fit the 48px cell. */}
-                            <span className={`block text-[12px] leading-tight font-semibold tabular-nums ${isLiveContext ? "text-slate-300" : "text-slate-100"}`}>
+                            <span className={`block text-[12px] leading-tight font-semibold tabular-nums ${isLiveContext ? "text-fg-secondary" : "text-fg"}`}>
                               {shortTime(s.startMinutes)}–{shortTime(s.endMinutes)}
                             </span>
                             {/* A time-off request leads, so a narrow cell that cuts the
@@ -240,9 +241,9 @@ export default function WeekGrid({
                             </span>
                           </>
                         ) : requested ? (
-                          <span className="block text-[11px] font-semibold text-slate-400">Time off requested</span>
+                          <span className="block text-[11px] font-semibold text-fg-muted">Time off requested</span>
                         ) : (
-                          <span aria-hidden="true" className="block text-center text-lg text-slate-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
+                          <span aria-hidden="true" className="block text-center text-lg text-fg-subtle opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
                         )}
                       </button>
                     </td>
@@ -254,18 +255,18 @@ export default function WeekGrid({
         </tbody>
 
         <tfoot>
-          <tr className="border-t border-slate-800">
-            <th scope="row" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <tr className="border-t border-line">
+            <th scope="row" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
               {isDraftMode ? "After publishing" : "Scheduled"}
-              <span className="block normal-case tracking-normal text-sm font-bold text-slate-200 tabular-nums">{fmtHours(weekHours)} hrs</span>
+              <span className="block normal-case tracking-normal text-sm font-bold text-fg-body tabular-nums">{fmtHours(weekHours)} hrs</span>
             </th>
             {dayTotals.map((t, i) => (
-              <td key={dates[i]} className={`px-1.5 py-3 text-center align-bottom ${dates[i] === selectedDate ? "bg-indigo-500/[0.07]" : ""}`}>
+              <td key={dates[i]} className={`px-1.5 py-3 text-center align-bottom ${dates[i] === selectedDate ? "bg-accent/[0.07]" : ""}`}>
                 <div className="mx-auto mb-1.5 h-10 w-6 flex items-end" aria-hidden="true">
-                  <div className="w-full rounded-t bg-blue-500/70" style={{ height: `${(t.hours / maxHours) * 100}%` }} />
+                  <div className="w-full rounded-t bg-info/70" style={{ height: `${(t.hours / maxHours) * 100}%` }} />
                 </div>
-                <div className="text-[12px] font-bold text-slate-200 tabular-nums">{fmtHours(t.hours)}h</div>
-                <div className="text-[11px] text-slate-500 tabular-nums">{t.people} {t.people === 1 ? "person" : "people"}</div>
+                <div className="text-[12px] font-bold text-fg-body tabular-nums">{fmtHours(t.hours)}h</div>
+                <div className="text-[11px] text-fg-subtle tabular-nums">{t.people} {t.people === 1 ? "person" : "people"}</div>
               </td>
             ))}
           </tr>

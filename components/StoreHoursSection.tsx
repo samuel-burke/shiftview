@@ -140,7 +140,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
 
   return (
     <section data-testid="store-hours-section">
-      <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden divide-y divide-slate-800/60">
+      <div className="bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60">
         {orderedDays.map((dow) => {
           const { open, close, saveStatus } = days[dow];
           return (
@@ -149,20 +149,20 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
               data-testid={`day-row-${dow}`}
               onClick={() => openSheet(dow)}
               aria-label={`Edit ${DAY_FULL[dow]} store hours`}
-              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-slate-800/30 transition-colors"
+              className="flex items-center w-full px-4 py-3.5 gap-3 bg-transparent border-none cursor-pointer text-left hover:bg-fill/30 transition-colors"
             >
-              <span className="text-sm font-semibold text-slate-300 w-9 shrink-0">
+              <span className="text-sm font-semibold text-fg-secondary w-9 shrink-0">
                 {DAY_SHORT[dow]}
               </span>
-              <span className="flex-1 text-sm text-slate-200">
+              <span className="flex-1 text-sm text-fg-body">
                 {fmtMinutes(open)} – {fmtMinutes(close)}
               </span>
               <span data-testid={`store-hours-status-${dow}`} role="status" aria-live="polite" aria-atomic="true" className="shrink-0">
-                {saveStatus === "saving" && <span className="text-[11px] text-slate-500">Saving…</span>}
-                {saveStatus === "saved"  && <span className="text-[11px] text-emerald-400">Saved ✓</span>}
-                {saveStatus === "error"  && <span className="text-[11px] text-red-400">Failed to save</span>}
+                {saveStatus === "saving" && <span className="text-[11px] text-fg-subtle">Saving…</span>}
+                {saveStatus === "saved"  && <span className="text-[11px] text-success-fg">Saved ✓</span>}
+                {saveStatus === "error"  && <span className="text-[11px] text-danger-fg">Failed to save</span>}
               </span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-slate-500 shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-fg-subtle shrink-0"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           );
         })}
@@ -173,7 +173,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
         <>
           <div
             aria-hidden="true"
-            className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
+            className={`fixed inset-0 bg-scrim/60 z-40 transition-opacity duration-250 ${sheetOpen ? "opacity-100" : "opacity-0"}`}
             onClick={closeSheet}
           />
 
@@ -182,21 +182,21 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
             aria-modal="true"
             aria-labelledby="store-hours-sheet-title"
             data-testid="store-hours-sheet"
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
+            className={`fixed bottom-0 left-0 right-0 z-50 bg-well border-t border-line rounded-t-3xl max-w-[480px] mx-auto transition-[transform,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] tablet:bottom-auto tablet:top-1/2 tablet:max-w-[520px] tablet:rounded-3xl tablet:border ${sheetOpen ? "translate-y-0 tablet:-translate-y-1/2 tablet:opacity-100" : "translate-y-full tablet:-translate-y-[45%] tablet:opacity-0 tablet:pointer-events-none"}`}
           >
             <div className="flex justify-center pt-3 pb-1 tablet:hidden">
-              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
+              <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-strong" />
             </div>
 
             <div className="px-5 pb-10 pt-2 tablet:px-6 tablet:pt-6 tablet:pb-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
-                <h3 id="store-hours-sheet-title" className="text-lg font-bold text-slate-100">{DAY_FULL[activeDow]}</h3>
+                <h3 id="store-hours-sheet-title" className="text-lg font-bold text-fg">{DAY_FULL[activeDow]}</h3>
                 <button
                   onClick={closeSheet}
                   autoFocus
                   aria-label="Close"
-                  className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                 </button>
@@ -209,10 +209,10 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                   { label: "Close", field: "close" as const, ariaLabel: `${DAY_FULL[activeDow]} close time`, isClose: true  },
                 ] as const).map(({ label, field, ariaLabel, isClose }) => (
                   <div key={field} className="min-w-0 w-full">
-                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    <div className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5">
                       {label}
                     </div>
-                    <div className="w-full rounded-xl overflow-hidden border border-field bg-slate-800 focus-within:border-indigo-500 transition-colors">
+                    <div className="w-full rounded-xl overflow-hidden border border-field bg-fill focus-within:border-accent transition-colors">
                       <input
                         type="time"
                         aria-label={ariaLabel}
@@ -227,7 +227,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                           }));
                         }}
                         onBlur={() => scheduleSave(activeDow)}
-                        className="block w-full min-w-0 bg-transparent px-3 py-3 text-slate-100 text-base outline-none"
+                        className="block w-full min-w-0 bg-transparent px-3 py-3 text-fg text-base outline-none"
                       />
                     </div>
                   </div>
@@ -238,7 +238,7 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
 
               {/* Copy to */}
               <div className="mt-5">
-                <div className="text-xs text-slate-500 mb-2">Apply these hours to:</div>
+                <div className="text-xs text-fg-subtle mb-2">Apply these hours to:</div>
                 <div className="flex flex-col gap-2">
                   {[
                     { key: "weekdays", label: "Weekdays", targets: WEEKDAYS },
@@ -252,8 +252,8 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
                         onClick={() => copyToTarget(activeDow, targets, key)}
                         className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
                           copied
-                            ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-400"
-                            : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-slate-200"
+                            ? "bg-success/40 border-success/50 text-success-fg"
+                            : "bg-fill border-line-strong text-fg-secondary hover:bg-fill-strong hover:border-line-stronger hover:text-fg-body"
                         }`}
                       >
                         {copied ? `✓ ${label} updated` : label}
@@ -266,13 +266,13 @@ export default function StoreHoursSection({ firstDayOfWeek = 0 }: Props) {
               {/* Save status */}
               <div aria-live="polite" aria-atomic="true" className="mt-5 h-5 text-center">
                 {sheetDay?.saveStatus === "saving" && (
-                  <span className="text-sm text-slate-400">Saving…</span>
+                  <span className="text-sm text-fg-muted">Saving…</span>
                 )}
                 {sheetDay?.saveStatus === "saved" && (
-                  <span className="text-sm text-emerald-400">Saved ✓</span>
+                  <span className="text-sm text-success-fg">Saved ✓</span>
                 )}
                 {sheetDay?.saveStatus === "error" && (
-                  <span className="text-sm text-red-400">Failed to save</span>
+                  <span className="text-sm text-danger-fg">Failed to save</span>
                 )}
               </div>
             </div>

@@ -11,6 +11,7 @@ import { useManagerRequests } from "@/hooks/useManagerRequests";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { dateKeyInTz, formatDateKey, formatTimeInTz } from "@/lib/dates";
 import { fmtMinutes, getMonogram, type Employee, type Schedule } from "@/data/types";
+import { markColor } from "@/lib/theme-colors";
 
 type Kind = "timeoff" | "swap" | "correction";
 type Filter = "all" | Kind;
@@ -212,25 +213,25 @@ export default function RequestsPageClient() {
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-dvh tablet:max-w-none tablet:pb-10">
         {/* Header */}
         <div
-          className="px-4 pb-3 flex items-center gap-3 border-b border-slate-800 bg-bg tablet:px-6 desk:py-[14px]"
+          className="px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg tablet:px-6 desk:py-[14px]"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
         >
           <button
             onClick={() => (selected && size === "compact" ? setSelectedKey(null) : router.back())}
             aria-label="Back"
-            className="tablet:hidden size-11 rounded-xl bg-card border border-slate-800 text-slate-400 flex items-center justify-center cursor-pointer shrink-0 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="tablet:hidden size-11 rounded-xl bg-card border border-line text-fg-muted flex items-center justify-center cursor-pointer shrink-0 hover:bg-fill hover:text-fg-body transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-          <h1 className="flex-1 text-xl font-extrabold text-slate-100 tracking-tight">
+          <h1 className="flex-1 text-xl font-extrabold text-fg tracking-tight">
             Requests
             {items.length > 0 && (
-              <span className="ml-2 align-middle text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5 tabular-nums">
+              <span className="ml-2 align-middle text-xs font-bold text-warning-fg bg-warning/10 border border-warning/30 rounded-full px-2 py-0.5 tabular-nums">
                 {items.length}
               </span>
             )}
           </h1>
-          <span className="hidden desk:block text-xs text-slate-500">
+          <span className="hidden desk:block text-xs text-fg-subtle">
             <kbd className="font-mono">↑</kbd> <kbd className="font-mono">↓</kbd> move · <kbd className="font-mono">A</kbd> approve · <kbd className="font-mono">D</kbd> deny
           </span>
         </div>
@@ -250,8 +251,8 @@ export default function RequestsPageClient() {
                 aria-pressed={filter === f.key}
                 className={`shrink-0 flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition-colors cursor-pointer border ${
                   filter === f.key
-                    ? "bg-indigo-600/20 border-indigo-500/30 text-indigo-300"
-                    : "bg-card border-slate-800 text-slate-400 hover:text-slate-200 desk:bg-transparent desk:border-transparent desk:hover:bg-slate-800"
+                    ? "bg-accent-solid/20 border-accent/30 text-accent-fg-strong"
+                    : "bg-card border-line text-fg-muted hover:text-fg-body desk:bg-transparent desk:border-transparent desk:hover:bg-fill"
                 }`}
               >
                 {f.label}
@@ -267,12 +268,12 @@ export default function RequestsPageClient() {
               className={`flex flex-col gap-2 ${showListOnPhone ? "" : "hidden tablet:flex"} desk:self-start`}
             >
               {!requests.loaded && (
-                <li className="text-sm text-slate-500 px-1 py-6" aria-busy="true">Loading requests…</li>
+                <li className="text-sm text-fg-subtle px-1 py-6" aria-busy="true">Loading requests…</li>
               )}
               {requests.loaded && visible.length === 0 && (
-                <li className="rounded-2xl border border-dashed border-slate-700 px-5 py-10 text-center">
-                  <div className="text-sm font-semibold text-slate-200">Nothing waiting on you</div>
-                  <div className="mt-1 text-xs text-slate-500">New time off, swaps and punch corrections show up here.</div>
+                <li className="rounded-2xl border border-dashed border-line-strong px-5 py-10 text-center">
+                  <div className="text-sm font-semibold text-fg-body">Nothing waiting on you</div>
+                  <div className="mt-1 text-xs text-fg-subtle">New time off, swaps and punch corrections show up here.</div>
                 </li>
               )}
               {visible.map((item) => {
@@ -283,16 +284,16 @@ export default function RequestsPageClient() {
                       onClick={() => setSelectedKey(item.key)}
                       aria-current={isSel ? "true" : undefined}
                       className={`w-full text-left rounded-xl border px-3.5 py-3 flex items-center gap-3 cursor-pointer transition-colors ${
-                        isSel ? "bg-indigo-600/15 border-indigo-500/40" : "bg-card border-slate-800 hover:border-slate-700"
+                        isSel ? "bg-accent-solid/15 border-accent/40" : "bg-card border-line hover:border-line-strong"
                       }`}
-                      style={{ boxShadow: `inset 3px 0 0 ${KIND_COLOR[item.kind]}` }}
+                      style={{ boxShadow: `inset 3px 0 0 ${markColor(KIND_COLOR[item.kind])}` }}
                     >
-                      <span className="size-9 shrink-0 rounded-full border border-slate-700 bg-slate-800 text-[11px] font-bold text-slate-300 flex items-center justify-center">
+                      <span className="size-9 shrink-0 rounded-full border border-line-strong bg-fill text-[11px] font-bold text-fg-secondary flex items-center justify-center">
                         {getMonogram(item.employeeNames[0] ?? "?")}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-slate-100">{item.title}</span>
-                        <span className="block truncate text-xs text-slate-400">{item.summary}</span>
+                        <span className="block truncate text-sm font-semibold text-fg">{item.title}</span>
+                        <span className="block truncate text-xs text-fg-muted">{item.summary}</span>
                       </span>
                       <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider" style={{ color: KIND_COLOR[item.kind] }}>
                         {KIND_TAG[item.kind]}
@@ -310,39 +311,39 @@ export default function RequestsPageClient() {
               data-testid="request-detail"
             >
               {selected ? (
-                <div className="rounded-2xl border border-slate-800 bg-card p-5 tablet:p-6 flex flex-col gap-5">
+                <div className="rounded-2xl border border-line bg-card p-5 tablet:p-6 flex flex-col gap-5">
                   <div>
                     <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: KIND_COLOR[selected.kind] }}>
                       {KIND_LABEL[selected.kind]}
                     </div>
-                    <h2 className="mt-1 text-lg font-extrabold text-slate-100">{selected.title}</h2>
+                    <h2 className="mt-1 text-lg font-extrabold text-fg">{selected.title}</h2>
                   </div>
 
                   <dl className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
                     {selected.detail.map((d) => (
-                      <div key={d.label} className="rounded-xl bg-slate-800/40 border border-slate-800 px-3.5 py-2.5 min-w-0">
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{d.label}</dt>
-                        <dd className="text-sm font-semibold text-slate-100 break-words">{d.value}</dd>
+                      <div key={d.label} className="rounded-xl bg-fill/40 border border-line px-3.5 py-2.5 min-w-0">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">{d.label}</dt>
+                        <dd className="text-sm font-semibold text-fg break-words">{d.value}</dd>
                       </div>
                     ))}
                   </dl>
 
                   {selected.note && (
-                    <blockquote className="rounded-xl border-l-2 border-slate-600 bg-slate-800/30 px-4 py-3 text-sm text-slate-300">
+                    <blockquote className="rounded-xl border-l-2 border-line-stronger bg-fill/30 px-4 py-3 text-sm text-fg-secondary">
                       “{selected.note}”
                     </blockquote>
                   )}
 
                   {selected.date && (
                     <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle mb-2">
                         On the schedule {shortDate(selected.date)}
-                        {dayList && <span className="ml-1 normal-case tracking-normal text-slate-400">· {dayList.length} {dayList.length === 1 ? "shift" : "shifts"}</span>}
+                        {dayList && <span className="ml-1 normal-case tracking-normal text-fg-muted">· {dayList.length} {dayList.length === 1 ? "shift" : "shifts"}</span>}
                       </div>
                       {dayList === null ? (
-                        <div className="text-xs text-slate-500">Loading…</div>
+                        <div className="text-xs text-fg-subtle">Loading…</div>
                       ) : dayList.length === 0 ? (
-                        <div className="text-xs text-slate-500">No one is scheduled that day.</div>
+                        <div className="text-xs text-fg-subtle">No one is scheduled that day.</div>
                       ) : (
                         <ul className="flex flex-col gap-1">
                           {dayList.map((s) => {
@@ -352,7 +353,7 @@ export default function RequestsPageClient() {
                               <li
                                 key={s.id}
                                 className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-sm ${
-                                  involved ? "bg-amber-500/10 text-amber-300 font-semibold" : "text-slate-300"
+                                  involved ? "bg-warning/10 text-warning-fg-strong font-semibold" : "text-fg-secondary"
                                 }`}
                               >
                                 <span className="truncate">{name}</span>
@@ -368,20 +369,20 @@ export default function RequestsPageClient() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => decide(selected, "denied")}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/25 cursor-pointer hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 py-3 rounded-xl text-sm font-bold text-danger-fg bg-danger/10 border border-danger/25 cursor-pointer hover:bg-danger/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Deny
                     </button>
                     <button
                       onClick={() => decide(selected, "approved")}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent cursor-pointer hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 py-3 rounded-xl text-sm font-bold text-on-accent bg-gradient-to-r from-brand-from to-brand-to border border-transparent cursor-pointer hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Approve
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-slate-800 px-6 py-16 text-center text-sm text-slate-500">
+                <div className="rounded-2xl border border-dashed border-line px-6 py-16 text-center text-sm text-fg-subtle">
                   Pick a request to see the details.
                 </div>
               )}

@@ -11,6 +11,7 @@ import type { PlannerEmployee } from "../AutoScheduleSheet";
 import WeekCoverageHeatmap from "../WeekCoverageHeatmap";
 import DraftHoursPanel from "../DraftHoursPanel";
 import { SkeletonBudgetChart } from "../Skeleton";
+import { tint } from "../../lib/theme-colors";
 
 // The Week page's coverage tools, for whichever week the mode shows: the live
 // shifts in Live, the week after publishing in Draft. They take any shifts.
@@ -45,11 +46,11 @@ function StatCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
-      style={{ border: `1px solid color-mix(in srgb, ${color} 20%, transparent)` }}
+      style={{ border: `1px solid ${tint(color, 20)}` }}
     >
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, color-mix(in srgb, ${color} 4%, transparent) 0%, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${tint(color, 4)} 0%, transparent 70%)` }}
       />
       {loading ? (
         // The value's own box: a 22px line (text-[22px] leading-none).
@@ -64,7 +65,7 @@ function StatCard({
           {suffix && <span className="text-[11px] font-bold" style={{ color }}>{suffix}</span>}
         </div>
       )}
-      <div className="text-[11px] text-slate-400 mt-1 font-medium relative">{label}</div>
+      <div className="text-[11px] text-fg-muted mt-1 font-medium relative">{label}</div>
     </motion.div>
   );
 }
@@ -164,11 +165,11 @@ export default function WeekInsights({
         <motion.div
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 tablet:col-span-2"
+          className="mb-4 px-3.5 py-2.5 rounded-xl bg-warning/10 border border-warning/25 tablet:col-span-2"
           data-testid="understaffed-alerts"
         >
           {(alertsExpanded ? alerts : alerts.slice(0, 1)).map((a) => (
-            <div key={a.key} className="flex items-center gap-2 text-xs text-amber-400 py-0.5">
+            <div key={a.key} className="flex items-center gap-2 text-xs text-warning-fg py-0.5">
               <span aria-hidden="true">⚠</span> {a.text}
             </div>
           ))}
@@ -176,7 +177,7 @@ export default function WeekInsights({
             <button
               type="button"
               onClick={() => setAlertsExpanded((v) => !v)}
-              className="min-h-8 -mb-1.5 text-[11px] font-semibold text-amber-300 hover:text-amber-200 bg-transparent border-none cursor-pointer p-0"
+              className="min-h-8 -mb-1.5 text-[11px] font-semibold text-warning-fg-strong hover:text-warning-fg-max bg-transparent border-none cursor-pointer p-0"
             >
               {alertsExpanded ? "Show less" : `${alerts.length - 1} more alert${alerts.length - 1 === 1 ? "" : "s"} →`}
             </button>

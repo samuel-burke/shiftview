@@ -29,33 +29,33 @@ export default function AnnouncementsFeed({
 }) {
   return (
     <div data-testid="announcements-feed" className="flex flex-col gap-3">
-      <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Announcements</div>
+      <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">Announcements</div>
 
       {announcements.length === 0 ? (
-        <div className="text-center py-6 text-slate-400 text-sm">No announcements</div>
+        <div className="text-center py-6 text-fg-muted text-sm">No announcements</div>
       ) : (
         announcements.map((a) => (
           <div
             key={a.id}
             data-testid={`announcement-${a.id}`}
-            className="rounded-2xl bg-card border border-slate-800/60 px-4 py-3"
+            className="rounded-2xl bg-card border border-line/60 px-4 py-3"
           >
             <div className="flex items-start justify-between gap-2">
-              <div className="text-sm font-bold text-slate-100">{a.title}</div>
+              <div className="text-sm font-bold text-fg">{a.title}</div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-slate-500">{formatWhen(a.createdAt)}</span>
+                <span className="text-[11px] text-fg-subtle">{formatWhen(a.createdAt)}</span>
                 {canManage && onDelete && (
                   <button
                     onClick={() => onDelete(a.id)}
                     aria-label={`Delete announcement ${a.title}`}
-                    className="text-[11px] font-semibold text-red-400 cursor-pointer bg-transparent border-none hover:text-red-300"
+                    className="text-[11px] font-semibold text-danger-fg cursor-pointer bg-transparent border-none hover:text-danger-fg-strong"
                   >
                     Remove
                   </button>
                 )}
               </div>
             </div>
-            <div className="text-sm text-slate-300 mt-1 whitespace-pre-wrap">{a.body}</div>
+            <div className="text-sm text-fg-secondary mt-1 whitespace-pre-wrap">{a.body}</div>
           </div>
         ))
       )}

@@ -17,6 +17,7 @@ import {
   ChessPieceIcon,
 } from "./ShiftIcons";
 import { nativeAnchoring } from "@/lib/scroll-anchor";
+import { tint } from "@/lib/theme-colors";
 
 type Notification = {
   id: number;
@@ -281,10 +282,10 @@ export default function NotificationBell() {
     <div className="relative" ref={panelRef}>
       <motion.button
         onClick={() => { setOpen((v) => !v); if (!open) markAllRead(); }}
-        whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.2)" }}
+        whileHover={{ scale: 1.08, boxShadow: `0 0 12px ${tint("var(--color-accent)", 20)}` }}
         whileTap={{ scale: 0.9 }}
         transition={{ type: "spring", stiffness: 450, damping: 25 }}
-        className="relative size-11 flex items-center justify-center rounded-xl bg-card border border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
+        className="relative size-11 flex items-center justify-center rounded-xl bg-card border border-line text-fg-muted hover:text-fg-body cursor-pointer transition-colors"
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -303,7 +304,7 @@ export default function NotificationBell() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 500, damping: 22 }}
-              className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center"
+              className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-danger-solid text-on-accent text-[10px] font-bold flex items-center justify-center"
             >
               {unread > 99 ? "99+" : unread}
             </motion.span>
@@ -322,17 +323,17 @@ export default function NotificationBell() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.97 }}
           transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="absolute right-0 top-11 w-80 max-h-[480px] bg-card border border-slate-800 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden"
-          style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)" }}
+          className="absolute right-0 top-11 w-80 max-h-[480px] bg-card border border-line rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden"
+          style={{ boxShadow: "var(--shadow-popover)" }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-            <span className="text-sm font-bold text-slate-100">Notifications</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <span className="text-sm font-bold text-fg">Notifications</span>
             <div className="flex items-center gap-2">
               {unread > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors py-1.5 px-1 -mx-1"
+                  className="text-xs text-fg-muted hover:text-fg-body cursor-pointer transition-colors py-1.5 px-1 -mx-1"
                 >
                   Mark all read
                 </button>
@@ -340,7 +341,7 @@ export default function NotificationBell() {
               {notifications.length > 0 && (
                 <button
                   onClick={clearAll}
-                  className="text-xs text-slate-400 hover:text-red-400 cursor-pointer transition-colors py-1.5 px-1 -mx-1"
+                  className="text-xs text-fg-muted hover:text-danger-fg cursor-pointer transition-colors py-1.5 px-1 -mx-1"
                 >
                   Clear all
                 </button>
@@ -355,7 +356,7 @@ export default function NotificationBell() {
               // time) rather than a spinner, so the list fills in place.
               <div role="status" aria-label="Loading notifications">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} aria-hidden="true" className="px-4 py-3 border-b border-slate-800/50 flex gap-3">
+                  <div key={i} aria-hidden="true" className="px-4 py-3 border-b border-line/50 flex gap-3">
                     <span className="shrink-0 pt-0.5"><span className="skeleton block size-4 rounded" /></span>
                     <div className="flex-1 min-w-0">
                       <div className="h-5 flex items-center"><div className="skeleton h-3.5 w-1/2 rounded" /></div>
@@ -370,7 +371,7 @@ export default function NotificationBell() {
               </div>
             )}
             {!loading && notifications.length === 0 && (
-              <div className="text-center py-10 text-sm text-slate-500">No notifications yet</div>
+              <div className="text-center py-10 text-sm text-fg-subtle">No notifications yet</div>
             )}
             {notifications.map((n) => {
               const isMsg = n.type === "message" && !!n.data?.fromUserId;
@@ -379,14 +380,14 @@ export default function NotificationBell() {
                 <div
                   key={n.id}
                   data-notif-id={n.id}
-                  className={`px-4 py-3 border-b border-slate-800/50 flex gap-3 ${n.read ? "opacity-60" : ""}`}
+                  className={`px-4 py-3 border-b border-line/50 flex gap-3 ${n.read ? "opacity-60" : ""}`}
                 >
                   <span className="shrink-0 flex items-center pt-0.5"><NotifIcon type={n.type} /></span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-slate-100 truncate">{n.title}</div>
-                    <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
+                    <div className="text-sm font-semibold text-fg truncate">{n.title}</div>
+                    <div className="text-xs text-fg-muted mt-0.5 line-clamp-2">{n.body}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] text-slate-500">{timeAgo(n.created_at)}</span>
+                      <span className="text-[11px] text-fg-subtle">{timeAgo(n.created_at)}</span>
                       {(isMsg || isChess) && (
                         <button
                           onClick={() => {
@@ -397,7 +398,7 @@ export default function NotificationBell() {
                             });
                             setOpen(false);
                           }}
-                          className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium flex items-center gap-0.5 transition-colors py-2 -my-2 pr-1"
+                          className="text-[11px] text-accent-fg hover:text-accent-fg-strong cursor-pointer font-medium flex items-center gap-0.5 transition-colors py-2 -my-2 pr-1"
                         >
                           {isChess ? "Open game" : "Reply"}
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -407,12 +408,12 @@ export default function NotificationBell() {
                   </div>
                   <div className="flex flex-col items-center gap-1 shrink-0">
                     {!n.read && (
-                      <span aria-hidden="true" className="size-2 rounded-full bg-indigo-500" />
+                      <span aria-hidden="true" className="size-2 rounded-full bg-accent" />
                     )}
                     <button
                       onClick={() => dismissOne(n.id)}
                       aria-label={`Dismiss: ${n.title}`}
-                      className="text-slate-400 hover:text-slate-200 cursor-pointer leading-none flex items-center justify-center size-8 rounded transition-colors"
+                      className="text-fg-muted hover:text-fg-body cursor-pointer leading-none flex items-center justify-center size-8 rounded transition-colors"
                     >
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
                     </button>

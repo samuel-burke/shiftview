@@ -53,7 +53,8 @@ export default function RootLayout({
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}
         {supabaseOrigin && <link rel="dns-prefetch" href={supabaseOrigin} />}
         <link rel="apple-touch-icon" sizes="180x180" href="/icon-apple-180.png" />
-        <meta name="theme-color" content="#0a1628" />
+        {/* Dark --color-bg, for the first paint; ThemeProvider sets the theme's own. */}
+        <meta name="theme-color" content="#080f1e" />
         <meta name="screen-orientation" content="portrait" />
         <meta
           name="viewport"

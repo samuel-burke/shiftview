@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { Schedule, PunchRecord, isHere } from "../data/types";
 import { CoverageBlock, targetAt } from "../lib/coverage";
-import { useTheme } from "./ThemeProvider";
+import { CHART_TOOLTIP_STYLE } from "@/lib/theme-colors";
 import { DEFAULT_TIMEZONE, getLocalMinutes } from "@/lib/dates";
 
 type Props = {
@@ -47,7 +47,7 @@ function fmtMinutes(m: number): string {
 // the whole chart every frame for as long as the dashboard was open, while a
 // CSS transform/opacity animation runs on the compositor. The dot reports its
 // position (in SVG coordinates) so the ring can sit on it.
-function NowDot({ cx, cy, color = "var(--status-ok-mark)", onPlace }: {
+function NowDot({ cx, cy, color = "var(--chart-actual)", onPlace }: {
   cx?: number;
   cy?: number;
   color?: string;
@@ -76,9 +76,6 @@ function CoverageTimeline({
   timezone = DEFAULT_TIMEZONE,
   targetBlocks,
 }: Props) {
-  const { mode } = useTheme();
-  const isLight = mode === "light" ||
-    (mode === "system" && typeof window !== "undefined" && !window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const range = closeMinutes - openMinutes;
 
@@ -240,7 +237,7 @@ function CoverageTimeline({
 
   if (range === 0) return null;
 
-  const nowDotColor = nowDataPoint?.actual != null ? "var(--status-ok-mark)" : "var(--status-blue)";
+  const nowDotColor = nowDataPoint?.actual != null ? "var(--chart-actual)" : "var(--chart-scheduled)";
 
   const nowPct = (Math.min(Math.max(nowMinutes, openMinutes), closeMinutes) - openMinutes) / range; // 0–1
   // Pixel position of the badge within the container
@@ -261,14 +258,14 @@ function CoverageTimeline({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="bg-card rounded-2xl pt-4 px-[10px] pb-[10px] mb-4"
-      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
       {/* On a phone the title and three legend pills don't fit side by side
           (squeezed, the pills broke their own labels), so the legend has its
           own row under the title there, whichever pills are showing. From
           tablets up they share one line. SkeletonTimeline matches. */}
       <div aria-hidden="true" className="flex flex-col gap-1 mb-3 pl-1.5 pr-1 tablet:flex-row tablet:items-center tablet:justify-between">
-        <p className="text-[11px] font-bold tracking-[0.1em] text-slate-400 uppercase">
+        <p className="text-[11px] font-bold tracking-[0.1em] text-fg-muted uppercase">
           Coverage Timeline
         </p>
         <div className="flex items-center gap-2 whitespace-nowrap">
@@ -277,11 +274,11 @@ function CoverageTimeline({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1, duration: 0.25 }}
-              className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40"
+              className="flex items-center gap-1.5 text-[10px] text-fg-muted bg-fill/60 px-2 py-0.5 rounded-full border border-line-strong/40"
             >
               <span
                 className="inline-block w-2.5 h-0.5 rounded-full"
-                style={{ backgroundImage: "repeating-linear-gradient(90deg, var(--status-info) 0 3px, transparent 3px 5px)" }}
+                style={{ backgroundImage: "repeating-linear-gradient(90deg, var(--chart-target) 0 3px, transparent 3px 5px)" }}
               />
               Target
             </motion.span>
@@ -290,9 +287,9 @@ function CoverageTimeline({
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15, duration: 0.25 }}
-            className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40"
+            className="flex items-center gap-1.5 text-[10px] text-fg-muted bg-fill/60 px-2 py-0.5 rounded-full border border-line-strong/40"
           >
-            <span className="inline-block w-2.5 h-0.5 rounded-full bg-blue-500" />
+            <span className="inline-block w-2.5 h-0.5 rounded-full bg-info" />
             Scheduled
           </motion.span>
           {actualByPoint && (
@@ -300,9 +297,9 @@ function CoverageTimeline({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.22, duration: 0.25 }}
-              className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40"
+              className="flex items-center gap-1.5 text-[10px] text-fg-muted bg-fill/60 px-2 py-0.5 rounded-full border border-line-strong/40"
             >
-              <span className="inline-block w-2.5 h-0.5 rounded-full bg-green-500" />
+              <span className="inline-block w-2.5 h-0.5 rounded-full bg-ok" />
               Clocked In
             </motion.span>
           )}
@@ -332,36 +329,30 @@ function CoverageTimeline({
           >
             <defs>
               <linearGradient id="covGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--status-blue)" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="var(--status-blue)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-scheduled)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="var(--chart-scheduled)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--status-ok-mark)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="var(--status-ok-mark)" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-actual)" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="var(--chart-actual)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
               dataKey="label"
-              tick={{ fill: "var(--status-muted)", fontSize: 10 }}
+              tick={{ fill: "var(--chart-axis)", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               ticks={ticks}
             />
             <YAxis
-              tick={{ fill: "var(--status-muted)", fontSize: 10 }}
+              tick={{ fill: "var(--chart-axis)", fontSize: 10 }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
             />
             <Tooltip
               wrapperStyle={showTooltip ? undefined : { display: "none" }}
-              contentStyle={{
-                background: isLight ? "#ffffff" : "#0f172a",
-                border: isLight ? "1px solid #e2e8f0" : "1px solid #334155",
-                borderRadius: 8,
-                fontSize: 12,
-                color: isLight ? "#0f172a" : "#f1f5f9",
-              }}
+              contentStyle={CHART_TOOLTIP_STYLE}
               formatter={(v, name) => {
                 if (name === "staff") return [`${v} scheduled`, "Scheduled"];
                 if (name === "actual") return [`${v} clocked in`, "Actual"];
@@ -373,7 +364,7 @@ function CoverageTimeline({
               <Line
                 type="stepAfter"
                 dataKey="target"
-                stroke="var(--status-info)"
+                stroke="var(--chart-target)"
                 strokeWidth={2}
                 strokeDasharray="5 4"
                 dot={false}
@@ -384,7 +375,7 @@ function CoverageTimeline({
             <Area
               type="monotone"
               dataKey="staff"
-              stroke="var(--status-blue)"
+              stroke="var(--chart-scheduled)"
               strokeWidth={2.5}
               fill="url(#covGrad)"
               dot={false}
@@ -395,7 +386,7 @@ function CoverageTimeline({
             <Area
               type="monotone"
               dataKey="actual"
-              stroke="var(--status-ok-mark)"
+              stroke="var(--chart-actual)"
               strokeWidth={2.5}
               fill="url(#actualGrad)"
               dot={false}
@@ -434,7 +425,7 @@ function CoverageTimeline({
             ref={badgeRef}
             data-testid="now-badge"
             aria-hidden="true"
-            className="absolute bg-slate-800 border border-slate-700 rounded-md px-[7px] py-[2px] text-[11px] font-bold text-slate-200 whitespace-nowrap pointer-events-none -translate-x-1/2"
+            className="absolute bg-fill border border-line-strong rounded-md px-[7px] py-[2px] text-[11px] font-bold text-fg-body whitespace-nowrap pointer-events-none -translate-x-1/2"
             style={{ left: badgeLeft, top: lineTop - 24 }}
           >
             {timeStr}

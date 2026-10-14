@@ -6,8 +6,8 @@ import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnsti
 import { Arrow, primaryBtn } from "./ui";
 
 const field =
-  "w-full rounded-lg border border-field bg-card px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30";
-const label = "mb-1.5 block text-sm font-medium text-slate-200";
+  "w-full rounded-lg border border-field bg-card px-3.5 py-2.5 text-fg placeholder:text-fg-subtle transition-colors focus:border-info focus:outline-none focus:ring-2 focus:ring-info/30";
+const label = "mb-1.5 block text-sm font-medium text-fg-body";
 
 const noSubscribe = () => () => {};
 
@@ -88,14 +88,14 @@ export default function ContactForm() {
 
   if (status === "sent") {
     return (
-      <div role="status" className="rounded-2xl border border-slate-800 bg-card p-8 text-center">
-        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-green-500/15 text-green-500">
+      <div role="status" className="rounded-2xl border border-line bg-card p-8 text-center">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-ok/15 text-ok-fg">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
-        <h2 className="mt-4 text-lg font-semibold text-slate-100">Message sent</h2>
-        <p className="mt-1.5 text-sm text-slate-400">Thanks for reaching out. We&rsquo;ll reply to the email you gave us.</p>
+        <h2 className="mt-4 text-lg font-semibold text-fg">Message sent</h2>
+        <p className="mt-1.5 text-sm text-fg-muted">Thanks for reaching out. We&rsquo;ll reply to the email you gave us.</p>
       </div>
     );
   }
@@ -119,8 +119,8 @@ export default function ContactForm() {
           {CONTACT_TOPICS.map((t) => (
             <label
               key={t}
-              className={`flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-500/50 ${
-                topic === t ? "border-blue-500 bg-blue-500/10 text-slate-100" : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+              className={`flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-info/50 ${
+                topic === t ? "border-info bg-info/10 text-fg" : "border-line-strong text-fg-muted hover:border-line-emphasis hover:text-fg-body"
               }`}
             >
               <input type="radio" name="topic" value={t} checked={topic === t} onChange={() => setTopic(t)} className="sr-only" />
@@ -153,7 +153,7 @@ export default function ContactForm() {
       {TURNSTILE_SITE_KEY && <div ref={widgetRef} className="min-h-[65px]" />}
 
       {error && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-400">
+        <div role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-sm text-danger-fg">
           {error}
         </div>
       )}

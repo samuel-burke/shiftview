@@ -39,16 +39,16 @@ function typingInField(target: EventTarget | null): boolean {
 function Section({ title, shortcuts }: { title: string; shortcuts: Shortcut[] }) {
   return (
     <section>
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">{title}</h3>
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted mb-2">{title}</h3>
       <dl className="flex flex-col gap-1.5">
         {shortcuts.map((s) => (
           <div key={s.action} className="flex items-center justify-between gap-4">
-            <dt className="text-sm text-slate-200">{s.action}</dt>
+            <dt className="text-sm text-fg-body">{s.action}</dt>
             <dd className="flex gap-1 shrink-0">
               {s.keys.map((k) => (
                 <kbd
                   key={k}
-                  className="min-w-7 px-1.5 py-0.5 rounded-md border border-slate-700 border-b-2 bg-slate-800 text-center font-mono text-xs text-slate-100"
+                  className="min-w-7 px-1.5 py-0.5 rounded-md border border-line-strong border-b-2 bg-fill text-center font-mono text-xs text-fg"
                 >
                   {k}
                 </kbd>
@@ -109,20 +109,20 @@ export default function KeyboardShortcuts({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <div aria-hidden="true" className="absolute inset-0 bg-black/60" onClick={() => onOpenChange(false)} />
+      <div aria-hidden="true" className="absolute inset-0 bg-scrim/60" onClick={() => onOpenChange(false)} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="shortcuts-title"
-        className="relative w-full max-w-[420px] rounded-2xl border border-slate-800 bg-bg p-6 shadow-2xl flex flex-col gap-5"
+        className="relative w-full max-w-[420px] rounded-2xl border border-line bg-bg p-6 shadow-2xl flex flex-col gap-5"
       >
         <div className="flex items-center justify-between">
-          <h2 id="shortcuts-title" className="text-lg font-extrabold text-slate-100">Keyboard shortcuts</h2>
+          <h2 id="shortcuts-title" className="text-lg font-extrabold text-fg">Keyboard shortcuts</h2>
           <button
             ref={closeRef}
             onClick={() => onOpenChange(false)}
             aria-label="Close"
-            className="size-9 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 flex items-center justify-center cursor-pointer"
+            className="size-9 rounded-lg text-fg-muted hover:text-fg hover:bg-fill flex items-center justify-center cursor-pointer"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>

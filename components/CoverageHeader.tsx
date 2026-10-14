@@ -9,6 +9,7 @@ import NotificationBell from "./NotificationBell";
 import { WarningIcon, CalendarIcon, LockIcon, TimeOffApprovedIcon } from "./ShiftIcons";
 import Logo from "@/components/Logo";
 import DemoBanner from "./DemoBanner";
+import { tint } from "@/lib/theme-colors";
 
 type Props = {
   date: Date;
@@ -36,9 +37,9 @@ function NavButton({ onClick, label, children }: { onClick: () => void; label: s
       onClick={onClick}
       aria-label={label}
       whileTap={{ scale: 0.88 }}
-      whileHover={{ scale: 1.08, boxShadow: "0 0 12px rgba(99,102,241,0.25)" }}
+      whileHover={{ scale: 1.08, boxShadow: `0 0 12px ${tint("var(--color-accent)", 25)}` }}
       transition={{ type: "spring", stiffness: 450, damping: 25 }}
-      className="size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0"
+      className="size-11 rounded-full bg-fill border border-line-strong text-fg-muted text-base cursor-pointer flex items-center justify-center shrink-0"
     >
       {children}
     </motion.button>
@@ -78,16 +79,16 @@ export default function CoverageHeader({
 
   const alertConfig = (() => {
     if (isPast || isFuture)
-      return { icon: <CalendarIcon size={13} color="var(--status-muted)" />, message: isPast ? "Viewing past schedule" : "Viewing future schedule", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "var(--status-muted)" };
+      return { icon: <CalendarIcon size={13} color="var(--status-muted)" />, message: isPast ? "Viewing past schedule" : "Viewing future schedule", bg: tint("var(--status-muted)", 12), border: tint("var(--status-muted)", 30), text: "var(--status-muted)" };
     if (coverageStatus === "closed")
-      return { icon: <LockIcon size={13} color="var(--status-muted)" />, message: "Store closed", bg: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)", text: "var(--status-muted)" };
+      return { icon: <LockIcon size={13} color="var(--status-muted)" />, message: "Store closed", bg: tint("var(--status-muted)", 12), border: tint("var(--status-muted)", 30), text: "var(--status-muted)" };
     if (coverageStatus === "critical")
-      return { icon: <WarningIcon size={13} color="var(--status-bad)" />, message: `Critically below coverage target — ${hereCount} here now`, bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", text: "var(--status-bad)" };
+      return { icon: <WarningIcon size={13} color="var(--status-bad)" />, message: `Critically below coverage target — ${hereCount} here now`, bg: tint("var(--color-danger)", 12), border: tint("var(--color-danger)", 30), text: "var(--status-bad)" };
     if (coverageStatus === "low")
-      return { icon: <WarningIcon size={13} color="var(--status-caution)" />, message: `Below coverage target — ${hereCount} here now`, bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", text: "var(--status-caution)" };
+      return { icon: <WarningIcon size={13} color="var(--status-caution)" />, message: `Below coverage target — ${hereCount} here now`, bg: tint("var(--color-warning)", 12), border: tint("var(--color-warning)", 30), text: "var(--status-caution)" };
     // On target: a calm status rather than nothing, so the line is there in
     // every state and the dashboard under it never moves when it changes.
-    return { icon: <TimeOffApprovedIcon size={13} color="var(--status-ok-mark)" />, message: `On target — ${hereCount} here now`, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.22)", text: "var(--status-ok)", calm: true };
+    return { icon: <TimeOffApprovedIcon size={13} color="var(--status-ok-mark)" />, message: `On target — ${hereCount} here now`, bg: tint("var(--color-ok)", 8), border: tint("var(--color-ok)", 22), text: "var(--status-ok)", calm: true };
   })();
 
   const alertKey = alertConfig.message;
@@ -110,18 +111,18 @@ export default function CoverageHeader({
           aria-label={`${dateLabel}, ${dayName}. Open date picker`}
           aria-expanded={pickerOpen}
           aria-haspopup="dialog"
-          whileHover={{ scale: 1.04, boxShadow: "0 0 16px rgba(99,102,241,0.25)" }}
+          whileHover={{ scale: 1.04, boxShadow: `0 0 16px ${tint("var(--color-accent)", 25)}` }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className="flex items-center gap-1.5 h-11 bg-slate-800/70 border border-slate-700/60 rounded-xl px-4 cursor-pointer"
+          className="flex items-center gap-1.5 h-11 bg-fill/70 border border-line-strong/60 rounded-xl px-4 cursor-pointer"
         >
-          <span className="text-base font-bold text-slate-100 tracking-tight">{dateLabel}</span>
+          <span className="text-base font-bold text-fg tracking-tight">{dateLabel}</span>
           <motion.span
             animate={{ rotate: pickerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 22 }}
             className="inline-block"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-blue-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-info-fg"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </motion.span>
         </motion.button>
         <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
@@ -129,11 +130,11 @@ export default function CoverageHeader({
       {!isToday && !todayInStatusLine && (
         <motion.button
           onClick={onNow}
-          whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(99,102,241,0.35)" }}
+          whileHover={{ scale: 1.02, boxShadow: `0 0 20px ${tint("var(--color-accent)", 35)}` }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="w-full py-3 rounded-xl text-sm font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/25 cursor-pointer"
-          style={{ boxShadow: "0 0 12px rgba(99,102,241,0.12)" }}
+          className="w-full py-3 rounded-xl text-sm font-bold text-accent-fg-strong bg-accent/10 border border-accent/25 cursor-pointer"
+          style={{ boxShadow: `0 0 12px ${tint("var(--color-accent)", 12)}` }}
         >
           Back to Today
         </motion.button>
@@ -154,9 +155,9 @@ export default function CoverageHeader({
         transition={{ type: "spring", stiffness: 400, damping: 28 }}
         className="text-center bg-transparent border-none cursor-pointer px-2"
       >
-        <div className="text-lg font-extrabold text-slate-100 tracking-tight flex items-center gap-1.5">
+        <div className="text-lg font-extrabold text-fg tracking-tight flex items-center gap-1.5">
           {dateLabel}
-          <span className="text-[13px] text-blue-400 font-normal">▾</span>
+          <span className="text-[13px] text-info-fg font-normal">▾</span>
         </div>
       </motion.button>
       <NavButton onClick={onNext} label="Next day">{nextArrow}</NavButton>
@@ -177,14 +178,14 @@ export default function CoverageHeader({
        */}
       {/* Mobile-only bare date nav (when TopBar owns the header) */}
       {hideMobileBrand && (
-        <div data-testid="mobile-date-nav" className="desk:hidden px-4 py-3 border-b border-slate-800">
+        <div data-testid="mobile-date-nav" className="desk:hidden px-4 py-3 border-b border-line">
           {mobileNav}
         </div>
       )}
 
       {/* Full header bar (desktop always; mobile only when brand is shown) */}
       <div
-        className={`bg-bg border-b border-slate-800 px-4 pb-3
+        className={`bg-bg border-b border-line px-4 pb-3
                    desk:static desk:flex
                    desk:items-center desk:gap-6
                    desk:px-6 desk:py-[14px]
@@ -198,7 +199,7 @@ export default function CoverageHeader({
           {/* The wide size class shows the wordmark in SideNav, so skip it here */}
           <div className="desk:shrink-0 wide:hidden">
             <Logo className="h-6 desk:h-[22px]" />
-            <div className="desk:hidden text-[11px] text-slate-400 mt-0.5">
+            <div className="desk:hidden text-[11px] text-fg-muted mt-0.5">
               {dayName} · {dateLabel}
             </div>
           </div>
@@ -218,7 +219,7 @@ export default function CoverageHeader({
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
               aria-hidden={isToday || undefined}
               tabIndex={isToday ? -1 : undefined}
-              className={`text-[13px] font-bold text-slate-100 bg-slate-800 border border-slate-700 rounded-[10px] px-4 py-3 cursor-pointer ${isToday ? "invisible" : ""}`}
+              className={`text-[13px] font-bold text-fg bg-fill border border-line-strong rounded-[10px] px-4 py-3 cursor-pointer ${isToday ? "invisible" : ""}`}
             >
               TODAY
             </motion.button>
@@ -264,7 +265,7 @@ export default function CoverageHeader({
                 <button
                   onClick={onNow}
                   // A 22px chip inside the 38px line, with a 44px tap target.
-                  className="relative -my-[3px] shrink-0 rounded-md bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-xs font-bold leading-4 text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors after:absolute after:-inset-y-[11px] after:-inset-x-1 after:content-['']"
+                  className="relative -my-[3px] shrink-0 rounded-md bg-accent/15 border border-accent/30 px-2.5 py-0.5 text-xs font-bold leading-4 text-accent-fg-strong cursor-pointer hover:bg-accent/25 transition-colors after:absolute after:-inset-y-[11px] after:-inset-x-1 after:content-['']"
                 >
                   Back to Today
                 </button>

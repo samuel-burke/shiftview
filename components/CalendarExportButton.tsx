@@ -15,7 +15,7 @@ export default function CalendarExportButton({ className = "" }: { className?: s
       aria-label="Download my shifts as a calendar file"
       className={
         className ||
-        "inline-flex items-center gap-2 rounded-xl bg-card border border-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-200 cursor-pointer hover:bg-slate-800 hover:text-slate-100 transition-colors no-underline"
+        "inline-flex items-center gap-2 rounded-xl bg-card border border-line px-4 py-2.5 text-sm font-semibold text-fg-body cursor-pointer hover:bg-fill hover:text-fg transition-colors no-underline"
       }
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">

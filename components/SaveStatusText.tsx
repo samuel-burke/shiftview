@@ -7,9 +7,9 @@ export type SaveStatus = "idle" | "saving" | "saved" | "error";
 export default function SaveStatusText({ status, testId }: { status: SaveStatus; testId: string }) {
   return (
     <div data-testid={testId} aria-live="polite" className="text-xs leading-4">
-      {status === "saving" && <div className="text-slate-400">Saving…</div>}
-      {status === "saved"  && <div className="text-emerald-400">Saved ✓</div>}
-      {status === "error"  && <div role="alert" className="text-red-400">Failed to save</div>}
+      {status === "saving" && <div className="text-fg-muted">Saving…</div>}
+      {status === "saved"  && <div className="text-success-fg">Saved ✓</div>}
+      {status === "error"  && <div role="alert" className="text-danger-fg">Failed to save</div>}
     </div>
   );
 }

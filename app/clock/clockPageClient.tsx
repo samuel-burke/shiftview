@@ -37,6 +37,7 @@ import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import FormError from "../../components/FormError";
 import DemoBanner from "@/components/DemoBanner";
+import { tint } from "../../lib/theme-colors";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
 const listItem = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 } } };
@@ -579,13 +580,13 @@ export default function ClockPageClient() {
 
   // Desktop-only header — mobile header is handled by AppShell's TopBar
   const clockHeader = (
-    <div className="hidden desk:flex px-6 py-[14px] border-b border-slate-800 items-center justify-between">
+    <div className="hidden desk:flex px-6 py-[14px] border-b border-line items-center justify-between">
       <div>
-        <div className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">Time Clock</div>
-        <div className="text-xl font-extrabold text-slate-100 leading-tight mt-0.5">{firstName}</div>
+        <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">Time Clock</div>
+        <div className="text-xl font-extrabold text-fg leading-tight mt-0.5">{firstName}</div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-slate-400">
+        <span className="text-sm text-fg-muted">
           {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
         </span>
         <NotificationBell />
@@ -627,8 +628,8 @@ export default function ClockPageClient() {
         <main className={mainClass}>
           <div className="flex flex-col items-center justify-center min-h-[50dvh] gap-3 text-center px-4">
             <div aria-hidden="true" className="text-4xl">🔗</div>
-            <div className="text-lg font-bold text-slate-100">Account not linked</div>
-            <div className="text-sm text-slate-400 max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
+            <div className="text-lg font-bold text-fg">Account not linked</div>
+            <div className="text-sm text-fg-muted max-w-xs">Your account isn&apos;t linked to an employee record yet. Contact your manager to get set up.</div>
           </div>
           <BottomNav active="clock" />
         </main>
@@ -654,37 +655,37 @@ export default function ClockPageClient() {
       <div className="mt-4 space-y-3">
         {/* Today's shift card */}
         <div
-          className="bg-card rounded-2xl px-4 py-4 border border-slate-800/60"
+          className="bg-card rounded-2xl px-4 py-4 border border-line/60"
           style={{ borderLeft: `3px solid ${shiftColor}` }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Today&apos;s Shift</span>
+            <span className="text-xs text-fg-muted font-semibold uppercase tracking-wider">Today&apos;s Shift</span>
             {shiftType && (
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize"
-                style={{ background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`, color: shiftColor }}>
+                style={{ background: tint(shiftColor, 13), color: shiftColor }}>
                 {shiftType}
               </span>
             )}
           </div>
           {schedule ? (
-            <div className="mt-1.5 text-2xl font-bold text-slate-100">
+            <div className="mt-1.5 text-2xl font-bold text-fg">
               {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
               {schedule.date && schedule.date.slice(0, 10) !== todayKey && (
-                <div className="text-xs font-normal text-slate-400 mt-0.5" data-testid="shift-started-yesterday">
+                <div className="text-xs font-normal text-fg-muted mt-0.5" data-testid="shift-started-yesterday">
                   Overnight shift — started yesterday
                 </div>
               )}
               {schedule.date && schedule.date.slice(0, 10) === todayKey && isOvernight(schedule) && (
-                <div className="text-xs font-normal text-slate-400 mt-0.5">Ends tomorrow morning</div>
+                <div className="text-xs font-normal text-fg-muted mt-0.5">Ends tomorrow morning</div>
               )}
             </div>
           ) : carriedOver ? (
             <div className="mt-1.5">
-              <div className="text-xl font-bold text-slate-100">Shift from yesterday</div>
-              <div className="text-xs text-slate-400 mt-0.5">Still open after midnight — clock out when you&apos;re done.</div>
+              <div className="text-xl font-bold text-fg">Shift from yesterday</div>
+              <div className="text-xs text-fg-muted mt-0.5">Still open after midnight — clock out when you&apos;re done.</div>
             </div>
           ) : (
-            <div className="mt-1.5 text-xl font-bold text-slate-400">No shift scheduled today</div>
+            <div className="mt-1.5 text-xl font-bold text-fg-muted">No shift scheduled today</div>
           )}
           {punchFlair && (
             <div className="mt-1 text-xs font-semibold" style={{ color: punchFlair.color }}>
@@ -694,13 +695,13 @@ export default function ClockPageClient() {
         </div>
 
         {/* Status + elapsed timer */}
-        <div className="bg-card rounded-2xl px-4 py-5 border border-slate-800/60 text-center">
+        <div className="bg-card rounded-2xl px-4 py-5 border border-line/60 text-center">
           <div
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-3"
             style={{
-              background: `color-mix(in srgb, ${STATUS_COLORS[effectiveStatus]} 13%, transparent)`,
+              background: tint(STATUS_COLORS[effectiveStatus], 13),
               color: STATUS_COLORS[effectiveStatus],
-              border: `1px solid color-mix(in srgb, ${STATUS_COLORS[effectiveStatus]} 27%, transparent)`,
+              border: `1px solid ${tint(STATUS_COLORS[effectiveStatus], 27)}`,
             }}
           >
             <span
@@ -725,37 +726,37 @@ export default function ClockPageClient() {
                   >
                     {fmtElapsed(breakElapsed)}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1" aria-hidden="true">Current break duration</div>
-                  <div className="mt-3 pt-3 border-t border-slate-800/60">
-                    <div className="text-xl font-mono font-bold text-slate-500 tabular-nums">
+                  <div className="text-xs text-fg-muted mt-1" aria-hidden="true">Current break duration</div>
+                  <div className="mt-3 pt-3 border-t border-line/60">
+                    <div className="text-xl font-mono font-bold text-fg-subtle tabular-nums">
                       {fmtElapsed(elapsed)}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5" aria-hidden="true">Total time worked today</div>
+                    <div className="text-xs text-fg-subtle mt-0.5" aria-hidden="true">Total time worked today</div>
                   </div>
                 </>
               ) : (
                 <>
                   <div
-                    className="text-4xl font-mono font-extrabold text-slate-100 tabular-nums"
+                    className="text-4xl font-mono font-extrabold text-fg tabular-nums"
                     aria-live="polite"
                     aria-label={`Total time worked today: ${fmtElapsed(elapsed)}`}
                   >
                     {fmtElapsed(elapsed)}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1" aria-hidden="true">Total time worked today</div>
+                  <div className="text-xs text-fg-muted mt-1" aria-hidden="true">Total time worked today</div>
                 </>
               )}
             </>
           )}
 
           {gpsStatus === "acquiring" && (
-            <div role="status" className="text-xs text-slate-400 mt-2">Acquiring GPS…</div>
+            <div role="status" className="text-xs text-fg-muted mt-2">Acquiring GPS…</div>
           )}
           {gpsStatus === "ok" && status === "clocked_in" && (
-            <div role="status" className="text-xs text-green-500 mt-2">GPS location captured</div>
+            <div role="status" className="text-xs text-ok-fg mt-2">GPS location captured</div>
           )}
           {gpsStatus === "denied" && (
-            <div role="status" className="text-xs text-amber-400 mt-2">GPS unavailable — punched without location</div>
+            <div role="status" className="text-xs text-warning-fg mt-2">GPS unavailable — punched without location</div>
           )}
         </div>
 
@@ -763,22 +764,22 @@ export default function ClockPageClient() {
         {missedPunchInfo && (
           <div
             role="alert"
-            className="px-4 py-3.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl space-y-2"
+            className="px-4 py-3.5 bg-warning/10 border border-warning/25 rounded-2xl space-y-2"
           >
             <div className="flex items-start gap-2.5">
-              <span aria-hidden="true" className="text-amber-400 mt-px shrink-0">⚠</span>
+              <span aria-hidden="true" className="text-warning-fg mt-px shrink-0">⚠</span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-amber-300">Open shift from {missedPunchInfo.date}</div>
-                <div className="text-xs text-amber-400 mt-0.5">
+                <div className="text-sm font-bold text-warning-fg-strong">Open shift from {missedPunchInfo.date}</div>
+                <div className="text-xs text-warning-fg mt-0.5">
                   {missedPunchInfo.lastPunchType === "break_start"
-                    ? <>Your last punch was a <span className="font-semibold text-amber-300">break start</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing break end and clock-out before clocking in today.</>
-                    : <>Your last punch was a <span className="font-semibold text-amber-300">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing clock-out before clocking in today.</>
+                    ? <>Your last punch was a <span className="font-semibold text-warning-fg-strong">break start</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing break end and clock-out before clocking in today.</>
+                    : <>Your last punch was a <span className="font-semibold text-warning-fg-strong">{missedPunchInfo.lastPunchType === "clock_in" ? "clock in" : "break end"}</span> on {missedPunchInfo.date} at {formatTimeInTz(missedPunchInfo.lastPunchedAt, timezone)}. Add your missing clock-out before clocking in today.</>
                   }
                 </div>
               </div>
             </div>
             {missedPunchPending ? (
-              <div role="status" className="w-full py-3 rounded-xl text-xs font-semibold text-center bg-slate-800/60 text-amber-200 border border-amber-500/20">
+              <div role="status" className="w-full py-3 rounded-xl text-xs font-semibold text-center bg-fill/60 text-warning-fg-max border border-warning/20">
                 Correction sent — waiting for manager approval
               </div>
             ) : !showCorrection && (
@@ -788,7 +789,7 @@ export default function ClockPageClient() {
                   setCorrectionType(missedPunchInfo.suggestedPunchType);
                   setShowCorrection(true);
                 }}
-                className="w-full py-3 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors"
+                className="w-full py-3 rounded-xl text-xs font-bold bg-warning/20 text-warning-fg-strong border border-warning/30 cursor-pointer hover:bg-warning/30 transition-colors"
               >
                 {missedPunchInfo.suggestedPunchType === "break_end" ? "Add Missing Break End" : "Add Missing Clock-Out"}
               </button>
@@ -804,10 +805,10 @@ export default function ClockPageClient() {
               onClick={() => handlePunchClick("clock_in")}
               disabled={actionPending}
               aria-busy={actionPending}
-              whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(34,197,94,0.35)" }}
+              whileHover={{ scale: 1.02, boxShadow: `0 8px 32px ${tint("var(--color-ok)", 35)}` }}
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-green-700 text-white shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-green-800"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-ok-solid text-on-accent shadow-lg shadow-ok/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-ok-solid-hover"
             >
               {actionPending ? "…" : "Clock In"}
             </motion.button>
@@ -819,10 +820,10 @@ export default function ClockPageClient() {
                 onClick={() => submitPunch("break_start")}
                 disabled={actionPending}
                 aria-busy={actionPending}
-                whileHover={{ scale: 1.02, boxShadow: "0 4px 20px rgba(245,158,11,0.2)" }}
+                whileHover={{ scale: 1.02, boxShadow: `0 4px 20px ${tint("var(--color-warning)", 20)}` }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                className="py-4 rounded-2xl text-base font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-500/30"
+                className="py-4 rounded-2xl text-base font-bold bg-warning/20 text-warning-fg border border-warning/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-warning/30"
               >
                 {actionPending ? "…" : "Start Break"}
               </motion.button>
@@ -833,7 +834,7 @@ export default function ClockPageClient() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                className="py-4 rounded-2xl text-base font-bold bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-600"
+                className="py-4 rounded-2xl text-base font-bold bg-fill-strong text-fg-body border border-line-stronger disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-fill-stronger"
               >
                 {actionPending ? "…" : "End Shift"}
               </motion.button>
@@ -845,17 +846,17 @@ export default function ClockPageClient() {
               onClick={() => submitPunch("break_end")}
               disabled={actionPending}
               aria-busy={actionPending}
-              whileHover={{ scale: 1.02, boxShadow: "0 8px 32px rgba(245,158,11,0.35)" }}
+              whileHover={{ scale: 1.02, boxShadow: `0 8px 32px ${tint("var(--color-warning)", 35)}` }}
               whileTap={{ scale: 0.96 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-amber-700 text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-amber-800"
+              className="w-full py-4 rounded-2xl text-lg font-extrabold bg-warning-solid text-on-accent shadow-lg shadow-warning/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-warning-solid-hover"
             >
               {actionPending ? "…" : "End Break"}
             </motion.button>
           )}
 
           {effectiveStatus === "clocked_out" && (
-            <div className="text-center py-3 text-sm text-slate-400">
+            <div className="text-center py-3 text-sm text-fg-muted">
               Shift complete — see you next time!
             </div>
           )}
@@ -870,16 +871,16 @@ export default function ClockPageClient() {
           hasShift: !!schedule && schedule.date.slice(0, 10) === todayKey,
           clockedInToday: punches.some((p) => p.punchType === "clock_in"),
         }) === null) && (
-          <div className="bg-card rounded-2xl border border-slate-800/60 overflow-hidden" style={myCallout ? { borderColor: "rgba(248,113,113,0.3)" } : {}}>
+          <div className="bg-card rounded-2xl border border-line/60 overflow-hidden" style={myCallout ? { borderColor: tint("var(--status-bad)", 30) } : {}}>
             {myCallout ? (
               <div className="px-4 py-3.5 space-y-2.5">
                 <div className="flex items-start gap-2.5">
-                  <span className="text-red-400 mt-px shrink-0"><MegaphoneIcon size={18} color="var(--status-bad)" /></span>
+                  <span className="text-danger-fg mt-px shrink-0"><MegaphoneIcon size={18} color="var(--status-bad)" /></span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-red-300">You&apos;ve called out for today</div>
-                    <div className="text-xs text-red-400 mt-0.5">Your manager has been notified.</div>
+                    <div className="text-sm font-bold text-danger-fg-strong">You&apos;ve called out for today</div>
+                    <div className="text-xs text-danger-fg mt-0.5">Your manager has been notified.</div>
                     {myCallout.reason && (
-                      <div className="text-xs text-slate-400 mt-1.5 italic">“{myCallout.reason}”</div>
+                      <div className="text-xs text-fg-muted mt-1.5 italic">“{myCallout.reason}”</div>
                     )}
                   </div>
                 </div>
@@ -887,31 +888,31 @@ export default function ClockPageClient() {
                   onClick={undoCallout}
                   disabled={calloutPending}
                   aria-busy={calloutPending}
-                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-fill text-fg-secondary border border-line-strong cursor-pointer hover:bg-fill-strong transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {calloutPending ? "…" : "Undo call-out"}
                 </button>
               </div>
             ) : showCalloutForm ? (
               <div className="px-4 py-4 space-y-3">
-                <div className="text-sm font-semibold text-slate-200">Call out for today</div>
-                <div className="text-xs text-slate-400 -mt-1">This notifies your manager that you can&apos;t make it in today.</div>
+                <div className="text-sm font-semibold text-fg-body">Call out for today</div>
+                <div className="text-xs text-fg-muted -mt-1">This notifies your manager that you can&apos;t make it in today.</div>
                 <div>
-                  <label htmlFor="callout-reason" className="text-xs text-slate-400 block mb-1">Reason <span className="text-slate-500">(optional)</span></label>
+                  <label htmlFor="callout-reason" className="text-xs text-fg-muted block mb-1">Reason <span className="text-fg-subtle">(optional)</span></label>
                   <textarea
                     id="callout-reason"
                     value={calloutReason}
                     onChange={(e) => setCalloutReason(e.target.value)}
                     placeholder="e.g. Feeling unwell"
                     rows={2}
-                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-red-500/70 transition-colors"
+                    className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg resize-none focus:outline-none focus:border-danger/70 transition-colors"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => { setShowCalloutForm(false); setCalloutError(null); }}
                     disabled={calloutPending}
-                    className="py-2.5 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    className="py-2.5 rounded-xl text-sm font-bold bg-fill text-fg-secondary border border-line-strong cursor-pointer hover:bg-fill-strong transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -919,7 +920,7 @@ export default function ClockPageClient() {
                     onClick={submitCallout}
                     disabled={calloutPending}
                     aria-busy={calloutPending}
-                    className="py-2.5 rounded-xl text-sm font-bold bg-red-500/20 text-red-300 border border-red-500/30 cursor-pointer hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="py-2.5 rounded-xl text-sm font-bold bg-danger/20 text-danger-fg-strong border border-danger/30 cursor-pointer hover:bg-danger/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {calloutPending ? "Submitting…" : "Call Out"}
                   </button>
@@ -928,7 +929,7 @@ export default function ClockPageClient() {
             ) : (
               <button
                 onClick={() => setShowCalloutForm(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors text-sm font-semibold text-slate-300"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 cursor-pointer hover:bg-fill/50 transition-colors text-sm font-semibold text-fg-secondary"
               >
                 <MegaphoneIcon size={15} color="var(--status-muted)" />
                 Can&apos;t make it in today? Call out
@@ -940,8 +941,8 @@ export default function ClockPageClient() {
         {/* Punch history */}
         {punches.length > 0 && (
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-[0.08em] mb-2">Today&apos;s Punches</div>
-            <motion.div className="bg-card rounded-2xl border border-slate-800/60 divide-y divide-slate-800" variants={listContainer} initial="hidden" animate="show">
+            <div className="text-xs font-bold text-fg-muted uppercase tracking-[0.08em] mb-2">Today&apos;s Punches</div>
+            <motion.div className="bg-card rounded-2xl border border-line/60 divide-y divide-line" variants={listContainer} initial="hidden" animate="show">
               {sortedPunches.map((p) => (
                   <motion.div key={p.id} variants={listItem} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
@@ -956,18 +957,18 @@ export default function ClockPageClient() {
                                                            "var(--status-info)",
                         }}
                       />
-                      <span className="text-sm font-medium text-slate-200">
+                      <span className="text-sm font-medium text-fg-body">
                         {PUNCH_TYPE_LABELS[p.punchType as PunchType]}
                       </span>
                       {p.isManual && (
-                        <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-px rounded-full">
+                        <span className="text-[10px] font-semibold text-accent-fg bg-accent/10 px-2 py-px rounded-full">
                           Manual
                         </span>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-slate-300 tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
-                      {p.note && <div className="text-[11px] text-slate-500 mt-0.5 max-w-[140px] truncate">{p.note}</div>}
+                      <div className="text-sm text-fg-secondary tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
+                      {p.note && <div className="text-[11px] text-fg-subtle mt-0.5 max-w-[140px] truncate">{p.note}</div>}
                     </div>
                   </motion.div>
                 ))}
@@ -976,33 +977,33 @@ export default function ClockPageClient() {
         )}
 
         {/* Punch correction form — hidden when setting is disabled */}
-        {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-slate-800/60" style={missedPunchInfo ? { borderColor: "rgba(245,158,11,0.3)" } : {}}>
+        {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-line/60" style={missedPunchInfo ? { borderColor: tint("var(--color-warning)", 30) } : {}}>
           <button
             onClick={() => setShowCorrection((v) => !v)}
             aria-expanded={showCorrection}
             aria-controls="correction-form"
-            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
+            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-fill/50 transition-colors rounded-2xl"
           >
-            <span className="text-sm font-semibold text-slate-300">
+            <span className="text-sm font-semibold text-fg-secondary">
               {missedPunchInfo && !missedPunchPending
               ? missedPunchInfo.suggestedPunchType === "break_end"
                 ? "Add Missing Break End"
                 : "Add Missing Clock-Out"
               : "Report Missed Punch"}
             </span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showCorrection ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-fg-subtle transition-transform ${showCorrection ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
 
           {showCorrection && (
-            <div id="correction-form" className="px-4 pb-4 space-y-3 border-t border-slate-800">
+            <div id="correction-form" className="px-4 pb-4 space-y-3 border-t border-line">
               <div className="grid grid-cols-2 gap-3 pt-3">
                 <div>
-                  <label htmlFor="correction-type" className="text-xs text-slate-400 block mb-1">Punch Type</label>
+                  <label htmlFor="correction-type" className="text-xs text-fg-muted block mb-1">Punch Type</label>
                   <select
                     id="correction-type"
                     value={correctionType}
                     onChange={(e) => setCorrectionType(e.target.value as PunchType)}
-                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                   >
                     <option value="clock_in">Clock In</option>
                     <option value="clock_out">Clock Out</option>
@@ -1011,28 +1012,28 @@ export default function ClockPageClient() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="correction-date" className="text-xs text-slate-400 block mb-1">Date</label>
+                  <label htmlFor="correction-date" className="text-xs text-fg-muted block mb-1">Date</label>
                   <input
                     id="correction-date"
                     type="date"
                     value={correctionDate}
                     onChange={(e) => setCorrectionDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
               </div>
               <div>
-                <label htmlFor="correction-time" className="text-xs text-slate-400 block mb-1">Time</label>
+                <label htmlFor="correction-time" className="text-xs text-fg-muted block mb-1">Time</label>
                 <input
                   id="correction-time"
                   type="time"
                   value={correctionTime}
                   onChange={(e) => setCorrectionTime(e.target.value)}
-                  className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                 />
               </div>
               <div>
-                <label htmlFor="correction-note" className="text-xs text-slate-400 block mb-1">Reason <span className="text-red-400" aria-hidden="true">*</span></label>
+                <label htmlFor="correction-note" className="text-xs text-fg-muted block mb-1">Reason <span className="text-danger-fg" aria-hidden="true">*</span></label>
                 <textarea
                   id="correction-note"
                   aria-required="true"
@@ -1040,11 +1041,11 @@ export default function ClockPageClient() {
                   onChange={(e) => setCorrectionNote(e.target.value)}
                   placeholder="Why is this punch being added manually?"
                   rows={2}
-                  className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg resize-none focus:outline-none focus:border-accent transition-colors"
                 />
               </div>
               {!isManager && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-fg-subtle">
                   Your manager reviews corrections before they&apos;re added to your time card.
                 </div>
               )}
@@ -1053,7 +1054,7 @@ export default function ClockPageClient() {
                 onClick={submitCorrection}
                 disabled={correctionSaving || !correctionNote.trim()}
                 aria-busy={correctionSaving}
-                className="w-full py-3 rounded-xl text-sm font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                className="w-full py-3 rounded-xl text-sm font-bold bg-accent/20 text-accent-fg border border-accent/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-accent/30 transition-colors"
               >
                 {correctionSaving ? "Saving…" : isManager ? "Submit Correction" : "Send for Approval"}
               </button>
@@ -1062,36 +1063,36 @@ export default function ClockPageClient() {
         </div>}
 
         {correctionNotice && (
-          <div role="status" className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl text-sm text-emerald-300">
+          <div role="status" className="px-4 py-3 bg-success/10 border border-success/25 rounded-2xl text-sm text-success-fg-strong">
             {correctionNotice}
           </div>
         )}
 
         {/* The employee's recent correction requests and their status */}
         {!isManager && myCorrections.length > 0 && (
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3.5" data-testid="my-punch-corrections">
-            <div className="text-sm font-semibold text-slate-300 mb-2">Correction Requests</div>
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-3.5" data-testid="my-punch-corrections">
+            <div className="text-sm font-semibold text-fg-secondary mb-2">Correction Requests</div>
             <ul className="space-y-2">
               {myCorrections.map((c) => (
                 <li key={c.id} className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm text-slate-200">
+                    <div className="text-sm text-fg-body">
                       {PUNCH_TYPE_LABELS[c.punchType]}{" "}
-                      <span className="text-slate-400">
+                      <span className="text-fg-muted">
                         · {formatDateKey(dateKeyInTz(c.punchedAt, timezone), { weekday: "short", month: "short", day: "numeric" })} at {formatTimeInTz(c.punchedAt, timezone)}
                       </span>
                     </div>
                     {c.status === "denied" && c.reviewNote && (
-                      <div className="text-[11px] text-slate-500 mt-0.5">Manager: {c.reviewNote}</div>
+                      <div className="text-[11px] text-fg-subtle mt-0.5">Manager: {c.reviewNote}</div>
                     )}
                   </div>
                   <span
                     className={`shrink-0 text-[10px] font-semibold px-2 py-px rounded-full ${
                       c.status === "pending"
-                        ? "text-amber-300 bg-amber-500/10"
+                        ? "text-warning-fg-strong bg-warning/10"
                         : c.status === "approved"
-                          ? "text-emerald-300 bg-emerald-500/10"
-                          : "text-red-300 bg-red-500/10"
+                          ? "text-success-fg-strong bg-success/10"
+                          : "text-danger-fg-strong bg-danger/10"
                     }`}
                   >
                     {c.status === "pending" ? "Pending" : c.status === "approved" ? "Approved" : "Denied"}
@@ -1103,44 +1104,44 @@ export default function ClockPageClient() {
         )}
 
         {/* Timesheet export */}
-        <div className="bg-card rounded-2xl border border-slate-800/60">
+        <div className="bg-card rounded-2xl border border-line/60">
           <button
             onClick={() => setShowExport((v) => !v)}
             aria-expanded={showExport}
             aria-controls="export-form"
-            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-800/50 transition-colors rounded-2xl"
+            className="w-full flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-fill/50 transition-colors rounded-2xl"
           >
-            <span className="text-sm font-semibold text-slate-300">Export Timesheet</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <span className="text-sm font-semibold text-fg-secondary">Export Timesheet</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-fg-subtle transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
 
           {showExport && (
-            <div id="export-form" className="px-4 pb-4 border-t border-slate-800 pt-3 space-y-3">
+            <div id="export-form" className="px-4 pb-4 border-t border-line pt-3 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="export-from" className="text-xs text-slate-400 block mb-1">From</label>
+                  <label htmlFor="export-from" className="text-xs text-fg-muted block mb-1">From</label>
                   <input
                     id="export-from"
                     type="date"
                     value={exportFrom}
                     onChange={(e) => setExportFrom(e.target.value)}
-                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
                 <div>
-                  <label htmlFor="export-to" className="text-xs text-slate-400 block mb-1">To</label>
+                  <label htmlFor="export-to" className="text-xs text-fg-muted block mb-1">To</label>
                   <input
                     id="export-to"
                     type="date"
                     value={exportTo}
                     onChange={(e) => setExportTo(e.target.value)}
-                    className="w-full bg-slate-800 border border-field rounded-[10px] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
               </div>
               <button
                 onClick={handleExportDownload}
-                className="block w-full py-3 rounded-xl text-sm font-bold text-center bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-pointer hover:bg-indigo-500/30 transition-colors"
+                className="block w-full py-3 rounded-xl text-sm font-bold text-center bg-accent/20 text-accent-fg border border-accent/30 cursor-pointer hover:bg-accent/30 transition-colors"
               >
                 Download CSV
               </button>
@@ -1158,35 +1159,35 @@ export default function ClockPageClient() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="punch-warning-heading"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/60 backdrop-blur-sm"
           onClick={cancelPunch}
         >
           <div
-            className="w-full max-w-[480px] bg-card rounded-t-3xl border border-slate-700 px-6 pt-6 pb-10 space-y-4"
+            className="w-full max-w-[480px] bg-card rounded-t-3xl border border-line-strong px-6 pt-6 pb-10 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-600 mx-auto mb-2" />
+            <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-stronger mx-auto mb-2" />
             <div className="text-center">
               <div className="text-2xl mb-1" aria-hidden="true">
                 {pendingWarning.diffMinutes > 0 ? "⏰" : "⚡"}
               </div>
-              <div id="punch-warning-heading" className="text-lg font-extrabold text-slate-100">
+              <div id="punch-warning-heading" className="text-lg font-extrabold text-fg">
                 {pendingWarning.heading}
               </div>
-              <div className="text-sm text-slate-400 mt-1">{pendingWarning.body}</div>
+              <div className="text-sm text-fg-muted mt-1">{pendingWarning.body}</div>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={cancelPunch}
                 autoFocus
-                className="py-3.5 rounded-2xl text-sm font-bold bg-slate-800 text-slate-300 border border-slate-700 active:scale-[0.98] transition-[transform,colors] cursor-pointer hover:bg-slate-700"
+                className="py-3.5 rounded-2xl text-sm font-bold bg-fill text-fg-secondary border border-line-strong active:scale-[0.98] transition-[transform,colors] cursor-pointer hover:bg-fill-strong"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmPunch}
                 data-testid="confirm-punch-btn"
-                className="py-3.5 rounded-2xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30 active:scale-[0.98] transition-[transform,colors] cursor-pointer hover:bg-green-500/30"
+                className="py-3.5 rounded-2xl text-sm font-bold bg-ok/20 text-ok-fg border border-ok/30 active:scale-[0.98] transition-[transform,colors] cursor-pointer hover:bg-ok/30"
               >
                 {pendingPunchType === "clock_in" ? "Clock In Anyway" : "End Shift Anyway"}
               </button>

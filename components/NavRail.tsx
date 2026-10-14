@@ -33,7 +33,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
     <div
       role="complementary"
       data-testid="nav-rail"
-      className="w-[72px] shrink-0 bg-bg border-r border-slate-800 flex flex-col items-center h-dvh sticky top-0 z-20"
+      className="w-[72px] shrink-0 bg-bg border-r border-line flex flex-col items-center h-dvh sticky top-0 z-20"
       style={{
         paddingTop: "env(safe-area-inset-top)",
         paddingLeft: "env(safe-area-inset-left)",
@@ -54,7 +54,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
           <RailLink href="/schedule" label="Schedule" isActive={active === "schedule"}><ScheduleIcon size={20} /></RailLink>
           <RailLink href="/clock" label="Clock" isActive={active === "clock"}><ClockIcon size={20} /></RailLink>
 
-          <div className="h-px bg-slate-800 my-1.5 mx-2" />
+          <div className="h-px bg-fill my-1.5 mx-2" />
 
           {isManager && (
             <RailLink href="/week" label="Week" isActive={active === "week"}><WeekGridIcon size={20} /></RailLink>
@@ -75,7 +75,7 @@ export default function NavRail({ active, isManager, onExpand }: Props) {
           onClick={onExpand}
           aria-label="Expand sidebar"
           title="Expand sidebar"
-          className="hidden desk:flex mb-4 size-10 shrink-0 rounded-xl items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+          className="hidden desk:flex mb-4 size-10 shrink-0 rounded-xl items-center justify-center text-fg-subtle hover:text-fg-body hover:bg-fill transition-colors cursor-pointer"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 6l6 6-6 6M5 6l6 6-6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
@@ -100,18 +100,18 @@ function RailLink({
       href={href}
       aria-current={isActive ? "page" : undefined}
       className={`group relative flex flex-col items-center gap-1 rounded-xl py-2 min-h-[52px] justify-center transition-colors ${
-        isActive ? "text-indigo-300" : "text-slate-400 hover:text-slate-200"
+        isActive ? "text-accent-fg-strong" : "text-fg-muted hover:text-fg-body"
       }`}
     >
       {isActive && (
         <motion.div
           layoutId="navrail-active"
-          className="absolute inset-0 rounded-xl bg-indigo-600/20 border border-indigo-500/30"
+          className="absolute inset-0 rounded-xl bg-accent-solid/20 border border-accent/30"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
       {!isActive && (
-        <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-800" />
+        <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-fill" />
       )}
       <span className="relative z-10">{children}</span>
       <span className="relative z-10 text-[10px] font-semibold leading-none">{label}</span>
