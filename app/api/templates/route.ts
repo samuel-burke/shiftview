@@ -27,9 +27,11 @@ export async function GET(request?: Request) {
   if (authError)
     return NextResponse.json({ error: authError }, { status: authError === "Not authenticated" ? 401 : 403 });
 
+  // Two FKs link the tables (template_id and the composite template_id+org_id
+  // from migration 0002), so the embed needs a hint or PostgREST rejects it.
   const { data, error } = await supabase
     .from("schedule_templates")
-    .select("id, name, created_at, schedule_template_rows(id)")
+    .select("id, name, created_at, schedule_template_rows!template_rows_template_org_fkey(id)")
     .eq("org_id", orgId)
     .order("created_at", { ascending: false });
 
