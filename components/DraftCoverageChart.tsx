@@ -2,12 +2,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Area, Bar, BarChart, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, BarChart, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { Schedule, StoreHours, fmtMinutes } from "../data/types";
 import { dayOfWeek, headcountAt, scheduledHoursForDate } from "../lib/draft-metrics";
 import { CoverageBlock, SLOT_MINUTES, curveHours, targetAt } from "../lib/coverage";
 import { formatDateKey } from "../lib/dates";
 import { useTheme } from "./ThemeProvider";
+import SizedResponsiveContainer from "./SizedResponsiveContainer";
 
 // Budget vs scheduled, in one chart with two views.
 // By Day: each day's scheduled hours (columns) against its budget, the hours
@@ -199,7 +200,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
 
       {/* Height from CSS (no layout jump): 2.6:1 with the width, 190px (phone size) to 300px. */}
       <div className="w-full min-w-0 aspect-[2.6/1] min-h-[190px] max-h-[300px]">
-        <ResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
+        <SizedResponsiveContainer width="100%" height="100%" style={{ overflow: "visible" }}>
           {view === "day" ? (
             // A BarChart (not Composed) so hovering highlights the day's band.
             <BarChart data={byDay} margin={{ top: 12, right: 8, left: -28, bottom: 0 }}>
@@ -283,7 +284,7 @@ export default function DraftCoverageChart({ drafts, dates, storeHours, curves, 
               <Line type="stepAfter" dataKey="target" stroke={colors.ink} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={false} />
             </ComposedChart>
           )}
-        </ResponsiveContainer>
+        </SizedResponsiveContainer>
       </div>
 
       {/* The same numbers as a table, for screen readers. The wrapper hides it:
