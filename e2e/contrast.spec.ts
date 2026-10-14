@@ -97,7 +97,7 @@ const SCREENS: { path: string; role: "manager" | "employee"; onBreak?: boolean; 
   { path: "/week", role: "manager", ready: (p) => expect(p.getByText("Weekly Budget")).toBeVisible() },
   { path: "/requests", role: "manager", ready: (p) => expect(p.getByText("Carol White").first()).toBeVisible() },
   { path: "/reports", role: "manager", ready: (p) => expect(p.getByRole("button", { name: "Export CSV" })).toBeVisible() },
-  { path: "/settings", role: "manager", ready: (p) => expect(p.getByText("Appearance")).toBeVisible() },
+  { path: "/settings", role: "manager", ready: (p) => expect(p.getByRole("main").getByText("Appearance")).toBeVisible() },
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -129,7 +129,7 @@ test("switching theme in Settings recolors the app without a reload", async ({ p
   await page.addInitScript(() => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("theme", "dark"); sessionStorage.setItem("seeded", "1"); } });
   await mockApis(page, "manager");
   await page.goto("/settings");
-  await expect(page.getByText("Appearance")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Appearance")).toBeVisible();
   const darkBg = await bgOf(page);
   const darkTooltip = await tokenOf(page, "--chart-tooltip-fg");
 
