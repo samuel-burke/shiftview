@@ -1,5 +1,8 @@
 # Color contrast audit — October 2026
 
+The theme has since moved to semantic tokens; see [THEME.md](THEME.md) for
+the current colors and how they're checked.
+
 ShiftView's text and controls checked against WCAG 2.2 AA in both themes:
 text at 4.5:1 (3:1 at 24 px, or 18.66 px bold), and the edges of fields,
 selected states and meaningful icons at 3:1 (1.4.11).
