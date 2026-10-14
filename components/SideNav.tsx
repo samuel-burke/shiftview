@@ -16,12 +16,11 @@ type Props = {
 
 export default function SideNav({ active, isManager, onCollapse, onShowShortcuts }: Props) {
   return (
-    <motion.div
+    /* No entrance animation: each page mounts its own sidebar, so one would
+       replay on every navigation. Only the active pill and accent line move. */
+    <div
       role="complementary"
       data-testid="side-nav"
-      initial={{ x: -20, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="w-[220px] shrink-0 bg-bg border-r border-line flex flex-col h-dvh sticky top-0 z-20"
     >
       {/* Brand */}
@@ -92,7 +91,7 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
           )}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
