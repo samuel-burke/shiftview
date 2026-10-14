@@ -18,6 +18,7 @@ import WeekView from "../../components/WeekView";
 import MonthView from "../../components/MonthView";
 import BottomNav from "../../components/BottomNav";
 import AppShell from "../../components/AppShell";
+import DemoBanner from "@/components/DemoBanner";
 import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
@@ -1229,7 +1230,8 @@ export default function SchedulePageClient() {
       onSignOut={handleSignOut}
     >
       <main className="max-w-[480px] mx-auto tablet:max-w-none tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-0">
-        {/* Desktop header (hidden on mobile) */}
+        {/* Desktop header (hidden on mobile, where TopBar has the demo strip) */}
+        <DemoBanner className="hidden desk:flex" />
         <div className="hidden desk:flex border-b border-line px-6 py-[14px] items-center justify-between">
           <div>
             <div className="text-[11px] text-fg-muted font-semibold tracking-wider uppercase">My Schedule</div>
