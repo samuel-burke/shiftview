@@ -121,12 +121,14 @@ export default function WeekGrid({
                       type="button"
                       onClick={() => onSelectDate(date)}
                       aria-pressed={isPicked}
-                      aria-label={`${formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}${isToday ? ", today" : ""}`}
                       className={`w-full min-h-11 rounded-lg py-1 cursor-pointer border transition-colors ${
                         isPicked ? "bg-accent-solid/25 border-accent-fg" : "bg-transparent border-transparent hover:bg-fill/60"
                       }`}
                     >
-                      {label}
+                      {/* Named by its text, the abbreviations spelled out for
+                          screen readers (WCAG 2.5.3). */}
+                      <span className="sr-only">{formatDateKey(date, { weekday: "long", month: "long", day: "numeric" })}{isToday ? ", today" : ""}</span>
+                      <span aria-hidden="true">{label}</span>
                     </button>
                   ) : (
                     label
@@ -182,19 +184,18 @@ export default function WeekGrid({
                     : s
                     ? "Draft"
                     : "";
-                  const what = s ? `${type ? SHIFT_LABEL[type] + " " : ""}${shortTime(s.startMinutes)} to ${shortTime(s.endMinutes)}` : "off";
+                  // The cell is named by its text (WCAG 2.5.3); who, when, and what
+                  // a tap does follow it for screen readers.
                   const status = !isDraftMode || !s
                     ? ""
                     : clash
                     ? ", live shift; a draft for this day won't publish. Open the draft"
                     : isLiveContext
                     ? ", live shift (change it in Live mode)"
-                    : s.generationRunId
-                    ? ", auto draft"
-                    : ", draft";
-                  const label = s
-                    ? `${emp.name}, ${dayLabel}: ${what}${status}${requested ? ", time off requested" : ""}`
-                    : `${emp.name}, ${dayLabel}: off${requested ? ", time off requested" : ""}. Add a ${isDraftMode ? "draft " : ""}shift`;
+                    : "";
+                  const context = s
+                    ? `, ${emp.name}, ${dayLabel}${status}${requested ? ", time off requested" : ""}`
+                    : `${requested ? ", " : ""}${emp.name}, ${dayLabel}: off. Add a ${isDraftMode ? "draft " : ""}shift`;
                   // Clicking a clash opens the draft so it can be removed.
                   const target = isDraftMode ? (clash ? cell.draft : s) : cell.live;
                   return (
@@ -202,7 +203,6 @@ export default function WeekGrid({
                       <button
                         type="button"
                         onClick={() => onSelect(emp, date, target)}
-                        aria-label={label}
                         aria-pressed={isSel}
                         className={`group relative w-full h-12 rounded-lg text-left px-2 transition-colors cursor-pointer border ${
                           isSel ? "ring-2 ring-accent-fg ring-offset-1 ring-offset-bg" : ""
@@ -236,6 +236,7 @@ export default function WeekGrid({
                             {/* A time-off request leads, so a narrow cell that cuts the
                                 line short still shows it. */}
                             <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "var(--status-warn)" : color }}>
+                              <span className="sr-only">, </span>
                               {requested ? "Time off? · " : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
                             </span>
@@ -245,6 +246,7 @@ export default function WeekGrid({
                         ) : (
                           <span aria-hidden="true" className="block text-center text-lg text-fg-subtle opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
                         )}
+                        <span className="sr-only">{context}</span>
                       </button>
                     </td>
                   );

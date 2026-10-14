@@ -132,8 +132,8 @@ describe("TeamSection", () => {
         onSelectOff={vi.fn()}
       />
     );
-    expect(screen.getByRole("button", { name: /view alice/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /view bob/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /alice/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /bob/i })).toBeInTheDocument();
   });
 
   it("does not render off-employee cards as buttons when onSelectOff is absent", () => {
@@ -146,7 +146,7 @@ describe("TeamSection", () => {
         isToday={true}
       />
     );
-    expect(screen.queryByRole("button", { name: /view alice/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /alice/i })).not.toBeInTheDocument();
   });
 
   it("renders a custom status badge in the employee-list mode", () => {
@@ -192,7 +192,7 @@ describe("TeamSection", () => {
         onSelectOff={onSelectOff}
       />
     );
-    await userEvent.click(screen.getByRole("button", { name: /view alice/i }));
+    await userEvent.click(screen.getByRole("button", { name: /alice/i }));
     expect(onSelectOff).toHaveBeenCalledWith(employees[0]);
   });
 });

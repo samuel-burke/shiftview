@@ -51,7 +51,7 @@ describe("EmployeeSchedulingRow", () => {
     render(
       <EmployeeSchedulingRow employee={{ id: 3, name: "Alex Rivera" }} rules={DEFAULT_SCHEDULING_RULES} firstDayOfWeek={0} onSaved={onSaved} />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Scheduling for Alex Rivera" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Scheduling for Alex Rivera/ }));
     fireEvent.click(screen.getByRole("radio", { name: "Part-time" }));
     // Blank hours show the part-time defaults as placeholders.
     expect(screen.getByLabelText("Maximum weekly hours for Alex Rivera")).toHaveAttribute("placeholder", "29");
@@ -73,7 +73,7 @@ describe("EmployeeSchedulingRow", () => {
     render(
       <EmployeeSchedulingRow employee={{ id: 3, name: "Alex Rivera" }} rules={DEFAULT_SCHEDULING_RULES} firstDayOfWeek={0} onSaved={() => {}} />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Scheduling for Alex Rivera" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Scheduling for Alex Rivera/ }));
     fireEvent.change(screen.getByLabelText("Minimum weekly hours for Alex Rivera"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("Maximum weekly hours for Alex Rivera"), { target: { value: "20" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Limits" }));
@@ -86,7 +86,7 @@ describe("EmployeeSchedulingRow", () => {
     render(
       <EmployeeSchedulingRow employee={{ id: 3, name: "Alex Rivera" }} rules={DEFAULT_SCHEDULING_RULES} firstDayOfWeek={0} onSaved={() => {}} />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Scheduling for Alex Rivera" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Scheduling for Alex Rivera/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save Limits" }));
     expect(await screen.findByText("Failed to save")).toBeInTheDocument();
     expect(screen.getByText("minWeeklyHours cannot exceed maxWeeklyHours")).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("EmployeeSchedulingRow", () => {
     render(
       <EmployeeSchedulingRow employee={{ id: 3, name: "Alex Rivera" }} rules={DEFAULT_SCHEDULING_RULES} firstDayOfWeek={0} onSaved={() => {}} />
     );
-    fireEvent.click(screen.getByRole("button", { name: "Scheduling for Alex Rivera" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Scheduling for Alex Rivera/ }));
     expect(await screen.findByRole("group", { name: "Alex Rivera's shift preferences" })).toBeInTheDocument();
   });
 });

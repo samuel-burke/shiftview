@@ -729,9 +729,11 @@ export default function ReportsPageClient() {
               role={loading ? "status" : undefined}
               aria-label={loading ? "Loading coverage heatmap" : undefined}
             >
-              <div className="grid grid-cols-7 gap-1 mb-1" role="row">
-                {[["S","Sun"],["M","Mon"],["T","Tue"],["W","Wed"],["T","Thu"],["F","Fri"],["S","Sat"]].map(([d, full], i) => (
-                  <div key={i} role="columnheader" aria-label={full} className="text-center text-[10px] text-fg-subtle font-semibold">{d}</div>
+              {/* A picture of the four weeks: the weekday letters are for the
+                  eye, and each day says its own date and count. */}
+              <div className="grid grid-cols-7 gap-1 mb-1" aria-hidden="true">
+                {["S","M","T","W","T","F","S"].map((d, i) => (
+                  <div key={i} className="text-center text-[10px] text-fg-subtle font-semibold">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -742,8 +744,9 @@ export default function ReportsPageClient() {
                     aria-hidden={loading || undefined}
                     className={`rounded-lg py-2 flex flex-col items-center justify-center ${loading ? "skeleton text-transparent border border-transparent" : cls}`}
                   >
-                    <span className="text-[11px] font-bold tabular-nums">{loading ? "0" : count}</span>
-                    <span className="text-[9px] mt-0.5">
+                    {!loading && <span className="sr-only">{dateLabel}: {count} staff</span>}
+                    <span aria-hidden="true" className="text-[11px] font-bold tabular-nums">{loading ? "0" : count}</span>
+                    <span aria-hidden="true" className="text-[9px] mt-0.5">
                       {dayNum}
                     </span>
                   </div>

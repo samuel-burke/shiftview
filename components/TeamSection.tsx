@@ -111,7 +111,7 @@ export default function TeamSection({
         {employees.map((emp) => {
           const inner = (
             <>
-              <div className="size-[38px] rounded-full bg-fill/70 border-[1.5px] border-line-strong/60 flex items-center justify-center text-xs font-bold text-fg-subtle shrink-0">
+              <div aria-hidden="true" className="size-[38px] rounded-full bg-fill/70 border-[1.5px] border-line-strong/60 flex items-center justify-center text-xs font-bold text-fg-subtle shrink-0">
                 {getMonogram(emp.name)}
               </div>
               <div className="flex-1 min-w-0">
@@ -119,6 +119,7 @@ export default function TeamSection({
                   {formatDisplayName(emp.name)}
                 </div>
               </div>
+              <span className="sr-only">, </span>
               {statusColor ? (
                 <div
                   className="text-[11px] font-bold px-2 py-0.5 rounded-md border"
@@ -153,7 +154,6 @@ export default function TeamSection({
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className={`${baseClass} cursor-pointer text-left`}
                   style={baseStyle}
-                  aria-label={`View ${emp.name}`}
                 >
                   {inner}
                 </motion.button>
