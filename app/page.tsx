@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import PageClient from "./pageClient";
+import PageShellFallback from "@/components/PageShellFallback";
 import type { Metadata } from "next";
 
 // Signed-out visitors see the landing page at this URL (app/welcome), so the
@@ -50,7 +51,7 @@ export default async function Page() {
   }
 
   return (
-    <Suspense>
+    <Suspense fallback={<PageShellFallback active="team" topBar />}>
       <PageClient />
     </Suspense>
   );
