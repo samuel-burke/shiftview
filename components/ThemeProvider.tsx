@@ -4,11 +4,6 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export type ThemeMode = "light" | "dark" | "system";
 
-const THEME_META_COLORS: Record<"light" | "dark", string> = {
-  dark: "#0a1628",
-  light: "#f1f5f9",
-};
-
 function resolvedScheme(mode: ThemeMode): "light" | "dark" {
   if (mode === "system") {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -20,7 +15,8 @@ function applyTheme(mode: ThemeMode) {
   const scheme = resolvedScheme(mode);
   document.documentElement.setAttribute("data-theme", scheme);
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (meta) meta.content = THEME_META_COLORS[scheme];
+  // The browser chrome matches the page: the theme's --color-bg (app/globals.css).
+  if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim() || meta.content;
 }
 
 const ThemeContext = createContext<{

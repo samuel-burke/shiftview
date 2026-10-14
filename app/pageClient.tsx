@@ -46,6 +46,7 @@ import {
 } from "@/lib/dates";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import { isOvernight, shiftTouchesDay, shiftWindowOn } from "@/lib/shift-times";
+import { tint } from "../lib/theme-colors";
 
 // Code-split the recharts-backed timeline off the dashboard's initial bundle.
 // It only renders once data has loaded (gated behind SkeletonTimeline below),
@@ -100,14 +101,14 @@ function AnimatedStatCard({
       transition={{ duration: 0.25, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="relative flex-1 bg-card rounded-xl px-2 py-3 text-center overflow-hidden"
       style={{
-        border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
-        boxShadow: pulse ? `0 0 16px color-mix(in srgb, ${color} 9%, transparent)` : undefined,
+        border: `1px solid ${tint(color, 20)}`,
+        boxShadow: pulse ? `0 0 16px ${tint(color, 9)}` : undefined,
       }}
     >
       {/* Subtle radial glow bg */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, color-mix(in srgb, ${color} 4%, transparent) 0%, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${tint(color, 4)} 0%, transparent 70%)` }}
       />
 
       {loading ? (
@@ -131,7 +132,7 @@ function AnimatedStatCard({
           </motion.span>
         </div>
       )}
-      <div className="text-[11px] text-slate-400 mt-1 font-medium relative">{label}</div>
+      <div className="text-[11px] text-fg-muted mt-1 font-medium relative">{label}</div>
     </motion.div>
   );
 }
@@ -846,7 +847,7 @@ export default function Page() {
             index={0}
             value={hereNowCount}
             label="Here Now"
-            color="var(--status-ok)"
+            color="var(--status-ok-mark)"
             loading={isLoading}
           />
         )}
@@ -875,8 +876,8 @@ export default function Page() {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: 0.1, ease: "easeOut" }}
-      className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-white/[0.05]"
-      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+      className="flex gap-3 flex-wrap mb-5 px-[14px] py-3 bg-card rounded-xl border border-line-subtle"
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
       {([
         { label: "Opener", color: SHIFT_COLORS.opener, Icon: SunriseIcon },
@@ -888,7 +889,7 @@ export default function Page() {
           initial={{ opacity: 0, x: -4 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 + i * 0.06, duration: 0.2 }}
-          className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/40"
+          className="flex items-center gap-1.5 text-[11px] text-fg-muted bg-fill/60 px-2.5 py-1 rounded-full border border-line-strong/40"
         >
           <Icon size={12} color={color} />
           <span>{label}</span>
@@ -1003,7 +1004,7 @@ export default function Page() {
   const weekButton = isManager ? (
     <Link
       href="/week"
-      className="w-full mt-4 py-3 flex items-center justify-center text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 hover:border-slate-600 transition-colors"
+      className="w-full mt-4 py-3 flex items-center justify-center text-sm font-semibold text-fg-secondary bg-fill border border-line-strong rounded-xl hover:bg-fill-strong hover:border-line-stronger transition-colors"
     >
       Team week
     </Link>
@@ -1014,7 +1015,7 @@ export default function Page() {
       onClick={() => router.push("/week?mode=draft")}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="w-full mt-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-violet-600 border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
+      className="w-full mt-4 py-3 text-sm font-bold text-on-accent bg-gradient-to-r from-brand-from to-brand-to border border-transparent rounded-xl cursor-pointer hover:brightness-110 transition-all"
     >
       Plan Draft Schedule
     </motion.button>
@@ -1028,34 +1029,34 @@ export default function Page() {
         aria-controls="home-export-range"
         whileTap={{ scale: 0.98 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700 hover:border-slate-600 transition-colors"
+        className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-fg-secondary bg-fill border border-line-strong rounded-xl cursor-pointer hover:bg-fill-strong hover:border-line-stronger transition-colors"
       >
         Export CSV
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-slate-500 transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`text-fg-subtle transition-transform ${showExport ? "rotate-180" : ""}`}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </motion.button>
       {showExport && (
-        <div id="home-export-range" className="flex flex-col gap-2 bg-card border border-slate-800/60 rounded-xl p-3">
+        <div id="home-export-range" className="flex flex-col gap-2 bg-card border border-line/60 rounded-xl p-3">
           <div className="flex items-end gap-2">
             <div className="flex-1 min-w-0">
-              <label htmlFor="exp-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+              <label htmlFor="exp-from" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">From</label>
               <input
                 id="exp-from"
                 type="date"
                 value={exportFrom}
                 max={exportTo}
                 onChange={(e) => setExportFrom(e.target.value)}
-                className="w-full bg-slate-900 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-well border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
               />
             </div>
             <div className="flex-1 min-w-0">
-              <label htmlFor="exp-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+              <label htmlFor="exp-to" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">To</label>
               <input
                 id="exp-to"
                 type="date"
                 value={exportTo}
                 min={exportFrom}
                 onChange={(e) => setExportTo(e.target.value)}
-                className="w-full bg-slate-900 border border-field rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-well border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -1065,7 +1066,7 @@ export default function Page() {
             aria-busy={exportLoading}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="w-full py-2.5 text-sm font-semibold text-indigo-400 bg-indigo-500/15 border border-indigo-500/30 rounded-xl cursor-pointer hover:bg-indigo-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 text-sm font-semibold text-accent-fg bg-accent/15 border border-accent/30 rounded-xl cursor-pointer hover:bg-accent/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportLoading ? "Loading…" : "Download CSV"}
           </motion.button>

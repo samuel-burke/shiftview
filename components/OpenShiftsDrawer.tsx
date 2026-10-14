@@ -84,7 +84,7 @@ export default function OpenShiftsDrawer(props: Props) {
           <motion.div
             key="backdrop"
             aria-hidden="true"
-            className="fixed inset-0 bg-black/60 z-40"
+            className="fixed inset-0 bg-scrim/60 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -99,8 +99,8 @@ export default function OpenShiftsDrawer(props: Props) {
             data-testid="open-shifts-drawer"
             className={`fixed z-50 bg-bg ${
               isDesktop
-                ? "inset-y-0 right-0 w-[420px] border-l border-slate-800 overflow-y-auto"
-                : "bottom-0 left-0 right-0 border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto"
+                ? "inset-y-0 right-0 w-[420px] border-l border-line overflow-y-auto"
+                : "bottom-0 left-0 right-0 border-t border-line rounded-t-3xl max-w-[480px] mx-auto"
             }`}
             initial={isDesktop ? { x: "100%" } : { y: "100%" }}
             animate={isDesktop ? { x: 0 } : { y: 0 }}
@@ -109,21 +109,21 @@ export default function OpenShiftsDrawer(props: Props) {
           >
             {!isDesktop && (
               <div className="flex justify-center pt-3 pb-1">
-                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
+                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-strong" />
               </div>
             )}
 
             <div className={isDesktop ? "p-7" : "px-6 pt-2 pb-11"}>
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <div id="open-shifts-drawer-title" className="text-lg font-bold text-slate-100">Open Shifts</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{subtitle}</div>
+                  <div id="open-shifts-drawer-title" className="text-lg font-bold text-fg">Open Shifts</div>
+                  <div className="text-xs text-fg-muted mt-0.5">{subtitle}</div>
                 </div>
                 <button
                   onClick={onClose}
                   aria-label="Close"
                   autoFocus
-                  className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                     <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
@@ -132,7 +132,7 @@ export default function OpenShiftsDrawer(props: Props) {
               </div>
 
               {openShifts.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-sm">
+                <div className="text-center py-10 text-fg-muted text-sm">
                   {role === "manager" ? "No open shifts posted" : "No open shifts to pick up"}
                 </div>
               ) : (
@@ -158,8 +158,8 @@ export default function OpenShiftsDrawer(props: Props) {
 
 function TimeRange({ shift }: { shift: OpenShiftView }) {
   return (
-    <div className="text-xs text-slate-400 mb-2">
-      <span className="bg-slate-800 rounded-lg px-2 py-1">
+    <div className="text-xs text-fg-muted mb-2">
+      <span className="bg-fill rounded-lg px-2 py-1">
         {fmtMinutes(shift.startMinutes)} – {fmtMinutes(shift.endMinutes)}
       </span>
     </div>
@@ -179,27 +179,27 @@ function ManagerCard({
   const filled = shift.status === "filled";
 
   return (
-    <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4">
+    <div className="bg-card border border-line/60 rounded-2xl px-4 py-4">
       <div className="flex items-center justify-between mb-1">
-        <div className="text-sm font-semibold text-slate-100">{formatDate(shift.date)}</div>
+        <div className="text-sm font-semibold text-fg">{formatDate(shift.date)}</div>
         {filled && (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/15 rounded-full px-2 py-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-success-fg bg-success/15 rounded-full px-2 py-0.5">
             Filled
           </span>
         )}
       </div>
       <TimeRange shift={shift} />
-      {shift.note && <div className="text-xs text-slate-400 mb-2">{shift.note}</div>}
+      {shift.note && <div className="text-xs text-fg-muted mb-2">{shift.note}</div>}
 
       {filled ? (
-        <div className="text-xs text-slate-300">Picked up by {shift.filledByName ?? "an employee"}</div>
+        <div className="text-xs text-fg-secondary">Picked up by {shift.filledByName ?? "an employee"}</div>
       ) : pendingClaims.length === 0 ? (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-slate-500">No claims yet</span>
+          <span className="text-xs text-fg-subtle">No claims yet</span>
           <button
             onClick={() => onCancel(shift.id)}
             aria-label={`Cancel open shift on ${formatDate(shift.date)}`}
-            className="py-2 px-3 rounded-xl bg-transparent border border-slate-700 text-red-400 font-semibold text-xs cursor-pointer hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
+            className="py-2 px-3 rounded-xl bg-transparent border border-line-strong text-danger-fg font-semibold text-xs cursor-pointer hover:bg-danger/20 hover:border-danger/40 transition-colors"
           >
             Cancel
           </button>
@@ -208,11 +208,11 @@ function ManagerCard({
         <div className="flex flex-col gap-2">
           {pendingClaims.map((claim) => (
             <div key={claim.id} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-200 font-medium">{claim.employeeName}</span>
+              <span className="text-xs text-fg-body font-medium">{claim.employeeName}</span>
               <button
                 onClick={() => onApproveClaim(shift.id, claim.id)}
                 aria-label={`Assign ${claim.employeeName} to the shift on ${formatDate(shift.date)}`}
-                className="py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
+                className="py-2 px-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
               >
                 Assign
               </button>
@@ -234,18 +234,18 @@ function EmployeeCard({
   const claimed = shift.myClaimStatus === "pending";
 
   return (
-    <div className="bg-card border border-slate-800/60 rounded-2xl px-4 py-4">
-      <div className="text-sm font-semibold text-slate-100 mb-1">{formatDate(shift.date)}</div>
+    <div className="bg-card border border-line/60 rounded-2xl px-4 py-4">
+      <div className="text-sm font-semibold text-fg mb-1">{formatDate(shift.date)}</div>
       <TimeRange shift={shift} />
-      {shift.note && <div className="text-xs text-slate-400 mb-2">{shift.note}</div>}
+      {shift.note && <div className="text-xs text-fg-muted mb-2">{shift.note}</div>}
 
       {claimed ? (
-        <div className="text-xs text-amber-300 font-semibold">Claim pending approval</div>
+        <div className="text-xs text-warning-fg-strong font-semibold">Claim pending approval</div>
       ) : (
         <button
           onClick={() => onClaim(shift.id)}
           aria-label={`Claim the shift on ${formatDate(shift.date)}`}
-          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
+          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-xs cursor-pointer border-none hover:brightness-110 transition-[filter]"
         >
           Claim shift
         </button>

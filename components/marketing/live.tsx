@@ -283,7 +283,7 @@ export function TeamDemo({ date }: { date: string }) {
           <PhoneFrame label={p.label} className="[--phone-zoom:0.6] sm:[--phone-zoom:0.4] md:[--phone-zoom:0.47] lg:[--phone-zoom:0.6]">
             {p.screen}
           </PhoneFrame>
-          <p className="mt-5 text-center text-sm font-medium text-slate-300">{p.title}</p>
+          <p className="mt-5 text-center text-sm font-medium text-fg-secondary">{p.title}</p>
         </Reveal>
       ))}
     </div>

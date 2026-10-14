@@ -15,6 +15,7 @@ import {
 } from "../data/types";
 import { ShiftIcon } from "./ShiftIcons";
 import { shiftWindowOn } from "@/lib/shift-times";
+import { markColor, tint } from "../lib/theme-colors";
 
 type Props = {
   employee: Employee;
@@ -30,10 +31,10 @@ type Props = {
 };
 
 const ATTENDANCE_BADGES: Record<AttendanceStatus, { label: string; className: string }> = {
-  clocked_in:     { label: "Clocked In",    className: "bg-green-500/15 text-green-500" },
-  on_break:       { label: "On Break",      className: "bg-amber-500/15 text-amber-400" },
-  clocked_out:    { label: "Clocked Out",   className: "bg-slate-700/50 text-slate-400" },
-  not_clocked_in: { label: "Not Here Yet",  className: "bg-red-500/15 text-red-400" },
+  clocked_in:     { label: "Clocked In",    className: "bg-ok/15 text-ok-fg" },
+  on_break:       { label: "On Break",      className: "bg-warning/15 text-warning-fg" },
+  clocked_out:    { label: "Clocked Out",   className: "bg-fill-strong/50 text-fg-muted" },
+  not_clocked_in: { label: "Not Here Yet",  className: "bg-danger/15 text-danger-fg" },
 };
 
 export default function ShiftCard({
@@ -72,13 +73,13 @@ export default function ShiftCard({
         badge = ATTENDANCE_BADGES[attendanceStatus];
       }
     } else if (here) {
-      badge = { label: "Here", className: "bg-green-500/15 text-green-500" };
+      badge = { label: "Here", className: "bg-ok/15 text-ok-fg" };
     }
   }
 
   const isActive = badge?.label === "Clocked In" || badge?.label === "Here";
 
-  const glowShadow = `0 0 18px color-mix(in srgb, ${shiftColor} 13%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)`;
+  const glowShadow = `0 0 18px ${tint(shiftColor, 13)}, var(--shadow-card)`;
 
   const shiftTimeLabel = `${fromPrevDay ? "from yesterday, " : ""}${fmtMinutes(schedule.startMinutes)} to ${fmtMinutes(schedule.endMinutes)}`;
   const cardAriaLabel = `${formatDisplayName(employee.name)}, ${shiftType ?? "shift"}, ${shiftTimeLabel}${badge ? `, ${badge.label}` : ""}`;
@@ -87,19 +88,19 @@ export default function ShiftCard({
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.97 }}
-      whileHover={{ y: -1, boxShadow: `0 4px 24px color-mix(in srgb, ${shiftColor} 19%, transparent)` }}
+      whileHover={{ y: -1, boxShadow: `0 4px 24px ${tint(shiftColor, 19)}` }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       aria-label={cardAriaLabel}
       data-scroll-anchor={`shift-${schedule.id}`}
-      className="w-full text-left bg-card border border-white/[0.08] rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
-      style={{ borderLeft: `3px solid ${shiftColor}`, boxShadow: glowShadow }}
+      className="w-full text-left bg-card border border-line-subtle rounded-xl px-[14px] py-3 mb-2 flex items-center gap-3 cursor-pointer"
+      style={{ borderLeft: `3px solid ${markColor(shiftColor)}`, boxShadow: glowShadow }}
     >
       {/* Avatar */}
       <div
         className="size-[38px] rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
-          background: `color-mix(in srgb, ${shiftColor} 13%, transparent)`,
-          border: `1.5px solid color-mix(in srgb, ${shiftColor} 33%, transparent)`,
+          background: tint(shiftColor, 13),
+          border: `1.5px solid ${tint(shiftColor, 33)}`,
           color: shiftColor,
         }}
       >
@@ -108,7 +109,7 @@ export default function ShiftCard({
 
       {/* Name + shift type */}
       <div className="flex-1 min-w-0">
-        <div className={`font-semibold text-sm truncate ${isActive ? "text-slate-100" : "text-slate-400"}`}>
+        <div className={`font-semibold text-sm truncate ${isActive ? "text-fg" : "text-fg-muted"}`}>
           {formatDisplayName(employee.name)}
         </div>
         {(shiftType || isWalkIn) && (
@@ -122,8 +123,8 @@ export default function ShiftCard({
       {/* Right side */}
       <div className="text-right shrink-0">
         {!isWalkIn && (
-          <div className="text-xs text-slate-400 whitespace-nowrap">
-            {fromPrevDay && <span className="text-slate-500">Yesterday </span>}
+          <div className="text-xs text-fg-muted whitespace-nowrap">
+            {fromPrevDay && <span className="text-fg-subtle">Yesterday </span>}
             {fmtMinutes(schedule.startMinutes)} – {fmtMinutes(schedule.endMinutes)}
           </div>
         )}
@@ -131,21 +132,21 @@ export default function ShiftCard({
             before and after the punches load (SkeletonShiftCard matches). */}
         <div className="mt-[5px] min-h-6 flex justify-end items-center gap-1.5">
           {arrivalText && !badge && (
-            <span className="text-xs text-slate-400">{arrivalText}</span>
+            <span className="text-xs text-fg-muted">{arrivalText}</span>
           )}
           {badge && (
             <span className={`text-[11px] leading-4 font-bold px-[9px] py-1 rounded-md flex items-center gap-1.5 select-none ${badge.className}`}>
               {(badge.label === "Clocked In" || badge.label === "Here") && (
                 <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ok opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-ok" />
                 </span>
               )}
               {badge.label === "On Break" && (
                 <motion.span
                   animate={{ opacity: [1, 0.4, 1] }}
                   transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                  className="relative flex h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                  className="relative flex h-2 w-2 shrink-0 rounded-full bg-warning-mark"
                 />
               )}
               {badge.label}

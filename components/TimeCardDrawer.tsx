@@ -22,23 +22,23 @@ const PUNCH_LABELS: Record<PunchType, string> = {
 };
 
 const PUNCH_COLORS: Record<PunchType, string> = {
-  clock_in: "var(--status-ok)",
+  clock_in: "var(--status-ok-mark)",
   clock_out: "var(--status-muted)",
-  break_start: "var(--status-warn)",
+  break_start: "var(--status-warn-mark)",
   break_end: "var(--status-info)",
 };
 
 // Per-violation pill styling. Hard violations (NCNS, late, no-show-shaped) are
 // red; softer timing deviations are amber.
 const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string }> = {
-  late_in:     { label: "Late In",     className: "bg-red-500/15 text-red-400 border border-red-500/25" },
-  late_out:    { label: "Late Out",    className: "bg-amber-500/15 text-amber-400 border border-amber-500/25" },
-  early_in:    { label: "Early In",    className: "bg-amber-500/15 text-amber-400 border border-amber-500/25" },
-  early_out:   { label: "Early Out",   className: "bg-amber-500/15 text-amber-400 border border-amber-500/25" },
-  long_break:  { label: "Long Break",  className: "bg-orange-500/15 text-orange-400 border border-orange-500/25" },
-  short_break: { label: "Short Break", className: "bg-orange-500/15 text-orange-400 border border-orange-500/25" },
-  callout:     { label: "Call Out",    className: "bg-rose-500/15 text-rose-400 border border-rose-500/25" },
-  ncns:        { label: "No Call No Show", className: "bg-red-600/20 text-red-300 border border-red-500/40" },
+  late_in:     { label: "Late In",     className: "bg-danger/15 text-danger-fg border border-danger/25" },
+  late_out:    { label: "Late Out",    className: "bg-warning/15 text-warning-fg border border-warning/25" },
+  early_in:    { label: "Early In",    className: "bg-warning/15 text-warning-fg border border-warning/25" },
+  early_out:   { label: "Early Out",   className: "bg-warning/15 text-warning-fg border border-warning/25" },
+  long_break:  { label: "Long Break",  className: "bg-attention/15 text-attention-fg border border-attention/25" },
+  short_break: { label: "Short Break", className: "bg-attention/15 text-attention-fg border border-attention/25" },
+  callout:     { label: "Call Out",    className: "bg-tag-rose/15 text-tag-rose-fg border border-tag-rose/25" },
+  ncns:        { label: "No Call No Show", className: "bg-danger-solid/20 text-danger-fg-strong border border-danger/40" },
 };
 
 const todayKey = todayKeyInTz;
@@ -118,7 +118,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 bg-black/60 z-[60] transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-scrim/60 z-[60] transition-opacity duration-200 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       />
@@ -126,7 +126,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
         role="dialog"
         aria-modal="true"
         aria-label={employee ? `Time card for ${employee.name}` : "Time card"}
-        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[560px] bg-bg border-l border-slate-800 flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 z-[70] w-full max-w-[560px] bg-bg border-l border-line flex flex-col transition-[transform,visibility] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
       >
@@ -184,19 +184,19 @@ export function TimeCardPanel({
     <>
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-5 border-b border-slate-800 shrink-0"
+        className="flex items-center gap-3 px-5 border-b border-line shrink-0"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: 16 }}
       >
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold text-slate-100 truncate">
+          <div className="text-base font-bold text-fg truncate">
             {employee?.name ?? "Time Card"}
           </div>
-          <div className="text-[11px] text-slate-500">Time card · punches & violations</div>
+          <div className="text-[11px] text-fg-subtle">Time card · punches & violations</div>
         </div>
         <button
           onClick={onClose}
           aria-label="Close"
-          className="size-11 rounded-full bg-slate-800 border-none text-slate-400 cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="size-11 rounded-full bg-fill border-none text-fg-muted cursor-pointer flex items-center justify-center shrink-0 hover:bg-fill-strong hover:text-fg-body transition-colors"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
@@ -205,33 +205,33 @@ export function TimeCardPanel({
       </div>
 
       {/* Date range controls: the fields and Apply share one height. */}
-      <div className="px-5 py-3 border-b border-slate-800 shrink-0 flex items-end gap-2 flex-wrap">
+      <div className="px-5 py-3 border-b border-line shrink-0 flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[120px]">
-          <label htmlFor="tc-from" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">From</label>
+          <label htmlFor="tc-from" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">From</label>
           <input
             id="tc-from"
             type="date"
             value={from}
             max={to}
             onChange={(e) => onFromChange(e.target.value)}
-            className="w-full h-11 bg-card border border-field rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            className="w-full h-11 bg-card border border-field rounded-lg px-2 text-xs text-fg-body focus:outline-none focus:border-accent"
           />
         </div>
         <div className="flex-1 min-w-[120px]">
-          <label htmlFor="tc-to" className="text-[10px] text-slate-500 font-semibold uppercase mb-1 block">To</label>
+          <label htmlFor="tc-to" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">To</label>
           <input
             id="tc-to"
             type="date"
             value={to}
             min={from}
             onChange={(e) => onToChange(e.target.value)}
-            className="w-full h-11 bg-card border border-field rounded-lg px-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            className="w-full h-11 bg-card border border-field rounded-lg px-2 text-xs text-fg-body focus:outline-none focus:border-accent"
           />
         </div>
         <button
           onClick={onApply}
           disabled={loading || from > to}
-          className="h-11 px-4 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-11 px-4 rounded-lg bg-accent-solid text-on-accent text-xs font-semibold cursor-pointer hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <StableLabel labels={["Apply", "…"]} active={loading ? 1 : 0} />
         </button>
@@ -240,7 +240,7 @@ export function TimeCardPanel({
       {/* Body */}
       <div data-testid="timecard-body" className="flex-1 overflow-y-auto px-5 py-4">
         {error && (
-          <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
+          <div role="alert" className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 text-sm text-danger-fg">
             {error}
           </div>
         )}
@@ -248,7 +248,7 @@ export function TimeCardPanel({
         {loading && !data && (
           <div className="flex flex-col gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} aria-hidden="true" className="h-20 bg-slate-800 rounded-2xl animate-pulse" />
+              <div key={i} aria-hidden="true" className="h-20 bg-fill rounded-2xl animate-pulse" />
             ))}
           </div>
         )}
@@ -257,23 +257,23 @@ export function TimeCardPanel({
           <>
             {/* Summary */}
             <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
-                <div className="text-[20px] font-extrabold text-slate-100 tabular-nums leading-none">
+              <div className="bg-card rounded-xl border border-line-subtle px-3 py-2.5 text-center">
+                <div className="text-[20px] font-extrabold text-fg tabular-nums leading-none">
                   {data.totalWorkedHours.toFixed(1)}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Hours</div>
+                <div className="text-[10px] text-fg-muted mt-1 uppercase tracking-wide">Hours</div>
               </div>
-              <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
-                <div className="text-[20px] font-extrabold text-slate-100 tabular-nums leading-none">
+              <div className="bg-card rounded-xl border border-line-subtle px-3 py-2.5 text-center">
+                <div className="text-[20px] font-extrabold text-fg tabular-nums leading-none">
                   {data.totalBreakHours.toFixed(1)}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Break</div>
+                <div className="text-[10px] text-fg-muted mt-1 uppercase tracking-wide">Break</div>
               </div>
-              <div className="bg-card rounded-xl border border-white/[0.05] px-3 py-2.5 text-center">
-                <div className={`text-[20px] font-extrabold tabular-nums leading-none ${data.totalViolations > 0 ? "text-red-400" : "text-slate-100"}`}>
+              <div className="bg-card rounded-xl border border-line-subtle px-3 py-2.5 text-center">
+                <div className={`text-[20px] font-extrabold tabular-nums leading-none ${data.totalViolations > 0 ? "text-danger-fg" : "text-fg"}`}>
                   {data.totalViolations}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wide">Flags</div>
+                <div className="text-[10px] text-fg-muted mt-1 uppercase tracking-wide">Flags</div>
               </div>
             </div>
 
@@ -295,17 +295,17 @@ export function TimeCardPanel({
 
             {/* Per-day cards */}
             {data.days.length === 0 ? (
-              <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-10 text-center">
-                <div className="text-slate-400 text-sm font-medium">Nothing recorded in this period</div>
-                <div className="text-slate-500 text-xs mt-1">No shifts, punches, or call-outs for these dates</div>
+              <div className="bg-card rounded-2xl border border-line/60 px-4 py-10 text-center">
+                <div className="text-fg-muted text-sm font-medium">Nothing recorded in this period</div>
+                <div className="text-fg-subtle text-xs mt-1">No shifts, punches, or call-outs for these dates</div>
               </div>
             ) : (
               <div className="flex flex-col gap-2.5">
                 {data.days.map((day) => (
-                  <div key={day.date} className="bg-card rounded-2xl border border-slate-800/60 px-4 py-3">
+                  <div key={day.date} className="bg-card rounded-2xl border border-line/60 px-4 py-3">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="text-sm font-bold text-slate-100">{formatDayHeader(day.date)}</div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-sm font-bold text-fg">{formatDayHeader(day.date)}</div>
+                      <div className="text-[11px] text-fg-muted">
                         {day.schedule
                           ? `${fmtMinutes(day.schedule.startMinutes)} – ${fmtMinutes(day.schedule.endMinutes)}`
                           : "Unscheduled"}
@@ -320,7 +320,7 @@ export function TimeCardPanel({
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${VIOLATION_STYLES[v.type].className}`}>
                               {v.label}
                             </span>
-                            <span className="text-[11px] text-slate-400">{v.detail}</span>
+                            <span className="text-[11px] text-fg-muted">{v.detail}</span>
                           </div>
                         ))}
                       </div>
@@ -336,27 +336,27 @@ export function TimeCardPanel({
                               className="size-1.5 rounded-full shrink-0"
                               style={{ background: PUNCH_COLORS[p.punchType] }}
                             />
-                            <span className="text-slate-400">{PUNCH_LABELS[p.punchType]}</span>
-                            <span className="text-slate-200 font-semibold tabular-nums">
+                            <span className="text-fg-muted">{PUNCH_LABELS[p.punchType]}</span>
+                            <span className="text-fg-body font-semibold tabular-nums">
                               {formatPunchTime(p.punchedAt, data.timezone)}
                             </span>
                             {p.isManual && (
-                              <span className="text-[9px] text-amber-400 uppercase" title="Manual correction">✎</span>
+                              <span className="text-[9px] text-warning-fg uppercase" title="Manual correction">✎</span>
                             )}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      !day.callout && <div className="text-[11px] text-slate-500 italic">No punches</div>
+                      !day.callout && <div className="text-[11px] text-fg-subtle italic">No punches</div>
                     )}
 
                     {/* Hours footer */}
                     {(day.workedHours > 0 || day.breakHours > 0 || day.hasIncomplete) && (
-                      <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center gap-3 text-[11px] text-slate-400">
-                        <span className="font-semibold text-slate-300 tabular-nums">{day.workedHours.toFixed(2)}h worked</span>
+                      <div className="mt-2 pt-2 border-t border-line/60 flex items-center gap-3 text-[11px] text-fg-muted">
+                        <span className="font-semibold text-fg-secondary tabular-nums">{day.workedHours.toFixed(2)}h worked</span>
                         {day.breakHours > 0 && <span className="tabular-nums">{day.breakHours.toFixed(2)}h break</span>}
                         {day.hasIncomplete && (
-                          <span className="text-amber-400" title="Missing a clock-out or break-end">⚠ incomplete</span>
+                          <span className="text-warning-fg" title="Missing a clock-out or break-end">⚠ incomplete</span>
                         )}
                       </div>
                     )}
@@ -371,12 +371,12 @@ export function TimeCardPanel({
       {/* Footer — export */}
       {data && data.days.length > 0 && (
         <div
-          className="px-5 border-t border-slate-800 shrink-0"
+          className="px-5 border-t border-line shrink-0"
           style={{ paddingTop: 12, paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         >
           <button
             onClick={onExport}
-            className="w-full py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm cursor-pointer hover:bg-slate-700 transition-colors"
+            className="w-full py-2.5 rounded-xl bg-fill border border-line-strong text-fg-body font-semibold text-sm cursor-pointer hover:bg-fill-strong transition-colors"
           >
             Export CSV
           </button>

@@ -67,7 +67,7 @@ export function PhoneFrame({ label, className = "", children }: { label: string;
       <span aria-hidden="true" className="absolute -left-[3px] top-[18%] h-[6%] w-[3px] rounded-l-sm bg-[#1b1f2a]" />
       <span aria-hidden="true" className="absolute -left-[3px] top-[27%] h-[9%] w-[3px] rounded-l-sm bg-[#1b1f2a]" />
       <span aria-hidden="true" className="absolute -right-[3px] top-[23%] h-[12%] w-[3px] rounded-r-sm bg-[#1b1f2a]" />
-      <div className="rounded-[calc(56px*var(--phone-zoom,0.72))] bg-[#05070d] p-[calc(12px*var(--phone-zoom,0.72))] shadow-[0_calc(50px*var(--phone-zoom,0.72))_calc(100px*var(--phone-zoom,0.72))_calc(-28px*var(--phone-zoom,0.72))_rgba(0,0,0,0.6)] ring-1 ring-white/10">
+      <div className="rounded-[calc(56px*var(--phone-zoom,0.72))] bg-[#05070d] p-[calc(12px*var(--phone-zoom,0.72))] shadow-[0_calc(50px*var(--phone-zoom,0.72))_calc(100px*var(--phone-zoom,0.72))_calc(-28px*var(--phone-zoom,0.72))_rgba(0,0,0,0.6)] ring-1 ring-on-accent/10">
         <div
           className="relative overflow-hidden rounded-[calc(44px*var(--phone-zoom,0.72))] bg-bg"
           style={{ width: `calc(${PHONE.width}px * var(--phone-zoom,0.72))`, height: `calc(${PHONE.height}px * var(--phone-zoom,0.72))` }}
@@ -85,7 +85,7 @@ export function PhoneFrame({ label, className = "", children }: { label: string;
 export function TabletFrame({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
   return (
     <figure aria-label={label} className={`relative isolate ${className}`}>
-      <div className="rounded-[6.5%/4.6%] bg-[#05070d] p-[3.6%] shadow-[0_calc(97px*var(--screen-zoom,0.5))_calc(194px*var(--screen-zoom,0.5))_calc(-54px*var(--screen-zoom,0.5))_rgba(0,0,0,0.6)] ring-1 ring-white/10">
+      <div className="rounded-[6.5%/4.6%] bg-[#05070d] p-[3.6%] shadow-[0_calc(97px*var(--screen-zoom,0.5))_calc(194px*var(--screen-zoom,0.5))_calc(-54px*var(--screen-zoom,0.5))_rgba(0,0,0,0.6)] ring-1 ring-on-accent/10">
         <Screen {...TABLET} className="rounded-[2.6%/1.8%]">{children}</Screen>
       </div>
     </figure>
@@ -96,7 +96,7 @@ export function TabletFrame({ label, className = "", children }: { label: string
 export function LaptopFrame({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
   return (
     <figure aria-label={label} className={`relative isolate ${className}`}>
-      <div className="relative mx-[6%] rounded-t-[2.2%/3.5%] bg-[#05070d] px-[1.5%] pb-[2.4%] pt-[1.9%] ring-1 ring-white/10">
+      <div className="relative mx-[6%] rounded-t-[2.2%/3.5%] bg-[#05070d] px-[1.5%] pb-[2.4%] pt-[1.9%] ring-1 ring-on-accent/10">
         <span aria-hidden="true" className="absolute left-1/2 top-[0.75%] size-[0.45%] -translate-x-1/2 rounded-full bg-[#1d2333]" />
         <Screen {...DESKTOP} className="rounded-[0.4%/0.6%]">{children}</Screen>
       </div>
@@ -111,17 +111,17 @@ export function LaptopFrame({ label, className = "", children }: { label: string
 /** A desktop browser's tab strip and address bar, 46px tall. */
 export function BrowserChrome({ url }: { url: string }) {
   return (
-    <div className="flex h-[46px] shrink-0 items-center gap-4 border-b border-slate-800 bg-slate-900 px-5">
+    <div className="flex h-[46px] shrink-0 items-center gap-4 border-b border-line bg-well px-5">
       <div className="flex gap-2">
         <span className="size-3 rounded-full bg-[#ff5f57]" />
         <span className="size-3 rounded-full bg-[#febc2e]" />
         <span className="size-3 rounded-full bg-[#28c840]" />
       </div>
-      <div className="flex gap-3 pl-3 text-slate-500">
+      <div className="flex gap-3 pl-3 text-fg-subtle">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </div>
-      <div className="mx-auto flex h-[30px] w-[520px] items-center justify-center gap-2 rounded-lg bg-bg text-[13px] text-slate-400">
+      <div className="mx-auto flex h-[30px] w-[520px] items-center justify-center gap-2 rounded-lg bg-bg text-[13px] text-fg-muted">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="2" /></svg>
         {url}
       </div>
@@ -133,7 +133,7 @@ export function BrowserChrome({ url }: { url: string }) {
 /** A desktop browser window showing an app page at 1440 × 900, chrome included. */
 export function BrowserFrame({ label, url, className = "", children }: { label: string; url: string; className?: string; children: React.ReactNode }) {
   return (
-    <figure aria-label={label} className={`relative isolate overflow-hidden rounded-[10px] shadow-[0_calc(78px*var(--screen-zoom,0.5))_calc(156px*var(--screen-zoom,0.5))_calc(-62px*var(--screen-zoom,0.5))_rgba(0,0,0,0.6)] ring-1 ring-slate-700/60 ${className}`}>
+    <figure aria-label={label} className={`relative isolate overflow-hidden rounded-[10px] shadow-[0_calc(78px*var(--screen-zoom,0.5))_calc(156px*var(--screen-zoom,0.5))_calc(-62px*var(--screen-zoom,0.5))_rgba(0,0,0,0.6)] ring-1 ring-line-strong/60 ${className}`}>
       <Screen {...DESKTOP}>
         <div className="flex h-full flex-col">
           <BrowserChrome url={url} />

@@ -189,22 +189,22 @@ export default function InAppNotificationBanner() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.97 }}
               transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className={`pointer-events-auto w-80 bg-card border border-slate-800 rounded-2xl shadow-xl flex items-start gap-3 px-4 py-3 ${banner.onTap ? "cursor-pointer hover:bg-slate-800/60 transition-colors" : ""}`}
-              style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)" }}
+              className={`pointer-events-auto w-80 bg-card border border-line rounded-2xl shadow-xl flex items-start gap-3 px-4 py-3 ${banner.onTap ? "cursor-pointer hover:bg-fill/60 transition-colors" : ""}`}
+              style={{ boxShadow: "var(--shadow-popover)" }}
             >
               <span className="shrink-0 mt-0.5">
                 <Icon size={18} color={color} />
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-100 truncate">{banner.title}</div>
+                <div className="text-sm font-semibold text-fg truncate">{banner.title}</div>
                 {banner.body && (
-                  <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{banner.body}</div>
+                  <div className="text-xs text-fg-muted mt-0.5 line-clamp-2">{banner.body}</div>
                 )}
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); dismiss(banner.id); }}
                 aria-label="Dismiss notification"
-                className="shrink-0 text-slate-500 hover:text-slate-300 cursor-pointer flex items-center justify-center size-6 rounded transition-colors"
+                className="shrink-0 text-fg-subtle hover:text-fg-secondary cursor-pointer flex items-center justify-center size-6 rounded transition-colors"
               >
                 <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                   <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
@@ -216,7 +216,7 @@ export default function InAppNotificationBanner() {
       </AnimatePresence>
       </MotionConfig>
       {overflowCount > 0 && (
-        <div className="pointer-events-none self-end bg-card border border-slate-800 rounded-full px-3 py-1 text-xs text-slate-400 shadow-xl">
+        <div className="pointer-events-none self-end bg-card border border-line rounded-full px-3 py-1 text-xs text-fg-muted shadow-xl">
           +{overflowCount} more
         </div>
       )}

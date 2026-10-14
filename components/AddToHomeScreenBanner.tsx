@@ -86,28 +86,28 @@ export default function AddToHomeScreenBanner() {
           style={{ bottom: "calc(72px + env(safe-area-inset-bottom))" }}
         >
           <div
-            className="bg-slate-800 border border-slate-700/80 rounded-2xl px-4 py-3.5 flex items-center gap-3"
+            className="bg-fill border border-line-strong/80 rounded-2xl px-4 py-3.5 flex items-center gap-3"
             style={{
               boxShadow:
-                "0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05)",
+                "var(--shadow-popover)",
             }}
           >
-            <div className="shrink-0 size-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
+            <div className="shrink-0 size-9 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent-fg">
               <ShareIcon />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-100 leading-tight">
+              <p className="text-sm font-bold text-fg leading-tight">
                 Add to Home Screen
               </p>
-              <p className="text-xs text-slate-400 mt-0.5 leading-snug">
+              <p className="text-xs text-fg-muted mt-0.5 leading-snug">
                 Tap{" "}
                 <ShareIcon
                   size={12}
-                  className="inline align-middle mx-0.5 text-slate-300"
+                  className="inline align-middle mx-0.5 text-fg-secondary"
                 />{" "}
                 then{" "}
-                <span className="text-slate-300 font-medium">
+                <span className="text-fg-secondary font-medium">
                   &ldquo;Add to Home Screen&rdquo;
                 </span>
               </p>
@@ -116,7 +116,7 @@ export default function AddToHomeScreenBanner() {
             <button
               onClick={dismiss}
               aria-label="Dismiss"
-              className="shrink-0 size-7 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+              className="shrink-0 size-7 flex items-center justify-center rounded-full text-fg-subtle hover:text-fg-secondary transition-colors cursor-pointer"
             >
               <svg
                 width="10"

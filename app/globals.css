@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/*
+ * Theme colors: the single source of truth for both themes.
+ *
+ * 1. Semantic color tokens (the @theme block). Each --color-<name> makes the
+ *    Tailwind utilities bg-<name>, text-<name>, border-<name>, ring-<name> and
+ *    so on; components use these, never Tailwind's palette (slate-800,
+ *    red-400…), which is switched off below so a palette class can't creep
+ *    back in. The values here are the dark theme; [data-theme="light"]
+ *    redefines every one.
+ * 2. Purpose tokens (:root) for inline styles, SVG and charts: status, shift
+ *    type, time off, coverage heatmap, chart and elevation. Most alias a
+ *    semantic token. A color that is drawn as a mark (a dot, stripe, bar,
+ *    chart line or tint) as well as text has a -mark twin: light mode needs
+ *    a darker shade for text (4.5:1) than reads well as a mark (3:1), and a
+ *    tint mixed from the text shade comes out muddy. lib/theme-colors.ts
+ *    picks the twin for tints.
+ *
+ * Contrast is checked in lib/theme-tokens.test.ts (token pairs, both themes)
+ * and e2e/contrast.spec.ts (axe on the rendered screens).
+ */
+
 @theme {
   /*
    * App size classes (see docs/wide-layout-wireframes.html). Custom names so the
@@ -14,26 +35,95 @@
   --breakpoint-desk: 1024px;
   --breakpoint-wide: 1440px;
 
-  --color-bg: #080f1e;
-  --color-card: #111827;
-  /* The edge of a text field or select: 3:1 against the card and the page,
-     as a control's boundary needs to be (WCAG 1.4.11). Light value below. */
-  --color-field: #5e6f88;
+  /* No palette colors: only the semantic tokens below make utilities. */
+  --color-*: initial;
+
+  /* Surfaces: Page, cards and the layers on them. Light mode separates them by tone (page grey, white cards) and by edge (line), not by tinted fills. */
+  --color-bg:             #080f1e; /* page, header, sidebar */
+  --color-card:           #111827; /* cards, sheets, list rows */
+  --color-raised:         #111827; /* popovers, menus, dialogs, toasts: lifted by shadow-popover / shadow-dialog */
+  --color-well:           oklch(20.8% 0.042 265.755); /* an inset area inside a card */
+  --color-fill:           oklch(27.9% 0.041 260.031); /* neutral control fill: chips, secondary buttons, segmented tracks, row hover */
+  --color-fill-strong:    oklch(37.2% 0.044 257.287); /* hover/pressed on a fill, progress tracks */
+  --color-fill-stronger:  oklch(44.6% 0.043 257.281); /* a selected segment, the off switch track */
+  --color-inverse:        oklch(96.8% 0.007 247.896); /* inverse surface (a high-contrast chip or ring) */
+  --color-scrim:          #000000; /* backdrop under sheets and dialogs (used at /60-/75) */
+  --color-on-accent:      #ffffff; /* text and knobs on accent, status and brand fills */
+
+  /* Text: Foreground ladder. Every step holds 4.5:1 on card, page and fill in its theme (fg-subtle is the floor for small text). */
+  --color-fg:            oklch(96.8% 0.007 247.896); /* primary text, headings */
+  --color-fg-body:       oklch(92.9% 0.013 255.508); /* body text */
+  --color-fg-secondary:  oklch(86.9% 0.022 252.894); /* secondary text */
+  --color-fg-muted:      oklch(70.4% 0.04 256.788); /* muted text, inactive nav and icons */
+  --color-fg-subtle:     #8193aa; /* least emphasis: captions, placeholders, timestamps */
+
+  /* Borders: Edges. line / line-subtle separate decorative layers; field and line-emphasis are control boundaries that hold 3:1 (WCAG 1.4.11). */
+  --color-line:           oklch(27.9% 0.041 260.031); /* default border and divider */
+  --color-line-subtle:    rgb(255 255 255 / 0.05); /* card edges that only separate a card from the page */
+  --color-line-strong:    oklch(37.2% 0.044 257.287); /* secondary button and chip edges, dashed placeholders */
+  --color-line-stronger:  oklch(44.6% 0.043 257.281); /* hovered edges */
+  --color-line-emphasis:  #8193aa; /* selected-segment ring and other 3:1 edges */
+  --color-field:          #5e6f88; /* text field, select and textarea edge: 3:1 on card and page */
+  --color-focus:          #6366f1; /* keyboard focus outline */
+
+  /* Accent: The indigo brand accent: selection, primary actions, links. accent is the base for tints, edges and rings; accent-solid fills primary buttons; accent-fg* are text. */
+  --color-accent:            oklch(58.5% 0.233 277.117);
+  --color-accent-solid:      oklch(51.1% 0.262 276.966); /* primary button fill (white text 6.3:1) */
+  --color-accent-fg:         oklch(67.3% 0.182 276.935); /* links, active nav, selected text */
+  --color-accent-fg-strong:  oklch(78.5% 0.115 274.713);
+  --color-accent-fg-max:     oklch(87% 0.065 274.039);
+  --color-brand-from:        oklch(54.6% 0.245 262.881); /* brand gradient (CTA buttons, avatar) */
+  --color-brand-to:          oklch(54.1% 0.281 293.009);
+
+  /* Feedback: One family per meaning. The bare name is the vivid base for tints (/10-/20), edges and solid marks; -mark is a dot or bar on its own; -solid fills a button under white text; -fg* are text on card, page and the family's own tint. */
+  --color-info:                 oklch(62.3% 0.214 259.815); /* scheduled, informational */
+  --color-info-solid:           oklch(54.6% 0.245 262.881);
+  --color-info-solid-hover:     oklch(48.8% 0.243 264.376);
+  --color-info-fg:              oklch(70.7% 0.165 254.624);
+  --color-info-fg-strong:       oklch(80.9% 0.105 251.813);
+  --color-auto:                 oklch(60.6% 0.25 292.717); /* auto-scheduled (generated) shifts */
+  --color-auto-fg:              oklch(70.2% 0.183 293.541);
+  --color-auto-fg-strong:       oklch(81.1% 0.111 293.571);
+  --color-auto-fg-max:          oklch(89.4% 0.057 293.283);
+  --color-danger:               oklch(63.7% 0.237 25.331); /* errors, denied, over budget, called out */
+  --color-danger-solid:         oklch(57.7% 0.245 27.325);
+  --color-danger-mark:          oklch(70.4% 0.191 22.216);
+  --color-danger-fg:            oklch(70.4% 0.191 22.216);
+  --color-danger-fg-strong:     oklch(80.8% 0.114 19.571);
+  --color-warning:              oklch(76.9% 0.188 70.08); /* warnings, pending, on break, drafts */
+  --color-warning-mark:         oklch(82.8% 0.189 84.429);
+  --color-warning-solid:        oklch(55.5% 0.163 48.998);
+  --color-warning-solid-hover:  oklch(47.3% 0.137 46.201);
+  --color-warning-fg:           oklch(82.8% 0.189 84.429);
+  --color-warning-fg-strong:    oklch(87.9% 0.169 91.605);
+  --color-warning-fg-max:       oklch(92.4% 0.12 95.746);
+  --color-success:              oklch(69.6% 0.17 162.48); /* approved, published, saved */
+  --color-success-mark:         oklch(76.5% 0.177 163.223);
+  --color-success-solid:        oklch(50.8% 0.118 165.612);
+  --color-success-solid-alt:    oklch(51.1% 0.096 186.391); /* second stop of the payroll export gradient */
+  --color-success-fg:           oklch(76.5% 0.177 163.223);
+  --color-success-fg-strong:    oklch(84.5% 0.143 164.978);
+  --color-ok:                   oklch(72.3% 0.219 149.579); /* present: clocked in, on target (the Here Now green) */
+  --color-ok-solid:             oklch(52.7% 0.154 150.069); /* Clock In button */
+  --color-ok-solid-hover:       oklch(44.8% 0.119 151.328);
+  --color-ok-fg:                oklch(72.3% 0.219 149.579);
+  --color-attention:            oklch(70.5% 0.213 47.604); /* break-length violations */
+  --color-attention-fg:         oklch(75% 0.183 55.934);
+  --color-tag-cyan:             oklch(71.5% 0.143 215.221); /* audit-log category: swaps */
+  --color-tag-cyan-fg:          oklch(78.9% 0.154 211.53);
+  --color-tag-rose:             oklch(64.5% 0.246 16.439); /* audit-log category: managers; call-outs on a time card */
+  --color-tag-rose-fg:          oklch(71.2% 0.194 13.428);
 }
 
-/* ── Dark theme (default) ─────────────────────────────────── */
+/* ── Purpose tokens, dark theme (default) ─────────────────── */
 :root {
   color-scheme: dark;
-  --body-color: #f8fafc;
+  --body-color: var(--color-fg);
   --skeleton-shine: #1e2a3f;
 
-  /* Secondary text (text-slate-500). Tailwind's slate-500 is 3.7:1 on the
-     card, under the 4.5:1 small text needs; this is 5.7:1 there and 4.65 on
-     slate-800 (chips, field fills), still a step below slate-400. */
-  --color-slate-500: #8193aa;
-
-  /* Status colors for inline styles (badges, icons, chart lines, values),
-     one set per theme so each reads on that theme's surfaces. */
+  /* Status colors for inline styles (badges, icons, chart lines, values).
+     Dark keeps the hex these always had (Tailwind v3's palette, a shade off
+     the v4 utilities above); light aliases the semantic tokens. */
   --status-ok: #22c55e;      /* clocked in, on target, approved */
   --status-warn: #f59e0b;    /* on break */
   --status-caution: #fbbf24; /* below target, pending */
@@ -45,15 +135,35 @@
   --status-violet: #a78bfa;
   --status-teal: #34d399;
   --status-orange: #fb923c;
+  /* Marks (dots, stripes, icons, chart lines, large numbers, tints): the
+     same colors in dark; light mode's are brighter than its text shades. */
+  --status-ok-mark: var(--status-ok);
+  --status-warn-mark: var(--status-warn);
+  --status-caution-mark: var(--status-caution);
+  --status-bad-mark: var(--status-bad);
+  --status-muted-mark: var(--status-muted);
+  --status-info-mark: var(--status-info);
+  --status-blue-mark: var(--status-blue);
+  --status-sky-mark: var(--status-sky);
+  --status-violet-mark: var(--status-violet);
+  --status-teal-mark: var(--status-teal);
+  --status-orange-mark: var(--status-orange);
+
   /* Shift types */
-  --color-shift-opener:  #fbbf24;  /* brighter amber */
-  --color-shift-mid:     #60a5fa;  /* lighter blue */
-  --color-shift-closer:  #a78bfa;  /* lifted purple */
+  --color-shift-opener: var(--status-caution);
+  --color-shift-mid:    var(--status-sky);
+  --color-shift-closer: var(--status-violet);
+  --color-shift-opener-mark: var(--color-shift-opener);
+  --color-shift-mid-mark:    var(--color-shift-mid);
+  --color-shift-closer-mark: var(--color-shift-closer);
 
   /* Time-off request statuses */
-  --color-timeoff-pending:  #cbd5e1; /* lighter slate for visibility */
-  --color-timeoff-approved: #4ade80; /* brighter green for dark UI */
-  --color-timeoff-denied:   #f87171; /* softened red (less harsh on dark bg) */
+  --color-timeoff-pending:  #cbd5e1;
+  --color-timeoff-approved: #4ade80;
+  --color-timeoff-denied:   var(--status-bad);
+  --color-timeoff-pending-mark:  var(--color-timeoff-pending);
+  --color-timeoff-approved-mark: var(--color-timeoff-approved);
+  --color-timeoff-denied-mark:   var(--color-timeoff-denied);
 
   /* Coverage heatmap: diverging around the target. Neutral = met; amber arm
      (the understaffed color) = short by 1 / 2 / 3+, blue arm (the scheduled
@@ -69,42 +179,152 @@
   --color-cov-over-1:  #264d8f;
   --color-cov-over-2:  #2f64bc;
   --color-cov-over-3:  #3a80f2;
+
+  /* Charts (Recharts and the small SVG charts). Series keep distinct hues
+     in both themes; axis text holds 4.5:1 on the card. */
+  --chart-scheduled: var(--status-blue);
+  --chart-target:    var(--status-info);
+  --chart-actual:    var(--status-ok-mark);
+  --chart-budget:    #cbd5e1;
+  --chart-axis:      var(--status-muted);
+  --chart-over:      var(--status-bad);
+  --chart-under:     var(--status-caution);
+  --chart-met:       var(--status-ok);
+  --chart-cursor:    rgb(148 163 184 / 0.08);
+  --chart-tooltip-bg:     #0f172a;
+  --chart-tooltip-border: #334155;
+  --chart-tooltip-fg:     #f1f5f9;
+
+  /* Elevation. Dark lifts with deep shadows and a hairline highlight;
+     light with soft slate shadows and a hairline edge. */
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-hover: 0 4px 12px rgb(0 0 0 / 0.25);
+  --shadow-popover: 0 20px 60px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-dialog: 0 24px 64px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-segment: inset 0 0 0 1px var(--color-line-emphasis), 0 1px 3px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
-/* ── Light theme overrides ────────────────────────────────── */
+/* ── Light theme ──────────────────────────────────────────── */
 [data-theme="light"] {
   color-scheme: light;
-  --body-color: #0f172a;
-  --skeleton-shine: #e2e8f0;
+  --skeleton-shine: #e8edf3;
 
-  /* Semantic backgrounds */
-  --color-bg: #f1f5f9;
-  --color-card: #ffffff;
-  --color-field: #77859b; /* 3.4:1 on the page, 3.7 on a card */
+  /* Surfaces */
+  --color-bg:             #f4f6f9;
+  --color-card:           #ffffff;
+  --color-raised:         #ffffff;
+  --color-well:           #f4f6f9;
+  --color-fill:           #eef1f6;
+  --color-fill-strong:    #e2e7ee;
+  --color-fill-stronger:  #cbd3de;
+  --color-inverse:        #0f172b;
+  --color-scrim:          #0f172b;
+  --color-on-accent:      #ffffff;
 
-  /* Shift types and time-off statuses are text as well as stripes and
-     icons ("Opener", "Denied"), often on their own tint: these are the
-     shades that keep 4.5:1 there (amber 800, blue 700, violet 700, green
-     800, red 700). The 500s read at 2-4:1 on white. */
-  --color-shift-opener:  #92400e;
-  --color-shift-mid:     #1d4ed8;
-  --color-shift-closer:  #6d28d9;
+  /* Text */
+  --color-fg:            #0f172b;
+  --color-fg-body:       #1d293d;
+  --color-fg-secondary:  #314158;
+  --color-fg-muted:      #45556c;
+  --color-fg-subtle:     #576578;
 
-  --color-timeoff-pending:  #576578;
-  --color-timeoff-approved: #166534;
-  --color-timeoff-denied:   #b91c1c;
+  /* Borders */
+  --color-line:           #dfe5ec;
+  --color-line-subtle:    #e6ebf1;
+  --color-line-strong:    #cbd5e1;
+  --color-line-stronger:  #94a3b8;
+  --color-line-emphasis:  #576578;
+  --color-field:          #77859b;
+  --color-focus:          #4f39f6;
 
-  --status-ok: #166534;
-  --status-warn: #92400e;
-  --status-caution: #92400e;
-  --status-bad: #b91c1c;
-  --status-muted: #576578;
-  --status-info: #4338ca;
-  --status-blue: #1d4ed8;
-  --status-sky: #1d4ed8;
-  --status-violet: #6d28d9;
-  --status-teal: #065f46;
-  --status-orange: #9a3412;
+  /* Accent */
+  --color-accent:            #615fff;
+  --color-accent-solid:      #4f39f6;
+  --color-accent-fg:         #4f39f6;
+  --color-accent-fg-strong:  #432dd7;
+  --color-accent-fg-max:     #372aac;
+  --color-brand-from:        #155dfc;
+  --color-brand-to:          #7f22fe;
+
+  /* Feedback */
+  --color-info:                 #2b7fff;
+  --color-info-solid:           #155dfc;
+  --color-info-solid-hover:     #1447e6;
+  --color-info-fg:              #1447e6;
+  --color-info-fg-strong:       #193cb8;
+  --color-auto:                 #8e51ff;
+  --color-auto-fg:              #7f22fe;
+  --color-auto-fg-strong:       #7008e7;
+  --color-auto-fg-max:          #5d0ec0;
+  --color-danger:               #fb2c36;
+  --color-danger-solid:         #e7000b;
+  --color-danger-mark:          #e7000b;
+  --color-danger-fg:            #c10007;
+  --color-danger-fg-strong:     #9f0712;
+  --color-warning:              #fe9a00;
+  --color-warning-mark:         #c17c08;
+  --color-warning-solid:        #bb4d00;
+  --color-warning-solid-hover:  #973c00;
+  --color-warning-fg:           #973c00;
+  --color-warning-fg-strong:    #7b3306;
+  --color-warning-fg-max:       #7b3306;
+  --color-success:              #00bc7d;
+  --color-success-mark:         #009966;
+  --color-success-solid:        #007a55;
+  --color-success-solid-alt:    #00786f;
+  --color-success-fg:           #006045;
+  --color-success-fg-strong:    #004f3b;
+  --color-ok:                   #1ca04c;
+  --color-ok-solid:             #008236;
+  --color-ok-solid-hover:       #016630;
+  --color-ok-fg:                #016630;
+  --color-attention:            #ff6900;
+  --color-attention-fg:         #9f2d00;
+  --color-tag-cyan:             #00b8db;
+  --color-tag-cyan-fg:          #005f78;
+  --color-tag-rose:             #ff2056;
+  --color-tag-rose-fg:          #a50036;
+
+  /* Status text keeps 4.5:1 on white, the page and its own tint; marks use
+     the brighter twins (3:1 on page and card). */
+  --status-ok: var(--color-ok-fg);
+  --status-warn: var(--color-warning-fg);
+  --status-caution: var(--color-warning-fg);
+  --status-bad: var(--color-danger-fg);
+  --status-muted: var(--color-fg-subtle);
+  --status-info: var(--color-accent-fg-strong);
+  --status-blue: var(--color-info-fg);
+  --status-sky: var(--color-info-fg);
+  --status-violet: var(--color-auto-fg-strong);
+  --status-teal: var(--color-success-fg-strong);
+  --status-orange: var(--color-attention-fg);
+  --status-ok-mark: var(--color-ok);
+  --status-warn-mark: var(--color-warning-mark);
+  --status-caution-mark: var(--color-warning-mark);
+  --status-bad-mark: var(--color-danger-solid);
+  --status-muted-mark: #90a1b9; /* slate-400 */
+  --status-info-mark: var(--color-accent);
+  --status-blue-mark: var(--color-info);
+  --status-sky-mark: var(--color-info);
+  --status-violet-mark: var(--color-auto);
+  --status-teal-mark: var(--color-success-mark);
+  --status-orange-mark: var(--color-attention);
+
+  /* Shift types: dark text ("Opener" on its tint at 4.5:1), vivid marks
+     so the tints read as cream, sky and lavender rather than tan. */
+  --color-shift-opener: var(--color-warning-fg);
+  --color-shift-mid:    var(--color-info-fg);
+  --color-shift-closer: var(--color-auto-fg-strong);
+  --color-shift-opener-mark: var(--color-warning);
+  --color-shift-mid-mark:    var(--color-info);
+  --color-shift-closer-mark: var(--color-auto);
+
+  --color-timeoff-pending:  var(--color-fg-subtle);
+  --color-timeoff-approved: var(--color-ok-fg);
+  --color-timeoff-denied:   var(--color-danger-fg);
+  --color-timeoff-pending-mark:  #90a1b9; /* slate-400 */
+  --color-timeoff-approved-mark: var(--color-ok);
+  --color-timeoff-denied-mark:   var(--color-danger);
 
   /* Coverage heatmap (see the dark values above): amber 500 / 600 / 700 and
      blue 400 / 500 / 600, checked against the white card the same way. */
@@ -117,48 +337,25 @@
   --color-cov-over-2:  #3b82f6;
   --color-cov-over-3:  #2563eb;
 
-  /*
-   * Invert the Tailwind slate palette so every bg-slate-*, text-slate-*,
-   * and border-slate-* utility automatically adapts to light mode.
-   * Mapping: slate-N  →  slate-(1000-N)
-   */
-  --color-slate-50:  #020617;
-  --color-slate-100: #0f172a;
-  --color-slate-200: #1e293b;
-  --color-slate-300: #334155;
-  --color-slate-400: #475569;
-  /* Not the inversion's #64748b (4.3:1 on the page): secondary text keeps
-     4.5:1 on white, the page and slate-800. */
-  --color-slate-500: #576578;
-  --color-slate-600: #94a3b8;
-  --color-slate-700: #cbd5e1;
-  --color-slate-800: #e2e8f0;
-  --color-slate-900: #f1f5f9;
-  --color-slate-950: #f8fafc;
+  /* Target is violet in light: indigo and blue lines read as one hue on
+     white. */
+  --chart-scheduled: #155dfc; /* blue-600 */
+  --chart-target:    var(--color-auto-fg);
+  --chart-budget:    var(--color-fg-muted);
+  --chart-axis:      var(--color-fg-subtle);
+  --chart-over:      var(--color-danger-solid);
+  --chart-under:     var(--color-warning-solid);
+  --chart-met:       var(--color-ok-solid);
+  --chart-cursor:    rgb(148 163 184 / 0.12);
+  --chart-tooltip-bg:     var(--color-raised);
+  --chart-tooltip-border: var(--color-line);
+  --chart-tooltip-fg:     var(--color-fg);
 
-  /*
-   * Accent colors: replace light tints with darker equivalents so text
-   * and borders remain legible on a white/near-white background.
-   */
-  --color-indigo-100: #312e81;
-  --color-indigo-200: #3730a3;
-  --color-indigo-300: #4338ca;
-  --color-indigo-400: #4f46e5;
-  --color-violet-100: #4c1d95;
-  --color-violet-200: #5b21b6;
-  --color-violet-300: #6d28d9;
-  /* Status text sits on its own tint (bg-emerald-500/10 and the like), so
-     these are a shade darker than white alone would need. */
-  --color-emerald-300: #065f46;
-  --color-emerald-400: #047857;
-  --color-green-400: #166534;
-  --color-green-500: #166534;
-  --color-red-300: #991b1b;
-  --color-red-400: #b91c1c;
-  --color-blue-400: #1d4ed8;
-  --color-violet-400: #7c3aed;
-  --color-amber-300: #78350f;
-  --color-amber-400: #92400e;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-hover: 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-popover: 0 12px 32px rgb(15 23 42 / 0.12), 0 0 0 1px rgb(15 23 42 / 0.06);
+  --shadow-dialog: 0 24px 48px rgb(15 23 42 / 0.16), 0 0 0 1px rgb(15 23 42 / 0.06);
+  --shadow-segment: inset 0 0 0 1px var(--color-line-emphasis), 0 1px 2px rgb(15 23 42 / 0.1);
 }
 
 /* ── Base styles ──────────────────────────────────────────── */
@@ -203,7 +400,7 @@ input, textarea, select {
    4.5:1 in both themes; a placeholder: utility still overrides it. */
 @layer base {
   ::placeholder {
-    color: var(--color-slate-500);
+    color: var(--color-fg-subtle);
     opacity: 1;
   }
 }
@@ -259,11 +456,11 @@ header {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
+  background: color-mix(in oklab, var(--color-fg-muted) 20%, transparent);
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.35);
+  background: color-mix(in oklab, var(--color-fg-muted) 35%, transparent);
 }
 
 /* ── Spinner ──────────────────────────────────────────────── */
@@ -274,8 +471,8 @@ header {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(148, 163, 184, 0.15);
-  border-top-color: #3b82f6;
+  border: 2px solid color-mix(in oklab, var(--color-fg-muted) 15%, transparent);
+  border-top-color: var(--color-info);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -334,8 +531,8 @@ header {
 
 /* ── Pulse glow for live indicators ──────────────────────── */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 6px 0 rgba(34, 197, 94, 0.3); }
-  50%       { box-shadow: 0 0 14px 2px rgba(34, 197, 94, 0.5); }
+  0%, 100% { box-shadow: 0 0 6px 0 color-mix(in oklab, var(--color-ok) 30%, transparent); }
+  50%       { box-shadow: 0 0 14px 2px color-mix(in oklab, var(--color-ok) 50%, transparent); }
 }
 
 .glow-green {
@@ -344,7 +541,7 @@ header {
 
 /* ── Focus-visible ring ───────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: 4px;
 }

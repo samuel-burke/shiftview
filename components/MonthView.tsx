@@ -84,9 +84,9 @@ export default function MonthView({
   return (
     <div className="mb-3">
       {/* Legend */}
-      <div className="flex flex-col gap-2 mb-3 px-3 py-2 bg-card rounded-xl border border-slate-800/60 select-none">
+      <div className="flex flex-col gap-2 mb-3 px-3 py-2 bg-card rounded-xl border border-line/60 select-none">
         <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">
+          <span className="text-[10px] text-fg-subtle font-semibold uppercase tracking-wider w-full">
             Shifts
           </span>
           {(
@@ -108,9 +108,9 @@ export default function MonthView({
             </div>
           ))}
         </div>
-        <div className="h-px bg-slate-800/60" />
+        <div className="h-px bg-fill/60" />
         <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider w-full">
+          <span className="text-[10px] text-fg-subtle font-semibold uppercase tracking-wider w-full">
             Time Off
           </span>
           {(
@@ -147,7 +147,7 @@ export default function MonthView({
         {DAY_LABELS.map((d) => (
           <div
             key={d}
-            className="text-center text-[10px] text-slate-400 font-semibold tracking-wider py-1 select-none"
+            className="text-center text-[10px] text-fg-muted font-semibold tracking-wider py-1 select-none"
           >
             {d}
           </div>
@@ -162,7 +162,7 @@ export default function MonthView({
               if (!d) return <div key={di} />;
               if (loading) {
                 return (
-                  <div key={di} aria-hidden="true" className="h-[52px] flex flex-col items-center justify-center rounded-xl border border-slate-800/50 bg-card">
+                  <div key={di} aria-hidden="true" className="h-[52px] flex flex-col items-center justify-center rounded-xl border border-line/50 bg-card">
                     <div className="size-6 rounded-full skeleton" />
                     <div className="h-[14px] mt-0.5" />
                   </div>
@@ -213,13 +213,13 @@ export default function MonthView({
                   aria-pressed={isSelected}
                   className={`h-[52px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
                     isSelected
-                      ? "border border-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/20"
-                      : "border border-slate-800/50 bg-card hover:bg-slate-800/60"
+                      ? "border border-accent bg-accent/10 hover:bg-accent/20"
+                      : "border border-line/50 bg-card hover:bg-fill/60"
                   }`}
                 >
                   <div
                     className={`size-6 flex items-center justify-center rounded-full text-xs font-semibold ${
-                      isToday ? "bg-indigo-500 text-white" : "text-slate-300"
+                      isToday ? "bg-accent text-on-accent" : "text-fg-secondary"
                     }`}
                   >
                     {d.getDate()}

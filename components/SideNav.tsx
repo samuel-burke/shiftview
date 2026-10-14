@@ -22,10 +22,10 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="w-[220px] shrink-0 bg-bg border-r border-slate-800 flex flex-col h-dvh sticky top-0 z-20"
+      className="w-[220px] shrink-0 bg-bg border-r border-line flex flex-col h-dvh sticky top-0 z-20"
     >
       {/* Brand */}
-      <div className="px-5 py-[18px] border-b border-slate-800 shrink-0 flex flex-col items-start gap-2.5">
+      <div className="px-5 py-[18px] border-b border-line shrink-0 flex flex-col items-start gap-2.5">
         <Logo className="h-[22px]" />
         <ClockStatusBadge />
       </div>
@@ -43,7 +43,7 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
             <ClockIcon />
           </NavLink>
 
-          <div className="h-px bg-slate-800 my-2" />
+          <div className="h-px bg-fill my-2" />
 
           {isManager && (
             <NavLink href="/week" label="Week" isActive={active === "week"}>
@@ -70,14 +70,14 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
       </nav>
 
       {(onShowShortcuts || onCollapse) && (
-        <div className="px-3 py-3 border-t border-slate-800 flex items-center gap-1 shrink-0">
+        <div className="px-3 py-3 border-t border-line flex items-center gap-1 shrink-0">
           {onShowShortcuts && (
             <button
               onClick={onShowShortcuts}
-              className="flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+              className="flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-fg-muted hover:text-fg-body hover:bg-fill transition-colors cursor-pointer"
             >
               Shortcuts
-              <kbd className="px-1.5 rounded border border-slate-700 font-mono text-[11px] text-slate-300">?</kbd>
+              <kbd className="px-1.5 rounded border border-line-strong font-mono text-[11px] text-fg-secondary">?</kbd>
             </button>
           )}
           {onCollapse && (
@@ -85,7 +85,7 @@ export default function SideNav({ active, isManager, onCollapse, onShowShortcuts
               onClick={onCollapse}
               aria-label="Collapse sidebar"
               title="Collapse sidebar"
-              className="hidden desk:flex wide:hidden size-9 shrink-0 rounded-xl items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+              className="hidden desk:flex wide:hidden size-9 shrink-0 rounded-xl items-center justify-center text-fg-subtle hover:text-fg-body hover:bg-fill transition-colors cursor-pointer"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
@@ -113,21 +113,21 @@ function NavLink({
       aria-current={isActive ? "page" : undefined}
       className={`group relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold border border-transparent transition-colors ${
         isActive
-          ? "text-indigo-300"
-          : "text-slate-400 hover:text-slate-200"
+          ? "text-accent-fg-strong"
+          : "text-fg-muted hover:text-fg-body"
       }`}
     >
       {/* Animated active background pill */}
       {isActive && (
         <motion.div
           layoutId="sidenav-active"
-          className="absolute inset-0 rounded-xl bg-indigo-600/20 border border-indigo-500/30"
+          className="absolute inset-0 rounded-xl bg-accent-solid/20 border border-accent/30"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
       {/* Hover background — uses Tailwind so it works in both themes */}
       {!isActive && (
-        <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-800" />
+        <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-fill" />
       )}
 
       {/* Icon + label */}
@@ -144,7 +144,7 @@ function NavLink({
       {isActive && (
         <motion.div
           layoutId="sidenav-accent"
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-indigo-400"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-accent-fg"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}

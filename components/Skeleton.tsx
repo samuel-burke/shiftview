@@ -12,7 +12,7 @@ export function SkeletonText({ text, className = "" }: { text: string; className
 
 export function SkeletonShiftCard() {
   return (
-    <div aria-hidden="true" className="flex items-center gap-3 w-full bg-card border border-slate-800 border-l-[3px] border-l-slate-800 rounded-xl px-[14px] py-3 mb-2">
+    <div aria-hidden="true" className="flex items-center gap-3 w-full bg-card border border-line border-l-[3px] border-l-line rounded-xl px-[14px] py-3 mb-2">
       <div className="skeleton size-[38px] rounded-full shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="skeleton h-[13px] w-[55%] rounded" />
@@ -58,7 +58,7 @@ export function SkeletonWeekCalendar() {
   return (
     <div role="status" aria-label="Loading calendar" className="flex gap-1.5 mb-3">
       {Array.from({ length: 7 }, (_, i) => (
-        <div key={i} aria-hidden="true" className="flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 border border-slate-800 bg-card">
+        <div key={i} aria-hidden="true" className="flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 border border-line bg-card">
           <div className="text-[9px] font-semibold tracking-wider mb-1.5"><SkeletonText text="SUN" /></div>
           <div className="skeleton size-7 rounded-full mb-1.5" />
           <div className="skeleton w-6 h-[3px] rounded-full mb-1" />
@@ -75,7 +75,7 @@ export function SkeletonDetailCard() {
   // The day card with a shift: its label row (24px), the times (32px) and the
   // hours (20px) — the same lines and gaps as the card itself.
   return (
-    <div role="status" aria-label="Loading shift details" className="bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-slate-800/60">
+    <div role="status" aria-label="Loading shift details" className="bg-card rounded-2xl px-4 py-4 mb-3 mt-1 border border-line/60">
       <div className="h-6 mb-1 flex items-center"><div className="skeleton h-[13px] w-28 rounded" /></div>
       <div className="h-8 mt-1 flex items-center"><div className="skeleton h-7 w-44 rounded" /></div>
       <div className="h-5 mt-0.5 flex items-center"><div className="skeleton h-[10px] w-12 rounded" /></div>
@@ -89,14 +89,14 @@ export function SkeletonClockBody() {
   // punch buttons — the same lines, gaps and borders.
   return (
     <div role="status" aria-label="Loading clock" className="mt-4 space-y-3">
-      <div className="bg-card rounded-2xl px-4 py-4 border-l-[3px] border border-slate-800/60">
+      <div className="bg-card rounded-2xl px-4 py-4 border-l-[3px] border border-line/60">
         <div className="h-5 flex items-center justify-between">
           <div className="skeleton h-[10px] w-24 rounded" />
           <div className="skeleton h-5 w-16 rounded-full" />
         </div>
         <div className="h-8 mt-1.5 flex items-center"><div className="skeleton h-7 w-40 rounded" /></div>
       </div>
-      <div className="bg-card rounded-2xl px-4 py-5 border border-slate-800/60 flex flex-col items-center">
+      <div className="bg-card rounded-2xl px-4 py-5 border border-line/60 flex flex-col items-center">
         <div className="skeleton h-[34px] w-32 rounded-full mb-3" />
         <div className="h-10 flex items-center"><div className="skeleton h-9 w-36 rounded" /></div>
         <div className="h-4 mt-1 flex items-center"><div className="skeleton h-3 w-40 rounded" /></div>
@@ -113,7 +113,7 @@ export function SkeletonSettingsBody({ isManager }: { isManager?: boolean }) {
       {Array.from({ length: sectionCount }, (_, i) => (
         <div key={i}>
           <div className="skeleton h-[10px] w-28 rounded mb-2 ml-1" />
-          <div className="bg-card rounded-2xl border border-slate-800/60 px-4 py-4 space-y-4">
+          <div className="bg-card rounded-2xl border border-line/60 px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1.5">
                 <div className="skeleton h-[14px] w-36 rounded" />
@@ -152,7 +152,7 @@ export function SkeletonBudgetChart() {
         <div className="text-[11px] font-bold tracking-[0.1em] uppercase">
           <SkeletonText text="Budget vs Scheduled" />
         </div>
-        <div className="flex rounded-lg bg-slate-800/60 border border-slate-700/40 p-0.5">
+        <div className="flex rounded-lg bg-fill/60 border border-line-strong/40 p-0.5">
           {["By Day", "By Hour"].map((label) => (
             <span key={label} data-text={label} className="min-h-8 px-3 flex items-center text-[11px] font-semibold text-transparent before:content-[attr(data-text)]" />
           ))}

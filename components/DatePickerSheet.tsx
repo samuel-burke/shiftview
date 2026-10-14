@@ -84,7 +84,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
           <motion.div
             key="backdrop"
             aria-hidden="true"
-            className="fixed inset-0 bg-black/60 z-40"
+            className="fixed inset-0 bg-scrim/60 z-40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -97,7 +97,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
               role="dialog"
               aria-modal="true"
               aria-label={`Date picker — ${MONTHS[viewMonth]} ${viewYear}`}
-              className="fixed top-1/2 left-1/2 z-50 bg-bg border border-slate-800 rounded-[20px] w-[360px] p-6 pb-7"
+              className="fixed top-1/2 left-1/2 z-50 bg-bg border border-line rounded-[20px] w-[360px] p-6 pb-7"
               initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
               animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
               exit={{ opacity: 0, scale: 0.96, x: "-50%", y: "-48%" }}
@@ -111,14 +111,14 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
               role="dialog"
               aria-modal="true"
               aria-label={`Date picker — ${MONTHS[viewMonth]} ${viewYear}`}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-slate-800 rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-line rounded-t-3xl max-w-[480px] mx-auto px-6 pb-11 pt-3"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 32, stiffness: 300 }}
             >
               <div className="flex justify-center mb-5">
-                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-slate-700" />
+                <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-strong" />
               </div>
               {sheetContent()}
             </motion.div>
@@ -140,7 +140,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <span className="text-base font-bold text-slate-100" aria-live="polite">
+          <span className="text-base font-bold text-fg" aria-live="polite">
             {MONTHS[viewMonth]} {viewYear}
           </span>
           <button
@@ -155,7 +155,7 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
         {/* Weekday headers */}
         <div className="grid grid-cols-7 mb-2">
           {WEEKDAYS.map(d => (
-            <div key={d} className="text-center text-[11px] font-semibold text-slate-400 pb-1.5">
+            <div key={d} className="text-center text-[11px] font-semibold text-fg-muted pb-1.5">
               {d}
             </div>
           ))}
@@ -178,18 +178,18 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
                   onClick={() => { onSelect(day); onClose(); }}
                   aria-label={fullLabel}
                   aria-pressed={isSelected}
-                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
+                  className={`size-[44px] rounded-full border-none cursor-pointer text-sm flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${
                     isSelected
-                      ? "bg-gradient-to-br from-blue-600 to-violet-600 text-white font-bold hover:opacity-90"
+                      ? "bg-gradient-to-br from-brand-from to-brand-to text-on-accent font-bold hover:opacity-90"
                       : isToday_
-                      ? "bg-transparent text-blue-400 font-bold hover:bg-blue-500/10"
-                      : "bg-transparent text-slate-400 font-normal hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-transparent text-info-fg font-bold hover:bg-info/10"
+                      : "bg-transparent text-fg-muted font-normal hover:bg-fill hover:text-fg-body"
                   }`}
                 >
                   {day.getDate()}
                 </button>
                 {isToday_ && !isSelected && (
-                  <div aria-hidden="true" className="size-1 rounded-full bg-blue-500" />
+                  <div aria-hidden="true" className="size-1 rounded-full bg-info" />
                 )}
               </div>
             );
@@ -200,4 +200,4 @@ export default function DatePickerSheet({ open, selected, today, firstDayOfWeek 
   }
 }
 
-const navBtn = "size-11 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-base cursor-pointer flex items-center justify-center shrink-0 hover:bg-slate-700 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+const navBtn = "size-11 rounded-full bg-fill border border-line-strong text-fg-muted text-base cursor-pointer flex items-center justify-center shrink-0 hover:bg-fill-strong hover:text-fg-body transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";

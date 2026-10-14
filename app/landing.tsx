@@ -33,21 +33,21 @@ function Anchor({ id }: { id: string }) {
 
 function Hero({ today }: { today: string }) {
   return (
-    <section className="overflow-hidden border-b border-slate-800/60">
+    <section className="overflow-hidden border-b border-line/60">
       <Anchor id="coverage" />
       <Container className="grid items-center gap-12 pb-16 pt-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-8 lg:pb-24 lg:pt-20">
         <div className="max-w-xl">
-          <p className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-400">
+          <p className="mb-5 flex items-center gap-2 text-sm font-medium text-fg-muted">
             <span className="relative flex h-2 w-2" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-ok" />
             </span>
             Scheduling and time clock for retail &amp; fulfillment teams
           </p>
-          <h1 className="text-[2.6rem] font-semibold leading-[1.05] tracking-[-0.035em] text-slate-100 sm:text-6xl lg:text-[4.25rem]">
+          <h1 className="text-[2.6rem] font-semibold leading-[1.05] tracking-[-0.035em] text-fg sm:text-6xl lg:text-[4.25rem]">
             Know who&rsquo;s on the floor. Right now.
           </h1>
-          <p className="mt-6 max-w-md text-base leading-relaxed text-slate-400 sm:text-lg">
+          <p className="mt-6 max-w-md text-base leading-relaxed text-fg-muted sm:text-lg">
             Schedules, a time clock on every phone, and coverage that updates the moment someone clocks in.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -56,10 +56,10 @@ function Hero({ today }: { today: string }) {
             </Link>
             <TryDemoButton className={`${secondaryBtn} w-full sm:w-auto`}>Open the live demo</TryDemoButton>
           </div>
-          <p className="mt-5 text-xs text-slate-400">No credit card. The demo is a real store with sample data that resets nightly.</p>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-5 text-xs text-fg-muted">No credit card. The demo is a real store with sample data that resets nightly.</p>
+          <p className="mt-2 text-xs text-fg-muted">
             ShiftView is in beta. Found a bug or missing something?{" "}
-            <Link href="/contact?topic=feedback" className="font-medium text-slate-200 underline underline-offset-2 transition-colors hover:text-slate-50">
+            <Link href="/contact?topic=feedback" className="font-medium text-fg-body underline underline-offset-2 transition-colors hover:text-fg">
               Tell us
             </Link>
           </p>
@@ -73,7 +73,7 @@ function Hero({ today }: { today: string }) {
 function TimeClock({ today }: { today: string }) {
   const points = ["Geofenced clock-in", "One-tap breaks", "Missed-punch corrections", "Time card CSV export"];
   return (
-    <section id="time-clock" className="scroll-mt-16 border-b border-slate-800/60">
+    <section id="time-clock" className="scroll-mt-16 border-b border-line/60">
       <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
           <SectionHeading
@@ -85,7 +85,7 @@ function TimeClock({ today }: { today: string }) {
         <Reveal className="mt-12 lg:mt-16">
           <TimeClockDemo date={today} />
         </Reveal>
-        <ul className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+        <ul className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-fg-muted">
           {points.map((p) => <li key={p}>{p}</li>)}
         </ul>
       </Container>
@@ -95,13 +95,13 @@ function TimeClock({ today }: { today: string }) {
 
 function AutoSchedule({ today }: { today: string }) {
   return (
-    <section id="auto-schedule" className="scroll-mt-16 border-b border-slate-800/60">
+    <section id="auto-schedule" className="scroll-mt-16 border-b border-line/60">
       <Anchor id="planning" />
       <Anchor id="scheduling" />
       <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
           <SectionHeading
-            eyebrow={<>Auto-schedule <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-px text-[11px] font-semibold text-violet-300">New</span></>}
+            eyebrow={<>Auto-schedule <span className="rounded-full border border-auto/30 bg-auto/15 px-2 py-px text-[11px] font-semibold text-auto-fg-strong">New</span></>}
             title="Next week, scheduled in seconds."
             body="It builds the week from your coverage targets, availability, time off and hour limits, and explains anything it can't cover. Nothing goes live until you publish."
           />
@@ -117,7 +117,7 @@ function AutoSchedule({ today }: { today: string }) {
 function AnyDevice({ today }: { today: string }) {
   const devices = ["Phones: iPhone and Android", "Tablets: iPad and Android", "Computers: Mac, Windows, Chromebook"];
   return (
-    <section id="any-device" className="scroll-mt-16 border-b border-slate-800/60">
+    <section id="any-device" className="scroll-mt-16 border-b border-line/60">
       <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
           <SectionHeading
@@ -129,7 +129,7 @@ function AnyDevice({ today }: { today: string }) {
         <Reveal className="mt-12 lg:mt-16">
           <DevicesDemo date={today} />
         </Reveal>
-        <ul className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+        <ul className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-fg-muted">
           {devices.map((d) => <li key={d}>{d}</li>)}
         </ul>
       </Container>
@@ -139,7 +139,7 @@ function AnyDevice({ today }: { today: string }) {
 
 function Team({ today }: { today: string }) {
   return (
-    <section id="team" className="scroll-mt-16 border-b border-slate-800/60">
+    <section id="team" className="scroll-mt-16 border-b border-line/60">
       <Anchor id="requests" />
       <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
@@ -195,18 +195,18 @@ const FEATURES: { label: string; icon: React.ReactNode }[] = [
 
 function Features() {
   return (
-    <section id="features" className="scroll-mt-16 border-b border-slate-800/60">
+    <section id="features" className="scroll-mt-16 border-b border-line/60">
       <Anchor id="everything" />
       <Container className="py-16 sm:py-20 lg:py-28">
         <Reveal>
-          <h2 className="max-w-xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-slate-100 sm:text-[2.75rem]">
+          <h2 className="max-w-xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-fg sm:text-[2.75rem]">
             Everything a shift team runs on.
           </h2>
         </Reveal>
-        <ul className="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-800/80 lg:grid-cols-4">
+        <ul className="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line/80 bg-fill/80 lg:grid-cols-4">
           {FEATURES.map((f) => (
-            <li key={f.label} className="flex items-center gap-3 bg-bg px-3 py-3.5 text-[13px] leading-snug text-slate-300 sm:px-5 sm:py-4 sm:text-sm">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-card text-blue-400">
+            <li key={f.label} className="flex items-center gap-3 bg-bg px-3 py-3.5 text-[13px] leading-snug text-fg-secondary sm:px-5 sm:py-4 sm:text-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-card text-info-fg">
                 <FeatureIcon>{f.icon}</FeatureIcon>
               </span>
               {f.label}
@@ -226,19 +226,19 @@ function TrustStrip() {
     "Open source",
   ];
   return (
-    <section className="border-b border-slate-800/60">
+    <section className="border-b border-line/60">
       <Container className="flex flex-col gap-6 py-10 lg:flex-row lg:items-center lg:justify-between">
-        <ul className="flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-400">
+        <ul className="flex flex-wrap gap-x-8 gap-y-3 text-sm text-fg-muted">
           {facts.map((f) => (
             <li key={f} className="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-green-500">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-ok-fg">
                 <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {f}
             </li>
           ))}
         </ul>
-        <a href={REPO_URL} className="inline-flex shrink-0 items-center gap-2 py-3 -my-3 text-sm font-semibold text-slate-200 transition-colors hover:text-slate-50">
+        <a href={REPO_URL} className="inline-flex shrink-0 items-center gap-2 py-3 -my-3 text-sm font-semibold text-fg-body transition-colors hover:text-fg">
           View the source <Arrow />
         </a>
       </Container>
