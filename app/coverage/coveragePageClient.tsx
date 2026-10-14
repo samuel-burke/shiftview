@@ -13,6 +13,7 @@ import {
 } from "../../lib/coverage";
 import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
+import DemoBanner from "@/components/DemoBanner";
 import HeaderActions from "../../components/HeaderActions";
 import BottomNav from "../../components/BottomNav";
 import CoverageCurveEditor, { CoverageCurvePreview } from "../../components/CoverageCurveEditor";
@@ -176,6 +177,7 @@ export default function CoveragePageClient() {
   return (
     <AppShell active="settings" isManager={isManager}>
       <main className="max-w-[480px] mx-auto tablet:max-w-[760px] tablet:pb-10 pb-28 bg-bg min-h-dvh desk:max-w-none desk:pb-8">
+        <DemoBanner />
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
+import DemoBanner from "@/components/DemoBanner";
 import BottomNav from "../../components/BottomNav";
 import EmployeeDrawer from "../../components/EmployeeDrawer";
 import WeekGrid, { type PendingTimeOff } from "../../components/WeekGrid";
@@ -318,6 +319,7 @@ export default function WeekPageClient() {
           pickedCell ? "wide:pr-[420px]" : ""
         }`}
       >
+        <DemoBanner />
         <WeekHeader
           mode={mode}
           weekLabel={weekLabel}

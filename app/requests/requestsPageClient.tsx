@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Toast, ToastStack } from "@/components/Toast";
 import AppShell from "../../components/AppShell";
+import DemoBanner from "@/components/DemoBanner";
 import HeaderActions from "../../components/HeaderActions";
 import BottomNav from "../../components/BottomNav";
 import { useAppData } from "@/lib/AppDataContext";
@@ -212,6 +213,7 @@ export default function RequestsPageClient() {
   return (
     <AppShell active="requests" isManager>
       <main className="max-w-[480px] mx-auto pb-28 bg-bg min-h-dvh tablet:max-w-none tablet:pb-10">
+        <DemoBanner />
         {/* Header */}
         <div
           className="px-4 pb-3 flex items-center gap-3 border-b border-line bg-bg tablet:px-6 desk:py-[14px]"
