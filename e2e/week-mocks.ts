@@ -139,9 +139,12 @@ export const isPhone = (page: Page) => page.viewportSize()!.width < 600;
 export async function openCell(page: Page, name: string, date: string) {
   if (isPhone(page)) {
     await page.getByRole("group", { name: "Day" }).getByRole("button", { name: longDay(date) }).click();
-    await page.getByTestId("day-list").getByRole("button", { name: new RegExp(`^${name}:`) }).click();
+    // Rows are named by what they show: "Alice S., 9:00 AM – 5:00 PM ...".
+    const shown = name.replace(/^(\S+) (\S).*$/, "$1 $2.").replace(".", "\\.");
+    await page.getByTestId("day-list").getByRole("button", { name: new RegExp(`^${shown} ?,`) }).click();
   } else {
-    await page.getByTestId("week-grid").getByRole("button", { name: new RegExp(`^${name}, ${longDay(date)}:`) }).click();
+    // Cells lead with their time, then say whose day it is.
+    await page.getByTestId("week-grid").getByRole("button", { name: new RegExp(`${name}, ${longDay(date)}(:|,|$)`) }).click();
   }
   const drawer = page.getByRole("dialog", { name });
   await expect(drawer).toBeVisible();

@@ -73,7 +73,6 @@ function ModeToggle({
             type="button"
             role="radio"
             aria-checked={active}
-            aria-label={o.value === "draft" && draftCount > 0 ? `Draft, ${draftCount} ${draftCount === 1 ? "shift" : "shifts"}` : undefined}
             disabled={disabled}
             onClick={() => { if (!active) onChange(o.value); }}
             className={`min-h-10 px-3 rounded-[9px] text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:cursor-default ${
@@ -82,10 +81,14 @@ function ModeToggle({
           >
             <span aria-hidden="true" className={`size-1.5 rounded-full ${active ? o.dot : "bg-fill-stronger"}`} />
             {o.label}
+            {/* Named by its text (WCAG 2.5.3): "Draft, 3 shifts". */}
             {o.value === "draft" && draftCount > 0 && (
-              <span className="min-w-5 h-5 px-1.5 rounded-full bg-warning/15 border border-warning/30 text-[11px] font-bold text-warning-fg tabular-nums flex items-center justify-center">
-                {draftCount}
-              </span>
+              <>
+                <span className="sr-only">,</span>
+                <span className="min-w-5 h-5 px-1.5 rounded-full bg-warning/15 border border-warning/30 text-[11px] font-bold text-warning-fg tabular-nums flex items-center justify-center">
+                  {draftCount}{" "}<span className="sr-only">{draftCount === 1 ? "shift" : "shifts"}</span>
+                </span>
+              </>
             )}
           </button>
         );

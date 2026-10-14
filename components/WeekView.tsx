@@ -68,21 +68,22 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
         const shiftLabel = calledOut ? "OUT" : shiftType ? SHIFT_LABELS[shiftType] : timeOff ? TIME_OFF_LABELS[timeOff.status] : "Off";
         const labelColor = calledOut ? CALLOUT_COLOR : (shiftColor ?? (timeOff ? TIME_OFF_COLORS[timeOff.status] : "var(--status-muted)"));
 
+        // The cell's abbreviations ("MON", "EARLY", "REQ") are spelled out for
+        // screen readers; the button is named by its text, not an aria-label,
+        // so its visible time stays part of its name (WCAG 2.5.3).
         const fullDayLabel = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
         const statusText = calledOut
           ? "Called out"
           : shiftType
-          ? `${shiftType} shift, ${shortTime(schedule!.startMinutes)} to ${shortTime(schedule!.endMinutes)}`
+          ? `${shiftType} shift`
           : timeOff
           ? `Time off request, ${timeOff.status}`
           : "Off";
-        const dayAriaLabel = `${fullDayLabel}. ${statusText}${isToday ? ". Today" : ""}`;
 
         return (
           <button
             key={i}
             onClick={() => onSelectDate(d)}
-            aria-label={dayAriaLabel}
             aria-pressed={isSelected}
             className={`flex-1 flex flex-col items-center rounded-xl py-2 px-0.5 transition-colors cursor-pointer ${
               isSelected
@@ -90,10 +91,12 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
                 : "border border-line bg-card hover:bg-fill/60"
             }`}
           >
-            <div className="text-[9px] text-fg-muted font-semibold tracking-wider mb-1.5 select-none">
+            <span className="sr-only">{fullDayLabel}{isToday ? ", today" : ""}, {statusText}{!calledOut && schedule && shiftType ? ", " : ""}</span>
+            <div aria-hidden="true" className="text-[9px] text-fg-muted font-semibold tracking-wider mb-1.5 select-none">
               {DAY_LABELS[i]}
             </div>
             <div
+              aria-hidden="true"
               className={`size-7 flex items-center justify-center rounded-full text-sm font-bold mb-1.5 ${
                 isToday ? "bg-accent text-on-accent" : "text-fg"
               }`}
@@ -122,6 +125,7 @@ export default function WeekView({ schedules, weeklyHours, firstDayOfWeek = 6, s
               )}
             </div>
             <div
+              aria-hidden="true"
               className="text-[9px] font-semibold tracking-wider leading-tight"
               style={{ color: labelColor }}
             >
