@@ -214,6 +214,8 @@ Optional variables enable additional features:
 
 `NEXT_PUBLIC_*` values are inlined at build time, so rebuild or redeploy after changing them.
 
+A Vercel production build (`VERCEL_ENV=production`) fails unless every variable above except `VAPID_SUBJECT` is set, the encryption key is 64 hex characters and `E2E_BYPASS_AUTH` is unset (`lib/production-env.ts`), so a deploy missing a secret keeps the previous deployment live. Preview and local builds aren't checked.
+
 ### 3. Set up the database
 
 **New Supabase project**
