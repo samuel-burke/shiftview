@@ -102,6 +102,15 @@ begin
   insert into schedules (org_id, employee_id, date, start_minutes, end_minutes)
     values (b, eve, today, 540, 1020) returning id into s;
   insert into fx values ('eve_today', s);
+  insert into schedules (org_id, employee_id, date, start_minutes, end_minutes)
+    values (a, cara, today - 1, 540, 1020) returning id into s;
+  insert into fx values ('cara_yesterday', s);
+  insert into schedules (org_id, employee_id, date, start_minutes, end_minutes)
+    values (a, cara, today - 1, 1320, 1800) returning id into s;
+  insert into fx values ('cara_overnight', s);
+  insert into schedules (org_id, employee_id, date, start_minutes, end_minutes)
+    values (a, cara, today + 1, 540, 1020) returning id into s;
+  insert into fx values ('cara_tomorrow', s);
   insert into fx values ('no_such_shift', '987654321');
 end $$;
 
@@ -124,6 +133,12 @@ select pg_temp.check('nor to a shift id that doesn''t exist',
   pg_temp.try(:cara, pg_temp.punch('cara', 'no_such_shift')) like 'err:%');
 select pg_temp.check('nor to their own shift from ten days ago',
   pg_temp.try(:cara, pg_temp.punch('cara', 'cara_old')) = 'err:23514');
+select pg_temp.check('nor to yesterday''s day shift',
+  pg_temp.try(:cara, pg_temp.punch('cara', 'cara_yesterday')) = 'err:23514');
+select pg_temp.check('nor to tomorrow''s shift',
+  pg_temp.try(:cara, pg_temp.punch('cara', 'cara_tomorrow')) = 'err:23514');
+select pg_temp.check('an employee clocks in to last night''s overnight shift',
+  pg_temp.try(:cara, pg_temp.punch('cara', 'cara_overnight')) = 'ok:1');
 
 -- Managers and the service role.
 select pg_temp.check('a manager cannot file a punch on a coworker''s shift',
