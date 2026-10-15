@@ -228,3 +228,33 @@ describe("PUT /api/punches — manager edits keep the original in the audit trai
     }));
   });
 });
+
+describe("PUT /api/punches — overnight missed clock-out", () => {
+  // Clocked in Oct 31 at 10 PM EDT (02:00Z Nov 1), never clocked out. It is
+  // now Nov 1, 10 AM EST. The clock screen pre-fills Oct 31, the clock-in day.
+  const history = [{ punch_type: "clock_in", punched_at: "2026-11-01T02:00:00Z" }];
+
+  it("files an employee's 06:00 clock-out for the next morning, after the clock-in", async () => {
+    const client = makeClient({ history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "06:00", note: "Forgot" });
+    expect(res.status).toBe(202);
+    expect(client.requested[0].punched_at).toBe("2026-11-01T11:00:00.000Z"); // Nov 1, 6 AM EST
+  });
+
+  it("does the same for a manager adding the punch", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-10-31", localTime: "06:00", note: "Forgot" });
+    expect(res.status).toBe(200);
+    expect(client.inserted[0].punched_at).toBe("2026-11-01T11:00:00.000Z");
+  });
+
+  it("keeps a clock-out later the same evening on the day typed", async () => {
+    const client = makeClient({ history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "23:30", note: "Forgot" });
+    expect(res.status).toBe(202);
+    expect(client.requested[0].punched_at).toBe("2026-11-01T03:30:00.000Z");
+  });
+});

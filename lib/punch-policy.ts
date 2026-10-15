@@ -112,3 +112,22 @@ export function punchPolicyRows(
 
   return { rows, error: null };
 }
+
+// How a clock-in or clock-out compares with the schedule under this policy.
+// `diffMinutes` is minutes after the scheduled time (negative = early). The
+// time card, the manager's late alert, the pre-punch warning and the clock
+// screen's badge all use this one rule, so they can never disagree about
+// whether a punch was late.
+export type PunchTiming = "late" | "early" | null;
+
+export function clockInTiming(policy: PunchPolicy, diffMinutes: number): PunchTiming {
+  if (policy.lateInEnabled && diffMinutes > policy.lateInMinutes) return "late";
+  if (policy.earlyInEnabled && -diffMinutes > policy.earlyInMinutes) return "early";
+  return null;
+}
+
+export function clockOutTiming(policy: PunchPolicy, diffMinutes: number): PunchTiming {
+  if (policy.lateOutEnabled && diffMinutes > policy.lateOutMinutes) return "late";
+  if (policy.earlyOutEnabled && -diffMinutes > policy.earlyOutMinutes) return "early";
+  return null;
+}

@@ -33,9 +33,14 @@ function mockApi({
   schedules = [] as Record<string, unknown>[],
   todayPunches = [] as Record<string, unknown>[],
   missedPunch = true,
+  missedLastPunchedAt = "2026-10-31T13:00:00Z",
   current = { carriedOver: false, punches: [] } as { carriedOver: boolean; punches: Record<string, unknown>[] },
+  // Answers a live punch (POST); defaults to recording it.
+  onPost = undefined as undefined | ((body: Record<string, unknown>) => { status: number; data: unknown }),
 } = {}) {
   const puts: unknown[] = [];
+  const posts: Record<string, unknown>[] = [];
+  const reads = { punches: 0 };
   let currentCorrections = corrections;
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const json = (data: unknown, status = 200) =>
@@ -51,7 +56,7 @@ function mockApi({
         missedPunch: {
           date: "2026-10-31",
           lastPunchType: "clock_in",
-          lastPunchedAt: "2026-10-31T13:00:00Z",
+          lastPunchedAt: missedLastPunchedAt,
           suggestedPunchType: "clock_out",
         },
       });
@@ -63,13 +68,23 @@ function mockApi({
       ];
       return json({ ok: true, pending: true, correctionId: 9 }, putStatus);
     }
+    if (url.startsWith("/api/punches") && init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      posts.push(body);
+      if (onPost) {
+        const r = onPost(body);
+        return json(r.data, r.status);
+      }
+      return json({ id: 50 + posts.length, employeeId: 5, scheduleId: body.scheduleId ?? null, punchType: body.punchType,
+        punchedAt: new Date().toISOString(), lat: null, lng: null, isManual: false, note: null }, 201);
+    }
     if (url.startsWith("/api/punches/current")) return json(current);
-    if (url.startsWith("/api/punches")) return json(todayPunches);
+    if (url.startsWith("/api/punches")) { reads.punches++; return json(todayPunches); }
     if (url.startsWith("/api/punch-corrections")) return json({ corrections: currentCorrections });
     if (url.startsWith("/api/callouts")) return json({ callouts: [] });
     return json({});
   }));
-  return { puts };
+  return { puts, posts, reads };
 }
 
 beforeEach(() => {
@@ -197,5 +212,85 @@ describe("Clock — scheduled overnight shift", () => {
     mockApi({ missedPunch: false, schedules: [night] });
     render(<ClockPageClient />);
     expect(await screen.findByText("Ends tomorrow morning")).toBeInTheDocument();
+  });
+});
+
+describe("Clock — split shift", () => {
+  // 8 AM – 12 PM and 4 PM – 8 PM on Nov 1 (EST after the fall-back).
+  const morning = { id: 1, employeeId: 5, date: "2026-11-01", startMinutes: 480, endMinutes: 720 };
+  const afternoon = { id: 2, employeeId: 5, date: "2026-11-01", startMinutes: 960, endMinutes: 1200 };
+
+  it("clocks in to the afternoon shift at 4 PM, without a late warning for the morning one", async () => {
+    vi.setSystemTime(new Date("2026-11-01T21:00:00Z")); // 4:00 PM EST
+    const { posts } = mockApi({ missedPunch: false, schedules: [morning, afternoon] });
+    render(<ClockPageClient />);
+    expect(await screen.findByText(/4:00 PM – 8:00 PM/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    await waitFor(() => expect(posts).toEqual([expect.objectContaining({ punchType: "clock_in", scheduleId: 2 })]));
+    expect(screen.queryByText("Late Clock-In")).not.toBeInTheDocument();
+  });
+});
+
+describe("Clock — a refused punch", () => {
+  it("reloads after a 409 so the screen shows the real state", async () => {
+    const todayPunches: Record<string, unknown>[] = [];
+    const { reads } = mockApi({
+      missedPunch: false,
+      todayPunches,
+      onPost: () => {
+        // The punch landed on an earlier request whose response was lost.
+        todayPunches.push({ id: 7, employeeId: 5, scheduleId: null, punchType: "clock_in", punchedAt: "2026-11-01T14:59:00Z", isManual: false, note: null });
+        return { status: 409, data: { error: "Cannot clock_in: current state is clock_in" } };
+      },
+    });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    expect(await screen.findByText(/current state is clock_in/)).toBeInTheDocument();
+    await waitFor(() => expect(reads.punches).toBeGreaterThan(1));
+    expect(await screen.findByRole("button", { name: "End Shift" })).toBeInTheDocument();
+  });
+});
+
+describe("Clock — late badge follows the punch policy", () => {
+  const shift = { id: 1, employeeId: 5, date: "2026-11-01", startMinutes: 540, endMinutes: 1020 }; // 9–5
+
+  it("shows no badge 6 minutes late — the default policy flags more than 6", async () => {
+    mockApi({
+      missedPunch: false,
+      schedules: [shift],
+      todayPunches: [{ id: 1, employeeId: 5, scheduleId: 1, punchType: "clock_in", punchedAt: "2026-11-01T14:06:00Z", isManual: false }],
+    });
+    render(<ClockPageClient />);
+    await screen.findByRole("button", { name: "End Shift" });
+    expect(screen.queryByText("6m late")).not.toBeInTheDocument();
+  });
+
+  it("shows the badge past the threshold", async () => {
+    mockApi({
+      missedPunch: false,
+      schedules: [shift],
+      todayPunches: [{ id: 1, employeeId: 5, scheduleId: 1, punchType: "clock_in", punchedAt: "2026-11-01T14:07:00Z", isManual: false }],
+    });
+    render(<ClockPageClient />);
+    expect(await screen.findByText("7m late")).toBeInTheDocument();
+  });
+});
+
+describe("Clock — overnight missed clock-out", () => {
+  it("dates a clock-out earlier than the open clock-in to the next morning", async () => {
+    // Clocked in Oct 31 at 10 PM EDT; never clocked out.
+    const { puts } = mockApi({ missedLastPunchedAt: "2026-11-01T02:00:00Z" });
+    render(<ClockPageClient />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "Add Missing Clock-Out" }))[0]);
+    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "06:00" } });
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-11-01");
+    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "23:15" } });
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-10-31");
+    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "06:00" } });
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: "Forgot" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send for Approval" }));
+    await waitFor(() => expect(puts).toEqual([
+      expect.objectContaining({ punchType: "clock_out", localDate: "2026-11-01", localTime: "06:00" }),
+    ]));
   });
 });

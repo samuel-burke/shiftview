@@ -97,6 +97,47 @@ describe("currentShift — across midnight", () => {
   });
 });
 
+describe("currentShift — punches after midnight don't extend a forgotten shift", () => {
+  const p = (punchType: string, punchedAt: string) => ({ punchType, punchedAt });
+  const at = (iso: string) => Date.parse(iso);
+  // New York (EST). Clocked in 8:00 PM Jan 15, break 11:30 PM – 12:15 AM.
+  const shift = [
+    p("clock_in", "2026-01-16T01:00:00Z"),
+    p("break_start", "2026-01-16T04:30:00Z"),
+    p("break_end", "2026-01-16T05:15:00Z"),
+  ];
+
+  it("is current before 4:00 AM", () => {
+    expect(currentShift(shift, at("2026-01-16T06:00:00Z"), TZ)).toMatchObject({ state: "break_end", carriedOver: true });
+  });
+
+  it("is a forgotten clock-out after 4:00 AM", () => {
+    expect(currentShift(shift, at("2026-01-16T09:01:00Z"), TZ)).toEqual({ state: null, punches: [], carriedOver: false });
+    expect(currentShift(shift, at("2026-01-16T22:00:00Z"), TZ)).toEqual({ state: null, punches: [], carriedOver: false });
+  });
+
+  it("is forgotten after 16 hours even before 4:00 AM", () => {
+    const morning = [p("clock_in", "2026-01-15T13:00:00Z"), p("break_start", "2026-01-16T05:10:00Z")]; // 8 AM, then 12:10 AM
+    expect(currentShift(morning, at("2026-01-16T06:00:00Z"), TZ).state).toBeNull();
+  });
+
+  it("stays current through a scheduled overnight shift's end", () => {
+    const night = [p("clock_in", "2026-01-16T03:00:00Z"), p("break_start", "2026-01-16T07:00:00Z"), p("break_end", "2026-01-16T07:30:00Z")];
+    const end = at("2026-01-16T11:00:00Z"); // 6 AM
+    expect(currentShift(night, at("2026-01-16T11:30:00Z"), TZ, end)).toMatchObject({ state: "break_end", carriedOver: true });
+    expect(currentShift(night, at("2026-01-16T13:30:00Z"), TZ, end).state).toBeNull();
+  });
+
+  it("ignores an orphan punch today when the clock-in is too old to load", () => {
+    expect(currentShift([p("break_end", "2026-01-16T15:00:00Z")], at("2026-01-16T16:00:00Z"), TZ).state).toBeNull();
+  });
+
+  it("a closer who clocked out after midnight is clocked out", () => {
+    const s = currentShift([...shift, p("clock_out", "2026-01-16T06:00:00Z")], at("2026-01-16T15:00:00Z"), TZ);
+    expect(s).toMatchObject({ state: "clock_out", carriedOver: false });
+  });
+});
+
 describe("currentShift — scheduled overnight shifts", () => {
   const p = (punchType: string, punchedAt: string) => ({ punchType, punchedAt });
   const at = (iso: string) => Date.parse(iso);

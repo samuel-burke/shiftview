@@ -1,26 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { computePayroll, EmployeePayroll, PunchRow } from "@/lib/payroll";
-import { addDaysToKey, daysBetweenKeys, localDayBoundsUtc } from "@/lib/dates";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
+import { computePayroll, EmployeePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
+import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 import { writeAuditLog } from "@/lib/audit";
+import { csvRow } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// ─── CSV helpers ─────────────────────────────────────────────────────────────
+// ─── Export helpers ──────────────────────────────────────────────────────────
 
-function esc(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return s.includes(",") || s.includes('"') || s.includes("\n")
-    ? `"${s.replace(/"/g, '""')}"`
-    : s;
-}
-
-function csvRow(cells: unknown[]): string {
-  return cells.map(esc).join(",");
+// IIF is tab-separated, one record per line: a tab or line break inside a
+// value would split the record.
+function iifField(v: string): string {
+  return v.replace(/[\t\r\n]+/g, " ");
 }
 
 // MM/DD/YYYY
@@ -83,10 +80,11 @@ function dailyCSV(rows: EmployeePayroll[]): string {
 
 // Calculation breakdown — shows how each worked day accumulates toward the
 // weekly 40h regular cap (hours beyond it become overtime), alongside that
-// day's break hours. The per-week subtotal rows are exactly the figures the
-// Summary sheet reports, so a manager can audit how Regular/OT/Break were
-// derived. Overtime is split at the day level the same way the QuickBooks
-// export does, so the two stay consistent.
+// day's break hours. Hours worked earlier in a workweek the range starts
+// part-way through open the week as a "worked before this period" row: they
+// were paid in the previous period but count toward this week's overtime. The
+// per-week subtotal rows are exactly the figures the Summary sheet reports.
+// The day-level split is computePayroll's, so the QuickBooks export matches.
 function detailedCSV(rows: EmployeePayroll[]): string {
   const lines = [csvRow([
     "Employee", "Week Of", "Date", "Day",
@@ -94,12 +92,15 @@ function detailedCSV(rows: EmployeePayroll[]): string {
   ])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
-      let weekAccum = 0;
+      let weekAccum = week.priorHours;
+      if (week.priorHours > 0) {
+        lines.push(csvRow([
+          emp.employeeName, week.weekStart, "", "Worked before this period",
+          week.priorHours.toFixed(2), weekAccum.toFixed(2), "", "", "", "",
+        ]));
+      }
       for (const day of week.days) {
         if (day.workedHours === 0 && !day.hasIncomplete) continue;
-        const regularCap = Math.max(0, 40 - weekAccum);
-        const regularHrs = Math.min(day.workedHours, regularCap);
-        const otHrs      = Math.max(0, day.workedHours - regularCap);
         weekAccum += day.workedHours;
         lines.push(csvRow([
           emp.employeeName,
@@ -108,8 +109,8 @@ function detailedCSV(rows: EmployeePayroll[]): string {
           day.dayName,
           day.workedHours.toFixed(2),
           weekAccum.toFixed(2),
-          regularHrs.toFixed(2),
-          otHrs.toFixed(2),
+          day.regularHours.toFixed(2),
+          day.overtimeHours.toFixed(2),
           day.breakHours.toFixed(2),
           day.hasIncomplete ? "Yes" : "",
         ]));
@@ -131,7 +132,8 @@ function detailedCSV(rows: EmployeePayroll[]): string {
   return lines.join("\n");
 }
 
-// QuickBooks Desktop IIF — one TIMEACT row per employee per worked day
+// QuickBooks Desktop IIF — one TIMEACT row per employee per worked day and
+// pay type, using computePayroll's day-level regular/overtime split.
 function quickbooksIIF(rows: EmployeePayroll[]): string {
   const lines = [
     "!TIMETYPE\tNAME",
@@ -141,30 +143,14 @@ function quickbooksIIF(rows: EmployeePayroll[]): string {
   ];
 
   for (const emp of rows) {
-    // Track cumulative hours per week to split regular vs OT at the day level
     for (const week of emp.weeks) {
-      let weekAccum = 0;
       for (const day of week.days) {
-        if (day.workedHours === 0) continue;
-
-        const remaining = day.workedHours;
-        const regularCap = Math.max(0, 40 - weekAccum);
-        const regularHrs = Math.min(remaining, regularCap);
-        const otHrs = Math.max(0, remaining - regularCap);
-        weekAccum += remaining;
-
         const note = day.hasIncomplete ? "Incomplete punch — verify hours" : "";
-
-        if (regularHrs > 0) {
+        for (const [service, hrs] of [["Regular Time", day.regularHours], ["Overtime", day.overtimeHours]] as const) {
+          if (hrs <= 0) continue;
           lines.push(
-            ["TIMEACT", mmddyyyy(day.date), "", emp.employeeName, "Regular Time",
-             regularHrs.toFixed(2), note, "0", "", ""].join("\t")
-          );
-        }
-        if (otHrs > 0) {
-          lines.push(
-            ["TIMEACT", mmddyyyy(day.date), "", emp.employeeName, "Overtime",
-             otHrs.toFixed(2), note, "0", "", ""].join("\t")
+            ["TIMEACT", mmddyyyy(day.date), "", iifField(emp.employeeName), service,
+             hrs.toFixed(2), note, "0", "", ""].join("\t")
           );
         }
       }
@@ -200,22 +186,29 @@ export async function GET(request: Request) {
 
   const tz = await getOrgTimezone(supabase, orgId!);
 
-  const { data, error } = await supabase
-    .from("punch_records")
-    .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
-    .eq("org_id", orgId!)
-    .gte("punched_at", localDayBoundsUtc(from, tz).start.toISOString())
-    .lte("punched_at", localDayBoundsUtc(addDaysToKey(to, 1), tz).end.toISOString())
-    .order("employee_id")
-    .order("punched_at")
-    .limit(50_000);
+  const span = payrollQueryWindow(from, to, tz);
+  const { data, error, truncated } = await fetchAllRows((first, last) =>
+    supabase
+      .from("punch_records")
+      .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
+      .eq("org_id", orgId!)
+      .gte("punched_at", span.start)
+      .lte("punched_at", span.end)
+      .order("employee_id")
+      .order("punched_at")
+      .order("id")
+      .range(first, last)
+  );
 
   if (error) {
     console.error("[api/reports/payroll/export]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  // Paying from a partial set of punches would underpay silently.
+  if (truncated)
+    return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const payroll = computePayroll((data ?? []) as unknown as PunchRow[], tz, { from, to });
+  const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to });
 
   writeAuditLog({
     action:       "payroll.export",

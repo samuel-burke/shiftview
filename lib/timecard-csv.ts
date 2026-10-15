@@ -7,6 +7,7 @@
 
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard } from "@/lib/timecard";
+import { csvCell } from "@/lib/csv";
 
 const PUNCH_LABELS: Record<PunchType, string> = {
   clock_in: "Clock In",
@@ -14,14 +15,6 @@ const PUNCH_LABELS: Record<PunchType, string> = {
   break_start: "Break Start",
   break_end: "Break End",
 };
-
-function escapeCSV(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 function fmtTime(iso: string, tz: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -32,7 +25,7 @@ function fmtTime(iso: string, tz: string): string {
 export function timecardToCsv(tc: Timecard): string {
   const headers = ["Date", "Day", "Type", "Time", "Flag", "Detail", "Manual", "Note"];
   const lines = [headers.join(",")];
-  const push = (cells: unknown[]) => lines.push(cells.map(escapeCSV).join(","));
+  const push = (cells: unknown[]) => lines.push(cells.map(csvCell).join(","));
 
   for (const day of tc.days) {
     const startTime = day.schedule ? fmtMinutes(day.schedule.startMinutes) : "";
@@ -42,8 +35,11 @@ export function timecardToCsv(tc: Timecard): string {
     const callout = day.violations.find((v) => v.type === "callout");
     if (callout) push([day.date, day.dayName, "Call Out", startTime, callout.label, callout.detail, "", ""]);
 
-    const ncns = day.violations.find((v) => v.type === "ncns");
-    if (ncns) push([day.date, day.dayName, "NCNS", startTime, ncns.label, ncns.detail, "", ""]);
+    // One NCNS row per missed shift (a split-shift day can miss both).
+    for (const ncns of day.violations.filter((v) => v.type === "ncns")) {
+      const missedAt = ncns.scheduledMinutes != null ? fmtMinutes(ncns.scheduledMinutes) : startTime;
+      push([day.date, day.dayName, "NCNS", missedAt, ncns.label, ncns.detail, "", ""]);
+    }
 
     // One row per punch, flagged with the violation it triggered (if any).
     for (const p of day.punches) {

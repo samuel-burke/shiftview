@@ -45,9 +45,10 @@ export async function PUT(
   if (correction.status !== "pending")
     return NextResponse.json({ error: `This request was already ${correction.status}` }, { status: 409 });
 
+  const tz = await getOrgTimezone(supabase, orgId!);
   if (status === "approved") {
     const ruleError = await checkManualPunchAgainstHistory(
-      supabase, orgId!, correction.employee_id, correction.punch_type as PunchKind, correction.punched_at
+      supabase, orgId!, correction.employee_id, correction.punch_type as PunchKind, correction.punched_at, { tz }
     );
     if (ruleError)
       return NextResponse.json(
@@ -74,6 +75,13 @@ export async function PUT(
   if (!claimed)
     return NextResponse.json({ error: "This request was already reviewed" }, { status: 409 });
 
+  // Put the request back so it can be retried.
+  const reopen = () => supabase
+    .from("punch_corrections")
+    .update({ status: "pending", reviewed_by: null, reviewed_at: null, review_note: null })
+    .eq("org_id", orgId!)
+    .eq("id", id);
+
   let punchId: number | null = null;
   if (status === "approved") {
     const { data: punch, error: insertError } = await supabase
@@ -89,15 +97,38 @@ export async function PUT(
       .single();
     if (insertError || !punch) {
       console.error("[api/punch-corrections/[id]]", insertError);
-      // Put the request back so it can be retried.
-      await supabase
-        .from("punch_corrections")
-        .update({ status: "pending", reviewed_by: null, reviewed_at: null, review_note: null })
-        .eq("org_id", orgId!)
-        .eq("id", id);
+      await reopen();
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
     punchId = punch.id;
+
+    // Manual inserts take no lock, so another correction for this employee
+    // approved at the same moment can pass the check above too (two clock-outs
+    // for one clock-in). Re-check the new punch against its neighbours now
+    // that it's in; if the sequence broke, take it back out (managers may
+    // delete punches) and let the manager retry against the current punches.
+    const raceError = await checkManualPunchAgainstHistory(
+      supabase, orgId!, correction.employee_id, correction.punch_type as PunchKind, correction.punched_at,
+      { tz, excludePunchId: punch.id }
+    );
+    if (raceError) {
+      const { error: deleteError } = await supabase
+        .from("punch_records")
+        .delete()
+        .eq("org_id", orgId!)
+        .eq("id", punch.id);
+      if (deleteError) {
+        // The punch stays, so keep the request approved and linked to it.
+        console.error("[api/punch-corrections/[id]]", deleteError);
+        await supabase.from("punch_corrections").update({ punch_id: punch.id }).eq("org_id", orgId!).eq("id", id);
+        return NextResponse.json(
+          { error: "Approved, but another correction changed this shift at the same time — check the employee's punches" },
+          { status: 500 }
+        );
+      }
+      await reopen();
+      return NextResponse.json({ error: "Another correction changed this shift — try again" }, { status: 409 });
+    }
     await supabase
       .from("punch_corrections")
       .update({ punch_id: punchId })
@@ -113,7 +144,6 @@ export async function PUT(
     .maybeSingle();
 
   if (emp?.user_id) {
-    const tz = await getOrgTimezone(supabase, orgId!);
     const when = `${formatTimeInTz(correction.punched_at, tz)} on ${formatDateKey(
       dateKeyInTz(correction.punched_at, tz), { weekday: "short", month: "short", day: "numeric" }
     )}`;

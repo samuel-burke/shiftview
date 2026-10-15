@@ -167,6 +167,10 @@ export async function PUT(request: Request) {
     .from("app_settings")
     .upsert(withOrgAll(orgId!, rows));
 
+  // The database only stores zones it knows (migration 0047), so the clock
+  // triggers read the same store day as the app.
+  if (error?.code === "22023")
+    return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
   if (error) {
     console.error("[api/settings]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

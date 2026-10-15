@@ -93,3 +93,18 @@ describe("timecardToCsv", () => {
     expect(calloutRow).toContain("Sick");
   });
 });
+
+describe("timecardToCsv — split shifts (time card audit)", () => {
+  it("writes one NCNS row per missed shift, each at its own start time", () => {
+    const tc = build({
+      schedules: [
+        { date: DATE, startMinutes: 480, endMinutes: 720 },
+        { date: DATE, startMinutes: 1020, endMinutes: 1260 },
+      ],
+    });
+    const ncns = rows(timecardToCsv(tc)).filter((r) => r.includes(",NCNS,"));
+    expect(ncns).toHaveLength(2);
+    expect(ncns[0]).toContain(",8:00 AM,");
+    expect(ncns[1]).toContain(",5:00 PM,");
+  });
+});

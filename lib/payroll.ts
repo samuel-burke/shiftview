@@ -1,4 +1,4 @@
-import { dayOfWeekForKey, DEFAULT_TIMEZONE, weekStartForKey } from "@/lib/dates";
+import { addDaysToKey, dayOfWeekForKey, DEFAULT_TIMEZONE, localDayBoundsUtc, weekStartForKey } from "@/lib/dates";
 import { assignPunchDays } from "@/lib/punch-sessions";
 
 export type PunchRow = {
@@ -9,16 +9,30 @@ export type PunchRow = {
   employees: { name: string } | null;
 };
 
+// Hours past this in one workweek are overtime (FLSA weekly rule).
+export const WEEKLY_OVERTIME_THRESHOLD_HOURS = 40;
+// Workweeks, which overtime is measured over, start on Monday.
+export const WORKWEEK_START_DAY = 1;
+
 export type PayrollDay = {
   date: string;
   dayName: string;
   workedHours: number;
+  // The day's worked hours split at the weekly threshold, counting every hour
+  // worked earlier in the same workweek (even before the report's range).
+  regularHours: number;
+  overtimeHours: number;
   breakHours: number;
+  // The day's punches don't pair up (an open shift, or a missing or doubled
+  // punch): its hours need a manager's review before they're paid.
   hasIncomplete: boolean;
 };
 
 export type PayrollWeek = {
   weekStart: string;
+  // Hours worked in this workweek before the report's range began. They are
+  // paid in the previous period but count toward this week's overtime.
+  priorHours: number;
   regularHours: number;
   overtimeHours: number;
   breakHours: number;
@@ -38,18 +52,35 @@ export type EmployeePayroll = {
 };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const HOUR_MS = 3_600_000;
+const THRESHOLD_MS = WEEKLY_OVERTIME_THRESHOLD_HOURS * HOUR_MS;
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+// Hours to two decimals. Totals are summed in exact milliseconds and rounded
+// once, so rounding never accumulates across days.
+function hours(ms: number): number {
+  return Math.round(ms / 36_000) / 100;
 }
 
-// Returns Monday of the week containing dateStr (YYYY-MM-DD)
 function getWeekStart(dateStr: string): string {
-  return weekStartForKey(dateStr, 1);
+  return weekStartForKey(dateStr, WORKWEEK_START_DAY);
 }
 
 function getDayName(dateStr: string): string {
   return DAY_NAMES[dayOfWeekForKey(dateStr)];
+}
+
+// The punch_records window a payroll report for [from, to] must read, in `tz`:
+//   * from the day before `from`'s workweek starts, so a shift that began the
+//     night before is seen whole (and its post-midnight punches aren't taken
+//     for a new shift), and so earlier days of a workweek the range starts
+//     part-way through count toward its overtime;
+//   * to the end of the day after `to`, so a shift that runs past midnight on
+//     `to` is included.
+export function payrollQueryWindow(from: string, to: string, tz: string): { start: string; end: string } {
+  return {
+    start: localDayBoundsUtc(addDaysToKey(getWeekStart(from), -1), tz).start.toISOString(),
+    end: localDayBoundsUtc(addDaysToKey(to, 1), tz).end.toISOString(),
+  };
 }
 
 function computeSegments(punches: PunchRow[]): {
@@ -61,35 +92,50 @@ function computeSegments(punches: PunchRow[]): {
   let breakMs = 0;
   let segStart: number | null = null;
   let breakStart: number | null = null;
+  // A punch that doesn't follow from the one before it — a second clock-in, a
+  // clock-out with no clock-in, a break end with no break start — means
+  // punches are missing or doubled. Count what can be paired, and flag the day.
+  let outOfSequence = false;
 
   for (const p of punches) {
     const t = new Date(p.punched_at).getTime();
     switch (p.punch_type) {
       case "clock_in":
-        segStart = t;
+        // A second clock-in keeps the first: the time between them was worked.
+        if (segStart !== null || breakStart !== null) outOfSequence = true;
+        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
+        if (segStart === null) segStart = t;
         break;
       case "break_end":
         if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
-        segStart = t;
+        else outOfSequence = true;
+        if (segStart === null) segStart = t;
         break;
       case "break_start":
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
-        breakStart = t;
+        else outOfSequence = true;
+        if (breakStart === null) breakStart = t;
         break;
       case "clock_out":
+        if (segStart === null && breakStart === null) outOfSequence = true;
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
         if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
         break;
     }
   }
 
-  return { workedMs, breakMs, hasIncomplete: segStart !== null || breakStart !== null };
+  return { workedMs, breakMs, hasIncomplete: outOfSequence || segStart !== null || breakStart !== null };
 }
 
 // Punches are bucketed into work days in `tz` — the org's timezone — with a
-// shift that runs past midnight kept whole on the day it started. Callers query
-// a window padded past `range` (so a post-midnight clock-out is included) and
-// pass `range` to drop days outside it.
+// shift that runs past midnight kept whole on the day it started. Overtime is
+// measured per Monday–Sunday workweek and split by day in order: the hours of
+// a day that take its week past 40 are overtime.
+//
+// With `range`, only days inside it are reported, but days earlier in the same
+// workweek still count toward its overtime, so a range that starts mid-week
+// (semi-monthly, or any period not on a Monday) loses none. Rows must cover
+// payrollQueryWindow(range).
 export function computePayroll(
   rows: PunchRow[],
   tz: string = DEFAULT_TIMEZONE,
@@ -102,10 +148,14 @@ export function computePayroll(
     byEmployee[r.employee_id].punches.push(r);
   }
 
+  // Days before this are only there to place the punches after them.
+  const firstCountedDay = range ? getWeekStart(range.from) : null;
+
   return Object.entries(byEmployee)
     .map(([id, { name, punches }]) => {
+      // Ties (two punches stamped the same instant) keep insertion order.
       const sorted = [...punches].sort(
-        (a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime()
+        (a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime() || a.id - b.id
       );
 
       const byDate: Record<string, PunchRow[]> = {};
@@ -115,7 +165,8 @@ export function computePayroll(
       );
       sorted.forEach((p, i) => {
         const date = assigned[i].day;
-        if (range && (date < range.from || date > range.to)) return;
+        if (firstCountedDay && date < firstCountedDay) return;
+        if (range && date > range.to) return;
         if (!byDate[date]) byDate[date] = [];
         byDate[date].push(p);
       });
@@ -127,42 +178,73 @@ export function computePayroll(
         byWeek[ws].push(date);
       }
 
+      let totalRegularMs = 0;
+      let totalOvertimeMs = 0;
+      let totalBreakMs = 0;
+
       const weeks: PayrollWeek[] = Object.entries(byWeek)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([ws, dates]) => {
-          const days: PayrollDay[] = dates.sort().map((date) => {
-            const { workedMs, breakMs, hasIncomplete } = computeSegments(byDate[date]);
-            return {
+          let weekMs = 0; // every hour worked so far this workweek
+          let priorMs = 0;
+          let regularMs = 0;
+          let overtimeMs = 0;
+          let breakMs = 0;
+          const days: PayrollDay[] = [];
+
+          for (const date of dates.sort()) {
+            const seg = computeSegments(byDate[date]);
+            const dayRegularMs = Math.min(seg.workedMs, Math.max(0, THRESHOLD_MS - weekMs));
+            const dayOvertimeMs = seg.workedMs - dayRegularMs;
+            weekMs += seg.workedMs;
+            if (range && date < range.from) {
+              priorMs += seg.workedMs;
+              continue;
+            }
+            regularMs += dayRegularMs;
+            overtimeMs += dayOvertimeMs;
+            breakMs += seg.breakMs;
+            const workedHours = hours(seg.workedMs);
+            const overtimeHours = hours(dayOvertimeMs);
+            days.push({
               date,
               dayName: getDayName(date),
-              workedHours: round2(workedMs / 3_600_000),
-              breakHours: round2(breakMs / 3_600_000),
-              hasIncomplete,
-            };
-          });
+              workedHours,
+              regularHours: Math.round((workedHours - overtimeHours) * 100) / 100,
+              overtimeHours,
+              breakHours: hours(seg.breakMs),
+              hasIncomplete: seg.hasIncomplete,
+            });
+          }
 
-          const totalWorked = round2(days.reduce((s, d) => s + d.workedHours, 0));
-          const totalBreak = round2(days.reduce((s, d) => s + d.breakHours, 0));
-
+          totalRegularMs += regularMs;
+          totalOvertimeMs += overtimeMs;
+          totalBreakMs += breakMs;
+          const totalWorkedHours = hours(regularMs + overtimeMs);
+          const overtimeHours = hours(overtimeMs);
           return {
             weekStart: ws,
-            regularHours: round2(Math.min(totalWorked, 40)),
-            overtimeHours: round2(Math.max(0, totalWorked - 40)),
-            breakHours: totalBreak,
-            totalWorkedHours: totalWorked,
+            priorHours: hours(priorMs),
+            regularHours: Math.round((totalWorkedHours - overtimeHours) * 100) / 100,
+            overtimeHours,
+            breakHours: hours(breakMs),
+            totalWorkedHours,
             hasIncomplete: days.some((d) => d.hasIncomplete),
             days,
           };
-        });
+        })
+        .filter((w) => w.days.length > 0);
 
+      const totalWorkedHours = hours(totalRegularMs + totalOvertimeMs);
+      const totalOvertimeHours = hours(totalOvertimeMs);
       return {
         employeeId: Number(id),
         employeeName: name,
         weeks,
-        totalRegularHours: round2(weeks.reduce((s, w) => s + w.regularHours, 0)),
-        totalOvertimeHours: round2(weeks.reduce((s, w) => s + w.overtimeHours, 0)),
-        totalBreakHours: round2(weeks.reduce((s, w) => s + w.breakHours, 0)),
-        totalWorkedHours: round2(weeks.reduce((s, w) => s + w.totalWorkedHours, 0)),
+        totalRegularHours: Math.round((totalWorkedHours - totalOvertimeHours) * 100) / 100,
+        totalOvertimeHours,
+        totalBreakHours: hours(totalBreakMs),
+        totalWorkedHours,
       };
     })
     .filter((e) => e.weeks.length > 0)

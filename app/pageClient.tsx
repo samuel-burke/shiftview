@@ -45,8 +45,9 @@ import {
   weekStartForKey,
 } from "@/lib/dates";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
-import { isOvernight, shiftTouchesDay, shiftWindowOn } from "@/lib/shift-times";
+import { isOvernight, shiftTouchesDay } from "@/lib/shift-times";
 import { tint } from "../lib/theme-colors";
+import { groupShiftsByAttendance } from "@/lib/dashboard-attendance";
 
 // Code-split the recharts-backed timeline off the dashboard's initial bundle.
 // It only renders once data has loaded (gated behind SkeletonTimeline below),
@@ -714,38 +715,16 @@ export default function Page() {
     );
   }, [employees, daySchedules, walkInSchedules, calloutIds]);
 
-  const sortedScheduled = useMemo(
-    () => [...scheduled]
-      .sort((a, b) => shiftWindowOn(a, dateKey).start - shiftWindowOn(b, dateKey).start)
-      .filter((s) => !(s.date.slice(0, 10) === dateKey && calloutIds.has(s.employeeId))),
-    [scheduled, calloutIds, dateKey],
-  );
-
-  // Split sortedScheduled (plus walk-ins) into the three attendance-based sub-groups.
-  // When attendanceMap is empty (!punchesLoaded), all shifts fall into scheduledRemaining.
-  const hereNowSchedules = useMemo(
-    () => [
-      ...sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
-      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "clocked_in"),
-    ],
-    [sortedScheduled, walkInSchedules, attendanceMap],
-  );
-  const onBreakSchedules = useMemo(
-    () => [
-      ...sortedScheduled.filter((s) => attendanceMap[s.employeeId] === "on_break"),
-      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "on_break"),
-    ],
-    [sortedScheduled, walkInSchedules, attendanceMap],
-  );
-  const scheduledRemaining = useMemo(
-    () => [
-      ...sortedScheduled.filter((s) => {
-        const st = attendanceMap[s.employeeId];
-        return !st || st === "not_clocked_in" || st === "clocked_out";
-      }),
-      ...walkInSchedules.filter((s) => attendanceMap[s.employeeId] === "clocked_out"),
-    ],
-    [sortedScheduled, walkInSchedules, attendanceMap],
+  // Split the day's shifts (plus walk-ins) into the attendance-based groups.
+  // Called-out employees are left out unless they've clocked in anyway.
+  const {
+    scheduled: sortedScheduled,
+    hereNow: hereNowSchedules,
+    onBreak: onBreakSchedules,
+    remaining: scheduledRemaining,
+  } = useMemo(
+    () => groupShiftsByAttendance(scheduled, walkInSchedules, attendanceMap, calloutIds, dateKey),
+    [scheduled, walkInSchedules, attendanceMap, calloutIds, dateKey],
   );
 
   // When punch data is loaded for today, count ALL clocked-in employees from punch
