@@ -26,9 +26,11 @@
 begin;
 
 alter table public.punch_records drop constraint if exists punch_records_coordinates_check;
+-- Written so no case evaluates to null: a CHECK passes on null, so the
+-- obvious "(both null) or (both in range)" would let half a pair through.
 alter table public.punch_records add constraint punch_records_coordinates_check check (
-  (lat is null and lng is null)
-  or (lat between -90 and 90 and lng between -180 and 180)
+  (lat is null) = (lng is null)
+  and (lat is null or (lat between -90 and 90 and lng between -180 and 180))
 ) not valid;
 
 do $$
@@ -117,8 +119,8 @@ begin
 
   -- Constraints run after BEFORE triggers, so check the punch's own
   -- coordinates here first, as punch_records_coordinates_check would.
-  if not ((new.lat is null and new.lng is null)
-          or (new.lat between -90 and 90 and new.lng between -180 and 180)) then
+  if not ((new.lat is null) = (new.lng is null)
+          and (new.lat is null or (new.lat between -90 and 90 and new.lng between -180 and 180))) then
     raise exception 'lat and lng must both be null, or in range (-90..90, -180..180)'
       using errcode = 'check_violation', constraint = 'punch_records_coordinates_check';
   end if;

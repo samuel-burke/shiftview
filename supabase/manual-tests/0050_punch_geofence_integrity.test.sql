@@ -170,6 +170,11 @@ select pg_temp.expect('manager can''t set an out-of-range latitude on an existin
     'update public.punch_records set lat = 200, lng = 0 where org_id = %L',
     (select v from fx where k = 'alder'))), 'err:23514');
 
+select pg_temp.expect('manager can''t clear only the longitude on an existing punch',
+  pg_temp.try(:mia, format(
+    'update public.punch_records set lat = 40.7128, lng = null where org_id = %L',
+    (select v from fx where k = 'alder'))), 'err:23514');
+
 -- ---------------------------------------------------------------------------
 -- Stored geofence settings
 -- ---------------------------------------------------------------------------
@@ -213,6 +218,8 @@ select pg_temp.expect('geofence off: clock_in without location is accepted',
   pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
 select pg_temp.expect('geofence off: malformed coordinates are still rejected',
   pg_temp.try(:cara, pg_temp.cara_in('''NaN''::float8', '0')), 'err:23514');
+select pg_temp.expect('geofence off: half a pair is still rejected',
+  pg_temp.try(:cara, pg_temp.cara_in('40.7128', 'null')), 'err:23514');
 select pg_temp.set_alder('geofence_enabled', 'true');
 
 select pg_temp.set_alder('gps_required', 'false');
