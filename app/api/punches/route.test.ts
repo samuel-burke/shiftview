@@ -1053,6 +1053,25 @@ describe("POST /api/punches — geofence coordinate validation", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it("returns 422 when the database's geofence trigger rejects the insert", async () => {
+    // Settings changed between the route's check and the insert.
+    const { client } = makeGeofenceClient(enforced({ geofence_enabled: "false" }));
+    const base = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = base(table);
+      if (table === "punch_records")
+        b.single = vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: "GF001", message: "Outside geofence — you must be within 100m of the designated location to clock in" },
+        });
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.73, lng: -74.006 }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/Outside geofence/);
+  });
+
   it("skips the distance check when no centre has been saved", async () => {
     const { client } = makeGeofenceClient(enforced({ geofence_lat: "", geofence_lng: "" }));
     mockCreateClient.mockResolvedValue(client as any);

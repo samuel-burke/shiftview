@@ -275,6 +275,10 @@ export async function POST(request: Request) {
         { error: "Your punch changed on another request — refresh and try again" },
         { status: 409 }
       );
+    // The database enforces the geofence too (migration 0050), for punches
+    // written without this route. Settings changed since the check above.
+    if (typeof insertError.code === "string" && /^GF00[123]$/.test(insertError.code))
+      return NextResponse.json({ error: insertError.message }, { status: 422 });
     console.error("[api/punches]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
