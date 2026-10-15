@@ -176,7 +176,9 @@ export function getTotalClockedSeconds(punches: PunchRecord[], now = Date.now())
       segStart = null;
     }
   }
-  if (segStart !== null) total += now - segStart;
+  // Punch times are stamped by the server and `now` is this device's clock; a
+  // device running a little slow would otherwise show a negative open segment.
+  if (segStart !== null) total += Math.max(0, now - segStart);
   return Math.floor(total / 1000);
 }
 
@@ -193,10 +195,12 @@ export function getBreakElapsedSeconds(punches: PunchRecord[], now = Date.now())
     }
   }
   if (breakStart === null) return 0;
-  return Math.floor((now - breakStart) / 1000);
+  // Server-stamped start vs. this device's clock — never below zero.
+  return Math.floor(Math.max(0, now - breakStart) / 1000);
 }
 
-export function fmtElapsed(totalSeconds: number): string {
+export function fmtElapsed(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(seconds));
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;

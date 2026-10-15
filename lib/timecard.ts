@@ -10,7 +10,7 @@ import type { PunchType } from "@/data/types";
 import { fmtMinutes } from "@/data/types";
 import { daysBetweenKeys, dayOfWeekForKey, eachDateKey, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
 import { assignPunchDays, MAX_SHIFT_MS } from "@/lib/punch-sessions";
-import type { PunchPolicy } from "@/lib/punch-policy";
+import { clockInTiming, clockOutTiming, type PunchPolicy } from "@/lib/punch-policy";
 
 export type ViolationType =
   | "late_in"
@@ -330,7 +330,8 @@ export function computeTimecard(input: {
         // Real elapsed minutes, so a shift that starts in a DST-repeated or
         // -skipped hour is judged correctly.
         const diff = minutesFromScheduled(firstClockIn.punchedAt, date, shift.startMinutes, tz);
-        if (policy.lateInEnabled && diff > policy.lateInMinutes) {
+        const timing = clockInTiming(policy, diff);
+        if (timing === "late") {
           add({
             type: "late_in",
             label: "Late In",
@@ -338,7 +339,7 @@ export function computeTimecard(input: {
             minutes: diff,
             punchId: firstClockIn.id,
           });
-        } else if (policy.earlyInEnabled && -diff > policy.earlyInMinutes) {
+        } else if (timing === "early") {
           add({
             type: "early_in",
             label: "Early In",
@@ -352,7 +353,8 @@ export function computeTimecard(input: {
       // Clock-out timing vs. scheduled end.
       if (lastClockOut) {
         const diff = minutesFromScheduled(lastClockOut.punchedAt, date, shift.endMinutes, tz);
-        if (policy.lateOutEnabled && diff > policy.lateOutMinutes) {
+        const timing = clockOutTiming(policy, diff);
+        if (timing === "late") {
           add({
             type: "late_out",
             label: "Late Out",
@@ -360,7 +362,7 @@ export function computeTimecard(input: {
             minutes: diff,
             punchId: lastClockOut.id,
           });
-        } else if (policy.earlyOutEnabled && -diff > policy.earlyOutMinutes) {
+        } else if (timing === "early") {
           add({
             type: "early_out",
             label: "Early Out",

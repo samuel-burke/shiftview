@@ -74,6 +74,7 @@ function withSettingsDefaults(data: Partial<AppSettings>): AppSettings {
   return {
     ...DEFAULT_SETTINGS,
     ...data,
+    punchPolicy: { ...DEFAULT_PUNCH_POLICY, ...data.punchPolicy },
     schedulingRules: { ...DEFAULT_SCHEDULING_RULES, ...data.schedulingRules },
   };
 }

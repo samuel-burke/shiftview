@@ -5,8 +5,11 @@ import {
   getShiftType,
   isHere,
   fmtMinutes,
+  fmtElapsed,
+  getTotalClockedSeconds,
+  getBreakElapsedSeconds,
 } from "./types";
-import type { Schedule } from "./types";
+import type { PunchRecord, Schedule } from "./types";
 
 describe("formatDisplayName", () => {
   it("returns first name and last initial for a two-word name", () => {
@@ -129,5 +132,36 @@ describe("fmtMinutes", () => {
 
   it("handles end-of-day 1440 minutes as 12:00 AM", () => {
     expect(fmtMinutes(1440)).toBe("12:00 AM");
+  });
+});
+
+describe("elapsed timers when the device clock is behind the server", () => {
+  const punch = (id: number, punchType: PunchRecord["punchType"], punchedAt: string): PunchRecord => ({
+    id, employeeId: 1, scheduleId: null, punchType, punchedAt, lat: null, lng: null, isManual: false, note: null,
+  });
+  // The server stamped the clock-in; this device's clock reads 30s earlier.
+  const clockIn = punch(1, "clock_in", "2026-10-15T14:00:30Z");
+  const deviceNow = Date.parse("2026-10-15T14:00:00Z");
+
+  it("never counts a negative open segment", () => {
+    expect(getTotalClockedSeconds([clockIn], deviceNow)).toBe(0);
+  });
+
+  it("keeps closed segments and clamps only the open one", () => {
+    const punches = [
+      punch(1, "clock_in", "2026-10-15T13:00:00Z"),
+      punch(2, "break_start", "2026-10-15T13:30:00Z"),
+      punch(3, "break_end", "2026-10-15T14:00:30Z"),
+    ];
+    expect(getTotalClockedSeconds(punches, deviceNow)).toBe(1800);
+  });
+
+  it("never shows a negative break", () => {
+    expect(getBreakElapsedSeconds([punch(1, "clock_in", "2026-10-15T13:00:00Z"), punch(2, "break_start", "2026-10-15T14:00:30Z")], deviceNow)).toBe(0);
+  });
+
+  it("formats a negative duration as zero, not \"-1m -30s\"", () => {
+    expect(fmtElapsed(-90)).toBe("0m 00s");
+    expect(fmtElapsed(90)).toBe("1m 30s");
   });
 });

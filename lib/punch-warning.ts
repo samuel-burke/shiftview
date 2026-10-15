@@ -1,5 +1,6 @@
 import { fmtMinutes, type Schedule, type PunchType } from "@/data/types";
 import { minutesFromScheduled } from "@/lib/dates";
+import { clockInTiming, clockOutTiming, DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
 
 export type PunchWarning = {
   heading: string;
@@ -8,20 +9,22 @@ export type PunchWarning = {
   diffMinutes: number;
 };
 
-const THRESHOLD = 6;
-
 /**
  * Returns a warning to show before recording a punch, or null if no warning
  * is needed. Compares now against the scheduled start (clock_in) or end
  * (clock_out) in the store's local timezone. With `at` (the current instant and
  * store timezone) the difference is real elapsed time, which stays correct when
  * the shift spans a DST change; otherwise it falls back to wall-clock minutes.
+ * Whether a punch counts as early or late is the org's punch policy — the same
+ * rule the time card and the manager's late alert use — so the employee is
+ * warned exactly when the punch will be flagged.
  */
 export function getPunchWarning(
   punchType: PunchType,
   nowMinutes: number,
   schedule: Schedule | null,
-  at?: { nowMs: number; tz: string }
+  at?: { nowMs: number; tz: string },
+  policy: PunchPolicy = DEFAULT_PUNCH_POLICY,
 ): PunchWarning | null {
   if (!schedule) return null;
 
@@ -32,14 +35,15 @@ export function getPunchWarning(
 
   if (punchType === "clock_in") {
     const diff = diffFrom(schedule.startMinutes);
-    if (diff > THRESHOLD) {
+    const timing = clockInTiming(policy, diff);
+    if (timing === "late") {
       return {
         heading: "Late Clock-In",
         body: `Your shift started at ${fmtMin(schedule.startMinutes)}. You're clocking in ${diff} min late.`,
         diffMinutes: diff,
       };
     }
-    if (diff < -THRESHOLD) {
+    if (timing === "early") {
       return {
         heading: "Early Clock-In",
         body: `Your shift starts at ${fmtMin(schedule.startMinutes)}. You're clocking in ${Math.abs(diff)} min early.`,
@@ -51,14 +55,15 @@ export function getPunchWarning(
 
   if (punchType === "clock_out") {
     const diff = diffFrom(schedule.endMinutes);
-    if (diff > THRESHOLD) {
+    const timing = clockOutTiming(policy, diff);
+    if (timing === "late") {
       return {
         heading: "Late Clock-Out",
         body: `Your shift ended at ${fmtMin(schedule.endMinutes)}. You're clocking out ${diff} min late.`,
         diffMinutes: diff,
       };
     }
-    if (diff < -THRESHOLD) {
+    if (timing === "early") {
       return {
         heading: "Early Clock-Out",
         body: `Your shift ends at ${fmtMin(schedule.endMinutes)}. You're clocking out ${Math.abs(diff)} min early.`,
