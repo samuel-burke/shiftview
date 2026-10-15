@@ -457,6 +457,7 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 
 - The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`, `employee_pay_rates`; `presence_set` only writes the caller's own device; `my_*` only return the caller's own memberships) or can only be called with the service role (`notify_*`, `link_employee_account`, `org_signup_create`, `org_delete`, `reset_demo_org`). Trigger functions and the old `is_org_*` helpers can't be called through the API at all.
 - API roles can't select `employees.pay_rate` (`0042` grants the other columns one by one). A column added to `employees` later isn't readable through the API until it's added to that grant.
+- `punch_records` coordinates must be both null or both in range (`0050`), and a signed-in user's live `clock_in` must be inside the org's geofence when GPS and the geofence are on, so writing the table directly can't skip the check in `POST /api/punches`.
 - `anon` can't write any table, and only the service role can `TRUNCATE` (which skips RLS).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.
 - `push_subscriptions`, `user_notification_preferences` and `device_presence` are per user: you read and write only your own rows.
