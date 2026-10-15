@@ -1,11 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isE2eBypassEnabled } from "@/lib/e2e-bypass";
 
 export async function proxy(request: NextRequest) {
   // E2E runs mock every /api/* call client-side; the Playwright webServer sets
   // E2E_BYPASS_AUTH=1 so app pages render without a session (see
-  // playwright.config.ts and app/page.tsx). Never set in production.
-  if (process.env.E2E_BYPASS_AUTH === "1") {
+  // playwright.config.ts and app/page.tsx). Ignored on Vercel.
+  if (isE2eBypassEnabled()) {
     return NextResponse.next({ request });
   }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
@@ -359,7 +359,7 @@ function makeTimezoneClockInClient({
       if (table === "managers")    return buildSimple(null);
       if (table === "employees")   return buildSimple({ id: 1, name: empName, org_id: MOCK_ORG_ID });
       if (table === "app_settings") return buildSimple([{ key: "timezone", value: timezone }]);
-      if (table === "schedules")   return buildSimple({ start_minutes: scheduleStartMinutes, date: "2026-05-26", employee_id: 1 });
+      if (table === "schedules")   return buildSimple({ id: 10, start_minutes: scheduleStartMinutes, end_minutes: scheduleStartMinutes + 480, date: "2026-05-26", employee_id: 1 });
       if (table === "punch_records") {
         const b: any = {};
         for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit"]) {
@@ -380,6 +380,12 @@ function makeTimezoneClockInClient({
 describe("POST /api/punches — late clock-in notification uses store timezone", () => {
   beforeEach(() => {
     mockNotifyManagers.mockClear();
+    // The shift (2026-05-26) must be today's for the clock-in to accept it.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-26T15:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("does NOT fire notification when employee clocks in early in store timezone (UTC would appear late)", async () => {
@@ -922,6 +928,218 @@ describe("POST /api/punches — max breaks per shift", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "break_start" }));
     expect(res.status).toBe(201);
+  });
+});
+
+// ── Punches may only name the employee's own, current shift ───────────────────
+
+/**
+ * POST/PUT client whose `schedules` look-up honours the org, id and employee
+ * filters the route applies, over the given shift rows.
+ */
+function makeShiftOwnershipClient({
+  shifts,
+  isManager = false,
+  insertError = null as any,
+}: {
+  shifts: Array<{ id: number; org_id: string; employee_id: number; date: string; start_minutes: number; end_minutes: number }>;
+  isManager?: boolean;
+  insertError?: any;
+}) {
+  const inserts: any[] = [];
+  const builder = (result: { data: any; error: any }) => {
+    const b: any = {};
+    for (const m of ["select", "update", "eq", "gt", "gte", "lte", "lt", "order", "limit"]) {
+      b[m] = vi.fn().mockReturnValue(b);
+    }
+    b.insert = vi.fn().mockImplementation((row: any) => { inserts.push(row); return b; });
+    b.maybeSingle = vi.fn().mockResolvedValue(result);
+    b.single = vi.fn().mockResolvedValue(result);
+    b.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
+    return b;
+  };
+  const client = {
+    inserts,
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "managers")
+        return builder({ data: isManager ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID } : null, error: null });
+      if (table === "employees") return builder({ data: { id: 1, name: "Alice", org_id: MOCK_ORG_ID }, error: null });
+      if (table === "app_settings") return builder({ data: [{ key: "timezone", value: "America/New_York" }], error: null });
+      if (table === "schedules") {
+        const filters: Record<string, unknown> = {};
+        const b = builder({ data: null, error: null });
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => { filters[col] = val; return b; });
+        b.maybeSingle = vi.fn().mockImplementation(async () => ({
+          data: shifts.find((s) =>
+            Object.entries(filters).every(([col, val]) => (s as any)[col] === val)) ?? null,
+          error: null,
+        }));
+        return b;
+      }
+      if (table === "punch_records") {
+        const b = builder({ data: [], error: null });
+        b.single = vi.fn().mockImplementation(async () => insertError
+          ? { data: null, error: insertError }
+          : { data: { id: 5, employee_id: 1, punched_at: new Date().toISOString(), ...inserts[inserts.length - 1] }, error: null });
+        return b;
+      }
+      return builder({ data: null, error: null });
+    }),
+  };
+  return client;
+}
+
+describe("POST /api/punches — the shift must be the employee's own", () => {
+  // 10:00 AM in New York on 2026-10-15.
+  const NOW = new Date("2026-10-15T14:00:00.000Z");
+  const OTHER_ORG = "00000000-0000-0000-0000-00000000beef";
+  const shifts = [
+    { id: 10, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-15", start_minutes: 540, end_minutes: 1020 },
+    { id: 11, org_id: MOCK_ORG_ID, employee_id: 2, date: "2026-10-15", start_minutes: 540, end_minutes: 1020 },
+    { id: 12, org_id: OTHER_ORG,   employee_id: 1, date: "2026-10-15", start_minutes: 540, end_minutes: 1020 },
+    { id: 13, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-05", start_minutes: 540, end_minutes: 1020 },
+    { id: 14, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-14", start_minutes: 1320, end_minutes: 1800 },
+    { id: 15, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-14", start_minutes: 540, end_minutes: 1020 },
+    { id: 16, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-16", start_minutes: 540, end_minutes: 1020 },
+  ];
+
+  beforeEach(() => {
+    mockNotifyManagers.mockClear();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("accepts a clock-in to the employee's own shift today", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(res.status).toBe(201);
+    expect(client.inserts[0]).toMatchObject({ schedule_id: 10 });
+  });
+
+  it("accepts a clock-in to yesterday's overnight shift", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 14 }));
+    expect(res.status).toBe(201);
+  });
+
+  it("accepts a clock-in with no shift", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(201);
+    expect(client.inserts[0]).toMatchObject({ schedule_id: null });
+  });
+
+  it.each([
+    ["a coworker's shift", 11],
+    ["another organization's shift", 12],
+    ["a shift id that doesn't exist", 999],
+    ["the employee's shift from ten days ago", 13],
+    ["yesterday's shift that didn't run past midnight", 15],
+    ["tomorrow's shift", 16],
+  ])("refuses a clock-in to %s (422) and records nothing", async (_label, scheduleId) => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId }));
+    expect(res.status).toBe(422);
+    expect(client.inserts).toHaveLength(0);
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a string", "10"],
+    ["a float", 10.5],
+    ["zero", 0],
+    ["a negative id", -1],
+    ["an object", { id: 10 }],
+  ])("rejects a scheduleId that is %s (400)", async (_label, scheduleId) => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId }));
+    expect(res.status).toBe(400);
+    expect(client.inserts).toHaveLength(0);
+  });
+
+  it("looks the shift up by org, id and the signed-in employee", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    const schedCall = client.from.mock.results.find((_r: any, i: number) => client.from.mock.calls[i][0] === "schedules");
+    const eqCalls = schedCall!.value.eq.mock.calls;
+    expect(eqCalls).toContainEqual(["org_id", MOCK_ORG_ID]);
+    expect(eqCalls).toContainEqual(["id", 10]);
+    expect(eqCalls).toContainEqual(["employee_id", 1]);
+  });
+
+  it("records a clock-out without a coworker's shift instead of refusing it", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    // Clocked in already, so clock_out is a valid step.
+    const original = client.from.getMockImplementation()!;
+    client.from.mockImplementation((table: string) => {
+      const b = original(table);
+      if (table === "punch_records") {
+        b.then = (resolve: any, reject: any) =>
+          Promise.resolve({
+            data: [{ id: 1, employee_id: 1, punch_type: "clock_in", punched_at: new Date(NOW.getTime() - 3600_000).toISOString() }],
+            error: null,
+          }).then(resolve, reject);
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_out", scheduleId: 11 }));
+    expect(res.status).toBe(201);
+    expect(client.inserts[0]).toMatchObject({ punch_type: "clock_out", schedule_id: null });
+  });
+
+  it("returns 422 when the database's shift check rejects the insert (23514)", async () => {
+    const client = makeShiftOwnershipClient({ shifts, insertError: { code: "23514", message: "own shift" } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(res.status).toBe(422);
+  });
+});
+
+describe("PUT /api/punches — a manager's manual punch must name the employee's own shift", () => {
+  const shifts = [
+    { id: 10, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-14", start_minutes: 540, end_minutes: 1020 },
+    { id: 11, org_id: MOCK_ORG_ID, employee_id: 2, date: "2026-10-14", start_minutes: 540, end_minutes: 1020 },
+    { id: 13, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-05", start_minutes: 540, end_minutes: 1020 },
+  ];
+  const body = { punchType: "clock_in", localDate: "2026-10-14", localTime: "09:00", note: "Missed", employeeId: 1 };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T14:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("accepts the employee's own shift on that day", async () => {
+    const client = makeShiftOwnershipClient({ shifts, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PUT(makePutRequest({ ...body, scheduleId: 10 }));
+    expect(res.status).toBe(200);
+    expect(client.inserts[0]).toMatchObject({ employee_id: 1, schedule_id: 10 });
+  });
+
+  it.each([
+    ["a coworker's shift", 11],
+    ["a shift from another day", 13],
+    ["a shift id that doesn't exist", 999],
+  ])("refuses %s (422)", async (_label, scheduleId) => {
+    const client = makeShiftOwnershipClient({ shifts, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PUT(makePutRequest({ ...body, scheduleId }));
+    expect(res.status).toBe(422);
+    expect(client.inserts).toHaveLength(0);
   });
 });
 

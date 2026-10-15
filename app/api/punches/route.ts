@@ -11,6 +11,7 @@ import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUt
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
+import { isClockInShift, isScheduleIdInput, isShiftNearPunch, loadOwnSchedule, type PunchSchedule } from "@/lib/punch-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,8 @@ export async function POST(request: Request) {
   const VALID_TYPES = ["clock_in", "clock_out", "break_start", "break_end"];
   if (!punchType || !VALID_TYPES.includes(punchType))
     return NextResponse.json({ error: "punchType must be one of: " + VALID_TYPES.join(", ") }, { status: 400 });
+  if (!isScheduleIdInput(scheduleId))
+    return NextResponse.json({ error: "scheduleId must be a positive integer" }, { status: 400 });
 
   // Coordinates are stored with every punch and fed to the geofence distance
   // check, so malformed values (strings, NaN, Infinity, out of range, half a
@@ -198,6 +201,22 @@ export async function POST(request: Request) {
     }
   }
 
+  // The shift a punch is for must be the employee's own — never a coworker's,
+  // another org's or a guessed id — and one they can punch now. A clock-in
+  // naming any other shift is refused. Later punches only carry the shift as
+  // a label, so a stale one (the shift was reassigned mid-shift) is dropped
+  // rather than trapping the employee on the clock. Migration 0043 enforces
+  // ownership in the database too.
+  let sched: PunchSchedule | null = null;
+  if (scheduleId != null) {
+    sched = await loadOwnSchedule(supabase, orgId, emp.id, scheduleId);
+    if (punchType === "clock_in") {
+      if (!sched || !isClockInShift(sched, tz))
+        return NextResponse.json({ error: "That shift isn't one you can clock in to" }, { status: 422 });
+    } else if (sched && !isShiftNearPunch(sched, Date.now(), tz)) {
+      sched = null;
+    }
+  }
 
   // Server-side geofence enforcement for clock_in
   if (punchType === "clock_in") {
@@ -258,7 +277,7 @@ export async function POST(request: Request) {
     .from("punch_records")
     .insert(withOrg(orgId, {
       employee_id: emp.id,
-      schedule_id: scheduleId ?? null,
+      schedule_id: sched?.id ?? null,
       punch_type:  punchType,
       lat:         lat ?? null,
       lng:         lng ?? null,
@@ -275,6 +294,10 @@ export async function POST(request: Request) {
         { error: "Your punch changed on another request — refresh and try again" },
         { status: 409 }
       );
+    // The database's shift check (migration 0043) — the shift changed hands
+    // after the check above.
+    if (insertError.code === "23514")
+      return NextResponse.json({ error: "That shift isn't yours to punch — refresh and try again" }, { status: 422 });
     // The database enforces the geofence too (migration 0050), for punches
     // written without this route. Settings changed since the check above.
     if (typeof insertError.code === "string" && /^GF00[123]$/.test(insertError.code))
@@ -284,24 +307,16 @@ export async function POST(request: Request) {
   }
 
   // Check for late clock-in and alert managers
-  if (punchType === "clock_in" && scheduleId) {
-    const { data: sched } = await supabase
-      .from("schedules")
-      .select("start_minutes, date, employee_id")
-      .eq("org_id", orgId)
-      .eq("id", scheduleId)
-      .maybeSingle();
-    if (sched) {
-      const lateMinutes = minutesFromScheduled(data.punched_at, sched.date, sched.start_minutes, tz);
-      if (lateMinutes > 5) {
-        notifyManagers(
-          orgId,
-          "late_clock_in",
-          "Late Clock-In",
-          `${emp.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
-          { employeeId: sched.employee_id, scheduleId, lateMinutes }
-        ).catch(() => {});
-      }
+  if (punchType === "clock_in" && sched) {
+    const lateMinutes = minutesFromScheduled(data.punched_at, sched.date, sched.start_minutes, tz);
+    if (lateMinutes > 5) {
+      notifyManagers(
+        orgId,
+        "late_clock_in",
+        "Late Clock-In",
+        `${emp.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
+        { employeeId: sched.employee_id, scheduleId: sched.id, lateMinutes }
+      ).catch(() => {});
     }
   }
 
@@ -311,7 +326,7 @@ export async function POST(request: Request) {
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   String(data.id),
-    after: { employeeId: emp.id, punchType, scheduleId: scheduleId ?? null },
+    after: { employeeId: emp.id, punchType, scheduleId: sched?.id ?? null },
     metadata: {
       employeeId:   emp.id,
       employeeName: emp.name,
@@ -343,6 +358,8 @@ export async function PUT(request: Request) {
 
   if (!punchType || !VALID_TYPES.includes(punchType))
     return NextResponse.json({ error: "punchType required" }, { status: 400 });
+  if (!isScheduleIdInput(scheduleId))
+    return NextResponse.json({ error: "scheduleId must be a positive integer" }, { status: 400 });
 
   const usesLocalTime = localDate !== undefined || localTime !== undefined;
   if (usesLocalTime) {
@@ -488,6 +505,14 @@ export async function PUT(request: Request) {
       note:       existing.note ?? null,
       isManual:   existing.is_manual,
     };
+  }
+
+  // A manager's manual punch may name a shift only if it is the target
+  // employee's own and falls on the punch's store day (or the day either side).
+  if (id == null && scheduleId != null) {
+    const sched = await loadOwnSchedule(supabase, orgId, targetEmployeeId, scheduleId);
+    if (!sched || !isShiftNearPunch(sched, punchedAtIso, tz))
+      return NextResponse.json({ error: "That shift doesn't belong to this employee on that day" }, { status: 422 });
   }
 
   if (id != null) {
