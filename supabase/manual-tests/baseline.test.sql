@@ -22,6 +22,7 @@
 \ir ../migrations/0044_org_isolation.sql
 \ir ../migrations/0046_live_clock_in_same_day.sql
 \ir ../migrations/0047_store_timezone.sql
+\ir ../migrations/0050_punch_geofence_integrity.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
