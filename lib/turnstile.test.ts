@@ -16,6 +16,20 @@ describe("verifyTurnstileToken", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it("passes without a key on a preview deployment", async () => {
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect(await verifyTurnstileToken(null)).toBe(true);
+  });
+
+  it("fails closed in production when TURNSTILE_SECRET_KEY is missing", async () => {
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await verifyTurnstileToken("any-token")).toBe(false);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("fails when configured but no token is provided", async () => {
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
     expect(await verifyTurnstileToken(null)).toBe(false);

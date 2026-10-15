@@ -207,7 +207,7 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_SITE_URL` | The app's public URL (e.g. `https://shiftview.app`). Invite emails link back to `<site>/auth/callback`, so set it before inviting anyone |
 | `RESEND_API_KEY` | Contact form and low-coverage alert emails (via Resend). Invite emails come from Supabase Auth |
 | `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until this and `RESEND_API_KEY` are set |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither; required in production, where those routes refuse requests without the secret (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
 | `CRON_SECRET` | The two cron endpoints (shift reminders and the demo reset); they return 401 until it's set |

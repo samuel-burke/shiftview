@@ -40,8 +40,8 @@ The same keys also protect demo start and signup.
 |---|---|---|
 | `RESEND_API_KEY` | `re_…` from step 1 | Yes |
 | `CONTACT_TO_EMAIL` | Inbox that should receive messages | Yes |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile site key | With the secret |
-| `TURNSTILE_SECRET_KEY` | Turnstile secret key | With the site key |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile site key | In production |
+| `TURNSTILE_SECRET_KEY` | Turnstile secret key | In production (requests are refused without it) |
 
 Without `RESEND_API_KEY` or `CONTACT_TO_EMAIL`, the endpoint returns 503 and
 the form shows "The contact form isn't available right now", rather than
