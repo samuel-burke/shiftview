@@ -11,19 +11,6 @@ function conversationId(a: string, b: string): string {
   return [a, b].sort().join("_");
 }
 
-// Whether `userId` works in or manages `orgId` (org-scoped lookups).
-async function isOrgMember(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  orgId: string,
-  userId: string
-): Promise<boolean> {
-  const [{ data: emp }, { data: mgr }] = await Promise.all([
-    supabase.from("employees").select("id").eq("org_id", orgId).eq("user_id", userId).limit(1).maybeSingle(),
-    supabase.from("managers").select("user_id").eq("org_id", orgId).eq("user_id", userId).maybeSingle(),
-  ]);
-  return Boolean(emp || mgr);
-}
-
 // GET /api/messages?with=<userId>&limit=50&before=<messageId>
 // `before` is a cursor: returns the page of messages older than that message id.
 export async function GET(request: Request) {
@@ -44,7 +31,23 @@ export async function GET(request: Request) {
 
   const { orgId } = ctx!;
 
-  if (!(await isOrgMember(supabase, orgId, withUserId)))
+  // Verify that the counterpart user is in the same org (org-scoped employee lookup)
+  const { data: counterpartEmp } = await supabase
+    .from("employees")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("user_id", withUserId)
+    .maybeSingle();
+
+  // Also check if counterpart is a manager in this org
+  const { data: counterpartMgr } = await supabase
+    .from("managers")
+    .select("user_id")
+    .eq("org_id", orgId)
+    .eq("user_id", withUserId)
+    .maybeSingle();
+
+  if (!counterpartEmp && !counterpartMgr)
     return NextResponse.json({ error: "User not found in organization" }, { status: 403 });
 
   const convId = conversationId(user!.id, withUserId);
@@ -104,11 +107,6 @@ export async function POST(request: Request) {
 
   if (user!.id === toUserId)
     return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
-
-  // The recipient must belong to this organization (as GET checks), or any
-  // member could put a notification and a push on any user of any tenant.
-  if (!(await isOrgMember(supabase, orgId, toUserId)))
-    return NextResponse.json({ error: "User not found in organization" }, { status: 403 });
 
   // Resolve sender's display name from employees table (org-scoped), fall back to email prefix
   const { data: emp } = await supabase

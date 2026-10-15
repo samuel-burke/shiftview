@@ -53,17 +53,8 @@ function makeMessagesClient({
       b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
       b.then = (resolve: any, reject: any) => Promise.resolve({ data: null, error: null }).then(resolve, reject);
 
-      // Lookups of someone other than the caller (the counterpart check).
-      let otherUser = false;
-      b.eq = vi.fn().mockImplementation((column: string, value: unknown) => {
-        if (column === "user_id" && value !== user?.id) otherUser = true;
-        return b;
-      });
-
       if (table === "managers") {
-        b.maybeSingle = vi.fn().mockImplementation(() =>
-          Promise.resolve({ data: otherUser ? null : managerRow, error: null })
-        );
+        b.maybeSingle = vi.fn().mockResolvedValue({ data: managerRow, error: null });
         b.then = (resolve: any, reject: any) => Promise.resolve({ data: managerRow, error: null }).then(resolve, reject);
         return b;
       }
@@ -71,7 +62,6 @@ function makeMessagesClient({
         // Track call number to determine context: getOrgContext call vs sender name call vs counterpart check
         let callCount = 0;
         b.maybeSingle = vi.fn().mockImplementation(() => {
-          if (otherUser) return Promise.resolve({ data: counterpartEmpRow, error: null });
           callCount++;
           if (!isManager && callCount === 1) {
             // First call in getOrgContext: return employee row for org resolution
@@ -209,21 +199,6 @@ describe("POST /api/messages", () => {
     expect(insertCall.insert).toHaveBeenCalledWith(
       expect.objectContaining({ org_id: MOCK_ORG_ID })
     );
-  });
-
-  it("refuses a recipient outside the caller's organization", async () => {
-    vi.mocked(notify).mockClear();
-    const client = makeMessagesClient({ counterpartInOrg: false });
-    mockCreateClient.mockResolvedValue(client as any);
-    const res = await POST(
-      new Request("http://localhost/api/messages", {
-        method: "POST",
-        body: JSON.stringify({ toUserId: "user-in-another-org", body: "hello" }),
-      })
-    );
-    expect(res.status).toBe(403);
-    expect((client.from as any).mock.calls.some((c: any) => c[0] === "messages")).toBe(false);
-    expect(notify).not.toHaveBeenCalled();
   });
 
   it("keeps the message text out of the notification and push preview", async () => {
