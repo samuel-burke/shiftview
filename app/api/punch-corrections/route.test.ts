@@ -25,7 +25,7 @@ const mockNotify = vi.mocked(notify);
 type Correction = {
   id: number; employee_id: number; punch_type: string; punched_at: string; note: string; status: string;
 };
-type Punch = { punch_type: string; punched_at: string };
+type Punch = { id?: number; punch_type: string; punched_at: string };
 
 // Mock Supabase for the punch-corrections routes. Records filters, updates and
 // inserts; prev/next punch lookups are answered from `history`.
@@ -35,12 +35,16 @@ function makeClient({
   history = [] as Punch[],
   claimSucceeds = true,
   listRows = [] as Record<string, unknown>[],
+  // Punches another request lands while this approval is inserting its own.
+  concurrentInserts = [] as Punch[],
 } = {}) {
   const calls = {
     correctionFilters: [] as [string, unknown][],
     correctionUpdates: [] as Record<string, unknown>[],
     punchInserts: [] as Record<string, unknown>[],
+    punchDeletes: [] as [string, unknown][][],
   };
+  history = [...history];
 
   // `single` answers .maybeSingle()/.single(); `list` answers an awaited query.
   const chain = (
@@ -95,15 +99,26 @@ function makeClient({
         return b;
       }
       if (table === "punch_records") {
-        const filters: { lt?: string; gte?: string } = {};
+        const filters: { lt?: string; gte?: string; neqId?: number } = {};
+        let deleteFilters: [string, unknown][] | null = null;
         const b: any = {};
-        for (const m of ["select", "eq", "order", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "order", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        b.eq = vi.fn().mockImplementation((c: string, v: unknown) => { deleteFilters?.push([c, v]); return b; });
+        b.neq = vi.fn().mockImplementation((_c: string, v: number) => { filters.neqId = v; return b; });
         b.lt = vi.fn().mockImplementation((_c: string, v: string) => { filters.lt = v; return b; });
         b.gte = vi.fn().mockImplementation((_c: string, v: string) => { filters.gte = v; return b; });
-        b.insert = vi.fn().mockImplementation((row: Record<string, unknown>) => { calls.punchInserts.push(row); return b; });
+        b.insert = vi.fn().mockImplementation((row: Record<string, unknown>) => {
+          calls.punchInserts.push(row);
+          history.push({ id: 501, punch_type: row.punch_type as string, punched_at: row.punched_at as string }, ...concurrentInserts);
+          return b;
+        });
+        b.delete = vi.fn().mockImplementation(() => { deleteFilters = []; calls.punchDeletes.push(deleteFilters); return b; });
+        b.then = (res: any, rej: any) => Promise.resolve({ data: null, error: null }).then(res, rej);
         b.single = vi.fn().mockResolvedValue({ data: { id: 501 }, error: null });
         b.maybeSingle = vi.fn().mockImplementation(async () => {
-          const sorted = [...history].sort((a, c) => Date.parse(a.punched_at) - Date.parse(c.punched_at));
+          const sorted = history
+            .filter((p) => p.id === undefined || p.id !== filters.neqId)
+            .sort((a, c) => Date.parse(a.punched_at) - Date.parse(c.punched_at));
           if (filters.lt) return { data: [...sorted].reverse().find((p) => Date.parse(p.punched_at) < Date.parse(filters.lt!)) ?? null, error: null };
           if (filters.gte) return { data: sorted.find((p) => Date.parse(p.punched_at) >= Date.parse(filters.gte!)) ?? null, error: null };
           return { data: null, error: null };
@@ -214,6 +229,48 @@ describe("PUT /api/punch-corrections/[id]", () => {
     expect(res.status).toBe(409);
     expect(client.calls.punchInserts).toHaveLength(0);
     expect(client.calls.correctionUpdates).toHaveLength(0);
+  });
+
+  it("refuses to approve a punch that leaves the old shift open before the next clock-in", async () => {
+    // clock_in → break_start → clock_in is not a valid sequence.
+    const client = makeClient({
+      correction: { ...pending, punch_type: "break_start", punched_at: "2026-10-31T02:00:00Z" },
+      history: [
+        { punch_type: "clock_in", punched_at: "2026-10-30T22:00:00Z" },
+        { punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" },
+      ],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await review(7, { status: "approved" })).status).toBe(409);
+    expect(client.calls.punchInserts).toHaveLength(0);
+  });
+
+  it("approves a missed clock-in after an earlier store day's forgotten clock-out", async () => {
+    // Friday's shift was never closed; Saturday's clock-in was missed.
+    const client = makeClient({
+      correction: { ...pending, punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" },
+      history: [{ punch_type: "clock_in", punched_at: "2026-10-30T13:00:00Z" }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await review(7, { status: "approved" })).status).toBe(200);
+    expect(client.calls.punchInserts).toHaveLength(1);
+  });
+
+  it("takes the punch back out when a concurrent approval broke the sequence", async () => {
+    // Both requests close the same clock-in; the other one landed first.
+    const client = makeClient({
+      correction: pending,
+      history: [{ punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" }],
+      concurrentInserts: [{ id: 502, punch_type: "clock_out", punched_at: "2026-10-31T22:00:00Z" }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await review(7, { status: "approved" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/Another correction changed this shift/);
+    expect(client.calls.punchDeletes).toEqual([[["org_id", MOCK_ORG_ID], ["id", 501]]]);
+    expect(client.calls.correctionUpdates.at(-1)).toMatchObject({ status: "pending", reviewed_by: null });
+    expect(client.calls.correctionUpdates).not.toContainEqual({ punch_id: 501 });
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 
   it("rejects a request that was already reviewed", async () => {
