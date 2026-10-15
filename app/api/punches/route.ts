@@ -6,6 +6,7 @@ import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
+import { parseGeofenceConfig, parsePunchCoordinates } from "@/lib/geo-validation";
 import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
@@ -102,11 +103,19 @@ export async function GET(request: Request) {
 // Body: { punchType, scheduleId?, lat?, lng? }
 export async function POST(request: Request) {
   const body = await request.json();
-  const { punchType, scheduleId, lat, lng } = body;
+  const { punchType, scheduleId } = body;
 
   const VALID_TYPES = ["clock_in", "clock_out", "break_start", "break_end"];
   if (!punchType || !VALID_TYPES.includes(punchType))
     return NextResponse.json({ error: "punchType must be one of: " + VALID_TYPES.join(", ") }, { status: 400 });
+
+  // Coordinates are stored with every punch and fed to the geofence distance
+  // check, so malformed values (strings, NaN, Infinity, out of range, half a
+  // pair) are rejected before anything else uses them.
+  const coords = parsePunchCoordinates(body.lat, body.lng);
+  if (!coords.ok)
+    return NextResponse.json({ error: coords.error }, { status: 400 });
+  const { lat, lng } = coords;
 
   const supabase = await createClient();
 
@@ -195,18 +204,30 @@ export async function POST(request: Request) {
     const gpsRequired    = settingsMap.gps_required === "true";
     const geofenceEnabled = settingsMap.geofence_enabled === "true";
     if (gpsRequired && geofenceEnabled) {
-      const geofenceLat = settingsMap.geofence_lat ? parseFloat(settingsMap.geofence_lat) : null;
-      const geofenceLng = settingsMap.geofence_lng ? parseFloat(settingsMap.geofence_lng) : null;
-      const geofenceRadius = parseInt(settingsMap.geofence_radius ?? "100");
-      if (geofenceLat !== null && geofenceLng !== null && !isNaN(geofenceLat) && !isNaN(geofenceLng)) {
-        if (lat == null || lng == null) {
+      const geofence = parseGeofenceConfig(
+        settingsMap.geofence_lat,
+        settingsMap.geofence_lng,
+        settingsMap.geofence_radius
+      );
+      if (geofence.status === "invalid") {
+        // Fail closed: a stored centre or radius that can't be used must not
+        // silently turn enforcement off.
+        console.error("[api/punches] invalid geofence settings for org", orgId);
+        return NextResponse.json(
+          { error: "Geofence location is misconfigured — ask a manager to update it in Settings" },
+          { status: 422 }
+        );
+      }
+      if (geofence.status === "ok") {
+        const { lat: geofenceLat, lng: geofenceLng, radius: geofenceRadius } = geofence;
+        if (lat === null || lng === null) {
           return NextResponse.json(
             { error: "GPS location required — geofence enforcement is active" },
             { status: 422 }
           );
         }
         const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
-        if (dist > geofenceRadius) {
+        if (!(dist <= geofenceRadius)) {
           writeAuditLog({
             action:       "punch.geofence_rejected",
             orgId,

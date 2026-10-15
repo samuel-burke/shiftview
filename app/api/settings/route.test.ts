@@ -280,6 +280,36 @@ describe("PUT /api/settings", () => {
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("gpsRequired") });
   });
 
+  // ── Geofence centre ──────────────────────────────────────────────────────────
+
+  it("accepts a valid geofence centre and null to clear it", async () => {
+    expect((await PUT(putReq({ geofenceLat: 40.7128, geofenceLng: -74.006 }))).status).toBe(200);
+    expect((await PUT(putReq({ geofenceLat: -90, geofenceLng: 180 }))).status).toBe(200);
+    expect((await PUT(putReq({ geofenceLat: null, geofenceLng: null }))).status).toBe(200);
+  });
+
+  it.each([
+    ["geofenceLat", 90.01],
+    ["geofenceLat", -91],
+    ["geofenceLat", "40.7"],
+    ["geofenceLng", 180.5],
+    ["geofenceLng", -181],
+    ["geofenceLng", "-74"],
+  ])("returns 400 when %s is %j", async (field, value) => {
+    const res = await PUT(putReq({ [field]: value }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining(field) });
+  });
+
+  it("returns 400 when a geofence coordinate overflows to Infinity", async () => {
+    const res = await PUT(new Request("http://localhost/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: `{"geofenceLat":1e999}`,
+    }));
+    expect(res.status).toBe(400);
+  });
+
   // ── Scheduling rules ─────────────────────────────────────────────────────────
 
   function upsertedRows(client: ReturnType<typeof makeSupabaseClient>) {

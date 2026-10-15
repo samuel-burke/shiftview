@@ -924,3 +924,139 @@ describe("POST /api/punches — max breaks per shift", () => {
     expect(res.status).toBe(201);
   });
 });
+
+// ── POST /api/punches — geofence coordinate validation ───────────────────────
+
+describe("POST /api/punches — geofence coordinate validation", () => {
+  const emp = { id: 1, org_id: MOCK_ORG_ID, name: "Tester" };
+  // Geofence centred on lower Manhattan, 100m radius.
+  const CENTRE = { lat: 40.7128, lng: -74.006 };
+  const enforced = (overrides: Record<string, string> = {}) =>
+    Object.entries({
+      timezone: "America/New_York",
+      gps_required: "true",
+      geofence_enabled: "true",
+      geofence_lat: String(CENTRE.lat),
+      geofence_lng: String(CENTRE.lng),
+      geofence_radius: "100",
+      ...overrides,
+    }).map(([key, value]) => ({ key, value }));
+
+  function makeGeofenceClient(settingsRows: { key: string; value: string }[]) {
+    const insertData = {
+      id: 7, employee_id: 1, schedule_id: null, punch_type: "clock_in",
+      punched_at: new Date().toISOString(), lat: null, lng: null, is_manual: false, note: null,
+    };
+    const insert = vi.fn();
+    const client = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "employees") return makeBuilder({ data: emp, error: null });
+        if (table === "app_settings") return makeBuilder({ data: settingsRows, error: null });
+        if (table === "punch_records") {
+          const b: any = {};
+          for (const m of ["select", "eq", "gt", "gte", "lte", "lt", "order", "limit"]) {
+            b[m] = vi.fn().mockReturnValue(b);
+          }
+          b.insert = vi.fn((row: unknown) => { insert(row); return b; });
+          b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
+          // Current-shift read: nothing punched today.
+          b.then = (resolve: any, reject: any) =>
+            Promise.resolve({ data: [], error: null }).then(resolve, reject);
+          return b;
+        }
+        return makeBuilder({ data: null, error: null });
+      }),
+    };
+    return { client, insert };
+  }
+
+  function rawPost(json: string) {
+    return new Request("http://localhost/api/punches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: json,
+    });
+  }
+
+  it("accepts a clock-in inside the geofence", async () => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.7129, lng: -74.0061 }));
+    expect(res.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ lat: 40.7129, lng: -74.0061 }));
+  });
+
+  it("rejects a clock-in outside the geofence", async () => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.73, lng: -74.006 }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/Outside geofence/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a clock-in with no coordinates while enforcement is on", async () => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/GPS location required/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  // Each of these used to reach haversineMeters, produce a NaN distance, and
+  // pass the `dist > radius` check — i.e. bypass the geofence entirely.
+  it.each([
+    ["string latitude", `{"punchType":"clock_in","lat":"abc","lng":-74.006}`],
+    ["numeric-string latitude", `{"punchType":"clock_in","lat":"40.7128","lng":-74.006}`],
+    ["overflowing latitude (Infinity)", `{"punchType":"clock_in","lat":1e999,"lng":-74.006}`],
+    ["overflowing longitude (-Infinity)", `{"punchType":"clock_in","lat":40.7128,"lng":-1e999}`],
+    ["latitude above 90", `{"punchType":"clock_in","lat":90.5,"lng":-74.006}`],
+    ["latitude below -90", `{"punchType":"clock_in","lat":-91,"lng":-74.006}`],
+    ["longitude above 180", `{"punchType":"clock_in","lat":40.7128,"lng":180.1}`],
+    ["longitude below -180", `{"punchType":"clock_in","lat":40.7128,"lng":-286}`],
+    ["latitude without longitude", `{"punchType":"clock_in","lat":40.7128}`],
+    ["longitude without latitude", `{"punchType":"clock_in","lng":-74.006}`],
+    ["object latitude", `{"punchType":"clock_in","lat":{},"lng":-74.006}`],
+    ["array longitude", `{"punchType":"clock_in","lat":40.7128,"lng":[-74.006]}`],
+    ["boolean latitude", `{"punchType":"clock_in","lat":true,"lng":-74.006}`],
+  ])("rejects a %s with 400 and records nothing", async (_label, json) => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(rawPost(json));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/lat|lng/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed coordinates even when the geofence is off", async () => {
+    const { client, insert } = makeGeofenceClient(enforced({ geofence_enabled: "false" }));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(rawPost(`{"punchType":"clock_out","lat":1e999,"lng":0}`));
+    expect(res.status).toBe(400);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an unparseable centre latitude", { geofence_lat: "not-a-number" }],
+    ["an infinite centre latitude", { geofence_lat: "1e999" }],
+    ["an out-of-range centre longitude", { geofence_lng: "200" }],
+    ["half a centre", { geofence_lng: "" }],
+    ["an unparseable radius", { geofence_radius: "wide" }],
+  ])("fails closed on %s in stored settings", async (_label, overrides) => {
+    const { client, insert } = makeGeofenceClient(enforced(overrides));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.7128, lng: -74.006 }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/misconfigured/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("skips the distance check when no centre has been saved", async () => {
+    const { client } = makeGeofenceClient(enforced({ geofence_lat: "", geofence_lng: "" }));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(201);
+  });
+});
