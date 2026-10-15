@@ -100,6 +100,34 @@ jobs:
 
       - run: npm test
 
+  database-isolation:
+    # Two disposable organizations attack each other's rows on a throwaway
+    # Postgres with the full schema (supabase/manual-tests). Any FAIL or ERROR
+    # line fails the job.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Organization isolation
+        working-directory: supabase/manual-tests
+        run: |
+          createdb org_isolation_test
+          psql -q -d org_isolation_test -f 0044_org_isolation.test.sql 2>&1 | tee out.txt
+          if grep -E "FAIL|ERROR" out.txt; then exit 1; fi
+          grep -q "PASS  no role reaches another org's rows" out.txt
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15

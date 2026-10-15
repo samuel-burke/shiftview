@@ -94,6 +94,20 @@ describe("notify", () => {
     expect(mockSendPush).toHaveBeenCalledTimes(1);
   });
 
+  it("does not push when the database refuses the row (recipient outside the org)", async () => {
+    const { rpc } = makeSupabase({ prefs: { message_alerts: true } });
+    const answer = rpc.getMockImplementation()!;
+    rpc.mockImplementation((fn: string) =>
+      fn === "notify_insert"
+        ? Promise.resolve({ data: null, error: { code: "42501", message: "The recipient is not a member of this organization" } })
+        : answer(fn)
+    );
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await notify({ orgId: ORG_ID, userId: USER_ID, type: "message", title: "Alice", body: "hi" });
+    spy.mockRestore();
+    expect(mockSendPush).not.toHaveBeenCalled();
+  });
+
   it("inserts the row but never pushes for the demo org", async () => {
     const { rpc } = makeSupabase();
     await notify({

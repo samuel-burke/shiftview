@@ -84,7 +84,12 @@ export async function notify(options: NotifyOptions): Promise<void> {
     p_body:    options.body,
     p_data:    options.data ?? null,
   });
-  if (insertError) console.error("[notify] notify_insert failed:", insertError);
+  // The database rejects a recipient outside the organization (migration
+  // 0044); never push what it refused to record.
+  if (insertError) {
+    console.error("[notify] notify_insert failed:", insertError);
+    return;
+  }
 
   // Demo org: keep the in-app notification (the bell works in the demo) but
   // never push to devices.
@@ -237,7 +242,10 @@ export async function notifyChessMove(
     p_body:    body,
     p_data:    data,
   });
-  if (upsertError) console.error("[notify] notify_upsert_chess failed:", upsertError);
+  if (upsertError) {
+    console.error("[notify] notify_upsert_chess failed:", upsertError);
+    return;
+  }
 
   // Demo org: in-app only, never push to devices.
   if (isDemoOrgId(options.orgId)) return;
