@@ -518,7 +518,9 @@ export default function ClockPageClient() {
           localDate: correctionDate,
           localTime: correctionTime,
           note: correctionNote.trim(),
-          scheduleId: schedule?.id ?? null,
+          // Only link the shift when the correction is for its day; the
+          // server refuses a shift from another day.
+          scheduleId: schedule && schedule.date === correctionDate ? schedule.id : null,
           employeeId: isManager ? employeeId : undefined,
         }),
       });
