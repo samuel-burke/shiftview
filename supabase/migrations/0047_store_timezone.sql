@@ -90,8 +90,11 @@ exception when others then
 end;
 $$;
 
-revoke all on function public.store_timezone(uuid) from public, anon;
-grant execute on function public.store_timezone(uuid) to authenticated, service_role;
+-- Security definer (it reads any org's settings), so only the triggers that
+-- run as its owner and the service role may call it: a signed-in user calling
+-- it directly could read another organisation's timezone.
+revoke all on function public.store_timezone(uuid) from public, anon, authenticated;
+grant execute on function public.store_timezone(uuid) to service_role;
 revoke all on function public.enforce_timezone_setting() from public, anon, authenticated;
 revoke all on function public.canonical_timezone(text) from public, anon;
 grant execute on function public.canonical_timezone(text) to authenticated, service_role;

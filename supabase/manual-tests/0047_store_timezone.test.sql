@@ -157,6 +157,10 @@ exception when others then
   raise notice 'PASS  the service role is held to the same rule (rejected: %)', sqlerrm;
 end $$;
 
+-- store_timezone() reads any org's settings, so users can't call it directly.
+select pg_temp.run('a signed-in user cannot call store_timezone() for another org', :e1,
+  format($q$select public.store_timezone(%L)$q$, (select id from organizations where slug = 'birch')), true);
+
 -- Unchanged behaviour from 0046.
 delete from punch_records where employee_id = (select id from employees where user_id = :e2);
 select pg_temp.run('a first clock-in still works', :e2, pg_temp.clock_in(:e2), false);
