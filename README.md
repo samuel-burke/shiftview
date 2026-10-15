@@ -228,7 +228,7 @@ Apply the numbered migrations you haven't run yet, in filename order. Don't run 
 
 A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`) needs the app code from its branch live before it runs; the others work with the code from before them.
 
-The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`.
+The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`. Migrations are applied in the SQL editor, so Supabase keeps no migration history; to check that production matches the repository, run `supabase/schema-fingerprint.sql` (read-only) in production and in a database built from the baseline, and compare the rows.
 
 ### 4. Run the dev server
 
@@ -247,12 +247,14 @@ npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest unit/integration tests
 npm run test:watch  # watch mode
+npm run test:security  # the unit tests named *.security.test.ts
+npm run test:sql    # every SQL suite in supabase/manual-tests, each in a fresh database (needs Postgres; uses PGHOST, PGUSER, ...)
 npx playwright install chromium   # once, before the first e2e run
 npm run test:e2e    # Playwright e2e (APIs intercepted client-side, no backend needed)
 npm run build       # production build
 ```
 
-API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`, run by hand against a throwaway Postgres (instructions at the top of each file). CI runs lint, typecheck, the unit suite (also under two far-off timezones), and the e2e suite on pushes to `main` and `dev` and on every pull request.
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration after `0037`. CI runs lint, typecheck, the unit suite (also under two far-off timezones), a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel production deployment.
 
 ## Project Structure
 
@@ -281,9 +283,11 @@ lib/                # Supabase clients, org scoping, encryption, audit log, web 
 supabase/
   baseline.sql      # whole schema as of 0037, for new projects (see Set up the database)
   migrations/       # SQL migrations
-  manual-tests/     # behavioural SQL tests for the baseline, triggers and policies
+  manual-tests/     # behavioural SQL tests for the baseline, triggers and policies (npm run test:sql)
+  schema-fingerprint.sql  # read-only catalog summary, to compare production with the repo
 db/migrations/      # two earlier migrations, run between 0004 and 0005
 e2e/                # Playwright specs
+scripts/test-sql.sh # runs every SQL test suite in a fresh database
 docs/               # requirements spec and design notes: multi-tenancy, demo org, auto-scheduler, contact form
 proxy.ts            # Next.js proxy: refreshes the Supabase session, sends signed-out visitors to /login
 ```
