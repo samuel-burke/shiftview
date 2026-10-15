@@ -166,6 +166,22 @@ export async function PUT(request: Request) {
   if (isDemoOrgId(orgId!))
     return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
 
+  // Re-sending is only for someone on this team who hasn't joined yet. The
+  // invite goes out through the service role, so without this any manager
+  // (anyone who signs up gets an org) could have ShiftView email arbitrary
+  // addresses.
+  const { data: pending } = await supabase
+    .from("employees")
+    .select("id, user_id")
+    .eq("org_id", orgId!)
+    .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
+    .limit(1)
+    .maybeSingle();
+  if (!pending)
+    return NextResponse.json({ error: "No one on your team has that email" }, { status: 404 });
+  if (pending.user_id)
+    return NextResponse.json({ error: "That person has already joined your team" }, { status: 409 });
+
   const admin = createAdminClient();
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,

@@ -169,7 +169,10 @@ export async function POST(request: Request) {
       userId: toUserId,
       type: "message",
       title: senderName,
-      body: trimmed,
+      // Messages are encrypted at rest; notifications are not, and the
+      // notification also becomes the push preview on a lock screen. So the
+      // text stays in the encrypted conversation only.
+      body: "Sent you a message",
       data: { fromUserId: user!.id, fromName: senderName },
     }).catch(() => {});
   }
