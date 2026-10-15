@@ -64,14 +64,16 @@ export async function GET(request: Request) {
   const tz = resolveTimezone(settingsMap.timezone);
   const policy = parsePunchPolicy(settingsMap);
 
-  // Schedules for the employee in range.
+  // Schedules for the employee in range, plus a day either side: a clock-in
+  // just before midnight can be for the next day's shift, or one just after
+  // midnight for the previous day's (computeTimecard matches them).
   const { data: scheduleRows, error: schedErr } = await supabase
     .from("schedules")
     .select("date, start_minutes, end_minutes")
     .eq("org_id", orgId!)
     .eq("employee_id", employeeId)
-    .gte("date", from)
-    .lte("date", to);
+    .gte("date", addDaysToKey(from, -1))
+    .lte("date", addDaysToKey(to, 1));
   if (schedErr) {
     console.error("[api/timecard] schedules", schedErr);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

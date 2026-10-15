@@ -35,8 +35,11 @@ export function timecardToCsv(tc: Timecard): string {
     const callout = day.violations.find((v) => v.type === "callout");
     if (callout) push([day.date, day.dayName, "Call Out", startTime, callout.label, callout.detail, "", ""]);
 
-    const ncns = day.violations.find((v) => v.type === "ncns");
-    if (ncns) push([day.date, day.dayName, "NCNS", startTime, ncns.label, ncns.detail, "", ""]);
+    // One NCNS row per missed shift (a split-shift day can miss both).
+    for (const ncns of day.violations.filter((v) => v.type === "ncns")) {
+      const missedAt = ncns.scheduledMinutes != null ? fmtMinutes(ncns.scheduledMinutes) : startTime;
+      push([day.date, day.dayName, "NCNS", missedAt, ncns.label, ncns.detail, "", ""]);
+    }
 
     // One row per punch, flagged with the violation it triggered (if any).
     for (const p of day.punches) {

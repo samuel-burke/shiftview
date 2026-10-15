@@ -8,8 +8,8 @@
 
 import type { PunchType } from "@/data/types";
 import { fmtMinutes } from "@/data/types";
-import { dayOfWeekForKey, eachDateKey, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
-import { assignPunchDays } from "@/lib/punch-sessions";
+import { daysBetweenKeys, dayOfWeekForKey, eachDateKey, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
+import { assignPunchDays, MAX_SHIFT_MS } from "@/lib/punch-sessions";
 import type { PunchPolicy } from "@/lib/punch-policy";
 
 export type ViolationType =
@@ -32,6 +32,8 @@ export type Violation = {
   // for late/early-out, the break-end for long/short break). Absent for
   // day-level violations (callout, ncns) that have no originating punch.
   punchId?: number;
+  // For an NCNS: the start of the shift that was missed.
+  scheduledMinutes?: number;
 };
 
 export type TimecardPunchInput = {
@@ -65,7 +67,9 @@ export type TimecardPunch = {
 export type TimecardDay = {
   date: string;
   dayName: string;
+  // The day's first scheduled shift; `schedules` has them all (split shifts).
   schedule: { startMinutes: number; endMinutes: number } | null;
+  schedules: { startMinutes: number; endMinutes: number }[];
   punches: TimecardPunch[];
   callout: { reason: string | null } | null;
   workedHours: number;
@@ -86,6 +90,26 @@ export type Timecard = {
   totalBreakHours: number;
   totalViolations: number;
   violationCounts: Record<ViolationType, number>;
+};
+
+// A session can belong to a shift that starts up to this long after it.
+const SHIFT_MATCH_EARLY_MS = 4 * 60 * 60 * 1000;
+
+type Session = {
+  ownDay: string; // the day assignPunchDays put it on (its clock-in's day)
+  startMs: number;
+  endMs: number;
+  punches: TimecardPunch[];
+  shift: Shift | null;
+};
+
+type Shift = {
+  date: string;
+  startMinutes: number;
+  endMinutes: number;
+  startMs: number;
+  endMs: number;
+  sessions: Session[];
 };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -176,34 +200,89 @@ export function computeTimecard(input: {
   const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
   const nowMs = input.nowMs ?? Date.now();
 
-  const scheduleByDate = new Map<string, TimecardScheduleInput>();
-  for (const s of schedules) scheduleByDate.set(s.date.slice(0, 10), s);
-
   const calloutByDate = new Map<string, TimecardCalloutInput>();
   for (const c of callouts) calloutByDate.set(c.date.slice(0, 10), c);
 
-  // Bucket punches by local work day — a shift that runs past midnight stays
-  // on the day it started, with localMinutes continuing past 1440.
+  // Scheduled shifts as real instants. A day may hold several (a split
+  // shift); shifts that touch or overlap are one block of work.
+  const shifts: Shift[] = [];
+  for (const s of [...schedules].sort((x, y) =>
+    x.date.localeCompare(y.date) || x.startMinutes - y.startMinutes)) {
+    const date = s.date.slice(0, 10);
+    const startMs = zonedTimeToUtc(date, s.startMinutes, tz).getTime();
+    const endMs = zonedTimeToUtc(date, s.endMinutes, tz).getTime();
+    const prev = shifts[shifts.length - 1];
+    if (prev && prev.date === date && startMs <= prev.endMs) {
+      prev.endMinutes = Math.max(prev.endMinutes, s.endMinutes);
+      prev.endMs = Math.max(prev.endMs, endMs);
+      continue;
+    }
+    shifts.push({ date, startMinutes: s.startMinutes, endMinutes: s.endMinutes, startMs, endMs, sessions: [] });
+  }
+
+  // Split the punches into sessions (a clock-in and what follows it, kept on
+  // the day it started by assignPunchDays), and give each session to the
+  // scheduled shift it was worked for: the one whose start is nearest among
+  // those it began within SHIFT_MATCH_EARLY_MS before, and before the end of.
+  // That puts a 11:50 PM clock-in for a midnight shift, or a 12:10 AM clock-in
+  // for an 11 PM shift, on the shift's day, and the second half of a split
+  // shift on the second shift. A session no shift claims that way goes to the
+  // nearest shift on its own day, if there is one.
   // Ties (two punches stamped the same instant) keep insertion order.
   const sortedPunches = [...punches].sort(
     (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime() || a.id - b.id
   );
   const assigned = assignPunchDays(sortedPunches, tz);
-  const punchesByDate = new Map<string, TimecardPunch[]>();
+  const sessions: Session[] = [];
   sortedPunches.forEach((p, i) => {
-    const { day: dateKey, minutes } = assigned[i];
+    const ms = new Date(p.punchedAt).getTime();
+    const last = sessions[sessions.length - 1];
     const tp: TimecardPunch = {
       id: p.id,
       punchType: p.punchType,
       punchedAt: p.punchedAt,
-      localMinutes: minutes,
+      localMinutes: assigned[i].minutes,
       isManual: !!p.isManual,
       note: p.note ?? null,
     };
-    const arr = punchesByDate.get(dateKey) ?? [];
-    arr.push(tp);
-    punchesByDate.set(dateKey, arr);
+    if (!last || p.punchType === "clock_in" || assigned[i].day !== last.ownDay) {
+      sessions.push({ ownDay: assigned[i].day, startMs: ms, endMs: ms, punches: [tp], shift: null });
+    } else {
+      last.punches.push(tp);
+      last.endMs = ms;
+    }
   });
+
+  // When a session ends: its last punch, or for one still open, up to 16 hours
+  // (the longest shift) after it began.
+  const sessionEndMs = (x: Session) =>
+    x.punches[x.punches.length - 1].punchType === "clock_out"
+      ? x.endMs
+      : Math.max(x.endMs, Math.min(nowMs, x.startMs + MAX_SHIFT_MS));
+
+  const nearest = (list: Shift[], ms: number) =>
+    list.reduce<Shift | null>((best, s) =>
+      !best || Math.abs(ms - s.startMs) < Math.abs(ms - best.startMs) ? s : best, null);
+  for (const session of sessions) {
+    const t = session.startMs;
+    const shift =
+      nearest(shifts.filter((s) => t >= s.startMs - SHIFT_MATCH_EARLY_MS && t < s.endMs), t) ??
+      nearest(shifts.filter((s) => s.date === session.ownDay), t);
+    session.shift = shift;
+    shift?.sessions.push(session);
+  }
+
+  const punchesByDate = new Map<string, TimecardPunch[]>();
+  for (const session of sessions) {
+    const day = session.shift?.date ?? session.ownDay;
+    const offset = 1440 * daysBetweenKeys(day, session.ownDay);
+    const arr = punchesByDate.get(day) ?? [];
+    for (const p of session.punches) arr.push({ ...p, localMinutes: p.localMinutes + offset });
+    punchesByDate.set(day, arr);
+  }
+
+  const shiftsByDate = new Map<string, Shift[]>();
+  for (const s of shifts) shiftsByDate.set(s.date, [...(shiftsByDate.get(s.date) ?? []), s]);
 
   const violationCounts: Record<ViolationType, number> = {
     late_in: 0, early_in: 0, late_out: 0, early_out: 0,
@@ -214,12 +293,14 @@ export function computeTimecard(input: {
   const days: TimecardDay[] = [];
 
   for (const date of eachDateKey(from, to)) {
-    const schedule = scheduleByDate.get(date) ?? null;
+    const dayShifts = shiftsByDate.get(date) ?? [];
     const callout = calloutByDate.get(date) ?? null;
-    const dayPunches = punchesByDate.get(date) ?? []; // already in order
+    const dayPunches = (punchesByDate.get(date) ?? []).sort(
+      (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime() || a.id - b.id
+    );
 
     // Skip days with nothing to show (no schedule, no punches, no call-out).
-    if (!schedule && dayPunches.length === 0 && !callout) continue;
+    if (dayShifts.length === 0 && dayPunches.length === 0 && !callout) continue;
 
     const { workedMs, breakMs, breaks, breakCount, hasIncomplete } = computeSegments(dayPunches);
     const workedHours = round2(workedMs / 3_600_000);
@@ -230,9 +311,6 @@ export function computeTimecard(input: {
     const violations: Violation[] = [];
     const add = (v: Violation) => { violations.push(v); violationCounts[v.type]++; };
 
-    const firstClockIn = dayPunches.find((p) => p.punchType === "clock_in") ?? null;
-    const lastClockOut = [...dayPunches].reverse().find((p) => p.punchType === "clock_out") ?? null;
-
     // Call-out takes precedence — a called-out day is never also NCNS.
     if (callout) {
       add({
@@ -242,48 +320,68 @@ export function computeTimecard(input: {
       });
     }
 
-    // Clock-in timing vs. scheduled start.
-    if (schedule && firstClockIn) {
-      // Real elapsed minutes, so a shift that starts in a DST-repeated or
-      // -skipped hour is judged correctly.
-      const diff = minutesFromScheduled(firstClockIn.punchedAt, date, schedule.startMinutes, tz);
-      if (policy.lateInEnabled && diff > policy.lateInMinutes) {
-        add({
-          type: "late_in",
-          label: "Late In",
-          detail: `Clocked in ${diff} min late (scheduled ${fmtMinutes(schedule.startMinutes)})`,
-          minutes: diff,
-          punchId: firstClockIn.id,
-        });
-      } else if (policy.earlyInEnabled && -diff > policy.earlyInMinutes) {
-        add({
-          type: "early_in",
-          label: "Early In",
-          detail: `Clocked in ${-diff} min early (scheduled ${fmtMinutes(schedule.startMinutes)})`,
-          minutes: -diff,
-          punchId: firstClockIn.id,
-        });
-      }
-    }
+    for (const shift of dayShifts) {
+      const shiftPunches = shift.sessions.flatMap((s) => s.punches);
+      const firstClockIn = shiftPunches.find((p) => p.punchType === "clock_in") ?? null;
+      const lastClockOut = [...shiftPunches].reverse().find((p) => p.punchType === "clock_out") ?? null;
 
-    // Clock-out timing vs. scheduled end.
-    if (schedule && lastClockOut) {
-      const diff = minutesFromScheduled(lastClockOut.punchedAt, date, schedule.endMinutes, tz);
-      if (policy.lateOutEnabled && diff > policy.lateOutMinutes) {
+      // Clock-in timing vs. scheduled start.
+      if (firstClockIn) {
+        // Real elapsed minutes, so a shift that starts in a DST-repeated or
+        // -skipped hour is judged correctly.
+        const diff = minutesFromScheduled(firstClockIn.punchedAt, date, shift.startMinutes, tz);
+        if (policy.lateInEnabled && diff > policy.lateInMinutes) {
+          add({
+            type: "late_in",
+            label: "Late In",
+            detail: `Clocked in ${diff} min late (scheduled ${fmtMinutes(shift.startMinutes)})`,
+            minutes: diff,
+            punchId: firstClockIn.id,
+          });
+        } else if (policy.earlyInEnabled && -diff > policy.earlyInMinutes) {
+          add({
+            type: "early_in",
+            label: "Early In",
+            detail: `Clocked in ${-diff} min early (scheduled ${fmtMinutes(shift.startMinutes)})`,
+            minutes: -diff,
+            punchId: firstClockIn.id,
+          });
+        }
+      }
+
+      // Clock-out timing vs. scheduled end.
+      if (lastClockOut) {
+        const diff = minutesFromScheduled(lastClockOut.punchedAt, date, shift.endMinutes, tz);
+        if (policy.lateOutEnabled && diff > policy.lateOutMinutes) {
+          add({
+            type: "late_out",
+            label: "Late Out",
+            detail: `Clocked out ${diff} min late (scheduled ${fmtMinutes(shift.endMinutes)})`,
+            minutes: diff,
+            punchId: lastClockOut.id,
+          });
+        } else if (policy.earlyOutEnabled && -diff > policy.earlyOutMinutes) {
+          add({
+            type: "early_out",
+            label: "Early Out",
+            detail: `Clocked out ${-diff} min early (scheduled ${fmtMinutes(shift.endMinutes)})`,
+            minutes: -diff,
+            punchId: lastClockOut.id,
+          });
+        }
+      }
+
+      // No call, no show — scheduled, never clocked in, never called out, and
+      // the grace window past the scheduled start has elapsed.
+      // A shift worked through from another one (no clock-out between) counts.
+      const workedThrough = sessions.some((x) => x.startMs < shift.endMs && sessionEndMs(x) > shift.startMs);
+      if (policy.ncnsEnabled && !firstClockIn && !workedThrough && !callout &&
+          nowMs - shift.startMs > policy.ncnsMinutes * 60_000) {
         add({
-          type: "late_out",
-          label: "Late Out",
-          detail: `Clocked out ${diff} min late (scheduled ${fmtMinutes(schedule.endMinutes)})`,
-          minutes: diff,
-          punchId: lastClockOut.id,
-        });
-      } else if (policy.earlyOutEnabled && -diff > policy.earlyOutMinutes) {
-        add({
-          type: "early_out",
-          label: "Early Out",
-          detail: `Clocked out ${-diff} min early (scheduled ${fmtMinutes(schedule.endMinutes)})`,
-          minutes: -diff,
-          punchId: lastClockOut.id,
+          type: "ncns",
+          label: "No Call No Show",
+          detail: `No clock-in and no call-out for ${fmtMinutes(shift.startMinutes)} shift`,
+          scheduledMinutes: shift.startMinutes,
         });
       }
     }
@@ -310,23 +408,12 @@ export function computeTimecard(input: {
       }
     }
 
-    // No call, no show — scheduled, never clocked in, never called out, and the
-    // grace window past the scheduled start has elapsed.
-    if (policy.ncnsEnabled && schedule && !firstClockIn && !callout) {
-      const startInstantMs = zonedTimeToUtc(date, schedule.startMinutes, tz).getTime();
-      if (nowMs - startInstantMs > policy.ncnsMinutes * 60_000) {
-        add({
-          type: "ncns",
-          label: "No Call No Show",
-          detail: `No clock-in and no call-out for ${fmtMinutes(schedule.startMinutes)} shift`,
-        });
-      }
-    }
-
+    const daySchedules = dayShifts.map((s) => ({ startMinutes: s.startMinutes, endMinutes: s.endMinutes }));
     days.push({
       date,
       dayName: getDayName(date),
-      schedule: schedule ? { startMinutes: schedule.startMinutes, endMinutes: schedule.endMinutes } : null,
+      schedule: daySchedules[0] ?? null,
+      schedules: daySchedules,
       punches: dayPunches,
       callout: callout ? { reason: callout.reason ?? null } : null,
       workedHours,
