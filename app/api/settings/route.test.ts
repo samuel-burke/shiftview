@@ -254,6 +254,16 @@ describe("PUT /api/settings", () => {
     expect(await res.json()).toMatchObject({ error: expect.stringMatching(/IANA|valid/i) });
   });
 
+  it("returns 422 when the database refuses a timezone the runtime accepted", async () => {
+    // Migration 0047 only stores zones Postgres knows, so the clock triggers
+    // and the app agree on the store day.
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { code: "22023", message: "not a valid IANA timezone" } }) as any
+    );
+    const res = await PUT(putReq({ timezone: "America/Los_Angeles" }));
+    expect(res.status).toBe(422);
+  });
+
   // ── manualPunchesEnabled / gpsRequired ─────────────────────────────────────
 
   it("returns 200 when updating manualPunchesEnabled to false", async () => {
