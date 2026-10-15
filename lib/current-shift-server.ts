@@ -53,9 +53,11 @@ export async function loadCurrentShift(
   // A shift still open from yesterday stays current until shortly after the
   // end of an overnight shift scheduled to start yesterday (see currentShift).
   const yesterday = addDaysToKey(today, -1);
+  // (Its clock-in was yesterday; later punches may be from after midnight.)
   const last = rows[rows.length - 1];
+  const clockIn = [...rows].reverse().find((r) => r.punchType === "clock_in");
   let overnightEndMs: number | null = null;
-  if (last && last.punchType !== "clock_out" && dateKeyInTz(last.punchedAt, tz) === yesterday) {
+  if (last && last.punchType !== "clock_out" && clockIn && dateKeyInTz(clockIn.punchedAt, tz) === yesterday) {
     const { data: overnight } = await supabase
       .from("schedules")
       .select("end_minutes")
