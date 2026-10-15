@@ -8,12 +8,17 @@ describe("isE2eBypassEnabled", () => {
     expect(isE2eBypassEnabled({ E2E_BYPASS_AUTH: "1" } as unknown as NodeJS.ProcessEnv)).toBe(true);
   });
 
-  it("is on for local, CI and preview builds", () => {
+  it("is on for local and CI production builds", () => {
     expect(isE2eBypassEnabled({ E2E_BYPASS_AUTH: "1", NODE_ENV: "production" } as unknown as NodeJS.ProcessEnv)).toBe(true);
-    expect(isE2eBypassEnabled({ E2E_BYPASS_AUTH: "1", VERCEL_ENV: "preview" } as unknown as NodeJS.ProcessEnv)).toBe(true);
   });
 
-  it("can't be turned on in a Vercel production deployment", () => {
-    expect(isE2eBypassEnabled({ E2E_BYPASS_AUTH: "1", VERCEL_ENV: "production" } as unknown as NodeJS.ProcessEnv)).toBe(false);
+  it.each([
+    ["production", { VERCEL: "1", VERCEL_ENV: "production" }],
+    ["preview", { VERCEL: "1", VERCEL_ENV: "preview" }],
+    ["development", { VERCEL: "1", VERCEL_ENV: "development" }],
+    ["VERCEL only", { VERCEL: "1" }],
+    ["VERCEL_ENV only", { VERCEL_ENV: "preview" }],
+  ])("can't be turned on in a Vercel deployment (%s)", (_name, vercel) => {
+    expect(isE2eBypassEnabled({ E2E_BYPASS_AUTH: "1", ...vercel } as unknown as NodeJS.ProcessEnv)).toBe(false);
   });
 });
