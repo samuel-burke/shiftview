@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:security": "vitest run security",
+    "test:sql": "scripts/test-sql.sh",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
