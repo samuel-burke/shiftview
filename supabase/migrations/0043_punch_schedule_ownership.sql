@@ -18,6 +18,11 @@
 -- It runs after punch_records_integrity (triggers fire in name order), so a
 -- live punch is checked against the server time that trigger stamps.
 -- /api/punches makes the same checks first and returns a readable error.
+--
+-- DEPLOY THE APP FIRST: /api/punches and the clock page must drop a stale or
+-- other-day shift before inserting (this branch), or those punches fail with
+-- a 500 instead of being saved or refused with a readable message. Safe to
+-- repeat.
 
 create or replace function public.enforce_punch_schedule()
 returns trigger
