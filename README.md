@@ -226,7 +226,7 @@ Optional variables enable additional features:
 
 Apply the numbered migrations you haven't run yet, in filename order. Don't run the baseline. The full order is `supabase/migrations/0001` to `0004`, then `db/migrations/2026-06-10-draft-schedules.sql` and `db/migrations/2026-06-10-coverage-profiles.sql`, then `supabase/migrations/0005` onward. Both `0009_*` files are needed; `0017`, `0018` and `0021`–`0025` don't exist.
 
-A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`) needs the app code from its branch live before it runs; the others work with the code from before them.
+A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`, `0050`) needs the app code from its branch live before it runs; the others work with the code from before them.
 
 The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`.
 

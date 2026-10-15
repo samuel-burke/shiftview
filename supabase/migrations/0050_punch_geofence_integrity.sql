@@ -22,6 +22,11 @@
 --
 -- Errors use SQLSTATE GF001 (outside), GF002 (no location) and GF003
 -- (misconfigured); the API maps them to 422. Safe to repeat.
+--
+-- DEPLOY THE APP FIRST: the POST /api/punches from this branch validates
+-- coordinates (400) and maps the GF00x errors (422). The older route passes
+-- malformed coordinates through, so with this migration they would come back
+-- as a 500 instead. Nothing is let through either way.
 
 begin;
 
