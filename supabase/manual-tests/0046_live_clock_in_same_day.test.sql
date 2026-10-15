@@ -16,6 +16,7 @@
 \ir ../migrations/0040_remove_legacy_demo_job.sql
 \ir ../migrations/0041_database_audit_fixes.sql
 \ir ../migrations/0042_pay_rate_managers_only.sql
+\ir ../migrations/0043_punch_schedule_ownership.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
