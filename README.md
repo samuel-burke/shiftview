@@ -228,7 +228,7 @@ A Vercel production build (`VERCEL_ENV=production`) fails unless every variable 
 
 Apply the numbered migrations you haven't run yet, in filename order. Don't run the baseline. The full order is `supabase/migrations/0001` to `0004`, then `db/migrations/2026-06-10-draft-schedules.sql` and `db/migrations/2026-06-10-coverage-profiles.sql`, then `supabase/migrations/0005` onward. Both `0009_*` files are needed; `0017`, `0018` and `0021`–`0025` don't exist.
 
-A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`, `0043`) needs the app code from its branch live before it runs; the others work with the code from before them.
+A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`, `0043`, `0050`) needs the app code from its branch live before it runs; the others work with the code from before them.
 
 The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`. Migrations are applied in the SQL editor, so Supabase keeps no migration history; to check that production matches the repository, run `supabase/schema-fingerprint.sql` (read-only) in production and in a database built from the baseline, and compare the rows.
 
@@ -457,6 +457,7 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 
 - The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`, `employee_pay_rates`; `presence_set` only writes the caller's own device; `my_*` only return the caller's own memberships) or can only be called with the service role (`notify_*`, `link_employee_account`, `org_signup_create`, `org_delete`, `reset_demo_org`). Trigger functions and the old `is_org_*` helpers can't be called through the API at all.
 - API roles can't select `employees.pay_rate` (`0042` grants the other columns one by one). A column added to `employees` later isn't readable through the API until it's added to that grant.
+- `punch_records` coordinates must be both null or both in range (`0050`), and a signed-in user's live `clock_in` must be inside the org's geofence when GPS and the geofence are on, so writing the table directly can't skip the check in `POST /api/punches`.
 - `anon` can't write any table, and only the service role can `TRUNCATE` (which skips RLS).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.
 - `push_subscriptions`, `user_notification_preferences` and `device_presence` are per user: you read and write only your own rows.
