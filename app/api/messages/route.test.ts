@@ -201,20 +201,6 @@ describe("POST /api/messages", () => {
     );
   });
 
-  it("keeps the message text out of the notification and push preview", async () => {
-    vi.mocked(notify).mockClear();
-    mockCreateClient.mockResolvedValue(makeMessagesClient() as any);
-    const res = await POST(
-      new Request("http://localhost/api/messages", {
-        method: "POST",
-        body: JSON.stringify({ toUserId: "other-user-id", body: "my door code is 4321" }),
-      })
-    );
-    expect(res.status).toBe(200);
-    expect(notify).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(vi.mocked(notify).mock.calls[0][0])).not.toContain("4321");
-  });
-
   it("returns 400 when message is too long", async () => {
     mockCreateClient.mockResolvedValue(makeMessagesClient({ isManager: true }) as any);
     const res = await POST(
@@ -262,5 +248,21 @@ describe("PATCH /api/messages", () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+});
+
+describe("POST /api/messages — notification preview", () => {
+  it("keeps the message text out of the notification and push preview", async () => {
+    vi.mocked(notify).mockClear();
+    mockCreateClient.mockResolvedValue(makeMessagesClient() as any);
+    const res = await POST(
+      new Request("http://localhost/api/messages", {
+        method: "POST",
+        body: JSON.stringify({ toUserId: "other-user-id", body: "my door code is 4321" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(vi.mocked(notify).mock.calls[0][0])).not.toContain("4321");
   });
 });
