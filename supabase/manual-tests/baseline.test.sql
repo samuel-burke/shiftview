@@ -19,6 +19,7 @@
 \ir ../migrations/0041_database_audit_fixes.sql
 \ir ../migrations/0042_pay_rate_managers_only.sql
 \ir ../migrations/0043_punch_schedule_ownership.sql
+\ir ../migrations/0044_org_isolation.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \unset ON_ERROR_STOP
 
