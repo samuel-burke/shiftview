@@ -274,3 +274,53 @@ describe("computeTimecard — shifts past midnight", () => {
     expect(tc.days[0].workedHours).toBe(9);
   });
 });
+
+describe("computeTimecard — punches that don't pair up (timekeeping audit)", () => {
+  it("flags a doubled clock-in and counts from the first one", () => {
+    const tc = run({ punches: [punch("clock_in", 8, 0), punch("clock_in", 12, 0), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].workedHours).toBe(8);
+    expect(tc.days[0].hasIncomplete).toBe(true);
+  });
+
+  it("flags a break end with no break start", () => {
+    const tc = run({ punches: [punch("clock_in", 8, 0), punch("break_end", 12, 0), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].hasIncomplete).toBe(true);
+    expect(tc.days[0].workedHours).toBe(8);
+  });
+
+  it("flags a clock-out with no clock-in", () => {
+    const tc = run({ punches: [punch("clock_out", 16, 0)] });
+    expect(tc.days[0].hasIncomplete).toBe(true);
+  });
+
+  it("keeps a clean day unflagged", () => {
+    const tc = run({ punches: [punch("clock_in", 8, 0), punch("break_start", 12, 0), punch("break_end", 12, 30), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].hasIncomplete).toBe(false);
+    expect(tc.days[0].workedHours).toBe(7.5);
+  });
+
+  it("orders punches stamped the same instant by id", () => {
+    const a = punch("clock_in", 8, 0), b = punch("break_start", 12, 0), c = punch("break_end", 12, 0), d = punch("clock_out", 16, 0);
+    const tc = run({ punches: [d, c, b, a] });
+    expect(tc.days[0].punches.map((p) => p.punchType)).toEqual(["clock_in", "break_start", "break_end", "clock_out"]);
+    expect(tc.days[0].hasIncomplete).toBe(false);
+  });
+});
+
+describe("computeTimecard — totals (timekeeping audit)", () => {
+  it("sums exact worked time and rounds once", () => {
+    // Three days of 8h 0m 20s (8.0056h, shown 8.01) total 24.02h, not 24.03.
+    const at = (d: string, hms: string) => `2026-01-${d}T${hms}-05:00`;
+    const punches: TimecardPunchInput[] = [];
+    for (const d of ["13", "14", "15"]) {
+      punches.push({ id: nextId++, punchType: "clock_in", punchedAt: at(d, "08:00:00") });
+      punches.push({ id: nextId++, punchType: "clock_out", punchedAt: at(d, "16:00:20") });
+    }
+    const tc = computeTimecard({
+      employeeId: 1, employeeName: "T", from: "2026-01-13", to: "2026-01-15", timezone: TZ,
+      policy: DEFAULT_PUNCH_POLICY, schedules: [], punches, callouts: [], nowMs: Date.parse("2026-01-16T00:00:00Z"),
+    });
+    expect(tc.days.map((d) => d.workedHours)).toEqual([8.01, 8.01, 8.01]);
+    expect(tc.totalWorkedHours).toBe(24.02);
+  });
+});

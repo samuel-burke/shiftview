@@ -114,11 +114,18 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
   let breakCount = 0;
   const breaks: { minutes: number; endPunchId: number }[] = [];
 
+  // A punch that doesn't follow from the one before it (a second clock-in, a
+  // clock-out with no clock-in, …) means punches are missing or doubled: count
+  // what pairs up and flag the day, as lib/payroll.ts does.
+  let outOfSequence = false;
+
   for (const p of punches) {
     const t = new Date(p.punchedAt).getTime();
     switch (p.punchType) {
       case "clock_in":
-        segStart = t;
+        if (segStart !== null || breakStart !== null) outOfSequence = true;
+        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
+        if (segStart === null) segStart = t;
         break;
       case "break_end":
         if (breakStart !== null) {
@@ -126,15 +133,19 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
           breakMs += ms;
           breaks.push({ minutes: Math.round(ms / 60_000), endPunchId: p.id });
           breakStart = null;
+        } else {
+          outOfSequence = true;
         }
-        segStart = t;
+        if (segStart === null) segStart = t;
         break;
       case "break_start":
         breakCount++;
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
-        breakStart = t;
+        else outOfSequence = true;
+        if (breakStart === null) breakStart = t;
         break;
       case "clock_out":
+        if (segStart === null && breakStart === null) outOfSequence = true;
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
         if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
         break;
@@ -146,7 +157,7 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
     breakMs,
     breaks,
     breakCount,
-    hasIncomplete: segStart !== null || breakStart !== null,
+    hasIncomplete: outOfSequence || segStart !== null || breakStart !== null,
   };
 }
 
@@ -173,8 +184,9 @@ export function computeTimecard(input: {
 
   // Bucket punches by local work day — a shift that runs past midnight stays
   // on the day it started, with localMinutes continuing past 1440.
+  // Ties (two punches stamped the same instant) keep insertion order.
   const sortedPunches = [...punches].sort(
-    (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()
+    (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime() || a.id - b.id
   );
   const assigned = assignPunchDays(sortedPunches, tz);
   const punchesByDate = new Map<string, TimecardPunch[]>();
@@ -197,16 +209,14 @@ export function computeTimecard(input: {
     late_in: 0, early_in: 0, late_out: 0, early_out: 0,
     long_break: 0, short_break: 0, callout: 0, ncns: 0,
   };
-  let totalWorkedHours = 0;
-  let totalBreakHours = 0;
+  let totalWorkedMs = 0; // summed exactly, rounded once
+  let totalBreakMs = 0;
   const days: TimecardDay[] = [];
 
   for (const date of eachDateKey(from, to)) {
     const schedule = scheduleByDate.get(date) ?? null;
     const callout = calloutByDate.get(date) ?? null;
-    const dayPunches = (punchesByDate.get(date) ?? []).sort(
-      (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime()
-    );
+    const dayPunches = punchesByDate.get(date) ?? []; // already in order
 
     // Skip days with nothing to show (no schedule, no punches, no call-out).
     if (!schedule && dayPunches.length === 0 && !callout) continue;
@@ -214,8 +224,8 @@ export function computeTimecard(input: {
     const { workedMs, breakMs, breaks, breakCount, hasIncomplete } = computeSegments(dayPunches);
     const workedHours = round2(workedMs / 3_600_000);
     const breakHours = round2(breakMs / 3_600_000);
-    totalWorkedHours += workedHours;
-    totalBreakHours += breakHours;
+    totalWorkedMs += workedMs;
+    totalBreakMs += breakMs;
 
     const violations: Violation[] = [];
     const add = (v: Violation) => { violations.push(v); violationCounts[v.type]++; };
@@ -336,8 +346,8 @@ export function computeTimecard(input: {
     to,
     timezone: tz,
     days,
-    totalWorkedHours: round2(totalWorkedHours),
-    totalBreakHours: round2(totalBreakHours),
+    totalWorkedHours: round2(totalWorkedMs / 3_600_000),
+    totalBreakHours: round2(totalBreakMs / 3_600_000),
     totalViolations,
     violationCounts,
   };

@@ -7,6 +7,7 @@
 
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard } from "@/lib/timecard";
+import { csvCell } from "@/lib/csv";
 
 const PUNCH_LABELS: Record<PunchType, string> = {
   clock_in: "Clock In",
@@ -14,14 +15,6 @@ const PUNCH_LABELS: Record<PunchType, string> = {
   break_start: "Break Start",
   break_end: "Break End",
 };
-
-function escapeCSV(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 function fmtTime(iso: string, tz: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -32,7 +25,7 @@ function fmtTime(iso: string, tz: string): string {
 export function timecardToCsv(tc: Timecard): string {
   const headers = ["Date", "Day", "Type", "Time", "Flag", "Detail", "Manual", "Note"];
   const lines = [headers.join(",")];
-  const push = (cells: unknown[]) => lines.push(cells.map(escapeCSV).join(","));
+  const push = (cells: unknown[]) => lines.push(cells.map(csvCell).join(","));
 
   for (const day of tc.days) {
     const startTime = day.schedule ? fmtMinutes(day.schedule.startMinutes) : "";
