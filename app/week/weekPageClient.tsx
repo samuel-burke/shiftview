@@ -7,7 +7,7 @@ import AppShell from "../../components/AppShell";
 import DemoBanner from "@/components/DemoBanner";
 import BottomNav from "../../components/BottomNav";
 import EmployeeDrawer from "../../components/EmployeeDrawer";
-import WeekGrid, { type PendingTimeOff } from "../../components/WeekGrid";
+import WeekGrid, { type WeekTimeOff } from "../../components/WeekGrid";
 import AutoScheduleSheet, { type PlannerEmployee } from "../../components/AutoScheduleSheet";
 import AutoScheduleSummary from "../../components/AutoScheduleSummary";
 import WeekHeader, { Sparkle } from "../../components/week/WeekHeader";
@@ -57,7 +57,7 @@ export default function WeekPageClient() {
   const dates = useMemo(() => weekDates(weekStart), [weekStart]);
 
   const [employees, setEmployees] = useState<PlannerEmployee[]>(() => cachedEmployees);
-  const [timeOff, setTimeOff] = useState<PendingTimeOff[]>([]);
+  const [timeOff, setTimeOff] = useState<WeekTimeOff[]>([]);
   const [profiles, setProfiles] = useState<CoverageProfile[]>([]);
   const [defaults, setDefaults] = useState<CoverageDefaults>({});
   const [overrides, setOverrides] = useState<CoverageOverrides>({});
@@ -86,12 +86,19 @@ export default function WeekPageClient() {
         if (Array.isArray(data)) { setEmployees(data); cacheEmployees(data); }
       })
       .catch(() => { if (!controller.signal.aborted) setLoadError("Couldn't load the team. Refresh to try again."); });
-    apiFetch("/api/time-off", { signal: controller.signal })
+    return () => controller.abort();
+  }, [apiFetch, cacheEmployees]);
+
+  // The week's pending and approved time off, so the board shows who asked and who is off.
+  const weekEnd = dates[dates.length - 1];
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetch(`/api/time-off?from=${weekStart}&to=${weekEnd}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data && Array.isArray(data.requests)) setTimeOff(data.requests); })
       .catch(() => {});
     return () => controller.abort();
-  }, [apiFetch, cacheEmployees]);
+  }, [apiFetch, weekStart, weekEnd]);
 
   // Coverage targets for the week: each date's profile override, else its weekday default.
   useEffect(() => {

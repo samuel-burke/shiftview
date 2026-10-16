@@ -233,6 +233,67 @@ describe("POST /api/time-off", () => {
     expect(body).toHaveProperty("id");
     expect(body.ok).toBe(true);
   });
+
+  it("returns 409 when the day was already requested (e.g. denied)", async () => {
+    const client: any = makeEmployeeClient();
+    const from = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = from(table);
+      if (table === "time_off_requests")
+        b.single = vi.fn().mockResolvedValue({ data: null, error: { code: "23505", message: "duplicate key" } });
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client);
+    const res = await POST(
+      new Request("http://localhost/api/time-off", {
+        method: "POST",
+        body: JSON.stringify({ employeeId: 5, date: futureDate }),
+      })
+    );
+    expect(res.status).toBe(409);
+  });
+});
+
+describe("GET /api/time-off — week range", () => {
+  function managerClient(calls: { method: string; args: unknown[] }[]) {
+    return {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+      from: vi.fn().mockImplementation((table: string) => {
+        const b: any = {};
+        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) {
+          b[m] = vi.fn().mockImplementation((...args: unknown[]) => {
+            if (table === "time_off_requests") calls.push({ method: m, args });
+            return b;
+          });
+        }
+        b.maybeSingle = vi.fn().mockResolvedValue({
+          data: table === "managers" ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID } : null,
+          error: null,
+        });
+        b.then = (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve);
+        return b;
+      }),
+    };
+  }
+
+  it("returns the range's pending and approved requests", async () => {
+    const calls: { method: string; args: unknown[] }[] = [];
+    mockCreateClient.mockResolvedValue(managerClient(calls) as any);
+    const res = await GET(new Request("http://localhost/api/time-off?from=2026-10-04&to=2026-10-10"));
+    expect(res.status).toBe(200);
+    expect(calls).toContainEqual({ method: "in", args: ["status", ["pending", "approved"]] });
+    expect(calls).toContainEqual({ method: "gte", args: ["date", "2026-10-04"] });
+    expect(calls).toContainEqual({ method: "lte", args: ["date", "2026-10-10"] });
+    expect(calls).not.toContainEqual({ method: "eq", args: ["status", "pending"] });
+  });
+
+  it("keeps the pending queue without a valid range", async () => {
+    const calls: { method: string; args: unknown[] }[] = [];
+    mockCreateClient.mockResolvedValue(managerClient(calls) as any);
+    await GET(new Request("http://localhost/api/time-off?from=2026-10-10&to=bad"));
+    expect(calls).toContainEqual({ method: "eq", args: ["status", "pending"] });
+    expect(calls.some((c) => c.method === "in")).toBe(false);
+  });
 });
 
 // ── Org scoping ───────────────────────────────────────────────────────────────
