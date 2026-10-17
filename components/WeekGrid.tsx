@@ -15,8 +15,19 @@ import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week
 import { shortTime } from "./WeekView";
 import { markColor, tint } from "../lib/theme-colors";
 
-/** A pending time-off request as the manager's GET /api/time-off returns it. */
-export type PendingTimeOff = TimeOffRequest & { employeeId: number };
+/** A pending or approved time-off request, as GET /api/time-off?from=&to= returns it. */
+export type WeekTimeOff = TimeOffRequest & { employeeId: number };
+
+/** Each person's time off by cell key. An approved request outranks a pending one. */
+export function timeOffByCell(timeOff: WeekTimeOff[]): Map<string, "pending" | "approved"> {
+  const byCell = new Map<string, "pending" | "approved">();
+  for (const t of timeOff) {
+    if (t.status !== "pending" && t.status !== "approved") continue;
+    const key = `${t.employeeId}|${t.date}`;
+    if (byCell.get(key) !== "approved") byCell.set(key, t.status);
+  }
+  return byCell;
+}
 
 /** A shift on the grid: live (published) or a draft. */
 export type GridShift = SourcedShift;
@@ -36,7 +47,7 @@ type Props = {
   mode?: "live" | "draft";
   /** Store timezone, for hours across a DST change. */
   timezone?: string;
-  timeOff?: PendingTimeOff[];
+  timeOff?: WeekTimeOff[];
   selected?: { employeeId: number; date: string } | null;
   onSelect: (employee: Employee, date: string, shift: GridShift | null) => void;
   /** The day the page is focused on: its column is highlighted, and the day headers pick it. */
@@ -73,7 +84,7 @@ export default function WeekGrid({
   const cells = weekCells(schedules, mode);
   const EMPTY: WeekCell = { live: null, draft: null, shown: null };
   const cellOf = (employeeId: number, date: string): WeekCell => cells.get(cellKey(employeeId, date)) ?? EMPTY;
-  const timeOffCell = new Set(timeOff.map((t) => `${t.employeeId}|${t.date}`));
+  const timeOffCell = timeOffByCell(timeOff);
   const hoursOf = (s: GridShift) => Math.max(0, shiftMinutes(s, timezone)) / 60;
 
   const dayTotals = dates.map((date) => {
@@ -168,7 +179,9 @@ export default function WeekGrid({
                   const hours = weeklyHours[dayOfWeekForKey(date)];
                   const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
                   const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
-                  const requested = timeOffCell.has(`${emp.id}|${date}`);
+                  const timeOffStatus = timeOffCell.get(`${emp.id}|${date}`);
+                  const requested = timeOffStatus === "pending";
+                  const approved = timeOffStatus === "approved";
                   const isSel = selected?.employeeId === emp.id && selected.date === date;
                   const dayLabel = formatDateKey(date, { weekday: "long", month: "long", day: "numeric" });
                   // Draft mode leads with where the shift stands, so a narrow
@@ -193,9 +206,10 @@ export default function WeekGrid({
                     : isLiveContext
                     ? ", live shift (change it in Live mode)"
                     : "";
+                  const timeOffNote = approved ? ", time off approved" : requested ? ", time off requested" : "";
                   const context = s
-                    ? `, ${emp.name}, ${dayLabel}${status}${requested ? ", time off requested" : ""}`
-                    : `${requested ? ", " : ""}${emp.name}, ${dayLabel}: off. Add a ${isDraftMode ? "draft " : ""}shift`;
+                    ? `, ${emp.name}, ${dayLabel}${status}${timeOffNote}`
+                    : `${timeOffStatus ? ", " : ""}${emp.name}, ${dayLabel}: off. Add a ${isDraftMode ? "draft " : ""}shift`;
                   // Clicking a clash opens the draft so it can be removed.
                   const target = isDraftMode ? (clash ? cell.draft : s) : cell.live;
                   return (
@@ -212,6 +226,8 @@ export default function WeekGrid({
                           // text under 4.5:1).
                           s
                             ? "border-transparent"
+                            : approved
+                            ? "border-success/40 bg-success/10"
                             : requested
                             ? "border-dashed border-line-emphasis bg-transparent"
                             : "border-transparent hover:border-line-strong hover:bg-fill/60 focus-visible:border-line-strong"
@@ -233,14 +249,16 @@ export default function WeekGrid({
                             <span className={`block text-[12px] leading-tight font-semibold tabular-nums ${isLiveContext ? "text-fg-secondary" : "text-fg"}`}>
                               {shortTime(s.startMinutes)}–{shortTime(s.endMinutes)}
                             </span>
-                            {/* A time-off request leads, so a narrow cell that cuts the
+                            {/* Time off (approved, or requested with a "?") leads, so a narrow cell that cuts the
                                 line short still shows it. */}
                             <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "var(--status-warn)" : color }}>
                               <span className="sr-only">, </span>
-                              {requested ? "Time off? · " : ""}
+                              {approved ? "Time off · " : requested ? "Time off? · " : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
                             </span>
                           </>
+                        ) : approved ? (
+                          <span className="block text-[11px] font-semibold text-success-fg-strong">Time off approved</span>
                         ) : requested ? (
                           <span className="block text-[11px] font-semibold text-fg-muted">Time off requested</span>
                         ) : (

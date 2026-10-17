@@ -761,13 +761,13 @@ export default function SchedulePageClient() {
       clockedInToday,
     }) === null;
 
-  // Show "Request Day Off" when: no shift, future date, has employeeId, no existing pending/approved request
+  // Show "Request Day Off" when: no shift, future date, has employeeId, and no
+  // request for the day yet. A denied day stays denied; it can't be re-requested.
   const canRequestDayOff =
     !selectedSchedule &&
     selectedDateKey > todayKey &&
     employeeId !== null &&
-    selectedTimeOff?.status !== "pending" &&
-    selectedTimeOff?.status !== "approved";
+    !selectedTimeOff;
 
   // Swaps awaiting a manager's decision — the only ones a manager may act on,
   // since the target has already accepted. Drives the drawer + its count.
@@ -1070,21 +1070,9 @@ export default function SchedulePageClient() {
           </div>
         )}
         {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
-          <div className="mt-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 mb-2">
-              <TimeOffDeniedIcon size={16} color="var(--status-bad-mark)" />
-              <span className="text-sm text-danger-fg-strong font-semibold">Time-off request denied</span>
-            </div>
-            {employeeId !== null && (
-              <button
-                onClick={handleRequestDayOff}
-                disabled={timeOffStatus === "loading"}
-                aria-busy={timeOffStatus === "loading"}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-              >
-                {timeOffStatus === "loading" ? "Submitting…" : "Request Again"}
-              </button>
-            )}
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-danger/10 border border-danger/30">
+            <TimeOffDeniedIcon size={16} color="var(--status-bad-mark)" />
+            <span className="text-sm text-danger-fg-strong font-semibold">Time-off request denied</span>
           </div>
         )}
         {canRequestDayOff && (

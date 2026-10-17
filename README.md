@@ -207,12 +207,14 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_SITE_URL` | The app's public URL (e.g. `https://shiftview.app`). Invite emails link back to `<site>/auth/callback`, so set it before inviting anyone |
 | `RESEND_API_KEY` | Contact form and low-coverage alert emails (via Resend). Invite emails come from Supabase Auth |
 | `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until this and `RESEND_API_KEY` are set |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither; required in production, where those routes refuse requests without the secret (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
 | `CRON_SECRET` | The two cron endpoints (shift reminders and the demo reset); they return 401 until it's set |
 
 `NEXT_PUBLIC_*` values are inlined at build time, so rebuild or redeploy after changing them.
+
+A Vercel production build (`VERCEL_ENV=production`) fails unless every variable above except `VAPID_SUBJECT` is set, the encryption key is 64 hex characters and `E2E_BYPASS_AUTH` is unset (`lib/production-env.ts`), so a deploy missing a secret keeps the previous deployment live. Preview and local builds aren't checked.
 
 ### 3. Set up the database
 
@@ -226,9 +228,9 @@ Optional variables enable additional features:
 
 Apply the numbered migrations you haven't run yet, in filename order. Don't run the baseline. The full order is `supabase/migrations/0001` to `0004`, then `db/migrations/2026-06-10-draft-schedules.sql` and `db/migrations/2026-06-10-coverage-profiles.sql`, then `supabase/migrations/0005` onward. Both `0009_*` files are needed; `0017`, `0018` and `0021`–`0025` don't exist.
 
-A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`) needs the app code from its branch live before it runs; the others work with the code from before them.
+A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`, `0043`, `0050`) needs the app code from its branch live before it runs; the others work with the code from before them.
 
-The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`.
+The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`. Migrations are applied in the SQL editor, so Supabase keeps no migration history; to check that production matches the repository, run `supabase/schema-fingerprint.sql` (read-only) in production and in a database built from the baseline, and compare the rows.
 
 ### 4. Run the dev server
 
@@ -247,12 +249,14 @@ npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest unit/integration tests
 npm run test:watch  # watch mode
+npm run test:security  # the unit tests named *.security.test.ts
+npm run test:sql    # every SQL suite in supabase/manual-tests, each in a fresh database (needs Postgres; uses PGHOST, PGUSER, ...)
 npx playwright install chromium   # once, before the first e2e run
 npm run test:e2e    # Playwright e2e (APIs intercepted client-side, no backend needed)
 npm run build       # production build
 ```
 
-API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`, run by hand against a throwaway Postgres (instructions at the top of each file). CI runs lint, typecheck, the unit suite (also under two far-off timezones), and the e2e suite on pushes to `main` and `dev` and on every pull request.
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration after `0037`. CI runs lint, typecheck, the unit suite (also under two far-off timezones), a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
 
 ## Project Structure
 
@@ -281,9 +285,11 @@ lib/                # Supabase clients, org scoping, encryption, audit log, web 
 supabase/
   baseline.sql      # whole schema as of 0037, for new projects (see Set up the database)
   migrations/       # SQL migrations
-  manual-tests/     # behavioural SQL tests for the baseline, triggers and policies
+  manual-tests/     # behavioural SQL tests for the baseline, triggers and policies (npm run test:sql)
+  schema-fingerprint.sql  # read-only catalog summary, to compare production with the repo
 db/migrations/      # two earlier migrations, run between 0004 and 0005
 e2e/                # Playwright specs
+scripts/test-sql.sh # runs every SQL test suite in a fresh database
 docs/               # requirements spec and design notes: multi-tenancy, demo org, auto-scheduler, contact form
 proxy.ts            # Next.js proxy: refreshes the Supabase session, sends signed-out visitors to /login
 ```
@@ -451,6 +457,7 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 
 - The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`, `employee_pay_rates`; `presence_set` only writes the caller's own device; `my_*` only return the caller's own memberships) or can only be called with the service role (`notify_*`, `link_employee_account`, `org_signup_create`, `org_delete`, `reset_demo_org`). Trigger functions and the old `is_org_*` helpers can't be called through the API at all.
 - API roles can't select `employees.pay_rate` (`0042` grants the other columns one by one). A column added to `employees` later isn't readable through the API until it's added to that grant.
+- `punch_records` coordinates must be both null or both in range (`0050`), and a signed-in user's live `clock_in` must be inside the org's geofence when GPS and the geofence are on, so writing the table directly can't skip the check in `POST /api/punches`.
 - `anon` can't write any table, and only the service role can `TRUNCATE` (which skips RLS).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.
 - `push_subscriptions`, `user_notification_preferences` and `device_presence` are per user: you read and write only your own rows.

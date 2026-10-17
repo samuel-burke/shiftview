@@ -252,9 +252,13 @@ The plan in §6 is implemented. Map of the moving parts:
    runs before any email goes out). Leave Supabase's Auth CAPTCHA protection
    **off** — enabling it would force a token on *every* auth endpoint (login
    included), which is the all-or-nothing behavior this setup intentionally
-   avoids. With no keys set the gate is off; local dev and e2e need no
-   configuration. The self-heal path for existing anonymous sessions is
-   always exempt (no new auth user is minted).
+   avoids. With no keys set the gate is off in local dev, e2e and previews,
+   which need no configuration; the production deployment
+   (`VERCEL_ENV=production`) fails closed instead, so a missing secret blocks
+   demo starts, signups and the contact form rather than silently opening
+   them. Only a visitor who is already a demo manager (the self-heal path)
+   skips the challenge: an anonymous session alone is not enough, because
+   anyone with the public anon key can mint one directly from Supabase Auth.
 2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
    (after 0001–0005) in the SQL editor or via the Supabase CLI.
 3. **Seeding is automatic**: the first `POST /api/demo/start` against an

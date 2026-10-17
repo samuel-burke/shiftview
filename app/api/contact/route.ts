@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 //      that do get a 200 so they don't learn to skip it; nothing is sent.
 //   2. Best-effort per-instance rate limit (same caveat as /api/demo/start:
 //      serverless memory only blunts naive loops on one warm instance).
-//   3. Cloudflare Turnstile when TURNSTILE_SECRET_KEY is set.
+//   3. Cloudflare Turnstile (lib/turnstile.ts; required in production).
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -85,11 +85,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (process.env.TURNSTILE_SECRET_KEY) {
-    const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
-    if (!(await verifyTurnstileToken(token, ip === "unknown" ? null : ip))) {
-      return NextResponse.json({ error: "Verification failed — please try again" }, { status: 403 });
-    }
+  const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
+  if (!(await verifyTurnstileToken(token, ip === "unknown" ? null : ip))) {
+    return NextResponse.json({ error: "Verification failed — please try again" }, { status: 403 });
   }
 
   // Header injection guard: the name lands in the subject line.
