@@ -11,7 +11,13 @@ export const dynamic = "force-dynamic";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request?: Request) {
-  const mine = request ? new URL(request.url).searchParams.get("mine") === "true" : false;
+  const params = request ? new URL(request.url).searchParams : new URLSearchParams();
+  const mine = params.get("mine") === "true";
+  // A date range (the week board) also returns that range's approved requests,
+  // so the board can show who is off; without one, managers get the pending queue.
+  const from = params.get("from");
+  const to = params.get("to");
+  const range = from && to && isDateKey(from) && isDateKey(to) && from <= to ? { from, to } : null;
   const supabase = await createClient();
 
   const { ctx, error } = await getOrgContext(supabase, request);
@@ -23,13 +29,15 @@ export async function GET(request?: Request) {
   const { orgId, isManager, employeeId } = ctx!;
 
   if (isManager && !mine) {
-    // Fetch all pending requests for this org
-    const { data: requests, error: fetchError } = await supabase
+    // Every pending request for this org, or a range's pending and approved ones.
+    const base = supabase
       .from("time_off_requests")
       .select("id, employee_id, date, status, note")
-      .eq("org_id", orgId)
-      .eq("status", "pending")
-      .order("date", { ascending: true });
+      .eq("org_id", orgId);
+    const filtered = range
+      ? base.in("status", ["pending", "approved"]).gte("date", range.from).lte("date", range.to)
+      : base.eq("status", "pending");
+    const { data: requests, error: fetchError } = await filtered.order("date", { ascending: true });
 
     if (fetchError) {
       console.error("[api/time-off]", fetchError);
@@ -158,6 +166,9 @@ export async function POST(request: Request) {
     .select("id")
     .single();
 
+  // One request per person per day (a unique key): a denied day can't be re-requested.
+  if (insertError?.code === "23505")
+    return NextResponse.json({ error: "You already requested this day off" }, { status: 409 });
   if (insertError) {
     console.error("[api/time-off]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

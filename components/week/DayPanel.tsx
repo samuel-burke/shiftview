@@ -20,7 +20,7 @@ import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week
 import type { WeekMode } from "@/lib/week-params";
 import { SkeletonText } from "@/components/Skeleton";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
-import type { PendingTimeOff } from "../WeekGrid";
+import { timeOffByCell, type WeekTimeOff } from "../WeekGrid";
 import { varianceColor } from "./WeekInsights";
 import { tint } from "../../lib/theme-colors";
 
@@ -201,7 +201,7 @@ export function DayList({
   /** Live shifts, plus drafts in Draft mode (the grid's input). */
   shifts: SourcedShift[];
   storeHours: Record<number, StoreHours>;
-  timeOff: PendingTimeOff[];
+  timeOff: WeekTimeOff[];
   rules: SchedulingRules;
   timezone?: string;
   loading: boolean;
@@ -214,7 +214,7 @@ export function DayList({
     const shown = [...cells.values()].map((c) => c.shown).filter((s): s is SourcedShift => s !== null);
     return scheduledMinutesByEmployee(shown, dates, timezone);
   }, [cells, dates, timezone]);
-  const requested = new Set(timeOff.filter((t) => t.date === date).map((t) => t.employeeId));
+  const timeOffCell = timeOffByCell(timeOff.filter((t) => t.date === date));
   const hours = storeHours[dayOfWeek(date)];
 
   const rows = employees
@@ -262,7 +262,7 @@ export function DayList({
           const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
           const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
           const week = weekHours(emp);
-          const timeOffRequested = requested.has(emp.id);
+          const timeOffStatus = timeOffCell.get(`${emp.id}|${date}`);
           const isSel = selected?.employeeId === emp.id && selected.date === date;
           // Named by its text (WCAG 2.5.3): the monogram is hidden, sr-only
           // commas keep the parts apart, and sr-only text says what a tap does.
@@ -305,7 +305,8 @@ export function DayList({
                     <span className="sr-only">, </span>Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
                   </div>
                 )}
-                {timeOffRequested && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested</div>}
+                {timeOffStatus === "approved" && <div className="text-xs text-success-fg mt-0.5"><span className="sr-only">, </span>Time off approved</div>}
+                {timeOffStatus === "pending" && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested</div>}
               </div>
               {s ? (
                 isLiveContext ? (
