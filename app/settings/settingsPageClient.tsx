@@ -283,6 +283,10 @@ export default function SettingsPageClient({
   // ── Timezone ────────────────────────────────────────────────────────────────
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [timezoneStatus, setTimezoneStatus] = useState<SaveStatus>("idle");
+  // A zone picked but not yet confirmed. Changing the zone moves every past
+  // punch into whichever store day it falls on in the new zone, so reports
+  // and time cards for earlier days change: the manager confirms first.
+  const [pendingTimezone, setPendingTimezone] = useState<string | null>(null);
   const allTimezoneOptions = useMemo(() => allTimezones(), []);
 
   async function saveTimezone(value: string) {
@@ -1481,8 +1485,8 @@ export default function SettingsPageClient({
           <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
             <select
               aria-label="Timezone"
-              value={timezone}
-              onChange={(e) => saveTimezone(e.target.value)}
+              value={pendingTimezone ?? timezone}
+              onChange={(e) => setPendingTimezone(e.target.value === timezone ? null : e.target.value)}
               className="w-full bg-fill border border-field rounded-xl px-3 py-2.5 text-sm text-fg cursor-pointer focus:outline-none focus:border-accent transition-colors"
             >
               <optgroup label="Common">
@@ -1502,6 +1506,32 @@ export default function SettingsPageClient({
                 <option value={timezone}>{timezone}</option>
               )}
             </select>
+            {pendingTimezone && (
+              <div role="alert" data-testid="timezone-confirm" className="mt-3 px-3 py-3 rounded-xl bg-warning/10 border border-warning/25">
+                <div className="text-sm font-semibold text-warning-fg-strong">Change the store timezone to {pendingTimezone}?</div>
+                <div className="text-xs text-warning-fg mt-1">
+                  Past punches stay at the same moment, but reports, time cards and payroll will count them by the
+                  days of the new timezone, so a shift near midnight can move to a different day (and week). Change it
+                  only if the store&apos;s timezone was set wrong or the store has moved.
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setPendingTimezone(null)}
+                    className="min-h-11 rounded-xl text-sm font-semibold bg-fill text-fg-secondary border border-line-strong cursor-pointer hover:bg-fill-strong transition-colors"
+                  >
+                    Keep {timezone}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { const next = pendingTimezone; setPendingTimezone(null); saveTimezone(next); }}
+                    className="min-h-11 rounded-xl text-sm font-bold bg-warning/20 text-warning-fg-strong border border-warning/30 cursor-pointer hover:bg-warning/30 transition-colors"
+                  >
+                    Change timezone
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>}
 

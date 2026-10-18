@@ -286,42 +286,79 @@ describe("SettingsPageClient — auto-save", () => {
   // ── Timezone ───────────────────────────────────────────────────────────────
 
   describe("Timezone", () => {
+    const pick = async (value: string) => {
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText("Timezone"), { target: { value } });
+      });
+    };
+    const confirm = async () => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Change timezone" }));
+      });
+    };
+    const timezonePuts = (spy: ReturnType<typeof setupFetch>) =>
+      spy.mock.calls.filter(([url, opts]) =>
+        url === "/api/settings" && opts?.method === "PUT" && String(opts.body).includes("timezone"));
+
     it("does not render a 'Save Timezone' button", async () => {
       setupFetch();
       await renderAndSettle();
       expect(screen.queryByRole("button", { name: /save timezone/i })).not.toBeInTheDocument();
     });
 
-    it("immediately calls PUT /api/settings when select changes", async () => {
+    it("warns that past punches move to different days, and saves nothing until confirmed", async () => {
       const fetchSpy = setupFetch();
       await renderAndSettle();
+      expect(screen.queryByTestId("timezone-confirm")).not.toBeInTheDocument();
 
-      await act(async () => {
-        fireEvent.change(screen.getByLabelText("Timezone"), {
-          target: { value: "America/Chicago" },
-        });
-      });
+      await pick("America/Chicago");
+      const warning = screen.getByTestId("timezone-confirm");
+      expect(warning).toHaveTextContent("Change the store timezone to America/Chicago?");
+      expect(warning).toHaveTextContent(/past punches/i);
+      expect(warning).toHaveTextContent(/different day/i);
+      expect(timezonePuts(fetchSpy)).toHaveLength(0);
+    });
+
+    it("calls PUT /api/settings once the change is confirmed", async () => {
+      const fetchSpy = setupFetch();
+      await renderAndSettle();
+      await pick("America/Chicago");
+      await confirm();
 
       await waitFor(() => {
-        const putCall = fetchSpy.mock.calls.find(
-          ([url, opts]) => url === "/api/settings" && opts?.method === "PUT"
-        );
-        expect(putCall).toBeTruthy();
-        const body = JSON.parse(putCall![1]!.body as string);
-        expect(body.timezone).toBe("America/Chicago");
+        const puts = timezonePuts(fetchSpy);
+        expect(puts).toHaveLength(1);
+        expect(JSON.parse(puts[0][1]!.body as string)).toEqual({ timezone: "America/Chicago" });
       });
+      expect(screen.queryByTestId("timezone-confirm")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Timezone")).toHaveValue("America/Chicago");
+    });
+
+    it("keeps the old timezone when the change is cancelled", async () => {
+      const fetchSpy = setupFetch();
+      await renderAndSettle();
+      await pick("America/Chicago");
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Keep America/New_York" }));
+      });
+      expect(screen.queryByTestId("timezone-confirm")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Timezone")).toHaveValue("America/New_York");
+      expect(timezonePuts(fetchSpy)).toHaveLength(0);
+    });
+
+    it("drops the warning when the current timezone is picked again", async () => {
+      setupFetch();
+      await renderAndSettle();
+      await pick("America/Chicago");
+      await pick("America/New_York");
+      expect(screen.queryByTestId("timezone-confirm")).not.toBeInTheDocument();
     });
 
     it("shows 'Saved ✓' after timezone change succeeds", async () => {
       setupFetch();
       await renderAndSettle();
-
-      await act(async () => {
-        fireEvent.change(screen.getByLabelText("Timezone"), {
-          target: { value: "America/Chicago" },
-        });
-      });
-
+      await pick("America/Chicago");
+      await confirm();
       await waitFor(() => {
         expect(screen.getByTestId("timezone-status").textContent).toMatch(/Saved/);
       });
@@ -330,13 +367,8 @@ describe("SettingsPageClient — auto-save", () => {
     it("shows 'Failed to save' when timezone save fails", async () => {
       setupFetch({ putOk: false });
       await renderAndSettle();
-
-      await act(async () => {
-        fireEvent.change(screen.getByLabelText("Timezone"), {
-          target: { value: "America/Chicago" },
-        });
-      });
-
+      await pick("America/Chicago");
+      await confirm();
       await waitFor(() => {
         expect(screen.getByTestId("timezone-status").textContent).toMatch(/Failed/);
       });
