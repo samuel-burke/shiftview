@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { writeAuditLog } from "@/lib/audit";
 import { getOrgContext, DEFAULT_ORG_ID } from "@/lib/org-context";
+import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,18 @@ export async function POST(request: Request) {
         after: { name: orgName, slug },
         metadata: { ownerUserId: user.id },
       }).catch(() => {});
+
+      // Runs after the response is sent, so a slow or failing ntfy server
+      // never delays or breaks sign-up.
+      const creator = ownerName.trim();
+      const creatorEmail = user.email;
+      after(() =>
+        sendNtfy({
+          title: "New organization on ShiftView",
+          message: `${orgName}\nCreated by ${creator} (${creatorEmail})`,
+          tags: ["tada"],
+        })
+      );
 
       return NextResponse.json({ ok: true, organizationId: orgId }, { status: 201 });
     }
