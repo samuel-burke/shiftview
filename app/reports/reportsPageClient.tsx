@@ -18,6 +18,8 @@ import { shiftMinutes } from "@/lib/schedule-hours";
 import DemoBanner from "@/components/DemoBanner";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { SkeletonText } from "@/components/Skeleton";
+import PayrollPeriodPanel from "@/components/PayrollPeriodPanel";
+import type { PayrollPeriodInfo } from "@/lib/pay-periods-server";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
@@ -147,6 +149,11 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.export":         return `Exported punch records`;
     case "timecard.export":      return `Exported time card`;
     case "payroll.export":       return `Exported payroll report`;
+    case "pay_period.approve":   return `Approved pay period ${(m.start as string | null) ?? ""}`.trim();
+    case "pay_period.lock":      return `Locked pay period ${(m.start as string | null) ?? ""}`.trim();
+    case "pay_period.reopen":    return `Reopened pay period ${(m.start as string | null) ?? ""}`.trim();
+    case "pay_period.sign":      return `Signed off pay period hours`;
+    case "pay_period.dispute":   return `Disputed pay period hours`;
     case "availability.upsert":  return `Updated availability for ${empName}`;
     case "availability.delete":  return `Removed availability for ${empName}`;
     case "settings.update":      return `Updated app settings`;
@@ -353,6 +360,8 @@ export default function ReportsPageClient() {
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+  // The pay period the generated report covers (null: the store has none).
+  const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriodInfo | null>(null);
 
   // ── Punctuality state ──
   const [punctualityDate, setPunctualityDate] = useState(todayKey);
@@ -595,14 +604,15 @@ export default function ReportsPageClient() {
     setAuditActorId(pendingActorId);
   }
 
-  async function generatePayroll() {
+  async function generatePayroll(from = payrollFrom, to = payrollTo) {
     setPayrollLoading(true);
     setPayrollError(null);
     try {
-      const res = await fetch(`/api/reports/payroll?from=${payrollFrom}&to=${payrollTo}`);
+      const res = await fetch(`/api/reports/payroll?from=${from}&to=${to}`);
       const json = await res.json();
       if (!res.ok) { setPayrollError(json.error ?? "Failed to generate report"); return; }
       setPayrollData(json.rows ?? []);
+      setPayrollPeriod(json.payPeriod ?? null);
     } catch {
       setPayrollError("Network error — please try again");
     } finally {
@@ -612,9 +622,11 @@ export default function ReportsPageClient() {
 
   function downloadPayroll() {
     const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
+    // As the export names it: a file of hours that could still change says so.
+    const suffix = !payrollPeriod ? "" : payrollPeriod.period?.status === "locked" ? "_locked" : "_NOT_LOCKED";
     downloadFromUrl(
       `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`,
-      `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
+      `payroll_${payrollFrom}_to_${payrollTo}${suffix}.${ext}`
     );
   }
 
@@ -912,7 +924,7 @@ export default function ReportsPageClient() {
               </select>
             </div>
             <button
-              onClick={generatePayroll}
+              onClick={() => generatePayroll()}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
               aria-busy={payrollLoading}
               className="w-full py-3 rounded-xl bg-accent-solid text-on-accent font-semibold text-sm cursor-pointer hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -925,6 +937,16 @@ export default function ReportsPageClient() {
             <div role="alert" className="bg-danger/10 border border-danger/30 rounded-2xl px-4 py-3 text-sm text-danger-fg">
               {payrollError}
             </div>
+          )}
+
+          {payrollData !== null && (
+            <PayrollPeriodPanel
+              info={payrollPeriod}
+              employees={payrollData.map((e) => ({ employeeId: e.employeeId, employeeName: e.employeeName }))}
+              timezone={timezone}
+              onChanged={() => generatePayroll()}
+              onUseRange={(from, to) => { setPayrollFrom(from); setPayrollTo(to); generatePayroll(from, to); }}
+            />
           )}
 
           {payrollData !== null && payrollData.length === 0 && (
