@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import SegmentedControl from "../../components/SegmentedControl";
 import type { TimecardResponse } from "@/app/api/timecard/route";
 import { formatDateKey } from "@/lib/dates";
-import { WEEKLY_OVERTIME_THRESHOLD_HOURS } from "@/lib/payroll";
+import { WEEKLY_OVERTIME_THRESHOLD_HOURS, WORKWEEK_START_DAY } from "@/lib/payroll";
 import { formatHours, myHoursRange, summarizeWeek, type MyHoursFlag } from "@/lib/my-hours";
 
 type Props = {
@@ -29,7 +29,10 @@ function fmtDay(key: string): string {
 // into regular and overtime the way payroll pays them, and each day's hours,
 // breaks and flags.
 export default function MyHours({ employeeId, todayKey, refreshKey }: Props) {
-  const range = useMemo(() => myHoursRange(todayKey), [todayKey]);
+  // The org's payroll workweek start, learned from the first response: a
+  // store that doesn't start its workweek on Monday reloads once with its own.
+  const [weekStartDay, setWeekStartDay] = useState(WORKWEEK_START_DAY);
+  const range = useMemo(() => myHoursRange(todayKey, weekStartDay), [todayKey, weekStartDay]);
   const [data, setData] = useState<TimecardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [week, setWeek] = useState<"this" | "last">("this");
@@ -44,18 +47,23 @@ export default function MyHours({ employeeId, todayKey, refreshKey }: Props) {
           setError(json?.error ?? "Couldn't load your hours");
           return;
         }
+        const start = (json as TimecardResponse)?.payRules?.workweekStartDay;
+        if (typeof start === "number" && start !== weekStartDay) {
+          setWeekStartDay(start);
+          return;
+        }
         setError(null);
         setData(json as TimecardResponse);
       })
       .catch(() => { if (!cancelled) setError("Couldn't load your hours"); });
     return () => { cancelled = true; };
-  }, [employeeId, range.from, range.to, refreshKey]);
+  }, [employeeId, range.from, range.to, refreshKey, weekStartDay]);
 
   const summary = useMemo(() => {
     if (!data) return null;
     const days = Array.isArray(data.days) ? data.days : [];
     const weeks = Array.isArray(data.weeks) ? data.weeks : [];
-    return summarizeWeek(days, weeks, week === "this" ? range.thisWeekStart : range.lastWeekStart, todayKey);
+    return summarizeWeek(days, weeks, week === "this" ? range.thisWeekStart : range.lastWeekStart, todayKey, data.exempt === true);
   }, [data, week, range, todayKey]);
 
   return (
@@ -98,6 +106,11 @@ export default function MyHours({ employeeId, todayKey, refreshKey }: Props) {
                   <div className="text-[11px] text-fg-muted">Overtime</div>
                 </div>
               </div>
+              {summary.doubleTimeHours > 0 && (
+                <div className="text-xs text-warning-fg-strong text-center" data-testid="my-hours-double-time">
+                  Plus {formatHours(summary.doubleTimeHours)} double time
+                </div>
+              )}
               {summary.breakHours > 0 && (
                 <div className="text-xs text-fg-subtle text-center">{formatHours(summary.breakHours)} on break</div>
               )}
@@ -107,7 +120,7 @@ export default function MyHours({ employeeId, todayKey, refreshKey }: Props) {
                   {formatHours(summary.hoursToOvertime)} until overtime — hours past {WEEKLY_OVERTIME_THRESHOLD_HOURS} this week are overtime.
                 </div>
               )}
-              {week === "this" && summary.overtimeHours > 0 && (
+              {week === "this" && (summary.overtimeHours > 0 || summary.doubleTimeHours > 0) && (
                 <div role="status" className="px-3 py-2.5 bg-warning/10 border border-warning/25 rounded-xl text-xs text-warning-fg-strong">
                   You&apos;re in overtime this week.
                 </div>

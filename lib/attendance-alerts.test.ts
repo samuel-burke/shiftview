@@ -223,3 +223,18 @@ describe("projectWeeklyHours", () => {
     expect(p.remainingScheduledHours).toBe(9);
   });
 });
+
+describe("projectWeeklyHours — payroll workweek start", () => {
+  it("measures the week from the org's workweek start", () => {
+    // Sunday workweek: Sun Mar 1 8h + Mon–Thu 8h each = 40h by Thursday night.
+    const punches = ["2026-03-01", "2026-03-02", "2026-03-03", "2026-03-04", "2026-03-05"].flatMap((d) => [
+      punch("clock_in", at(d, "09:00")),
+      punch("clock_out", at(d, "17:00")),
+    ]);
+    const nowMs = at("2026-03-05", "20:00");
+    const sunday = projectWeeklyHours({ timezone: NY, nowMs, punches, callouts: [], schedules: [], workweekStartDay: 0 });
+    expect(sunday).toMatchObject({ weekStart: "2026-03-01", workedHours: 40 });
+    const monday = projectWeeklyHours({ timezone: NY, nowMs, punches, callouts: [], schedules: [] });
+    expect(monday).toMatchObject({ weekStart: "2026-03-02", workedHours: 32 });
+  });
+});

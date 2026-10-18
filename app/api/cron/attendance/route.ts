@@ -6,6 +6,7 @@ import { notify, notifyManagers, type NotificationType } from "@/lib/notify";
 import { sendNtfy } from "@/lib/ntfy";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, resolveTimezone, todayKeyInTz } from "@/lib/dates";
+import { PAY_RULE_KEYS, parsePayRules } from "@/lib/pay-rules";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import {
   findMissedClockOuts,
@@ -21,7 +22,7 @@ const ALERT_TYPES: NotificationType[] = ["no_show", "missed_clock_out", "overtim
 const DAY_MS = 86_400_000;
 
 // Settings the checks read: the store timezone and the no-call-no-show policy.
-const SETTING_KEYS = ["timezone", "punch_ncns_enabled", "punch_ncns_minutes"];
+const SETTING_KEYS = ["timezone", "punch_ncns_enabled", "punch_ncns_minutes", PAY_RULE_KEYS.workweekStartDay];
 
 // GET /api/cron/attendance — run every 15 minutes. For each organization, in
 // its store timezone, alerts:
@@ -234,7 +235,9 @@ export async function GET(request: Request) {
       if (ok) missedClockOuts++;
     }
 
-    const projection = projectWeeklyHours({ timezone: tz, nowMs, ...data });
+    const projection = projectWeeklyHours({
+      timezone: tz, nowMs, workweekStartDay: parsePayRules(settings).workweekStartDay, ...data,
+    });
     if (isApproachingOvertime(projection)) {
       const body =
         projection.remainingScheduledHours > 0

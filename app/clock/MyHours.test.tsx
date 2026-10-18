@@ -8,7 +8,7 @@ const day = (date: string, over: Record<string, unknown> = {}) => ({
 });
 const week = (weekStart: string, worked: number) => ({
   weekStart, priorHours: 0, regularHours: Math.min(worked, 40), overtimeHours: Math.max(0, worked - 40),
-  breakHours: 2, totalWorkedHours: worked, hasIncomplete: false, days: [],
+  doubleTimeHours: 0, breakHours: 2, totalWorkedHours: worked, hasIncomplete: false, days: [],
 });
 
 function mockTimecard(body: unknown, status = 200) {
@@ -104,5 +104,40 @@ describe("MyHours", () => {
     await screen.findByText(/No hours recorded/);
     rerender(<MyHours employeeId={5} todayKey={TODAY} refreshKey="1,2" />);
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("MyHours — pay rules", () => {
+  it("reloads with the org's workweek when it doesn't start on Monday", async () => {
+    const fetchMock = vi.fn<(url: string) => Promise<Response>>(async (url: string) =>
+      new Response(JSON.stringify({
+        days: [day("2026-10-11", { workedHours: 6 })],
+        weeks: url.includes("from=2026-10-04") ? [week("2026-10-11", 6)] : [],
+        payRules: { overtimeRule: "federal", workweekStartDay: 0, roundingMinutes: 0 },
+        exempt: false,
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<MyHours employeeId={5} todayKey={TODAY} refreshKey="" />);
+    // Wed Oct 14 with a Sunday workweek: this week is Oct 11–17.
+    expect(await screen.findByTestId("my-hours-worked")).toHaveTextContent("6h");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/timecard?employeeId=5&from=2026-10-04&to=2026-10-17");
+    expect(screen.getByText(/Oct 11 – .*Oct 17/)).toBeInTheDocument();
+  });
+
+  it("shows double time", async () => {
+    mockTimecard({
+      days: [day("2026-10-12", { workedHours: 14 })],
+      weeks: [{ ...week("2026-10-12", 14), regularHours: 8, overtimeHours: 4, doubleTimeHours: 2 }],
+    });
+    render(<MyHours employeeId={5} todayKey={TODAY} refreshKey="" />);
+    expect(await screen.findByTestId("my-hours-double-time")).toHaveTextContent("2h double time");
+    expect(screen.getByText(/in overtime this week/)).toBeInTheDocument();
+  });
+
+  it("shows no overtime countdown for an exempt employee", async () => {
+    mockTimecard({ days: [day("2026-10-12", { workedHours: 38 })], weeks: [week("2026-10-12", 38)], exempt: true });
+    render(<MyHours employeeId={5} todayKey={TODAY} refreshKey="" />);
+    await screen.findByTestId("my-hours-worked");
+    expect(screen.queryByText(/until overtime/)).not.toBeInTheDocument();
   });
 });
