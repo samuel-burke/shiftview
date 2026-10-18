@@ -18,9 +18,22 @@ import { shiftMinutes } from "@/lib/schedule-hours";
 import DemoBanner from "@/components/DemoBanner";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { SkeletonText } from "@/components/Skeleton";
+import LaborCostReport, { toLaborCostReportData, type LaborCostReportData } from "@/components/LaborCostReport";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
+
+const ADP_CO_CODE_KEY = "shiftview.adpCoCode";
+const ADP_CO_CODE_RE = /^[A-Z0-9]{3}$/;
+const PAYROLL_FORMAT_LABELS: Record<string, string> = {
+  summary: "Summary CSV",
+  daily: "Daily Detail CSV",
+  detailed: "Calculation Breakdown CSV",
+  gusto: "Gusto CSV",
+  adp: "ADP Workforce Now CSV",
+  qbo: "QuickBooks Online CSV",
+  "qb-iif": "QuickBooks Desktop (.iif)",
+};
 
 type DayCount = { date: string; count: number };
 type Employee = { id: number; name: string; user_id?: string | null; archived_at?: string | null };
@@ -350,6 +363,14 @@ export default function ReportsPageClient() {
   const [payrollFrom, setPayrollFrom] = useState(() => previousPayWeek(todayKey).from);
   const [payrollTo, setPayrollTo] = useState(() => previousPayWeek(todayKey).to);
   const [payrollFormat, setPayrollFormat] = useState("summary");
+  // The store's ADP company code, remembered on this device for the ADP export.
+  // (Only rendered once ADP is picked, so reading it on first render can't
+  // make the server and client markup differ.)
+  const [adpCoCode, setAdpCoCode] = useState(() => {
+    try { return typeof window === "undefined" ? "" : localStorage.getItem(ADP_CO_CODE_KEY) ?? ""; } catch { return ""; }
+  });
+  // Scheduled vs actual labor cost for the selected week (Coverage tab).
+  const [laborCost, setLaborCost] = useState<LaborCostReportData | null>(null);
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
@@ -539,6 +560,17 @@ export default function ReportsPageClient() {
     });
   }, [selectedWeekStart]);
 
+  // Scheduled vs actual labor cost for the selected week. The old week's
+  // figures stay up until the new ones arrive.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/reports/labor-cost?weekStart=${selectedWeekStart}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => { if (!cancelled) setLaborCost(toLaborCostReportData(body)); })
+      .catch(() => { if (!cancelled) setLaborCost(null); });
+    return () => { cancelled = true; };
+  }, [selectedWeekStart]);
+
   // Load audit log whenever tab opens or committed filters change
   useEffect(() => {
     if (activeTab !== "activity") return;
@@ -612,9 +644,10 @@ export default function ReportsPageClient() {
 
   function downloadPayroll() {
     const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
+    const co = payrollFormat === "adp" ? `&coCode=${encodeURIComponent(adpCoCode)}` : "";
     downloadFromUrl(
-      `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`,
-      `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
+      `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}${co}`,
+      payrollFormat === "adp" ? `PR${adpCoCode}EPI.csv` : `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
     );
   }
 
@@ -867,6 +900,14 @@ export default function ReportsPageClient() {
               </button>
             </section>
           )}
+
+          {/* Labor cost: last on the page and shown with the table, so its
+              arrival never moves anything above it. */}
+          {hoursShown && laborCost && (
+            <section aria-label="Labor cost">
+              <LaborCostReport data={laborCost} />
+            </section>
+          )}
         </div>
       )}
 
@@ -905,12 +946,32 @@ export default function ReportsPageClient() {
                 onChange={(e) => setPayrollFormat(e.target.value)}
                 className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body focus:outline-none focus:border-accent"
               >
-                <option value="summary">Summary CSV — Universal</option>
-                <option value="daily">Daily Detail CSV — QB Online · Gusto · ADP</option>
+                <option value="summary">Summary CSV — hours and pay by week</option>
+                <option value="daily">Daily Detail CSV — rate, position and pay by day</option>
                 <option value="detailed">Calculation Breakdown CSV — Regular/OT/Break audit</option>
+                <option value="gusto">Gusto — hours import CSV</option>
+                <option value="adp">ADP Workforce Now — paydata CSV</option>
+                <option value="qbo">QuickBooks Online — timesheet CSV</option>
                 <option value="qb-iif">QuickBooks Desktop (.iif)</option>
               </select>
             </div>
+            {payrollFormat === "adp" && (
+              <div>
+                <label htmlFor="adp-co-code" className="text-[10px] text-fg-subtle font-semibold uppercase mb-1 block">ADP company code</label>
+                <input
+                  id="adp-co-code"
+                  value={adpCoCode}
+                  maxLength={3}
+                  placeholder="3 characters"
+                  onChange={(e) => {
+                    const v = e.target.value.toUpperCase();
+                    setAdpCoCode(v);
+                    try { localStorage.setItem(ADP_CO_CODE_KEY, v); } catch {}
+                  }}
+                  className="w-full bg-fill border border-field rounded-lg px-2 py-1.5 text-xs text-fg-body uppercase focus:outline-none focus:border-accent"
+                />
+              </div>
+            )}
             <button
               onClick={generatePayroll}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
@@ -995,15 +1056,10 @@ export default function ReportsPageClient() {
 
               <button
                 onClick={downloadPayroll}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-success-solid to-success-solid-alt text-on-accent font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity"
+                disabled={payrollFormat === "adp" && !ADP_CO_CODE_RE.test(adpCoCode)}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-success-solid to-success-solid-alt text-on-accent font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {payrollFormat === "qb-iif"
-                  ? "Download QuickBooks Desktop (.iif)"
-                  : payrollFormat === "daily"
-                  ? "Download Daily Detail CSV"
-                  : payrollFormat === "detailed"
-                  ? "Download Calculation Breakdown CSV"
-                  : "Download Summary CSV"}
+                {`Download ${PAYROLL_FORMAT_LABELS[payrollFormat] ?? "Summary CSV"}`}
               </button>
             </>
           )}

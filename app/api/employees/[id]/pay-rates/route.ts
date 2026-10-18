@@ -34,8 +34,8 @@ async function authorize(request: Request) {
   const supabase = await createClient();
   const { user, orgId, error } = await requireManager(supabase, request);
   if (error)
-    return { error: NextResponse.json({ error }, { status: error === "Not authenticated" ? 401 : 403 }) } as const;
-  return { supabase, user: user!, orgId: orgId! } as const;
+    return { ok: false, response: NextResponse.json({ error }, { status: error === "Not authenticated" ? 401 : 403 }) } as const;
+  return { ok: true, supabase, user: user!, orgId: orgId! } as const;
 }
 
 async function employeeInOrg(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, id: number) {
@@ -43,11 +43,11 @@ async function employeeInOrg(supabase: Awaited<ReturnType<typeof createClient>>,
   return data as { id: number; name: string } | null;
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
   const id = await parseId(params);
   if (id == null) return NextResponse.json({ error: "id must be a positive integer" }, { status: 400 });
   const auth = await authorize(request);
-  if ("error" in auth) return auth.error;
+  if (!auth.ok) return auth.response;
   const { supabase, orgId } = auth;
 
   if (!(await employeeInOrg(supabase, orgId, id)))
@@ -74,7 +74,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   });
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
   const id = await parseId(params);
   if (id == null) return NextResponse.json({ error: "id must be a positive integer" }, { status: 400 });
 
@@ -101,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "effectiveFrom must be YYYY-MM-DD" }, { status: 400 });
 
   const auth = await authorize(request);
-  if ("error" in auth) return auth.error;
+  if (!auth.ok) return auth.response;
   const { supabase, user, orgId } = auth;
 
   const employee = await employeeInOrg(supabase, orgId, id);
@@ -148,7 +148,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
   const id = await parseId(params);
   if (id == null) return NextResponse.json({ error: "id must be a positive integer" }, { status: 400 });
   const rateId = Number(new URL(request.url).searchParams.get("rateId"));
@@ -156,7 +156,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "rateId must be a positive integer" }, { status: 400 });
 
   const auth = await authorize(request);
-  if ("error" in auth) return auth.error;
+  if (!auth.ok) return auth.response;
   const { supabase, user, orgId } = auth;
 
   const { data, error } = await supabase

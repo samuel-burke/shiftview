@@ -16,6 +16,7 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
 import SettingsSectionLabel from "../../components/SettingsSectionLabel";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
+import EmployeePayRow from "../../components/EmployeePayRow";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
 import GeofenceMap from "../../components/GeofenceMap";
@@ -78,7 +79,7 @@ const FIRST_DAY_OPTIONS = [
   { label: "Saturday", value: 6 },
 ];
 
-type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null; archived_at?: string | null };
+type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null; archived_at?: string | null; pay_rate?: number | null; payroll_id?: string | null };
 
 // Top-level grouping divider — sits above a cluster of related settings
 // sections to give the page a clear two-tier hierarchy (group → section → card).
@@ -1613,6 +1614,12 @@ export default function SettingsPageClient({
                       employee={emp}
                       rules={schedulingRules}
                       firstDayOfWeek={firstDayOfWeek}
+                      onSaved={(fields) => setEmployees((prev) => prev.map((e) => (e.id === emp.id ? { ...e, ...fields } : e)))}
+                    />
+                  )}
+                  {isManager && (
+                    <EmployeePayRow
+                      employee={emp}
                       onSaved={(fields) => setEmployees((prev) => prev.map((e) => (e.id === emp.id ? { ...e, ...fields } : e)))}
                     />
                   )}
