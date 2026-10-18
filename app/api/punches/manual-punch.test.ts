@@ -6,7 +6,7 @@ import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
-vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(true) }));
 vi.mock("@/lib/notify", () => ({ notifyManagers: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   NextResponse: {
@@ -226,6 +226,51 @@ describe("PUT /api/punches — manager edits keep the original in the audit trai
       before: expect.objectContaining({ punchedAt: "2026-11-01T14:30:00Z", isManual: false }),
       after: expect.objectContaining({ punchedAt: "2026-11-01T14:00:00.000Z" }),
     }));
+  });
+});
+
+describe("PUT /api/punches — managers give a reason too", () => {
+  const history = [{ punch_type: "clock_in", punched_at: "2026-11-01T14:30:00Z", note: null, is_manual: false }];
+
+  it("refuses a manager's edit with no reason", async () => {
+    for (const note of [undefined, "", "   "]) {
+      const client = makeClient({ isManager: true, history });
+      mockCreateClient.mockResolvedValue(client as any);
+      const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note });
+      expect(res.status).toBe(400);
+      expect(client.updated).toHaveLength(0);
+    }
+  });
+
+  it("refuses a manager's new punch with no reason", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-01", localTime: "09:45" });
+    expect(res.status).toBe(400);
+    expect(client.inserted).toHaveLength(0);
+  });
+
+  it("stores the trimmed reason as the punch's note, which 0053 copies into its history", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const edit = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "  Badge reader down " });
+    expect(edit.status).toBe(200);
+    expect(client.updated[0]).toMatchObject({ note: "Badge reader down" });
+    const add = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-01", localTime: "09:45", note: "Left early, sick" });
+    expect(add.status).toBe(200);
+    expect(client.inserted[0]).toMatchObject({ note: "Left early, sick", is_manual: true });
+  });
+
+  it("still saves the edit when the audit log write fails, and says so in the log", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    mockAudit.mockResolvedValueOnce(false);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "Badge reader down" });
+    expect(res.status).toBe(200);
+    expect(client.updated).toHaveLength(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("audit log NOT written for edit of punch 7"));
+    errorSpy.mockRestore();
   });
 });
 

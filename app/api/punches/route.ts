@@ -416,8 +416,12 @@ export async function PUT(request: Request) {
   // which would let them move a real, server-stamped punch.
   if (!isManager && id != null)
     return NextResponse.json({ error: "Only managers can edit existing punches" }, { status: 403 });
-  if (!isManager && (typeof note !== "string" || !note.trim()))
-    return NextResponse.json({ error: "A note is required for manual corrections" }, { status: 400 });
+  // Every manual punch says why, a manager's own add or edit included. The
+  // reason is stored as the punch's note, which the punch_records_history
+  // trigger (0053) copies into the punch's history.
+  if (typeof note !== "string" || !note.trim())
+    return NextResponse.json({ error: "A reason is required for manual corrections" }, { status: 400 });
+  const reason = note.trim();
 
   // Determine target employee
   let targetEmployeeId: number;
@@ -483,7 +487,7 @@ export async function PUT(request: Request) {
         employee_id:  targetEmployeeId,
         punch_type:   punchType,
         punched_at:   punchedAtIso,
-        note:         note.trim(),
+        note:         reason,
         requested_by: user.id,
       }))
       .select("id")
@@ -507,7 +511,7 @@ export async function PUT(request: Request) {
       actorId:      user.id,
       resourceType: "punch_correction",
       resourceId:   String(request.id),
-      after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: note.trim() },
+      after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: reason },
       metadata: { employeeId: targetEmployeeId, employeeName: targetEmployeeName, punchType, punchedAt: punchedAtIso },
     }).catch(() => {});
 
@@ -548,7 +552,7 @@ export async function PUT(request: Request) {
     // Update existing punch
     const { error: updateError } = await supabase
       .from("punch_records")
-      .update({ punch_type: punchType, punched_at: punchedAtIso, note: note ?? null, is_manual: true })
+      .update({ punch_type: punchType, punched_at: punchedAtIso, note: reason, is_manual: true })
       .eq("org_id", orgId)
       .eq("id", id)
       .eq("employee_id", targetEmployeeId);
@@ -566,7 +570,7 @@ export async function PUT(request: Request) {
         punch_type:  punchType,
         punched_at:  punchedAtIso,
         is_manual:   true,
-        note:        note ?? null,
+        note:        reason,
       }));
     if (insertError) {
       console.error("[api/punches]", insertError);
@@ -574,14 +578,17 @@ export async function PUT(request: Request) {
     }
   }
 
-  writeAuditLog({
+  // Awaited so a failed write is logged against this request. It doesn't fail
+  // the request: the punch is already saved, and the database's own
+  // punch_record_history row (0053) is the guaranteed record of the change.
+  const audited = await writeAuditLog({
     action:       "punch.correction",
     orgId,
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   id != null ? String(id) : null,
     before,
-    after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: note ?? null },
+    after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: reason },
     metadata: {
       employeeId:   targetEmployeeId,
       employeeName: targetEmployeeName,
@@ -590,7 +597,9 @@ export async function PUT(request: Request) {
       isUpdate:     id != null,
       byManager:    isManager,
     },
-  }).catch(() => {});
+  });
+  if (!audited)
+    console.error(`[api/punches] audit log NOT written for ${id != null ? `edit of punch ${id}` : "manual punch"} by ${user.id} in org ${orgId}`);
 
   return NextResponse.json({ ok: true });
 }
