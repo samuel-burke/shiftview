@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
-import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import type { TimecardPayPeriod } from "@/app/api/timecard/route";
+import { PAY_PERIOD_STATUS_LABELS } from "@/lib/pay-periods";
 import { useScrollLock } from "@/lib/scroll-lock";
 import StableLabel from "./StableLabel";
 import PunchHistoryToggle from "./PunchHistoryToggle";
@@ -56,7 +58,7 @@ function formatPunchTime(iso: string, tz: string): string {
 export default function TimeCardDrawer({ open, employee, timezone, onClose }: Props) {
   const [from, setFrom] = useState(() => addDays(todayKey(timezone), -13));
   const [to, setTo] = useState(() => todayKey(timezone));
-  const [data, setData] = useState<Timecard | null>(null);
+  const [data, setData] = useState<(Timecard & { payPeriods?: TimecardPayPeriod[] }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,7 +178,7 @@ export function TimeCardPanel({
   onApply: () => void;
   onClose: () => void;
   onExport: () => void;
-  data: Timecard | null;
+  data: (Timecard & { payPeriods?: TimecardPayPeriod[] }) | null;
   loading: boolean;
   error: string | null;
 }) {
@@ -292,6 +294,35 @@ export function TimeCardPanel({
                     </span>
                   ))}
               </div>
+            )}
+
+            {/* Pay periods and this employee's sign-off (migration 0062).
+                Part of the same response as the days, so it never pops in. */}
+            {(data.payPeriods ?? []).length > 0 && (
+              <ul className="flex flex-col gap-1.5 mb-4" aria-label="Pay period sign-off">
+                {data.payPeriods!.map((p) => (
+                  <li
+                    key={p.start}
+                    data-testid="timecard-pay-period"
+                    className="flex items-start justify-between gap-3 bg-card rounded-xl border border-line-subtle px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-fg-body">
+                        Pay period {formatDayHeader(p.start)} – {formatDayHeader(p.end)}
+                      </div>
+                      <div className="text-[11px] text-fg-muted">{PAY_PERIOD_STATUS_LABELS[p.status]}</div>
+                    </div>
+                    <div
+                      className={`text-right shrink-0 ${p.signoff?.status === "signed" ? "text-success-fg" : p.signoff?.status === "disputed" ? "text-warning-fg-strong" : "text-fg-subtle"}`}
+                    >
+                      {!p.signoff ? "Not signed"
+                        : p.signoff.status === "signed"
+                        ? `Signed ${formatDateKey(dateKeyInTz(p.signoff.signedAt, data.timezone), { month: "short", day: "numeric" })} ${formatTimeInTz(p.signoff.signedAt, data.timezone)}`
+                        : <>Disputed<div className="text-[11px] max-w-[12rem] break-words">{p.signoff.note}</div></>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
 
             {/* Per-day cards */}
