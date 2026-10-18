@@ -48,10 +48,17 @@ export async function POST(request: Request) {
   // Someone already on this team isn't added a second time.
   const { data: sameEmail } = await admin
     .from("employees")
-    .select("id")
+    .select("id, archived_at")
     .eq("org_id", orgId!)
     .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
     .limit(1);
+  // A former employee coming back is restored, not added again, so their
+  // history stays one person's.
+  if (Array.isArray(sameEmail) && sameEmail.some((e) => e.archived_at))
+    return NextResponse.json(
+      { error: "That person is archived. Restore them from Archived employees in Settings." },
+      { status: 409 }
+    );
   if (Array.isArray(sameEmail) && sameEmail.length > 0)
     return NextResponse.json({ error: "Someone with that email is already on your team" }, { status: 409 });
 
@@ -172,13 +179,15 @@ export async function PUT(request: Request) {
   // addresses.
   const { data: pending } = await supabase
     .from("employees")
-    .select("id, user_id")
+    .select("id, user_id, archived_at")
     .eq("org_id", orgId!)
     .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
     .limit(1)
     .maybeSingle();
   if (!pending)
     return NextResponse.json({ error: "No one on your team has that email" }, { status: 404 });
+  if (pending.archived_at)
+    return NextResponse.json({ error: "That person is archived. Restore them before inviting them again." }, { status: 409 });
   if (pending.user_id)
     return NextResponse.json({ error: "That person has already joined your team" }, { status: 409 });
 

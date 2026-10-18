@@ -23,7 +23,7 @@ const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type DayCount = { date: string; count: number };
-type Employee = { id: number; name: string; user_id?: string | null };
+type Employee = { id: number; name: string; user_id?: string | null; archived_at?: string | null };
 type Schedule = { id: number; employeeId: number; date: string; startMinutes: number; endMinutes: number };
 
 type PayrollDay = {
@@ -128,6 +128,8 @@ function auditTitle(entry: AuditEntry): string {
     case "employee.reinvite":    return `Resent invite`;
     case "employee.update":      return `Updated employee ${empName}`;
     case "employee.delete":      return `Deleted employee ${empName}`;
+    case "employee.archive":     return `Archived employee ${empName}`;
+    case "employee.restore":     return `Restored employee ${empName}`;
     case "time_off.request":     return `Time-off requested`;
     case "time_off.approve":     return `Approved time-off for ${empName}`;
     case "time_off.deny":        return `Denied time-off for ${empName}`;
@@ -194,6 +196,7 @@ function auditDetail(entry: AuditEntry, tz: string): string | null {
       return `${m.fromDate} to ${m.toDate} · ${m.copied} copied, ${m.skipped} skipped`;
     case "employee.invite":
     case "employee.delete":
+    case "employee.archive":
     case "employee.reinvite":
       return (m.email as string | null) ?? null;
     case "time_off.request":
@@ -428,7 +431,7 @@ export default function ReportsPageClient() {
     }
 
     function refetchEmployees() {
-      fetch("/api/employees")
+      fetch("/api/employees?include=archived")
         .then((r) => r.json())
         .then(setEmployees)
         .catch(() => {});
@@ -472,7 +475,8 @@ export default function ReportsPageClient() {
       .then(({ isManager }) => { if (!isManager) router.replace("/"); })
       .catch(() => {});
 
-    fetch("/api/employees")
+    // Archived employees too: reports cover past weeks they worked.
+    fetch("/api/employees?include=archived")
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => {});
@@ -656,10 +660,16 @@ export default function ReportsPageClient() {
     return map;
   }, [weekSchedules, timezone]);
 
+  // Everyone active, plus archived employees who had shifts this week.
+  const hoursEmployees = useMemo(
+    () => employees.filter((e) => !e.archived_at || employeeHours[e.id]),
+    [employees, employeeHours],
+  );
+
   async function exportCSV() {
     const rows: string[][] = [];
     rows.push(["Employee", ...weekDates.map(formatDateShort), "Total"]);
-    for (const emp of employees) {
+    for (const emp of hoursEmployees) {
       const dayHours = weekDates.map((d) => {
         const h = employeeHours[emp.id]?.[d];
         return h !== undefined ? h.toFixed(1) : "0";
@@ -819,10 +829,10 @@ export default function ReportsPageClient() {
                   ))}
                   <div className="text-[10px] text-fg-subtle font-semibold text-right">Tot</div>
                 </div>
-                {employees.length === 0 ? (
+                {hoursEmployees.length === 0 ? (
                   <div className="px-3 py-4 text-center text-sm text-fg-subtle">No employees</div>
                 ) : (
-                  employees.map((emp) => {
+                  hoursEmployees.map((emp) => {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
                       <div key={emp.id} className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-line/60 last:border-b-0">

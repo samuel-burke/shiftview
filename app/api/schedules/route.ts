@@ -204,6 +204,9 @@ export async function POST(request: Request) {
     .select("id")
     .single();
 
+  // The database refuses shifts for an archived employee (migration 0054).
+  if (error?.code === "23514" && /archived/i.test(error.message ?? ""))
+    return NextResponse.json({ error: "This employee is archived. Restore them in Settings to schedule them." }, { status: 409 });
   if (error) {
     console.error("[api/schedules]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
