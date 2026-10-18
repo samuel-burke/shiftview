@@ -456,6 +456,17 @@ export default function WeekPageClient() {
               Click a cell to {isDraftMode ? "draft" : "edit or add"} a shift, or a day to see its coverage.{" "}
               <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> change the week, <kbd className="font-mono">T</kbd> returns to this week.
             </p>
+            {!isDraftMode && (
+              <a
+                href={`/week/print?week=${weekStart}`}
+                target="_blank"
+                rel="noopener"
+                data-testid="print-week-link"
+                className="inline-block mt-2 text-xs font-semibold text-accent-fg-strong hover:underline"
+              >
+                Print this week
+              </a>
+            )}
           </div>
 
           {firstLoadDone && (
@@ -489,9 +500,9 @@ export default function WeekPageClient() {
           notice={editor.notice}
           onSwitchToLive={() => go("live", weekStart)}
           onClose={() => setPicked(null)}
-          onSave={(id, startMinutes, endMinutes, override = false) => week.save(editor.source, id, startMinutes, endMinutes, override)}
-          onCreate={(employeeId, startMinutes, endMinutes, override = false) =>
-            week.create(editor.source, employeeId, pickedCell!.date, startMinutes, endMinutes, override)}
+          onSave={(id, startMinutes, endMinutes, override = false, note) => week.save(editor.source, id, startMinutes, endMinutes, override, note)}
+          onCreate={(employeeId, startMinutes, endMinutes, override = false, note) =>
+            week.create(editor.source, employeeId, pickedCell!.date, startMinutes, endMinutes, override, note)}
           onMarkOff={(id) => week.remove(editor.source, id)}
         />
 

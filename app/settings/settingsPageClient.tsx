@@ -15,6 +15,7 @@ import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
 import SettingsSectionLabel from "../../components/SettingsSectionLabel";
+import CalendarSyncSection from "../../components/CalendarSyncSection";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
@@ -873,6 +874,9 @@ export default function SettingsPageClient({
         {employeeId !== null && (
           <ShiftPreferencesSection employeeId={employeeId} firstDayOfWeek={firstDayOfWeek} />
         )}
+
+        {/* Calendar subscription — anyone with a schedule */}
+        {employeeId !== null && <CalendarSyncSection />}
 
         {/* Appearance — all users */}
         <section>

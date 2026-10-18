@@ -20,7 +20,7 @@ import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week
 import type { WeekMode } from "@/lib/week-params";
 import { SkeletonText } from "@/components/Skeleton";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
-import { timeOffByCell, type WeekTimeOff } from "../WeekGrid";
+import { partDayByCell, timeOffByCell, type WeekTimeOff } from "../WeekGrid";
 import { varianceColor } from "./WeekInsights";
 import { tint } from "../../lib/theme-colors";
 
@@ -215,6 +215,7 @@ export function DayList({
     return scheduledMinutesByEmployee(shown, dates, timezone);
   }, [cells, dates, timezone]);
   const timeOffCell = timeOffByCell(timeOff.filter((t) => t.date === date));
+  const partDayCell = partDayByCell(timeOff.filter((t) => t.date === date));
   const hours = storeHours[dayOfWeek(date)];
 
   const rows = employees
@@ -263,6 +264,8 @@ export function DayList({
           const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
           const week = weekHours(emp);
           const timeOffStatus = timeOffCell.get(`${emp.id}|${date}`);
+          const partDay = partDayCell.get(`${emp.id}|${date}`);
+          const partDayText = partDay ? ` ${fmtMinutes(partDay.startMinutes)} – ${fmtMinutes(partDay.endMinutes)}` : "";
           const isSel = selected?.employeeId === emp.id && selected.date === date;
           // Named by its text (WCAG 2.5.3): the monogram is hidden, sr-only
           // commas keep the parts apart, and sr-only text says what a tap does.
@@ -305,8 +308,8 @@ export function DayList({
                     <span className="sr-only">, </span>Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
                   </div>
                 )}
-                {timeOffStatus === "approved" && <div className="text-xs text-success-fg mt-0.5"><span className="sr-only">, </span>Time off approved</div>}
-                {timeOffStatus === "pending" && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested</div>}
+                {timeOffStatus === "approved" && <div className="text-xs text-success-fg mt-0.5"><span className="sr-only">, </span>Time off approved{partDayText}</div>}
+                {timeOffStatus === "pending" && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested{partDayText}</div>}
               </div>
               {s ? (
                 isLiveContext ? (

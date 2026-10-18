@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const { data: drafts, error: draftsError } = await supabase
     .from("draft_schedules")
-    .select("id, employee_id, date, start_minutes, end_minutes")
+    .select("id, employee_id, date, start_minutes, end_minutes, note")
     .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6]);
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
         date:          dateKey(d.date),
         start_minutes: d.start_minutes,
         end_minutes:   d.end_minutes,
+        note:          d.note ?? null,
       }))));
 
     if (insertError) {

@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
-import { fmtMinutes } from "@/data/types";
-import { buildShiftCalendar, type ShiftEvent } from "@/lib/ics";
-import { addDaysToKey, todayKeyInTz } from "@/lib/dates";
+import { buildShiftCalendar } from "@/lib/ics";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { buildEmployeeCalendar } from "@/lib/calendar-feed";
 
 export const dynamic = "force-dynamic";
-
-// How wide a window of shifts to include in the calendar download.
-const PAST_DAYS = 30;
-const FUTURE_DAYS = 120;
 
 function icsResponse(body: string): Response {
   return new Response(body, {
@@ -24,7 +19,8 @@ function icsResponse(body: string): Response {
 
 // GET /api/my-schedule/calendar
 // Downloads the signed-in employee's upcoming shifts as an .ics file they can
-// import into Google/Apple/Outlook calendars.
+// import into Google/Apple/Outlook calendars. For a calendar that keeps up
+// with changes, see ./feed (a subscription URL).
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { ctx, error } = await getOrgContext(supabase, request);
@@ -53,38 +49,11 @@ export async function GET(request: Request) {
     return icsResponse(buildShiftCalendar([], { calendarName: "My Shifts — ShiftView" }));
   }
 
-  const now = new Date();
   const tz = await getOrgTimezone(supabase, orgId);
-  const today = todayKeyInTz(tz, now);
-  const from = addDaysToKey(today, -PAST_DAYS);
-  const to = addDaysToKey(today, FUTURE_DAYS);
-
-  const { data, error: dbError } = await supabase
-    .from("schedules")
-    .select("id, date, start_minutes, end_minutes")
-    .eq("org_id", orgId)
-    .eq("employee_id", emp.id)
-    .gte("date", from)
-    .lte("date", to)
-    .order("date");
-
+  const { ics, error: dbError } = await buildEmployeeCalendar(supabase, { orgId, employee: emp, timezone: tz });
   if (dbError) {
     console.error("[api/my-schedule/calendar]", dbError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const events: ShiftEvent[] = (data ?? []).map((s) => ({
-    // Stable UID keyed on the schedule row id so re-importing updates the same
-    // event instead of creating a duplicate.
-    uid: `shiftview-${s.id}-${orgId}@shiftview.app`,
-    date: s.date,
-    startMinutes: s.start_minutes,
-    endMinutes: s.end_minutes,
-    summary: `Shift · ${fmtMinutes(s.start_minutes)}–${fmtMinutes(s.end_minutes)}`,
-    description: `${emp.name}'s shift`,
-  }));
-
-  return icsResponse(
-    buildShiftCalendar(events, { calendarName: `${emp.name} — Shifts`, dtstamp: now, timezone: tz })
-  );
+  return icsResponse(ics);
 }

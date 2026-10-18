@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { validateShiftMinutes } from "./validation";
+import { parseShiftNote, validateShiftMinutes } from "./validation";
 import { requireManager } from "@/lib/require-manager";
 import { getOrgContext } from "@/lib/org-context";
 import { notify } from "@/lib/notify";
@@ -11,7 +11,7 @@ import { withOrg } from "@/lib/org-scope";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { getCurveForDate } from "@/lib/coverage-server";
 import { findUnderstaffedFromCurves } from "@/lib/coverage";
-import { findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
+import { findRuleConflict, findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
 import { isDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
   const { orgId } = ctx!;
 
-  const query = supabase.from("schedules").select("id, employee_id, date, start_minutes, end_minutes").eq("org_id", orgId);
+  const query = supabase.from("schedules").select("id, employee_id, date, start_minutes, end_minutes, note").eq("org_id", orgId);
   const { data, error: dbError } = await (ranged
     ? query.gte("date", from!).lte("date", to!).order("date").order("start_minutes")
     : query.eq("date", date!).order("start_minutes"));
@@ -72,19 +72,22 @@ export async function GET(request: Request) {
     date:         s.date,
     startMinutes: s.start_minutes,
     endMinutes:   s.end_minutes,
+    ...(s.note ? { note: s.note } : {}),
   }));
 
   return NextResponse.json(mapped);
 }
 
 export async function PUT(request: Request) {
-  const { id, startMinutes, endMinutes, override = false } = await request.json();
+  const { id, startMinutes, endMinutes, override = false, note: rawNote } = await request.json();
 
   if (id == null || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "id, startMinutes, endMinutes required" }, { status: 400 });
 
   const validationError = validateShiftMinutes(startMinutes, endMinutes);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
+  const { note, error: noteError } = parseShiftNote(rawNote);
+  if (noteError) return NextResponse.json({ error: noteError }, { status: 422 });
 
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
@@ -92,7 +95,7 @@ export async function PUT(request: Request) {
 
   const { data: existing } = await supabase
     .from("schedules")
-    .select("employee_id, date, start_minutes, end_minutes")
+    .select("employee_id, date, start_minutes, end_minutes, note")
     .eq("org_id", orgId)
     .eq("id", id)
     .maybeSingle();
@@ -108,12 +111,14 @@ export async function PUT(request: Request) {
     if (!override) {
       const conflict = await findShiftConflict(supabase, orgId, existing.employee_id, dateStr, startMinutes, endMinutes);
       if (conflict) return NextResponse.json(conflict, { status: 409 });
+      const rules = await findRuleConflict(supabase, orgId, "schedules", existing.employee_id, { id, date: dateStr, startMinutes, endMinutes });
+      if (rules) return NextResponse.json(rules, { status: 409 });
     }
   }
 
   const { error } = await supabase
     .from("schedules")
-    .update({ start_minutes: startMinutes, end_minutes: endMinutes })
+    .update({ start_minutes: startMinutes, end_minutes: endMinutes, ...(note !== undefined ? { note } : {}) })
     .eq("org_id", orgId)
     .eq("id", id);
 
@@ -150,8 +155,9 @@ export async function PUT(request: Request) {
       before: {
         startMinutes: existing.start_minutes,
         endMinutes:   existing.end_minutes,
+        note:         existing.note ?? null,
       },
-      after: { startMinutes, endMinutes },
+      after: { startMinutes, endMinutes, note: note === undefined ? existing.note ?? null : note },
       metadata: {
         employeeId:   existing.employee_id,
         employeeName: emp?.name ?? null,
@@ -164,7 +170,7 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { employeeId, date, startMinutes, endMinutes, override = false } = await request.json();
+  const { employeeId, date, startMinutes, endMinutes, override = false, note: rawNote } = await request.json();
 
   if (employeeId == null || !date || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "employeeId, date, startMinutes, endMinutes required" }, { status: 400 });
@@ -173,6 +179,8 @@ export async function POST(request: Request) {
 
   const validationError = validateShiftMinutes(startMinutes, endMinutes);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
+  const { note, error: noteError } = parseShiftNote(rawNote);
+  if (noteError) return NextResponse.json({ error: noteError }, { status: 422 });
 
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
@@ -196,11 +204,13 @@ export async function POST(request: Request) {
   if (!override) {
     const conflict = await findShiftConflict(supabase, orgId, employeeId, date, startMinutes, endMinutes);
     if (conflict) return NextResponse.json(conflict, { status: 409 });
+    const rules = await findRuleConflict(supabase, orgId, "schedules", employeeId, { date, startMinutes, endMinutes });
+    if (rules) return NextResponse.json(rules, { status: 409 });
   }
 
   const { data: created, error } = await supabase
     .from("schedules")
-    .insert(withOrg(orgId, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes }))
+    .insert(withOrg(orgId, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes, ...(note ? { note } : {}) }))
     .select("id")
     .single();
 
@@ -232,7 +242,7 @@ export async function POST(request: Request) {
     orgId,
     actorId:      user?.id,
     resourceType: "schedule",
-    after: { employeeId, date, startMinutes, endMinutes },
+    after: { employeeId, date, startMinutes, endMinutes, note: note ?? null },
     metadata: {
       employeeId,
       employeeName: emp?.name ?? null,
@@ -337,10 +347,22 @@ export async function DELETE(request: Request) {
 
     const { data: emp } = await supabase
       .from("employees")
-      .select("name")
+      .select("name, user_id")
       .eq("org_id", orgId)
       .eq("id", existing.employee_id)
       .maybeSingle();
+
+    // Tell the employee, so nobody comes in for a shift that's gone.
+    if (emp?.user_id) {
+      notify({
+        orgId: orgId!,
+        userId: emp.user_id,
+        type: "shift_change",
+        title: "Shift Removed",
+        body: `Your shift on ${existing.date} (${fmtMinutes(existing.start_minutes)} – ${fmtMinutes(existing.end_minutes)}) was removed from the schedule`,
+        data: { scheduleId: id, date: existing.date, removed: true },
+      }).catch(() => {});
+    }
 
     writeAuditLog({
       action:       "schedule.delete",

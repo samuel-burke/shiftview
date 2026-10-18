@@ -66,6 +66,16 @@ describe("generateSchedule", () => {
     expect(result.shifts.map((s) => s.employeeId)).toEqual([3]);
   });
 
+  it("works around part-day time off instead of skipping the whole day", () => {
+    const result = run(input({
+      curves: onDays({ 0: [{ startMinutes: 540, endMinutes: 1260, headcount: 1 }] }),
+      employees: [employee(1, { partialTimeOff: [{ date: WEEK[0], startMinutes: 900, endMinutes: 1260 }] })],
+    }));
+    const mine = result.shifts.filter((s) => s.employeeId === 1);
+    expect(mine.length).toBeGreaterThan(0);
+    for (const s of mine) expect(s.endMinutes).toBeLessThanOrEqual(900);
+  });
+
   it("uses someone with pending time off only when nobody else can, and flags it", () => {
     const result = run(input({
       curves: onDays({ 0: [{ startMinutes: 540, endMinutes: 1020, headcount: 1 }] }),
