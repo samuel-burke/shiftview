@@ -110,9 +110,16 @@ export async function GET(request: Request) {
         .order("id")
         .range(a, b)
     ),
-    fetchAllRows<{ id: number; org_id: string; name: string; user_id: string | null }>((a, b) =>
-      supabase.from("employees").select("id, org_id, name, user_id").order("id").range(a, b)
-    ),
+    // exempt (migration 0060): salaried staff get no overtime, so no overtime
+    // alert. Before that migration the column is missing: nobody is exempt.
+    (async () => {
+      type Emp = { id: number; org_id: string; name: string; user_id: string | null; exempt?: boolean };
+      const read = (columns: string) =>
+        fetchAllRows<Emp>((a, b) => supabase.from("employees").select(columns).order("id").range(a, b) as never);
+      const withExempt = await read("id, org_id, name, user_id, exempt");
+      if ((withExempt.error as { code?: string } | null)?.code !== "42703") return withExempt;
+      return read("id, org_id, name, user_id");
+    })(),
     // Alerts already sent. An alert is due at most ALERT_LOOKBACK_MS after
     // its event and an overtime alert is once per workweek, so 8 days back
     // holds every key that could repeat.
@@ -235,6 +242,7 @@ export async function GET(request: Request) {
       if (ok) missedClockOuts++;
     }
 
+    if (employee.exempt === true) continue; // no overtime to warn about
     const projection = projectWeeklyHours({
       timezone: tz, nowMs, workweekStartDay: parsePayRules(settings).workweekStartDay, ...data,
     });

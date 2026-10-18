@@ -125,4 +125,57 @@ describe("GET /api/cron/attendance", () => {
       data: expect.objectContaining({ alertKey: "missed_clock_out:7:50" }),
     }));
   });
+
+  describe("approaching overtime", () => {
+    // Tue–Sat, 9 hours a day: 45 scheduled hours this workweek.
+    function overtimeWeek(exempt?: boolean) {
+      const t = tables();
+      t.schedules = ["03", "04", "05", "06", "07"].map((d, i) => (
+        { id: 10 + i, org_id: ORG, employee_id: 7, date: `2026-03-${d}`, start_minutes: 540, end_minutes: 1080 }
+      ));
+      if (exempt !== undefined) t.employees = t.employees.map((e) => ({ ...e, exempt }));
+      return t;
+    }
+
+    it("warns managers when an hourly employee is scheduled past 40 hours", async () => {
+      vi.mocked(createAdminClient).mockReturnValue(makeAdminClient(overtimeWeek(false)) as never);
+      const res = await GET(authed());
+      expect(await res.json()).toEqual({ noShows: 0, missedClockOuts: 0, overtime: 1 });
+      expect(notifyManagers).toHaveBeenCalledWith(
+        ORG, "overtime_warning", "Approaching Overtime", expect.stringContaining("Casey"),
+        expect.objectContaining({ alertKey: "overtime_warning:7:2026-03-02", projectedHours: 45 })
+      );
+    });
+
+    it("never warns about an exempt employee", async () => {
+      vi.mocked(createAdminClient).mockReturnValue(makeAdminClient(overtimeWeek(true)) as never);
+      const res = await GET(authed());
+      expect(await res.json()).toEqual({ noShows: 0, missedClockOuts: 0, overtime: 0 });
+      expect(notifyManagers).not.toHaveBeenCalled();
+    });
+
+    it("still warns before migration 0060 adds the exempt column", async () => {
+      const client = makeAdminClient(overtimeWeek());
+      const from = client.from.getMockImplementation()!;
+      const selects: string[] = [];
+      client.from.mockImplementation((table: string) => {
+        const b = from(table) as Record<string, unknown>;
+        if (table !== "employees") return b;
+        let columns = "";
+        const range = b.range as (a: number, z: number) => Promise<unknown>;
+        b.select = (c: string) => { columns = c; selects.push(c); return b; };
+        b.range = (a: number, z: number) =>
+          columns.includes("exempt")
+            ? Promise.resolve({ data: null, error: { code: "42703", message: "column employees.exempt does not exist" } })
+            : range(a, z);
+        return b;
+      });
+      vi.mocked(createAdminClient).mockReturnValue(client as never);
+      const res = await GET(authed());
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ noShows: 0, missedClockOuts: 0, overtime: 1 });
+      // Tried with exempt once, then paged without it.
+      expect([...new Set(selects)]).toEqual(["id, org_id, name, user_id, exempt", "id, org_id, name, user_id"]);
+    });
+  });
 });
