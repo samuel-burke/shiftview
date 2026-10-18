@@ -46,7 +46,7 @@ function rows(csv: string): string[] {
 describe("timecardToCsv", () => {
   it("emits a header row", () => {
     const csv = timecardToCsv(build({ punches: [] }));
-    expect(rows(csv)[0]).toBe("Date,Day,Type,Time,Flag,Detail,Manual,Note");
+    expect(rows(csv)[0]).toBe("Date,Day,Type,Time,Flag,Detail,Manual,Note,Employee Note");
   });
 
   it("flags the clock-in punch row with the late-in violation", () => {
@@ -106,5 +106,29 @@ describe("timecardToCsv — split shifts (time card audit)", () => {
     expect(ncns).toHaveLength(2);
     expect(ncns[0]).toContain(",8:00 AM,");
     expect(ncns[1]).toContain(",5:00 PM,");
+  });
+});
+
+describe("timecardToCsv — employee notes on live punches", () => {
+  it("puts the employee's note in its own column, apart from a manager's reason", () => {
+    const csv = timecardToCsv(build({
+      punches: [
+        { ...punch("clock_in", 9, 0), employeeNote: "Covering for Sam" },
+        { ...punch("clock_out", 17, 0), isManual: true, note: "Forgot to clock out" },
+      ],
+    }));
+    const clockIn = rows(csv).find((r) => r.includes("Clock In"))!;
+    expect(clockIn.endsWith(",no,,Covering for Sam")).toBe(true);
+    const clockOut = rows(csv).find((r) => r.startsWith(`${DATE},`) && r.includes("Clock Out"))!;
+    expect(clockOut.endsWith(",yes,Forgot to clock out,")).toBe(true);
+  });
+
+  it("defuses a note that looks like a spreadsheet formula", () => {
+    const csv = timecardToCsv(build({
+      punches: [{ ...punch("clock_in", 9, 0), employeeNote: "=HYPERLINK(\"http://x\")" }, punch("clock_out", 17, 0)],
+    }));
+    const clockIn = rows(csv).find((r) => r.includes("Clock In"))!;
+    expect(clockIn).not.toMatch(/,=HYPERLINK/);
+    expect(clockIn).toContain("'=HYPERLINK");
   });
 });

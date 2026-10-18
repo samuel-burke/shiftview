@@ -21,7 +21,7 @@ const card = computeTimecard({
   punches: [
     { id: 1, punchType: "clock_in", punchedAt: "2026-10-06T16:59:00Z" },
     { id: 2, punchType: "clock_out", punchedAt: "2026-10-07T01:00:00Z", isManual: true, note: "Forgot to clock out" },
-    { id: 3, punchType: "clock_in", punchedAt: "2026-10-07T17:10:00Z" },
+    { id: 3, punchType: "clock_in", punchedAt: "2026-10-07T17:10:00Z", employeeNote: "Bus was late" },
     { id: 4, punchType: "clock_out", punchedAt: "2026-10-08T01:02:00Z" },
   ],
   callouts: [],
@@ -69,6 +69,15 @@ describe("TimeCardPanel", () => {
     expect(within(wed).getByText("Late In")).toBeInTheDocument();
     expect(within(wed).getByText("Clocked in 10 min late (scheduled 1:00 PM)")).toBeInTheDocument();
     expect(within(wed).getByText("1:10 PM")).toBeInTheDocument();
+  });
+
+  it("shows an employee's note on the punch it was written on", () => {
+    panel();
+    const body = screen.getByTestId("timecard-body");
+    const wed = within(body).getByText("Wed, Oct 7").closest("div.bg-card") as HTMLElement;
+    expect(within(wed).getByTestId("timecard-employee-note")).toHaveTextContent("Bus was late");
+    const tue = within(body).getByText("Tue, Oct 6").closest("div.bg-card") as HTMLElement;
+    expect(within(tue).queryByTestId("timecard-employee-note")).toBeNull();
   });
 
   it("exports the period", async () => {

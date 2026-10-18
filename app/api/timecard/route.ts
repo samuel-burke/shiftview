@@ -111,7 +111,7 @@ export async function GET(request: Request) {
   const { data: punchRows, error: punchErr, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
-      .select("id, punch_type, punched_at, is_manual, note")
+      .select("id, punch_type, punched_at, is_manual, note, employee_note")
       .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .gte("punched_at", padStart)
@@ -159,6 +159,7 @@ export async function GET(request: Request) {
       punchedAt: p.punched_at,
       isManual: p.is_manual,
       note: p.note,
+      employeeNote: p.employee_note,
     })),
     callouts: (calloutRows ?? []).map((c) => ({ date: c.date, reason: c.reason })),
   });

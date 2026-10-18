@@ -13,6 +13,7 @@ import { resolveManualPunchTime } from "@/lib/manual-punch-time";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
 import { isClockInShift, isScheduleIdInput, isShiftNearPunch, loadOwnSchedule, type PunchSchedule } from "@/lib/punch-schedule";
+import { parsePunchNote } from "@/lib/punch-note";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ function mapRow(r: Record<string, unknown>) {
     lng:        r.lng ?? null,
     isManual:   r.is_manual,
     note:       r.note ?? null,
+    employeeNote: r.employee_note ?? null,
   };
 }
 
@@ -106,7 +108,9 @@ export async function GET(request: Request) {
 }
 
 // POST /api/punches — employee clocks a punch
-// Body: { punchType, scheduleId?, lat?, lng? }
+// Body: { punchType, scheduleId?, lat?, lng?, note? }
+// `note` is the employee's own optional short note on the punch (at most 140
+// characters, cleaned by lib/punch-note.ts and again by the database).
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (typeof body !== "object" || body === null)
@@ -126,6 +130,11 @@ export async function POST(request: Request) {
   if (!coords.ok)
     return NextResponse.json({ error: coords.error }, { status: 400 });
   const { lat, lng } = coords;
+
+  const parsedNote = parsePunchNote(body.note);
+  if (!parsedNote.ok)
+    return NextResponse.json({ error: parsedNote.error }, { status: 400 });
+  const employeeNote = parsedNote.note;
 
   const supabase = await createClient();
 
@@ -288,6 +297,7 @@ export async function POST(request: Request) {
       punch_type:  punchType,
       lat:         lat ?? null,
       lng:         lng ?? null,
+      employee_note: employeeNote,
     }))
     .select()
     .single();
@@ -342,6 +352,7 @@ export async function POST(request: Request) {
       punchedAt:    data.punched_at,
       lat:          lat ?? null,
       lng:          lng ?? null,
+      employeeNote,
     },
   }).catch(() => {});
 

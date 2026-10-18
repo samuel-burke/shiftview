@@ -41,6 +41,7 @@ import FormError from "../../components/FormError";
 import DemoBanner from "@/components/DemoBanner";
 import PunchHistoryToggle from "@/components/PunchHistoryToggle";
 import MyHours from "./MyHours";
+import { PUNCH_NOTE_MAX_LENGTH } from "@/lib/punch-note";
 import { tint } from "../../lib/theme-colors";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -96,6 +97,8 @@ export default function ClockPageClient() {
   const [, setMinuteTick] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
+  // An optional short note sent with the next punch (lib/punch-note.ts).
+  const [punchNote, setPunchNote] = useState("");
 
 
   // me is critical for the account-not-linked check — fetch directly for reliability,
@@ -466,6 +469,7 @@ export default function ClockPageClient() {
     // request resolves. Play the confirmation sound here too, for the same
     // reason. Invalid punches (GPS/geofence) were already rejected above.
     const tempId = -Date.now();
+    const sentNote = punchNote.trim() || null;
     const optimisticPunch: PunchRecord = {
       id: tempId,
       employeeId: employeeId ?? 0,
@@ -476,6 +480,7 @@ export default function ClockPageClient() {
       lng,
       isManual: false,
       note: null,
+      employeeNote: sentNote,
     };
     setPunches((prev) => [...prev, optimisticPunch]);
     playPunchSound(punchType);
@@ -489,12 +494,14 @@ export default function ClockPageClient() {
           scheduleId: punchSchedule?.id ?? null,
           lat,
           lng,
+          ...(sentNote ? { note: sentNote } : {}),
         }),
       });
       if (!res.ok) {
         const body = await res.json();
         throw new Error(body.error ?? "Failed to record punch");
       }
+      if (sentNote) setPunchNote("");
       // Replace the optimistic record with the authoritative server one.
       const newPunch: PunchRecord = await res.json();
       setPunches((prev) => prev.map((p) => (p.id === tempId ? newPunch : p)));
@@ -908,6 +915,22 @@ export default function ClockPageClient() {
               Shift complete — see you next time!
             </div>
           )}
+
+          {effectiveStatus !== "clocked_out" && (
+            <div>
+              <label htmlFor="punch-note" className="sr-only">Note for your next punch (optional)</label>
+              <input
+                id="punch-note"
+                data-testid="punch-note"
+                type="text"
+                value={punchNote}
+                maxLength={PUNCH_NOTE_MAX_LENGTH}
+                onChange={(e) => setPunchNote(e.target.value)}
+                placeholder="Add a note to this punch (optional)"
+                className="w-full bg-fill border border-field rounded-[10px] px-3 py-2.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:border-accent transition-colors"
+              />
+            </div>
+          )}
         </div>
 
         {/* Call out — "can't make it in today". Only for today's scheduled shift,
@@ -1013,6 +1036,11 @@ export default function ClockPageClient() {
                     <div className="text-right">
                       <div className="text-sm text-fg-secondary tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
                       {p.note && <div className="text-[11px] text-fg-subtle mt-0.5 max-w-[140px] truncate">{p.note}</div>}
+                      {p.employeeNote && (
+                        <div className="text-[11px] text-fg-muted italic mt-0.5 max-w-[160px] truncate" title={p.employeeNote}>
+                          “{p.employeeNote}”
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}

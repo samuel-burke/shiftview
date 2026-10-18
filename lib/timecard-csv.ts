@@ -23,7 +23,7 @@ function fmtTime(iso: string, tz: string): string {
 }
 
 export function timecardToCsv(tc: Timecard): string {
-  const headers = ["Date", "Day", "Type", "Time", "Flag", "Detail", "Manual", "Note"];
+  const headers = ["Date", "Day", "Type", "Time", "Flag", "Detail", "Manual", "Note", "Employee Note"];
   const lines = [headers.join(",")];
   const push = (cells: unknown[]) => lines.push(cells.map(csvCell).join(","));
 
@@ -33,12 +33,12 @@ export function timecardToCsv(tc: Timecard): string {
     // Day-level violations with no originating punch become their own row,
     // stamped with the scheduled start time.
     const callout = day.violations.find((v) => v.type === "callout");
-    if (callout) push([day.date, day.dayName, "Call Out", startTime, callout.label, callout.detail, "", ""]);
+    if (callout) push([day.date, day.dayName, "Call Out", startTime, callout.label, callout.detail, "", "", ""]);
 
     // One NCNS row per missed shift (a split-shift day can miss both).
     for (const ncns of day.violations.filter((v) => v.type === "ncns")) {
       const missedAt = ncns.scheduledMinutes != null ? fmtMinutes(ncns.scheduledMinutes) : startTime;
-      push([day.date, day.dayName, "NCNS", missedAt, ncns.label, ncns.detail, "", ""]);
+      push([day.date, day.dayName, "NCNS", missedAt, ncns.label, ncns.detail, "", "", ""]);
     }
 
     // One row per punch, flagged with the violation it triggered (if any).
@@ -53,6 +53,7 @@ export function timecardToCsv(tc: Timecard): string {
         v?.detail ?? "",
         p.isManual ? "yes" : "no",
         p.note ?? "",
+        p.employeeNote ?? "",
       ]);
     }
   }

@@ -42,6 +42,8 @@ export type TimecardPunchInput = {
   punchedAt: string; // ISO timestamptz
   isManual?: boolean;
   note?: string | null;
+  // The employee's own note on a live punch (0065).
+  employeeNote?: string | null;
 };
 
 export type TimecardScheduleInput = {
@@ -62,6 +64,7 @@ export type TimecardPunch = {
   localMinutes: number;
   isManual: boolean;
   note: string | null;
+  employeeNote?: string | null;
 };
 
 export type TimecardDay = {
@@ -239,6 +242,7 @@ export function matchSessionsToShifts(input: {
       localMinutes: assigned[i].minutes,
       isManual: !!p.isManual,
       note: p.note ?? null,
+      employeeNote: p.employeeNote ?? null,
     };
     if (!last || p.punchType === "clock_in" || assigned[i].day !== last.ownDay) {
       sessions.push({ ownDay: assigned[i].day, startMs: ms, endMs: ms, punches: [tp], shift: null });

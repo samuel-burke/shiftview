@@ -144,7 +144,10 @@ export type PunchRecord = {
   lat: number | null;
   lng: number | null;
   isManual: boolean;
+  // A manager's reason for a manual punch.
   note: string | null;
+  // The employee's own optional note on a live punch.
+  employeeNote?: string | null;
 };
 
 export function getAttendanceStatus(punches: PunchRecord[]): AttendanceStatus {

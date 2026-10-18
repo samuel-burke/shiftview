@@ -319,3 +319,42 @@ describe("Clock — my hours", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/timecard?employeeId=5&from=2026-10-19&to=2026-11-01");
   });
 });
+
+describe("Clock — a note on a live punch", () => {
+  it("sends the typed note with the punch and clears it after", async () => {
+    const { posts } = mockApi({ missedPunch: false });
+    render(<ClockPageClient />);
+    const input = await screen.findByTestId("punch-note");
+    expect(input).toHaveAttribute("maxLength", "140");
+    fireEvent.change(input, { target: { value: "  Covering for Sam " } });
+    fireEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    await waitFor(() => expect(posts).toEqual([expect.objectContaining({ punchType: "clock_in", note: "Covering for Sam" })]));
+    await waitFor(() => expect(screen.getByTestId("punch-note")).toHaveValue(""));
+  });
+
+  it("sends no note field when the box is empty", async () => {
+    const { posts } = mockApi({ missedPunch: false });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).not.toHaveProperty("note");
+  });
+
+  it("keeps the note when the punch is refused, so it can be sent again", async () => {
+    mockApi({ missedPunch: false, onPost: () => ({ status: 422, data: { error: "Outside geofence" } }) });
+    render(<ClockPageClient />);
+    fireEvent.change(await screen.findByTestId("punch-note"), { target: { value: "Parking lot" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    expect(await screen.findByText(/Outside geofence/)).toBeInTheDocument();
+    expect(screen.getByTestId("punch-note")).toHaveValue("Parking lot");
+  });
+
+  it("shows the note on today's punch list", async () => {
+    mockApi({
+      missedPunch: false,
+      todayPunches: [{ id: 1, employeeId: 5, scheduleId: null, punchType: "clock_in", punchedAt: "2026-11-01T14:00:00Z", isManual: false, note: null, employeeNote: "Bus was late" }],
+    });
+    render(<ClockPageClient />);
+    expect(await screen.findByText("“Bus was late”")).toBeInTheDocument();
+  });
+});

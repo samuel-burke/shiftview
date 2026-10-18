@@ -352,6 +352,15 @@ export function TimeCardPanel({
                                 className="text-[9px] text-warning-fg uppercase cursor-pointer"
                               />
                             )}
+                            {p.employeeNote && (
+                              <span
+                                data-testid="timecard-employee-note"
+                                className="text-fg-muted italic truncate max-w-[200px]"
+                                title={`Employee's note: ${p.employeeNote}`}
+                              >
+                                “{p.employeeNote}”
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
