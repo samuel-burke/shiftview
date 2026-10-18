@@ -108,3 +108,32 @@ describe("timecardToCsv — split shifts (time card audit)", () => {
     expect(ncns[1]).toContain(",5:00 PM,");
   });
 });
+
+describe("timecardToCsv — paid leave", () => {
+  it("adds a leave row with its hours in the last column", () => {
+    const csv = timecardToCsv(build({ punches: [punch("clock_in", 9, 0), punch("clock_out", 17, 0)] }), [
+      { date: DATE, leaveType: "sick", hours: 2 },
+    ]);
+    const leaveRow = rows(csv).find((r) => r.includes(",Sick,"))!;
+    expect(leaveRow).toBe(`${DATE},Thu,Sick,,,,,,2.00`);
+  });
+
+  it("a leave-only day comes in date order", () => {
+    const csv = timecardToCsv(build({ punches: [punch("clock_in", 9, 0), punch("clock_out", 17, 0)] }), [
+      { date: "2026-01-14", leaveType: "pto", hours: 8 },
+      { date: "2026-01-16", leaveType: "pto", hours: 7.5 },
+    ]);
+    const lines = rows(csv);
+    expect(lines[1]).toBe("2026-01-14,Wed,PTO,,,,,,8.00");
+    expect(lines[lines.length - 1]).toBe("2026-01-16,Fri,PTO,,,,,,7.50");
+    expect(lines.filter((l) => l.startsWith(DATE)).every((l) => l.endsWith(","))).toBe(true);
+  });
+
+  it("every row has the same number of columns", () => {
+    const csv = timecardToCsv(build({ punches: [punch("clock_in", 9, 0)], callouts: [{ date: DATE, reason: "flu" }] }), [
+      { date: DATE, leaveType: "pto", hours: 4 },
+    ]);
+    const counts = new Set(rows(csv).map((l) => l.split(",").length));
+    expect(counts.size).toBe(1);
+  });
+});
