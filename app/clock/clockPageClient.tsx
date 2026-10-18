@@ -1020,9 +1020,6 @@ export default function ClockPageClient() {
           </div>
         )}
 
-        {/* This workweek's and last week's hours, as payroll counts them */}
-        {employeeId && <MyHours employeeId={employeeId} todayKey={todayKey} refreshKey={savedPunchKey} />}
-
         {/* Punch correction form — hidden when setting is disabled */}
         {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-line/60" style={missedPunchInfo ? { borderColor: tint("var(--color-warning)", 30) } : {}}>
           <button
@@ -1195,6 +1192,11 @@ export default function ClockPageClient() {
             </div>
           )}
         </div>
+
+        {/* This workweek's and last week's hours, as payroll counts them. Last on
+            the page: it fills in after the rest has loaded, and growing here moves
+            nothing else. */}
+        {employeeId && <MyHours employeeId={employeeId} todayKey={todayKey} refreshKey={savedPunchKey} />}
       </div>
       </div>
 
