@@ -27,7 +27,9 @@ const BASE_COLUMNS = "id, name, email, user_id";
 const SCHEDULING_COLUMNS = "employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week";
 // Postgres "undefined column": the database predates migration 0034.
 const UNDEFINED_COLUMN = "42703";
-const SCHEDULING_FIELDS = ["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
+// Postgres foreign_key_violation.
+const FOREIGN_KEY_VIOLATION = "23503";
+const SCHEDULING_FIELDS =["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
 
 // numeric columns can arrive as strings; hours are plain numbers in the API.
 function normalizeHours<T extends Record<string, unknown>>(row: T): T {
@@ -234,24 +236,45 @@ export async function DELETE(request: Request) {
     }
   }
 
-  // Delete schedules first so FK constraint doesn't block employee removal
-  const { error: scheduleError } = await supabase
-    .from("schedules")
-    .delete()
-    .eq("org_id", orgId!)
-    .eq("employee_id", id);
-  if (scheduleError) {
-    console.error("[api/employees]", scheduleError);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  // One statement: the employee's shifts, call-outs, claims and other history
+  // cascade with the row (migration 0052), so a failure leaves nothing half
+  // deleted.
+  const deleteEmployee = () =>
+    supabase.from("employees").delete().eq("org_id", orgId!).eq("id", id).select("id");
+  let { data: deleted, error } = await deleteEmployee();
+
+  // Before 0052 their schedules block the delete (ON DELETE RESTRICT): remove
+  // those first, as this route used to — but only when nothing else would
+  // still block it, or the shifts would be gone and the employee kept.
+  let historyBlocksDelete = false;
+  if (error?.code === FOREIGN_KEY_VIOLATION) {
+    const blockers = await Promise.all([
+      supabase.from("callouts").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("employee_id", id),
+      supabase.from("open_shift_claims").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("employee_id", id),
+      supabase.from("open_shifts").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("filled_by", id),
+    ]);
+    historyBlocksDelete = blockers.some((b) => b.error || (b.count ?? 0) > 0);
+  }
+  if (error?.code === FOREIGN_KEY_VIOLATION && !historyBlocksDelete) {
+    const { error: scheduleError } = await supabase
+      .from("schedules")
+      .delete()
+      .eq("org_id", orgId!)
+      .eq("employee_id", id);
+    if (scheduleError) {
+      console.error("[api/employees]", scheduleError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    ({ data: deleted, error } = await deleteEmployee());
   }
 
-  const { data: deleted, error } = await supabase
-    .from("employees")
-    .delete()
-    .eq("org_id", orgId!)
-    .eq("id", id)
-    .select("id");
-
+  if (error?.code === FOREIGN_KEY_VIOLATION) {
+    console.error("[api/employees]", error);
+    return NextResponse.json(
+      { error: "This employee can't be deleted until database migration 0052 has run (they have call-out or open-shift history)." },
+      { status: 409 }
+    );
+  }
   if (error) {
     console.error("[api/employees]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
