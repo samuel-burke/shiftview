@@ -210,7 +210,7 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither; required in production, where those routes refuse requests without the secret (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
-| `NTFY_TOPIC_URL` | An [ntfy](https://ntfy.sh) push alert whenever someone creates an organization or starts a new demo session, posted to this topic URL (e.g. `https://ntfy.sh/your-secret-topic`) |
+| `NTFY_TOPIC_URL` | [ntfy](https://ntfy.sh) push alerts to the operator for new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Use a long random topic name (e.g. `https://ntfy.sh/<openssl rand -hex 16>`): anyone who knows it can subscribe |
 | `NTFY_TOKEN` | Access token for a protected ntfy topic; sent as a Bearer token. Leave unset for public topics |
 | `CRON_SECRET` | The two cron endpoints (shift reminders and the demo reset); they return 401 until it's set |
 

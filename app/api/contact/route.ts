@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { CONTACT_LIMITS as LIMITS, TOPIC_LABELS, isContactTopic } from "@/lib/contact";
+import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,17 @@ export async function POST(request: Request) {
     console.error("[api/contact] send failed:", err);
     return NextResponse.json({ error: "We couldn't send your message — please try again" }, { status: 502 });
   }
+
+  // The full message is in the email; the push is a heads-up with a preview.
+  const preview = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+  after(() =>
+    sendNtfy({
+      title: `Contact form: ${TOPIC_LABELS[topic]}`,
+      message: `${name} (${email})\n${preview}`,
+      tags: ["envelope"],
+      priority: 4,
+    })
+  );
 
   return NextResponse.json({ ok: true });
 }

@@ -167,11 +167,12 @@ describe("POST /api/organizations — provisioning", () => {
     expect(message).toContain(MOCK_USER.email);
   });
 
-  it("sends no ntfy alert when creation fails", async () => {
+  it("sends a sign-up failed alert instead when creation errors", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: "XX000", message: "db down" } });
     mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
     await POST(postReq({ name: "Acme Coffee", ownerName: "Alice Smith" }));
-    expect(mockSendNtfy).not.toHaveBeenCalled();
+    expect(mockSendNtfy).toHaveBeenCalledTimes(1);
+    expect(mockSendNtfy.mock.calls[0][0].title).toBe("Organization sign-up failed");
   });
 
   it("retries with a suffixed slug when the slug is already taken", async () => {

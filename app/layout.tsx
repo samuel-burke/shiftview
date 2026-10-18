@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
 import DeferredNotificationBanner from "../components/DeferredNotificationBanner";
 import PresenceHeartbeat from "../components/PresenceHeartbeat";
+import NotableVisitBeacon from "../components/NotableVisitBeacon";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "../components/ThemeProvider";
@@ -72,6 +73,7 @@ export default function RootLayout({
         <ServiceWorkerRegistrar />
         <DeferredNotificationBanner />
         <PresenceHeartbeat />
+        <NotableVisitBeacon />
         <SpeedInsights />
         <Analytics />
       </body>

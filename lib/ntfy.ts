@@ -8,11 +8,14 @@ export async function sendNtfy({
   title,
   message,
   tags,
+  priority,
 }: {
   title: string;
   message: string;
   /** ntfy tags / emoji shortcodes, e.g. ["tada"]. */
   tags?: string[];
+  /** ntfy priority, 1 (min) to 5 (max); ntfy's default is 3. */
+  priority?: 1 | 2 | 3 | 4 | 5;
 }): Promise<void> {
   const url = process.env.NTFY_TOPIC_URL;
   if (!url) return;
@@ -22,6 +25,7 @@ export async function sendNtfy({
     Title: `=?UTF-8?B?${Buffer.from(title, "utf8").toString("base64")}?=`,
   };
   if (tags?.length) headers.Tags = tags.join(",");
+  if (priority) headers.Priority = String(priority);
   const token = process.env.NTFY_TOKEN;
   if (token) headers.Authorization = `Bearer ${token}`;
 

@@ -39,6 +39,16 @@ function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 6);
 }
 
+// Someone tried to sign up and hit a server error: worth knowing right away.
+function alertSignupFailed(orgName: string, reason: string) {
+  return sendNtfy({
+    title: "Organization sign-up failed",
+    message: `"${orgName}" could not be created (${reason}). Check the server logs.`,
+    tags: ["warning"],
+    priority: 4,
+  });
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { name, ownerName } = body;
@@ -133,10 +143,12 @@ export async function POST(request: Request) {
     }
 
     console.error("[api/organizations]", error);
+    after(() => alertSignupFailed(orgName, "database error"));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   console.error("[api/organizations] slug generation exhausted for base:", base);
+  after(() => alertSignupFailed(orgName, "no free slug"));
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
