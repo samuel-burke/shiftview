@@ -1196,7 +1196,7 @@ export default function ClockPageClient() {
         {/* This workweek's and last week's hours, as payroll counts them. Last on
             the page: it fills in after the rest has loaded, and growing here moves
             nothing else. */}
-        {employeeId && <MyHours employeeId={employeeId} todayKey={todayKey} refreshKey={savedPunchKey} />}
+        {employeeId && <MyHours employeeId={employeeId} todayKey={todayKey} refreshKey={savedPunchKey} timezone={timezone} />}
       </div>
       </div>
 

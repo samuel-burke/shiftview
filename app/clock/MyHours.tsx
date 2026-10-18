@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import SegmentedControl from "../../components/SegmentedControl";
 import type { TimecardResponse } from "@/app/api/timecard/route";
-import { formatDateKey } from "@/lib/dates";
+import { DEFAULT_TIMEZONE, formatDateKey } from "@/lib/dates";
+import PayPeriodSignoff from "./PayPeriodSignoff";
 import { WEEKLY_OVERTIME_THRESHOLD_HOURS } from "@/lib/payroll";
 import { formatHours, myHoursRange, summarizeWeek, type MyHoursFlag } from "@/lib/my-hours";
 
@@ -13,6 +14,8 @@ type Props = {
   // Changes whenever the employee's punches do, so the totals follow a punch
   // made on this screen or another device.
   refreshKey: string;
+  // The store's timezone, for the sign-off's time.
+  timezone?: string;
 };
 
 const FLAG_CLASSES: Record<MyHoursFlag["tone"], string> = {
@@ -28,7 +31,7 @@ function fmtDay(key: string): string {
 // The employee's own time card for this workweek and last: worked hours split
 // into regular and overtime the way payroll pays them, and each day's hours,
 // breaks and flags.
-export default function MyHours({ employeeId, todayKey, refreshKey }: Props) {
+export default function MyHours({ employeeId, todayKey, refreshKey, timezone = DEFAULT_TIMEZONE }: Props) {
   const range = useMemo(() => myHoursRange(todayKey), [todayKey]);
   const [data, setData] = useState<TimecardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -152,6 +155,8 @@ export default function MyHours({ employeeId, todayKey, refreshKey }: Props) {
           )
         )}
       </div>
+
+      <PayPeriodSignoff timezone={timezone} refreshKey={refreshKey} />
     </div>
   );
 }
