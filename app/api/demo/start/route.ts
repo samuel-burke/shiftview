@@ -151,7 +151,9 @@ export async function POST(request: Request) {
       request.headers.get("x-vercel-ip-country"),
     ]
       .filter(Boolean)
-      .map((part) => decodeURIComponent(part!))
+      .map((part) => {
+        try { return decodeURIComponent(part!); } catch { return part!; }
+      })
       .join(", ");
     after(() =>
       sendNtfy({
