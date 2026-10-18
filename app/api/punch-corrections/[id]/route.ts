@@ -7,6 +7,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { checkManualPunchAgainstHistory, type PunchKind } from "@/lib/manual-punch-rules";
 import { dateKeyInTz, formatDateKey, formatTimeInTz } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { isPayPeriodLockedError } from "@/lib/pay-periods-server";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,10 @@ export async function PUT(
     .eq("status", "pending")
     .select("id")
     .maybeSingle();
+  // The punch's time is in a locked pay period (migration 0062): a manager
+  // must reopen the period before approving.
+  if (isPayPeriodLockedError(claimError))
+    return NextResponse.json({ error: claimError!.message }, { status: 409 });
   if (claimError) {
     console.error("[api/punch-corrections/[id]]", claimError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -96,8 +101,10 @@ export async function PUT(
       .select("id")
       .single();
     if (insertError || !punch) {
-      console.error("[api/punch-corrections/[id]]", insertError);
       await reopen();
+      if (isPayPeriodLockedError(insertError))
+        return NextResponse.json({ error: insertError!.message }, { status: 409 });
+      console.error("[api/punch-corrections/[id]]", insertError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
     punchId = punch.id;

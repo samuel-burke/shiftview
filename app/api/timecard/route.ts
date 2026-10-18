@@ -8,6 +8,8 @@ import { computeTimecard, type Timecard, type TimecardPunchInput } from "@/lib/t
 import { computePayroll, payrollQueryWindow, type PayrollWeek, type PunchRow } from "@/lib/payroll";
 import { timecardToCsv } from "@/lib/timecard-csv";
 import { writeAuditLog } from "@/lib/audit";
+import { parsePayPeriodSettings, type PayPeriodStatus } from "@/lib/pay-periods";
+import { loadPayPeriods, type PayPeriodSignoff } from "@/lib/pay-periods-server";
 import type { PunchType } from "@/data/types";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,17 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // The JSON response: the time card plus its workweeks split into regular and
 // overtime hours by the payroll rule (lib/payroll.ts), so what a time card
 // shows as overtime is what payroll pays.
-export type TimecardResponse = Timecard & { weeks: PayrollWeek[] };
+//
+// payPeriods: the pay periods the range touches, each with its status and this
+// employee's sign-off (migration 0062); empty when the store doesn't use pay
+// periods.
+export type TimecardPayPeriod = {
+  start: string;
+  end: string;
+  status: PayPeriodStatus;
+  signoff: PayPeriodSignoff | null;
+};
+export type TimecardResponse = Timecard & { weeks: PayrollWeek[]; payPeriods: TimecardPayPeriod[] };
 
 // GET /api/timecard?employeeId=N&from=YYYY-MM-DD&to=YYYY-MM-DD
 // Returns one employee's punches, hours, call-outs and the punch violations
@@ -199,6 +211,22 @@ export async function GET(request: Request) {
     { from, to },
   );
 
-  const body: TimecardResponse = { ...timecard, weeks: payroll?.weeks ?? [] };
+  const payPeriodSettings = parsePayPeriodSettings(settingsMap);
+  let payPeriods: TimecardPayPeriod[] = [];
+  if (payPeriodSettings.frequency !== "none") {
+    const { periods, error: periodError } = await loadPayPeriods(supabase, orgId, payPeriodSettings, from, to, { employeeId });
+    if (periodError) {
+      console.error("[api/timecard] pay periods", periodError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    payPeriods = periods.map((p) => ({
+      start: p.start,
+      end: p.end,
+      status: p.status,
+      signoff: p.signoffs.find((s) => s.employeeId === employeeId) ?? null,
+    }));
+  }
+
+  const body: TimecardResponse = { ...timecard, weeks: payroll?.weeks ?? [], payPeriods };
   return NextResponse.json(body);
 }

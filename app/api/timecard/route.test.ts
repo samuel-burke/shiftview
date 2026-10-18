@@ -126,4 +126,62 @@ describe("GET /api/timecard", () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe("pay periods and sign-off", () => {
+    const settings = [
+      { key: "timezone", value: "America/New_York" },
+      { key: "pay_period_frequency", value: "weekly" },
+    ];
+    const periodRow = {
+      id: 9, start_date: "2026-10-12", end_date: "2026-10-18", status: "approved",
+      approved_at: "2026-10-19T13:00:00Z", locked_at: null,
+    };
+
+    it("no pay periods: payPeriods is empty", async () => {
+      const { supabase } = client({ user: MOCK_USER, isManager: true, linkedEmployee: { id: 6, name: "Bo Diaz" } });
+      mockCreateClient.mockResolvedValue(supabase as any);
+      expect((await (await GET(req(`employeeId=6&${WEEK}`))).json()).payPeriods).toEqual([]);
+    });
+
+    it("shows the period's status and this employee's sign-off, queried for that employee only", async () => {
+      const signoffBuilders: any[] = [];
+      const { supabase } = client({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 6, name: "Bo Diaz" },
+        tableOverrides: {
+          app_settings: { data: settings, error: null },
+          pay_periods: { data: [periodRow], error: null },
+        },
+      });
+      const prev = supabase.from.getMockImplementation()!;
+      supabase.from.mockImplementation((table: string) => {
+        if (table !== "pay_period_signoffs") return prev(table);
+        const b = makeQueryBuilder({
+          data: [{ period_id: 9, employee_id: 6, status: "disputed", note: "Missing Friday", signed_at: "2026-10-18T23:00:00Z" }],
+          error: null,
+        });
+        signoffBuilders.push(b);
+        return b;
+      });
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const body = await (await GET(req(`employeeId=6&${WEEK}`))).json();
+      expect(body.payPeriods).toEqual([{
+        start: "2026-10-12", end: "2026-10-18", status: "approved",
+        signoff: { employeeId: 6, status: "disputed", note: "Missing Friday", signedAt: "2026-10-18T23:00:00Z" },
+      }]);
+      expect(signoffBuilders[0].eq).toHaveBeenCalledWith("employee_id", 6);
+    });
+
+    it("an unsigned, untouched period is open with no sign-off", async () => {
+      const { supabase } = client({
+        user: MOCK_USER,
+        linkedEmployee: { id: 5, name: "Alex Kim" },
+        tableOverrides: { app_settings: { data: settings, error: null }, pay_periods: { data: [], error: null } },
+      });
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const body = await (await GET(req(WEEK))).json();
+      expect(body.payPeriods).toEqual([{ start: "2026-10-12", end: "2026-10-18", status: "open", signoff: null }]);
+    });
+  });
 });

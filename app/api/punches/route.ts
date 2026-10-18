@@ -13,6 +13,7 @@ import { resolveManualPunchTime } from "@/lib/manual-punch-time";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
 import { isClockInShift, isScheduleIdInput, isShiftNearPunch, loadOwnSchedule, type PunchSchedule } from "@/lib/punch-schedule";
+import { isPayPeriodLockedError } from "@/lib/pay-periods-server";
 
 export const dynamic = "force-dynamic";
 
@@ -305,6 +306,9 @@ export async function POST(request: Request) {
     // written without this route. Settings changed since the check above.
     if (typeof insertError.code === "string" && /^GF00[123]$/.test(insertError.code))
       return NextResponse.json({ error: insertError.message }, { status: 422 });
+    // A locked pay period (migration 0062).
+    if (isPayPeriodLockedError(insertError))
+      return NextResponse.json({ error: insertError.message }, { status: 409 });
     console.error("[api/punches]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -492,6 +496,8 @@ export async function PUT(request: Request) {
       }))
       .select("id")
       .single();
+    if (isPayPeriodLockedError(requestError))
+      return NextResponse.json({ error: requestError!.message }, { status: 409 });
     if (requestError || !request) {
       console.error("[api/punches]", requestError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -556,6 +562,8 @@ export async function PUT(request: Request) {
       .eq("org_id", orgId)
       .eq("id", id)
       .eq("employee_id", targetEmployeeId);
+    if (isPayPeriodLockedError(updateError))
+      return NextResponse.json({ error: updateError!.message }, { status: 409 });
     if (updateError) {
       console.error("[api/punches]", updateError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -572,6 +580,8 @@ export async function PUT(request: Request) {
         is_manual:   true,
         note:        reason,
       }));
+    if (isPayPeriodLockedError(insertError))
+      return NextResponse.json({ error: insertError!.message }, { status: 409 });
     if (insertError) {
       console.error("[api/punches]", insertError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });

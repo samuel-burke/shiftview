@@ -7,6 +7,7 @@ import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 import { writeAuditLog } from "@/lib/audit";
 import { csvRow } from "@/lib/csv";
+import { loadPayrollPeriodInfo, payrollPeriodFileSuffix, payrollPeriodLabel } from "@/lib/pay-periods-server";
 
 export const dynamic = "force-dynamic";
 
@@ -210,12 +211,21 @@ export async function GET(request: Request) {
 
   const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to });
 
+  const { info: periodInfo, error: periodError } = await loadPayrollPeriodInfo(supabase, orgId!, from, to);
+  if (periodError) {
+    console.error("[api/reports/payroll/export] pay periods", periodError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+
   writeAuditLog({
     action:       "payroll.export",
     orgId:        orgId!,
     actorId:      user!.id,
     resourceType: "punch_record",
-    metadata:     { from, to, format, employeeCount: payroll.length },
+    metadata:     {
+      from, to, format, employeeCount: payroll.length,
+      ...(periodInfo ? { payPeriodStatus: periodInfo.period?.status ?? "not_a_period" } : {}),
+    },
   }).catch(() => {});
 
   let content: string;
@@ -244,10 +254,17 @@ export async function GET(request: Request) {
       filename    = `payroll_${from}_to_${to}.csv`;
   }
 
-  return new Response(content, {
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+  const headers: Record<string, string> = { "Content-Type": contentType };
+  if (periodInfo) {
+    // The report formats say which period they cover, and its status, on
+    // their last line. The import formats (daily, IIF) stay exactly as payroll
+    // systems read them and say it in the file name and headers instead.
+    if (format !== "qb-iif" && format !== "daily")
+      content += "\n\n" + csvRow([payrollPeriodLabel(periodInfo)]);
+    filename = filename.replace(/(\.\w+)$/, `${payrollPeriodFileSuffix(periodInfo)}$1`);
+    headers["X-Pay-Period-Status"] = periodInfo.period?.status ?? "not_a_period";
+    if (periodInfo.period) headers["X-Pay-Period"] = `${periodInfo.period.start}/${periodInfo.period.end}`;
+  }
+  headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+  return new Response(content, { headers });
 }

@@ -8,6 +8,7 @@ import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
 import { applySchedulingRulesPatch, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { isValidTimezone, resolveTimezone } from "@/lib/dates";
 import { isValidLatitude, isValidLongitude } from "@/lib/geo-validation";
+import { parsePayPeriodSettings, payPeriodSettingsRows } from "@/lib/pay-periods";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export async function GET(request?: Request) {
     geofenceAddress:      map.geofence_address || null,
     punchPolicy:          parsePunchPolicy(map),
     schedulingRules:      parseSchedulingRules(map),
+    payPeriod:            parsePayPeriodSettings(map),
   });
 }
 
@@ -160,6 +162,24 @@ export async function PUT(request: Request) {
     rows.push(...result.rows);
   }
 
+  // Pay periods (migration 0062): { frequency?, anchor? }, validated against
+  // the stored setting so biweekly never ends up without its anchor.
+  if (body.payPeriod !== undefined) {
+    const { data: stored, error: storedError } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .eq("org_id", orgId!)
+      .like("key", "pay_period_%");
+    if (storedError) {
+      console.error("[api/settings]", storedError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    const current = parsePayPeriodSettings(Object.fromEntries((stored ?? []).map((r) => [r.key, r.value])));
+    const result = payPeriodSettingsRows(body.payPeriod, current);
+    if (result.error !== null) return NextResponse.json({ error: result.error }, { status: 400 });
+    rows.push(...result.rows);
+  }
+
   if (rows.length === 0)
     return NextResponse.json({ error: "No valid fields provided" }, { status: 400 });
 
@@ -170,7 +190,10 @@ export async function PUT(request: Request) {
   // The database only stores zones it knows (migration 0047), so the clock
   // triggers read the same store day as the app.
   if (error?.code === "22023")
-    return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
+    return NextResponse.json(
+      { error: /pay_period/.test(error.message ?? "") ? error.message : "timezone is not a valid IANA timezone identifier" },
+      { status: 422 },
+    );
   if (error) {
     console.error("[api/settings]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
