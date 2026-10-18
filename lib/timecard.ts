@@ -112,6 +112,8 @@ type Shift = {
   sessions: Session[];
 };
 
+export type { Session as ShiftSession, Shift as ScheduledShift };
+
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function round2(n: number): number {
@@ -185,23 +187,16 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
   };
 }
 
-export function computeTimecard(input: {
-  employeeId: number;
-  employeeName: string;
-  from: string;
-  to: string;
+// Turns schedules into shifts and punches into sessions, and gives each
+// session to the scheduled shift it was worked for. Shared by the time card
+// and the attendance alerts (lib/attendance-alerts.ts) so both judge which
+// shift a punch was for the same way.
+export function matchSessionsToShifts(input: {
   timezone: string;
-  policy: PunchPolicy;
   schedules: TimecardScheduleInput[];
   punches: TimecardPunchInput[];
-  callouts: TimecardCalloutInput[];
-  nowMs?: number;
-}): Timecard {
-  const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
-  const nowMs = input.nowMs ?? Date.now();
-
-  const calloutByDate = new Map<string, TimecardCalloutInput>();
-  for (const c of callouts) calloutByDate.set(c.date.slice(0, 10), c);
+}): { shifts: Shift[]; sessions: Session[] } {
+  const { timezone: tz, schedules, punches } = input;
 
   // Scheduled shifts as real instants. A day may hold several (a split
   // shift); shifts that touch or overlap are one block of work.
@@ -253,13 +248,6 @@ export function computeTimecard(input: {
     }
   });
 
-  // When a session ends: its last punch, or for one still open, up to 16 hours
-  // (the longest shift) after it began.
-  const sessionEndMs = (x: Session) =>
-    x.punches[x.punches.length - 1].punchType === "clock_out"
-      ? x.endMs
-      : Math.max(x.endMs, Math.min(nowMs, x.startMs + MAX_SHIFT_MS));
-
   const nearest = (list: Shift[], ms: number) =>
     list.reduce<Shift | null>((best, s) =>
       !best || Math.abs(ms - s.startMs) < Math.abs(ms - best.startMs) ? s : best, null);
@@ -271,6 +259,36 @@ export function computeTimecard(input: {
     session.shift = shift;
     shift?.sessions.push(session);
   }
+
+  return { shifts, sessions };
+}
+
+export function computeTimecard(input: {
+  employeeId: number;
+  employeeName: string;
+  from: string;
+  to: string;
+  timezone: string;
+  policy: PunchPolicy;
+  schedules: TimecardScheduleInput[];
+  punches: TimecardPunchInput[];
+  callouts: TimecardCalloutInput[];
+  nowMs?: number;
+}): Timecard {
+  const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
+  const nowMs = input.nowMs ?? Date.now();
+
+  const calloutByDate = new Map<string, TimecardCalloutInput>();
+  for (const c of callouts) calloutByDate.set(c.date.slice(0, 10), c);
+
+  const { shifts, sessions } = matchSessionsToShifts({ timezone: tz, schedules, punches });
+
+  // When a session ends: its last punch, or for one still open, up to 16 hours
+  // (the longest shift) after it began.
+  const sessionEndMs = (x: Session) =>
+    x.punches[x.punches.length - 1].punchType === "clock_out"
+      ? x.endMs
+      : Math.max(x.endMs, Math.min(nowMs, x.startMs + MAX_SHIFT_MS));
 
   const punchesByDate = new Map<string, TimecardPunch[]>();
   for (const session of sessions) {
