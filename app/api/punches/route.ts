@@ -18,6 +18,10 @@ export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// How far back an employee may ask for a missed punch to be added. Managers
+// have no limit.
+const CORRECTION_REQUEST_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
 function mapRow(r: Record<string, unknown>) {
   return {
     id:         r.id,
@@ -407,8 +411,13 @@ export async function PUT(request: Request) {
     ? zonedTimeToUtc(localDate, parseHHMM(localTime)!, tz)
     : new Date(punchedAt);
   const now = Date.now();
-  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-  if (ts.getTime() > now || ts.getTime() < now - thirtyDaysMs)
+  if (ts.getTime() > now)
+    return NextResponse.json({ error: "The punch time can't be in the future" }, { status: 400 });
+  // An employee's correction request must be for the last 30 days (the
+  // database refuses older ones too, 0051). A manager may add or fix a punch
+  // of any age — a late payroll correction — and gives a reason like any
+  // other manual punch (below; kept in its history by 0053).
+  if (!isManager && ts.getTime() < now - CORRECTION_REQUEST_WINDOW_MS)
     return NextResponse.json({ error: "The punch time must be within the last 30 days and not in the future" }, { status: 400 });
   let punchedAtIso = ts.toISOString();
 

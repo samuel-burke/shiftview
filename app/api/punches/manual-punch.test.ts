@@ -303,3 +303,77 @@ describe("PUT /api/punches — overnight missed clock-out", () => {
     expect(client.requested[0].punched_at).toBe("2026-11-01T03:30:00.000Z");
   });
 });
+
+describe("PUT /api/punches — how far back a punch can be added or fixed", () => {
+  // Now is 2026-11-01T15:00Z; exactly 30 days earlier is 2026-10-02T15:00Z.
+  const THIRTY_DAYS_AGO = "2026-10-02T15:00:00.000Z";
+  const JUST_OVER_30_DAYS = "2026-10-02T14:59:00.000Z";
+
+  it("lets an employee ask for a punch exactly 30 days ago", async () => {
+    const client = makeClient();
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_in", punchedAt: THIRTY_DAYS_AGO, note: "Forgot" });
+    expect(res.status).toBe(202);
+    expect(client.requested[0].punched_at).toBe(THIRTY_DAYS_AGO);
+  });
+
+  it("refuses an employee's request a minute past 30 days", async () => {
+    const client = makeClient();
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_in", punchedAt: JUST_OVER_30_DAYS, note: "Forgot" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/last 30 days/);
+    expect(client.requested).toHaveLength(0);
+  });
+
+  it("refuses an employee's request typed as a store-local day 31 days ago", async () => {
+    const client = makeClient();
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_in", localDate: "2026-10-01", localTime: "09:00", note: "Forgot" });
+    expect(res.status).toBe(400);
+    expect(client.requested).toHaveLength(0);
+  });
+
+  it("lets a manager add a punch a minute past 30 days, with a reason", async () => {
+    const client = makeClient({ isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_in", punchedAt: JUST_OVER_30_DAYS, note: "Late payroll fix" });
+    expect(res.status).toBe(200);
+    expect(client.inserted[0]).toMatchObject({ punched_at: JUST_OVER_30_DAYS, is_manual: true, note: "Late payroll fix" });
+  });
+
+  it("lets a manager add a punch a year back, typed as a store-local time", async () => {
+    const client = makeClient({ isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_in", localDate: "2025-11-03", localTime: "09:00", note: "Back pay audit" });
+    expect(res.status).toBe(200);
+    expect(client.inserted[0].punched_at).toBe("2025-11-03T14:00:00.000Z"); // 9:00 EST
+  });
+
+  it("lets a manager fix an existing punch older than 30 days", async () => {
+    const client = makeClient({
+      isManager: true,
+      history: [{ punch_type: "clock_out", punched_at: "2026-08-01T21:00:00Z", note: null, is_manual: false }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_out", localDate: "2026-08-01", localTime: "18:00", note: "Closed late" });
+    expect(res.status).toBe(200);
+    expect(client.updated[0]).toMatchObject({ punched_at: "2026-08-01T22:00:00.000Z", note: "Closed late" });
+  });
+
+  it("still requires a manager's reason for an old punch", async () => {
+    const client = makeClient({ isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_in", punchedAt: "2026-06-01T13:00:00Z", note: " " });
+    expect(res.status).toBe(400);
+    expect(client.inserted).toHaveLength(0);
+  });
+
+  it("still refuses a manager's punch in the future", async () => {
+    const client = makeClient({ isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_in", punchedAt: "2026-11-01T15:01:00Z", note: "x" });
+    expect(res.status).toBe(400);
+    expect(client.inserted).toHaveLength(0);
+  });
+});
