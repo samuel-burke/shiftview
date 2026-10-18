@@ -9,6 +9,8 @@ import { computePayroll, payrollQueryWindow, type PayrollWeek, type PunchRow } f
 import { timecardToCsv } from "@/lib/timecard-csv";
 import { writeAuditLog } from "@/lib/audit";
 import type { PunchType } from "@/data/types";
+import { loadPaidLeave } from "@/lib/pto-server";
+import { round2, type LeaveType } from "@/lib/pto";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +19,15 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // The JSON response: the time card plus its workweeks split into regular and
 // overtime hours by the payroll rule (lib/payroll.ts), so what a time card
 // shows as overtime is what payroll pays.
-export type TimecardResponse = Timecard & { weeks: PayrollWeek[] };
+// Approved PTO and sick days come alongside as paid leave: paid, but not
+// time worked, so never part of the overtime split.
+export type TimecardPaidLeave = { date: string; leaveType: LeaveType; hours: number };
+export type TimecardResponse = Timecard & {
+  weeks: PayrollWeek[];
+  paidLeave: TimecardPaidLeave[];
+  totalPtoHours: number;
+  totalSickHours: number;
+};
 
 // GET /api/timecard?employeeId=N&from=YYYY-MM-DD&to=YYYY-MM-DD
 // Returns one employee's punches, hours, call-outs and the punch violations
@@ -141,6 +151,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  const leave = await loadPaidLeave(supabase, orgId, from, to, employeeId);
+  if (leave.error) {
+    console.error("[api/timecard] paid leave", leave.error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const paidLeave: TimecardPaidLeave[] = leave.days.map((d) => ({ date: d.date, leaveType: d.leaveType, hours: d.hours }));
+
   const timecard = computeTimecard({
     employeeId,
     employeeName: emp.name,
@@ -179,7 +196,7 @@ export async function GET(request: Request) {
     }).catch(() => {});
 
     const safeName = emp.name.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-    return new Response(timecardToCsv(timecard), {
+    return new Response(timecardToCsv(timecard, paidLeave), {
       headers: {
         "Content-Type": "text/csv",
         "Content-Disposition": `attachment; filename="timecard_${safeName || employeeId}_${from}_to_${to}.csv"`,
@@ -199,6 +216,12 @@ export async function GET(request: Request) {
     { from, to },
   );
 
-  const body: TimecardResponse = { ...timecard, weeks: payroll?.weeks ?? [] };
+  const body: TimecardResponse = {
+    ...timecard,
+    weeks: payroll?.weeks ?? [],
+    paidLeave,
+    totalPtoHours: round2(paidLeave.filter((d) => d.leaveType === "pto").reduce((s, d) => s + d.hours, 0)),
+    totalSickHours: round2(paidLeave.filter((d) => d.leaveType === "sick").reduce((s, d) => s + d.hours, 0)),
+  };
   return NextResponse.json(body);
 }

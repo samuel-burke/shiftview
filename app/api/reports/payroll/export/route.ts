@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
-import { computePayroll, EmployeePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
+import { computePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
+import { withPaidLeave, type EmployeePayrollWithLeave as EmployeePayroll } from "@/lib/pto-payroll";
+import { loadPaidLeave, loadPaidLeaveNames } from "@/lib/pto-server";
 import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 import { writeAuditLog } from "@/lib/audit";
@@ -29,7 +31,9 @@ function mmddyyyy(dateStr: string): string {
 // ─── Format generators ────────────────────────────────────────────────────────
 
 function summaryCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Week Of", "Regular Hrs", "OT Hrs", "Break Hrs", "Total Hrs", "Incomplete"])];
+  // PTO and sick hours are paid leave, not time worked: they're outside
+  // Total Hrs and never count toward overtime.
+  const lines = [csvRow(["Employee", "Week Of", "Regular Hrs", "OT Hrs", "Break Hrs", "Total Hrs", "Incomplete", "PTO Hrs", "Sick Hrs"])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
       lines.push(csvRow([
@@ -40,6 +44,8 @@ function summaryCSV(rows: EmployeePayroll[]): string {
         week.breakHours.toFixed(2),
         week.totalWorkedHours.toFixed(2),
         week.hasIncomplete ? "Yes" : "",
+        week.ptoHours.toFixed(2),
+        week.sickHours.toFixed(2),
       ]));
     }
     if (emp.weeks.length > 1) {
@@ -51,6 +57,8 @@ function summaryCSV(rows: EmployeePayroll[]): string {
         emp.totalBreakHours.toFixed(2),
         emp.totalWorkedHours.toFixed(2),
         "",
+        emp.totalPtoHours.toFixed(2),
+        emp.totalSickHours.toFixed(2),
       ]));
     }
   }
@@ -59,11 +67,11 @@ function summaryCSV(rows: EmployeePayroll[]): string {
 
 // Daily detail — works with QuickBooks Online time import, Gusto, ADP, and most modern payroll platforms
 function dailyCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete"])];
+  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete", "PTO Hrs", "Sick Hrs"])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
       for (const day of week.days) {
-        if (day.workedHours === 0 && !day.hasIncomplete) continue;
+        if (day.workedHours === 0 && !day.hasIncomplete && day.ptoHours === 0 && day.sickHours === 0) continue;
         lines.push(csvRow([
           emp.employeeName,
           day.date,
@@ -71,6 +79,8 @@ function dailyCSV(rows: EmployeePayroll[]): string {
           day.workedHours.toFixed(2),
           day.breakHours.toFixed(2),
           day.hasIncomplete ? "Yes" : "",
+          day.ptoHours.toFixed(2),
+          day.sickHours.toFixed(2),
         ]));
       }
     }
@@ -89,6 +99,7 @@ function detailedCSV(rows: EmployeePayroll[]): string {
   const lines = [csvRow([
     "Employee", "Week Of", "Date", "Day",
     "Worked Hrs", "Cumulative Wk Hrs", "Regular Hrs", "OT Hrs", "Break Hrs", "Incomplete",
+    "PTO Hrs", "Sick Hrs",
   ])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
@@ -96,11 +107,11 @@ function detailedCSV(rows: EmployeePayroll[]): string {
       if (week.priorHours > 0) {
         lines.push(csvRow([
           emp.employeeName, week.weekStart, "", "Worked before this period",
-          week.priorHours.toFixed(2), weekAccum.toFixed(2), "", "", "", "",
+          week.priorHours.toFixed(2), weekAccum.toFixed(2), "", "", "", "", "", "",
         ]));
       }
       for (const day of week.days) {
-        if (day.workedHours === 0 && !day.hasIncomplete) continue;
+        if (day.workedHours === 0 && !day.hasIncomplete && day.ptoHours === 0 && day.sickHours === 0) continue;
         weekAccum += day.workedHours;
         lines.push(csvRow([
           emp.employeeName,
@@ -113,6 +124,8 @@ function detailedCSV(rows: EmployeePayroll[]): string {
           day.overtimeHours.toFixed(2),
           day.breakHours.toFixed(2),
           day.hasIncomplete ? "Yes" : "",
+          day.ptoHours.toFixed(2),
+          day.sickHours.toFixed(2),
         ]));
       }
       lines.push(csvRow([
@@ -125,6 +138,8 @@ function detailedCSV(rows: EmployeePayroll[]): string {
         week.overtimeHours.toFixed(2),
         week.breakHours.toFixed(2),
         week.hasIncomplete ? "Yes" : "",
+        week.ptoHours.toFixed(2),
+        week.sickHours.toFixed(2),
       ]));
     }
     lines.push(""); // blank separator between employees
@@ -139,6 +154,8 @@ function quickbooksIIF(rows: EmployeePayroll[]): string {
     "!TIMETYPE\tNAME",
     "TIMETYPE\tRegular Time",
     "TIMETYPE\tOvertime",
+    "TIMETYPE\tPTO",
+    "TIMETYPE\tSick",
     "!TIMEACT\tDATE\tJOB\tEMP\tSERVICE\tDURATION\tNOTE\tBILLINGSTATUS\tPITEM\tCLASS",
   ];
 
@@ -146,7 +163,10 @@ function quickbooksIIF(rows: EmployeePayroll[]): string {
     for (const week of emp.weeks) {
       for (const day of week.days) {
         const note = day.hasIncomplete ? "Incomplete punch — verify hours" : "";
-        for (const [service, hrs] of [["Regular Time", day.regularHours], ["Overtime", day.overtimeHours]] as const) {
+        for (const [service, hrs] of [
+          ["Regular Time", day.regularHours], ["Overtime", day.overtimeHours],
+          ["PTO", day.ptoHours], ["Sick", day.sickHours],
+        ] as const) {
           if (hrs <= 0) continue;
           lines.push(
             ["TIMEACT", mmddyyyy(day.date), "", iifField(emp.employeeName), service,
@@ -208,7 +228,14 @@ export async function GET(request: Request) {
   if (truncated)
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+  // Approved PTO and sick days, beside the worked hours (lib/pto-payroll.ts).
+  const leave = await loadPaidLeave(supabase, orgId!, from, to);
+  if (leave.error) {
+    console.error("[api/reports/payroll/export]", leave.error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const worked = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+  const payroll = withPaidLeave(worked, leave.days, await loadPaidLeaveNames(supabase, orgId!, worked, leave.days));
 
   writeAuditLog({
     action:       "payroll.export",

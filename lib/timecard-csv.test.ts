@@ -46,7 +46,7 @@ function rows(csv: string): string[] {
 describe("timecardToCsv", () => {
   it("emits a header row", () => {
     const csv = timecardToCsv(build({ punches: [] }));
-    expect(rows(csv)[0]).toBe("Date,Day,Type,Time,Flag,Detail,Manual,Note");
+    expect(rows(csv)[0]).toBe("Date,Day,Type,Time,Flag,Detail,Manual,Note,Paid Leave Hrs");
   });
 
   it("flags the clock-in punch row with the late-in violation", () => {

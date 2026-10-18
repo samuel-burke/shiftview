@@ -78,7 +78,7 @@ describe("GET /api/reports/payroll/export — timekeeping audit regressions", ()
     expect(res.status).toBe(200);
     const lines = (await res.text()).split("\n");
     // Mon–Wed (before the range) were 30h: Thu takes the week to 40, Fri is overtime.
-    expect(lines[1]).toBe("Ann,2026-06-08,10.00,10.00,0.00,20.00,");
+    expect(lines[1]).toBe("Ann,2026-06-08,10.00,10.00,0.00,20.00,,0.00,0.00");
     // Query starts the Sunday before Mon Jun 8 (local midnight, EDT).
     expect(client.calls[0].gte).toBe("2026-06-07T04:00:00.000Z");
   });

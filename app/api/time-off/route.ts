@@ -5,6 +5,8 @@ import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { isRequestLeaveType, isValidPaidHours } from "@/lib/pto";
+import { loadBalances, requestLeaveFields } from "@/lib/pto-server";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export async function GET(request?: Request) {
     // Every pending request for this org, or a range's pending and approved ones.
     const base = supabase
       .from("time_off_requests")
-      .select("id, employee_id, date, status, note")
+      .select("id, employee_id, date, status, note, leave_type, paid_hours")
       .eq("org_id", orgId);
     const filtered = range
       ? base.in("status", ["pending", "approved"]).gte("date", range.from).lte("date", range.to)
@@ -58,13 +60,23 @@ export async function GET(request?: Request) {
       }
     }
 
+    // Each paid request carries the employee's balance for its type, so the
+    // manager sees whether approving it would overdraw.
+    const { balances } = employeeIds.length > 0 ? await loadBalances(supabase, orgId) : { balances: [] };
+    const balanceOf = new Map(balances.map((b) => [b.employeeId, b]));
+
     const result = (requests ?? []).map((r) => ({
       id: r.id,
       employeeId: r.employee_id,
       employeeName: employeeMap[r.employee_id] ?? "Unknown",
+      balance: r.leave_type === "pto" || r.leave_type === "sick"
+        ? balanceOf.get(r.employee_id)?.[r.leave_type as "pto" | "sick"] ?? 0
+        : null,
       date: r.date,
       status: r.status,
       note: r.note ?? undefined,
+      leaveType: r.leave_type ?? "unpaid",
+      paidHours: r.paid_hours == null ? null : Number(r.paid_hours),
     }));
 
     return NextResponse.json({ requests: result });
@@ -88,9 +100,11 @@ export async function GET(request?: Request) {
 
   const { data: requests, error: fetchError } = await supabase
     .from("time_off_requests")
-    .select("id, employee_id, date, status, note")
+    .select("id, employee_id, date, status, note, leave_type, paid_hours")
     .eq("org_id", orgId)
     .eq("employee_id", emp.id)
+    // A cancelled request frees its day.
+    .in("status", ["pending", "approved", "denied"])
     .gte("date", today)
     .lte("date", ninetyDaysOut)
     .order("date", { ascending: true });
@@ -107,18 +121,24 @@ export async function GET(request?: Request) {
     date: r.date,
     status: r.status,
     note: r.note ?? undefined,
+    leaveType: r.leave_type ?? "unpaid",
+    paidHours: r.paid_hours == null ? null : Number(r.paid_hours),
   }));
 
   return NextResponse.json({ requests: result });
 }
 
 export async function POST(request: Request) {
-  const { employeeId, date, note } = await request.json();
+  const { employeeId, date, note, leaveType = "unpaid", paidHours } = await request.json();
 
   if (!employeeId || !Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
   if (!date || !DATE_RE.test(date) || !isDateKey(date))
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
+  if (!isRequestLeaveType(leaveType))
+    return NextResponse.json({ error: "leaveType must be unpaid, pto or sick" }, { status: 400 });
+  if (paidHours !== undefined && paidHours !== null && !isValidPaidHours(paidHours))
+    return NextResponse.json({ error: "paidHours must be more than 0 and at most 24" }, { status: 400 });
 
   const supabase = await createClient();
 
@@ -131,7 +151,8 @@ export async function POST(request: Request) {
   const { orgId, user, employeeId: ctxEmployeeId } = ctx!;
 
   // "Today" is the store's calendar day, not UTC's.
-  const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
+  const tz = await getOrgTimezone(supabase, orgId);
+  const today = todayKeyInTz(tz);
   if (date < today)
     return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
 
@@ -157,7 +178,11 @@ export async function POST(request: Request) {
       { status: 403 }
     );
 
-  const insertRow: Record<string, unknown> = { employee_id: employeeId, date };
+  const insertRow: Record<string, unknown> = {
+    employee_id: employeeId,
+    date,
+    ...(await requestLeaveFields(supabase, orgId, employeeId, date, tz, leaveType, paidHours ?? undefined)),
+  };
   if (note && typeof note === "string" && note.trim()) insertRow.note = note.trim();
 
   const { data, error: insertError } = await supabase
@@ -180,7 +205,7 @@ export async function POST(request: Request) {
     actorId:      user.id,
     resourceType: "time_off_request",
     resourceId:   String(data.id),
-    after: { employeeId, date, note: insertRow.note ?? null },
+    after: { employeeId, date, note: insertRow.note ?? null, leaveType: insertRow.leave_type, paidHours: insertRow.paid_hours },
     metadata: {
       employeeId,
       employeeName: emp.name,
@@ -188,5 +213,8 @@ export async function POST(request: Request) {
     },
   }).catch(() => {});
 
-  return NextResponse.json({ id: data.id, ok: true }, { status: 201 });
+  return NextResponse.json(
+    { id: data.id, ok: true, leaveType: insertRow.leave_type, paidHours: insertRow.paid_hours },
+    { status: 201 },
+  );
 }

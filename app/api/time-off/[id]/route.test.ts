@@ -23,7 +23,7 @@ function makeParams(id: string) {
 describe("PUT /api/time-off/[id]", () => {
   beforeEach(() => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, rpcData: { status: "ok" } }) as any
     );
   });
 
@@ -73,7 +73,7 @@ describe("PUT /api/time-off/[id]", () => {
       makeParams("1")
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, balance: null });
   });
 
   it("returns 200 and ok:true when manager denies a request", async () => {
@@ -85,7 +85,7 @@ describe("PUT /api/time-off/[id]", () => {
       makeParams("1")
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, balance: null });
   });
 });
 

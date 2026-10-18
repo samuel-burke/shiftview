@@ -5,6 +5,8 @@ import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { computePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
 import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { withPaidLeave } from "@/lib/pto-payroll";
+import { loadPaidLeave, loadPaidLeaveNames } from "@/lib/pto-server";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,13 @@ export async function GET(request: Request) {
   if (truncated)
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const rows = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+  // Approved PTO and sick hours beside the worked hours; never overtime.
+  const leave = await loadPaidLeave(supabase, orgId!, from, to);
+  if (leave.error) {
+    console.error("[api/reports/payroll]", leave.error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const worked = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+  const rows = withPaidLeave(worked, leave.days, await loadPaidLeaveNames(supabase, orgId!, worked, leave.days));
   return NextResponse.json({ rows, from, to });
 }

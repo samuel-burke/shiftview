@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
+import { makeQueryBuilder, makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -74,7 +74,7 @@ describe("GET /api/time-off", () => {
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "managers") {
           const b: any = {};
-          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit", "range", "is"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = vi.fn().mockResolvedValue({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null });
           b.then = (resolve: any) =>
             Promise.resolve({ data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID }, error: null }).then(resolve);
@@ -82,15 +82,16 @@ describe("GET /api/time-off", () => {
         }
         if (table === "employees") {
           const b: any = {};
-          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+          for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit", "range", "is"]) b[m] = vi.fn().mockReturnValue(b);
           b.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 5, name: "Alice Smith", org_id: MOCK_ORG_ID }, error: null });
           b.then = (resolve: any) =>
             Promise.resolve({ data: [{ id: 5, name: "Alice Smith", org_id: MOCK_ORG_ID }], error: null }).then(resolve);
           return b;
         }
+        if (table === "pto_balances") return makeQueryBuilder({ data: [], error: null });
         // time_off_requests
         const b: any = {};
-        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"]) b[m] = vi.fn().mockReturnValue(b);
+        for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit", "range", "is"]) b[m] = vi.fn().mockReturnValue(b);
         b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
         b.then = (resolve: any) =>
           Promise.resolve({ data: MOCK_PENDING_REQUESTS, error: null }).then(resolve);
