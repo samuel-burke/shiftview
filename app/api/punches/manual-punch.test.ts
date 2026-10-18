@@ -340,6 +340,24 @@ describe("PUT /api/punches — a locked pay period (migration 0062)", () => {
     expect((await res.json()).error).toMatch(/locked pay period/);
   });
 
+  it("an overnight shift's Monday clock-out is refused when its Sunday clock-in is in a locked week", async () => {
+    const session = {
+      code: "PP001",
+      message: "That punch belongs to a shift that began in a locked pay period (2026-10-26 to 2026-11-01). A manager must reopen it first.",
+    };
+    // Clocked in Sunday 10:00 PM (Nov 1, EST); the manager moves Monday's clock-out.
+    const client = makeClient({
+      isManager: true,
+      history: [{ punch_type: "clock_in", punched_at: "2026-11-02T03:00:00Z", note: null, is_manual: false }],
+      writeError: session,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    vi.setSystemTime(new Date("2026-11-02T15:00:00Z"));
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-02", localTime: "06:00", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(session.message);
+  });
+
   it("any other database error is still a 500", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const client = makeClient({ isManager: true, history, writeError: { code: "XX000", message: "boom" } });

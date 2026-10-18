@@ -224,6 +224,15 @@ describe("POST /api/pay-periods", () => {
     expect(writeAuditLog).not.toHaveBeenCalled();
   });
 
+  it.each(["approve", "lock"])("refuses to %s while a shift begun in the period is still open, naming it", async (action) => {
+    const message = `Can't ${action} this pay period: still clocked in: Alex Kim (from 2026-10-11). Add the missing clock-out first.`;
+    mockCreateClient.mockResolvedValue(client({ user: MOCK_USER, isManager: true, rpcError: { code: "55000", message } }) as any);
+    const res = await post({ action, date: "2026-10-08" });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: message, code: "55000" });
+    expect(writeAuditLog).not.toHaveBeenCalled();
+  });
+
   it("an unexpected database error is a 500 without its details", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockCreateClient.mockResolvedValue(client({ user: MOCK_USER, isManager: true, rpcError: { code: "XX000", message: "secret" } }) as any);

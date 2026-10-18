@@ -33,6 +33,12 @@
 --    and safer than adjustment punches dated into a later period: payroll
 --    always pays a period from its own punches, and the event log shows the
 --    period was reopened, when, by whom and why.
+--    Payroll counts a shift on its clock-in's day, so the lock also covers a
+--    punch outside the period that belongs to a shift begun inside it: the
+--    6:00 AM Monday clock-out (or a break) of a shift that started Sunday
+--    10:00 PM in a locked week can't be added, moved or deleted. And a period
+--    can't be approved or locked while a shift that began in it is still open
+--    (a clock-in with no clock-out yet): its hours aren't known.
 -- 4. A punch change in a period that isn't locked clears that employee's
 --    sign-off for the period (they confirmed different hours), and moves an
 --    approved period back to open (the manager approved different hours).
@@ -218,6 +224,8 @@ create policy mt_select on public.pay_period_events for select to authenticated
 
 -- ── Lock checks ─────────────────────────────────────────────────────────────
 
+drop function if exists public.raise_pay_period_locked(public.pay_periods);
+
 -- The locked period containing p_at (store time), if any.
 create or replace function public.pay_period_locked_for(p_org uuid, p_at timestamptz)
 returns public.pay_periods
@@ -233,6 +241,59 @@ as $$
    limit 1
 $$;
 
+-- The locked period containing the clock-in of the shift a punch at p_at
+-- belongs to: the employee's latest clock-in before it, unless a clock-out
+-- (other than p_exclude, the punch itself) already closed that shift.
+create or replace function public.pay_period_locked_session(p_org uuid, p_employee bigint, p_at timestamptz, p_exclude bigint)
+returns public.pay_periods
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_in_id bigint;
+  v_in_at timestamptz;
+  v_none public.pay_periods;
+begin
+  select id, punched_at into v_in_id, v_in_at from public.punch_records
+   where org_id = p_org and employee_id = p_employee and punch_type = 'clock_in'
+     and punched_at <= p_at and id is distinct from p_exclude
+   order by punched_at desc, id desc
+   limit 1;
+  if v_in_id is null or exists (
+    select 1 from public.punch_records
+     where org_id = p_org and employee_id = p_employee and punch_type = 'clock_out'
+       and punched_at >= v_in_at and punched_at <= p_at and id is distinct from p_exclude
+  ) then
+    return v_none;
+  end if;
+  return public.pay_period_locked_for(p_org, v_in_at);
+end;
+$$;
+
+-- Employees with a shift begun in [p_start, p_end] (store dates) that has no
+-- clock-out yet, e.g. 'Alex Kim (from 2026-10-11)'.
+create or replace function public.pay_period_open_shifts(p_org uuid, p_start date, p_end date)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select string_agg(distinct e.name || ' (from ' || (ci.punched_at at time zone public.store_timezone(p_org))::date || ')', ', ')
+    from public.punch_records ci
+    join public.employees e on e.id = ci.employee_id and e.org_id = ci.org_id
+   where ci.org_id = p_org and ci.punch_type = 'clock_in'
+     and (ci.punched_at at time zone public.store_timezone(p_org))::date between p_start and p_end
+     and not exists (
+       select 1 from public.punch_records n
+        where n.org_id = ci.org_id and n.employee_id = ci.employee_id
+          and n.punch_type in ('clock_out', 'clock_in')
+          and (n.punched_at, n.id) > (ci.punched_at, ci.id)
+     )
+$$;
+
 -- The service role's demo reset and org_delete's teardown aren't held back.
 create or replace function public.pay_period_exempt(p_org uuid)
 returns boolean
@@ -246,12 +307,16 @@ as $$
           or exists (select 1 from public.organizations where id = p_org and is_demo))
 $$;
 
-create or replace function public.raise_pay_period_locked(p public.pay_periods)
+create or replace function public.raise_pay_period_locked(p public.pay_periods, p_session boolean default false)
 returns void
 language plpgsql
 set search_path = ''
 as $$
 begin
+  if p_session then
+    raise exception 'That punch belongs to a shift that began in a locked pay period (% to %). A manager must reopen it first.',
+      p.start_date, p.end_date using errcode = 'PP001';
+  end if;
   raise exception 'That time is in a locked pay period (% to %). A manager must reopen it first.',
     p.start_date, p.end_date using errcode = 'PP001';
 end;
@@ -278,11 +343,24 @@ begin
     if v_locked.id is not null then
       perform public.raise_pay_period_locked(v_locked);
     end if;
+    if old.punch_type <> 'clock_in' then
+      v_locked := public.pay_period_locked_session(old.org_id, old.employee_id, old.punched_at, old.id);
+      if v_locked.id is not null then
+        perform public.raise_pay_period_locked(v_locked, true);
+      end if;
+    end if;
   end if;
   if tg_op in ('INSERT', 'UPDATE') then
     v_locked := public.pay_period_locked_for(new.org_id, new.punched_at);
     if v_locked.id is not null then
       perform public.raise_pay_period_locked(v_locked);
+    end if;
+    if new.punch_type <> 'clock_in' then
+      v_locked := public.pay_period_locked_session(new.org_id, new.employee_id, new.punched_at,
+                                                   case when tg_op = 'UPDATE' then new.id end);
+      if v_locked.id is not null then
+        perform public.raise_pay_period_locked(v_locked, true);
+      end if;
     end if;
     return new;
   end if;
@@ -313,6 +391,12 @@ begin
     v_locked := public.pay_period_locked_for(new.org_id, new.punched_at);
     if v_locked.id is not null then
       perform public.raise_pay_period_locked(v_locked);
+    end if;
+    if new.punch_type <> 'clock_in' then
+      v_locked := public.pay_period_locked_session(new.org_id, new.employee_id, new.punched_at, null);
+      if v_locked.id is not null then
+        perform public.raise_pay_period_locked(v_locked, true);
+      end if;
     end if;
   end if;
   return new;
@@ -460,6 +544,24 @@ as $$
   select (now() at time zone public.store_timezone(p_org))::date
 $$;
 
+-- Refuses while a shift begun in the period is still open.
+create or replace function public.pay_period_require_closed_shifts(p public.pay_periods, p_verb text)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_open text := public.pay_period_open_shifts(p.org_id, p.start_date, p.end_date);
+begin
+  if v_open is not null then
+    raise exception 'Can''t % this pay period: still clocked in: %. Add the missing clock-out first.', p_verb, v_open
+      using errcode = '55000';
+  end if;
+end;
+$$;
+
 create or replace function public.pay_period_approve(p_org uuid, p_date date)
 returns public.pay_periods
 language plpgsql
@@ -480,6 +582,7 @@ begin
   if v_row.end_date >= public.pay_period_store_today(p_org) then
     raise exception 'A pay period can be approved once it has ended (after %)', v_row.end_date using errcode = '22023';
   end if;
+  perform public.pay_period_require_closed_shifts(v_row, 'approve');
   update public.pay_periods
      set status = 'approved', approved_by = auth.uid(), approved_at = now()
    where id = v_row.id
@@ -507,6 +610,7 @@ begin
   if v_row.status <> 'approved' then
     raise exception 'Approve the pay period before locking it' using errcode = '55000';
   end if;
+  perform public.pay_period_require_closed_shifts(v_row, 'lock');
   update public.pay_periods
      set status = 'locked', locked_by = auth.uid(), locked_at = now()
    where id = v_row.id
@@ -612,8 +716,11 @@ revoke all on function
   public.pay_period_bounds(text, date, date),
   public.pay_period_setting(uuid),
   public.pay_period_locked_for(uuid, timestamptz),
+  public.pay_period_locked_session(uuid, bigint, timestamptz, bigint),
+  public.pay_period_open_shifts(uuid, date, date),
+  public.pay_period_require_closed_shifts(public.pay_periods, text),
   public.pay_period_exempt(uuid),
-  public.raise_pay_period_locked(public.pay_periods),
+  public.raise_pay_period_locked(public.pay_periods, boolean),
   public.enforce_pay_period_lock(),
   public.enforce_pay_period_lock_correction(),
   public.pay_period_touch(uuid, bigint, timestamptz),

@@ -173,6 +173,19 @@ select pg_temp.punch(:e1, 'clock_in',  (:'last_wed' || ' 09:00 America/New_York'
 select pg_temp.punch(:e1, 'clock_out', (:'last_wed' || ' 17:00 America/New_York')::timestamptz) as p2 \gset
 select pg_temp.punch(:e2, 'clock_in',  (:'last_wed' || ' 10:00 America/New_York')::timestamptz) as p3 \gset
 
+-- e2 hasn't clocked out yet: the period's hours aren't known.
+select pg_temp.refused('a period with a shift still open cannot be approved, and says whose', :ann,
+  format($q$select pay_period_approve(%L, %L)$q$, :'alder_id', :'last_wed'), '55000');
+do $$ begin
+  perform 1 from pay_periods where status <> 'open';
+  if found then raise notice 'FAIL  the refused approval changed nothing'; else raise notice 'PASS  the refused approval changed nothing'; end if;
+end $$;
+select pg_temp.check('the open shift is named with its day',
+  pay_period_open_shifts(:'alder_id', :'last_start', :'last_end') = 'e2 (from ' || :'last_wed' || ')');
+select pg_temp.punch(:e2, 'clock_out', (:'last_wed' || ' 18:00 America/New_York')::timestamptz) as p4 \gset
+select pg_temp.check('once clocked out, nobody is open in the period',
+  pay_period_open_shifts(:'alder_id', :'last_start', :'last_end') is null);
+
 select pg_temp.refused('an employee cannot approve a pay period', :e1,
   format($q$select pay_period_approve(%L, %L)$q$, :'alder_id', :'last_wed'), '42501');
 select pg_temp.refused('another organization''s manager cannot approve it', :ben,
@@ -285,7 +298,7 @@ select pg_temp.refused('locked: the service role cannot add a punch either', nul
 select pg_temp.refused('locked: the service role cannot delete a punch', null,
   format($q$delete from punch_records where id = %s$q$, :p3), 'PP001', 'service_role');
 select pg_temp.check('the period''s punches are as they were',
-  (select count(*) = 3 from punch_records where org_id = :'alder_id'));
+  (select count(*) = 4 from punch_records where org_id = :'alder_id'));
 
 -- A correction filed before the lock can't be approved after it.
 alter table punch_corrections disable trigger punch_corrections_zz_pay_period_lock;
@@ -330,18 +343,18 @@ select pg_temp.refused('another organization''s manager cannot reopen', :ben,
 select pg_temp.refused('an open period cannot be reopened', :ann,
   format($q$select pay_period_reopen(%L, %L, 'why')$q$, :'alder_id', '2020-01-01'), '55000');
 select pg_temp.run('the manager reopens it with a reason', :ann,
-  format($q$select pay_period_reopen(%L, %L, 'Missed clock-out on Thursday')$q$, :'alder_id', :'last_wed'), false);
+  format($q$select pay_period_reopen(%L, %L, 'Missed break on Wednesday')$q$, :'alder_id', :'last_wed'), false);
 select pg_temp.check('the period is open, and the reopen is logged with who, why and what it was',
   (select status = 'open' and approved_at is null and locked_at is null from pay_periods where start_date = :'last_start')
   and exists (select 1 from pay_period_events where action = 'reopen' and actor = :ann
-               and reason = 'Missed clock-out on Thursday' and details->>'previous_status' = 'locked'
+               and reason = 'Missed break on Wednesday' and details->>'previous_status' = 'locked'
                and (details->>'locked_by')::uuid = :ann));
 select pg_temp.run('reopened: the manager adds the missed punch', :ann,
   format($q$insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note)
-            select org_id, id, 'clock_out', %L::timestamptz, true, 'Missed clock-out on Thursday' from employees where user_id = %L$q$,
-         :'last_wed' || ' 18:00 America/New_York', :e2), false);
+            select org_id, id, 'break_start', %L::timestamptz, true, 'Missed break on Wednesday' from employees where user_id = %L$q$,
+         :'last_wed' || ' 13:00 America/New_York', :e2), false);
 select pg_temp.check('the fix is in the punch history (0053), and e2''s dispute is cleared',
-  exists (select 1 from punch_record_history where action = 'insert' and changed_by = :ann and reason = 'Missed clock-out on Thursday')
+  exists (select 1 from punch_record_history where action = 'insert' and changed_by = :ann and reason = 'Missed break on Wednesday')
   and not exists (select 1 from pay_period_signoffs s join employees e on e.id = s.employee_id where e.user_id = :e2));
 select pg_temp.run('approve and lock again', :ann,
   format($q$select pay_period_approve(%1$L, %2$L); select pay_period_lock(%1$L, %2$L)$q$, :'alder_id', :'last_wed'), false);
@@ -380,6 +393,70 @@ select pg_temp.refused('DST: 11:30 PM on the spring-forward Sunday is in its wee
   format($q$delete from punch_records where id = %s$q$, :spring_in), 'PP001', 'service_role');
 select pg_temp.check('in UTC the same punch is already Monday (store time decides, not UTC)',
   (select (punched_at at time zone 'UTC')::date = '2026-03-09' from punch_records where id = :spring_in));
+
+-- ── An overnight shift across the period boundary ───────────────────────────
+-- Week Mon 10 to Sun 16 November 2025. Ann (who has no later punches)
+-- clocks in Sunday 10:00 PM and is still on the clock at midnight.
+select pg_temp.punch(:ann, 'clock_in', '2025-11-16 22:00 America/New_York') as night_in \gset
+select pg_temp.refused('overnight: the week cannot be approved while Sunday night''s shift is open', :ann,
+  format($q$select pay_period_approve(%L, '2025-11-16')$q$, :'alder_id'), '55000');
+select pg_temp.punch(:ann, 'clock_out', '2025-11-17 06:00 America/New_York') as night_out \gset
+select pg_temp.run('overnight: once clocked out Monday 6:00 AM, the week can be approved', :ann,
+  format($q$select pay_period_approve(%L, '2025-11-16')$q$, :'alder_id'), false);
+-- A forgotten clock-in shows up between approving and locking (set up as the
+-- table owner, so the approval stays).
+insert into employees (org_id, name, email) values (:alder, 'e3', 'e3@alder.test');
+insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual)
+select org_id, id, 'clock_in', '2025-11-14 09:00 America/New_York', true from employees where email = 'e3@alder.test';
+update pay_periods set status = 'approved', approved_at = now() where start_date = '2025-11-10';
+select pg_temp.refused('a period cannot be locked while a shift begun in it is open', :ann,
+  format($q$select pay_period_lock(%L, '2025-11-16')$q$, :'alder_id'), '55000');
+select pg_temp.check('the lock refusal changed nothing',
+  (select status = 'approved' from pay_periods where start_date = '2025-11-10'));
+select pg_temp.check('the lock refusal names the open shift',
+  pay_period_open_shifts(:'alder_id', '2025-11-10', '2025-11-16') = 'e3 (from 2025-11-14)');
+select pg_temp.run('the manager adds e3''s missing clock-out', :ann,
+  $q$insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note)
+     select org_id, id, 'clock_out', '2025-11-14 17:00 America/New_York', true, 'Forgot' from employees where email = 'e3@alder.test'$q$, false);
+select pg_temp.run('approve and lock the week', :ann,
+  format($q$select pay_period_approve(%1$L, '2025-11-16'); select pay_period_lock(%1$L, '2025-11-16')$q$, :'alder_id'), false);
+
+select pg_temp.refused('overnight: Monday''s 6:00 AM clock-out of the locked week''s shift cannot move', :ann,
+  format($q$update punch_records set punched_at = punched_at + interval '1 hour', note = 'x' where id = %s$q$, :night_out), 'PP001');
+select pg_temp.refused('overnight: nor be deleted', :ann,
+  format($q$select delete_punch(%s, 'wrong')$q$, :night_out), 'PP001');
+select pg_temp.refused('overnight: nor can a break be added to that shift on Monday', :ann,
+  format($q$insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note)
+            select org_id, id, 'break_start', '2025-11-17 02:00 America/New_York', true, 'x' from employees where user_id = %L$q$, :ann), 'PP001');
+select pg_temp.refused('overnight: the service role is held too', null,
+  format($q$update punch_records set punched_at = punched_at - interval '1 hour' where id = %s$q$, :night_out), 'PP001', 'service_role');
+alter table punch_corrections disable trigger punch_corrections_stamp;
+select pg_temp.refused('overnight: a correction for that shift on Monday cannot be filed', :ann,
+  format($q$insert into punch_corrections (org_id, employee_id, punch_type, punched_at, note)
+            select org_id, id, 'break_start', '2025-11-17 02:00 America/New_York', 'forgot' from employees where user_id = %L$q$, :ann), 'PP001');
+alter table punch_corrections enable trigger punch_corrections_stamp;
+select pg_temp.run('overnight: a new shift on Monday is not part of it', :ann,
+  format($q$insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note)
+            select org_id, id, 'clock_in', '2025-11-17 09:00 America/New_York', true, 'x' from employees where user_id = %1$L;
+            insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note)
+            select org_id, id, 'clock_out', '2025-11-17 17:00 America/New_York', true, 'x' from employees where user_id = %1$L$q$, :ann), false);
+select pg_temp.run('overnight: a stray clock-out after the shift was closed is not part of it', :ann,
+  format($q$insert into punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note)
+            select org_id, id, 'clock_out', '2025-11-17 07:00 America/New_York', true, 'x' from employees where user_id = %L$q$, :ann), false);
+do $$ begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000001', true);
+  update punch_records set note = 'x' where punched_at = '2025-11-17 06:00 America/New_York';
+  raise notice 'FAIL  overnight: the refusal says the shift began in a locked period (no error)';
+exception when others then
+  if sqlerrm like 'That punch belongs to a shift that began in a locked pay period (2025-11-10 to 2025-11-16)%' then
+    raise notice 'PASS  overnight: the refusal says the shift began in a locked period';
+  else raise notice 'FAIL  overnight: the refusal says the shift began in a locked period (%)', sqlerrm; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+select pg_temp.check('the locked week''s overnight shift is as it was',
+  (select punched_at = '2025-11-17 06:00 America/New_York' from punch_records where id = :night_out));
 
 -- ── Semimonthly, and frequency none ─────────────────────────────────────────
 update app_settings set value = 'semimonthly' where org_id = :'alder_id' and key = 'pay_period_frequency';
