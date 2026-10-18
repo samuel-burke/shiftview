@@ -39,6 +39,7 @@ import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import FormError from "../../components/FormError";
 import DemoBanner from "@/components/DemoBanner";
+import PunchHistoryToggle from "@/components/PunchHistoryToggle";
 import { tint } from "../../lib/theme-colors";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -999,11 +1000,7 @@ export default function ClockPageClient() {
                       <span className="text-sm font-medium text-fg-body">
                         {PUNCH_TYPE_LABELS[p.punchType as PunchType]}
                       </span>
-                      {p.isManual && (
-                        <span className="text-[10px] font-semibold text-accent-fg bg-accent/10 px-2 py-px rounded-full">
-                          Manual
-                        </span>
-                      )}
+                      {p.isManual && <PunchHistoryToggle punchId={p.id} timezone={timezone} />}
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-fg-secondary tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
