@@ -388,7 +388,7 @@ Routes that touch organization data resolve the caller's organization on the ser
 | `/api/cron/demo-reset` | 08:00 daily | Wipes and reseeds the demo organization and deletes the anonymous users of past demo sessions |
 | `/api/cron/attendance` | Every 15 minutes | In each store's timezone: tells managers about a no-call-no-show (the time card's NCNS rule), tells the employee and managers about a shift left open 2 hours past its scheduled end (16 hours after clock-in if unscheduled), and tells managers when an employee's worked plus remaining scheduled hours this week pass 40 (or worked hours pass 36). Each alert is sent once. Never clocks anyone out. Skips demo organizations |
 
-Vercel's Hobby plan only runs crons once a day and rejects a deployment whose `vercel.json` schedules one more often; on Hobby, remove the attendance entry and call the route every 15 minutes from an external scheduler instead.
+The attendance route isn't in `vercel.json`: Vercel's Hobby plan only runs crons once a day and rejects a deployment that schedules one more often. On Pro, add `{ "path": "/api/cron/attendance", "schedule": "*/15 * * * *" }` to its `crons`; on Hobby, call the route every 15 minutes from an external scheduler with the `CRON_SECRET` header.
 
 All require `CRON_SECRET`. Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; for a manual run, send it in an `x-cron-secret` header:
 
