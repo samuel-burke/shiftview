@@ -1,3 +1,7 @@
+import { zonedTimeToUtc } from "@/lib/dates";
+import { apportion, type RateLookup } from "@/lib/pay-rates";
+import { splitAtMidnights } from "@/lib/pay-cost";
+
 // Pure scheduled labor-cost math, layered on the weekly-hours domain
 // (lib/schedule-hours.ts). Cost = regular hours × rate + overtime hours × rate ×
 // 1.5, where overtime is scheduled time beyond 40h/week. Rates are dollars/hour;
@@ -91,4 +95,102 @@ export function summarizeWeeklyCost(
   ).length;
 
   return { rows, totalCost, employeesMissingRate };
+}
+
+// ─── Scheduled cost per day, at the rate in effect ───────────────────────────
+//
+// The week's scheduled shifts priced at the rate in effect on each hour's
+// store-local date, in the shift's position (lib/pay-rates.ts has the rule):
+// an overnight shift into a raise's first day is costed at the new rate after
+// midnight. The minutes past the weekly threshold, in time order, are
+// overtime. An employee's week cost is rounded to the cent once (so with one
+// rate all week it is exactly computeLaborCost's figure), and split across
+// the days the shifts are on so the days add up to it.
+
+
+export type ScheduledShift = {
+  employeeId: number;
+  date: string;
+  startMinutes: number;
+  endMinutes: number;
+  positionId?: number | null;
+};
+
+export type ScheduledEmployeeCost = {
+  employeeId: number;
+  totalMinutes: number;
+  regularMinutes: number;
+  overtimeMinutes: number;
+  // null when none of the hours has a rate.
+  cost: number | null;
+  // Some hours have no rate (they add nothing to cost).
+  missingRate: boolean;
+  // Cost by the date each shift is on (every date in `dates`).
+  days: Record<string, number>;
+};
+
+export function scheduledCostByDay(
+  shifts: ScheduledShift[],
+  dates: string[],
+  rates: RateLookup,
+  tz: string,
+  opts: { threshold?: number; otMultiplier?: number } = {},
+): ScheduledEmployeeCost[] {
+  const thresholdMs = (opts.threshold ?? WEEKLY_OVERTIME_THRESHOLD_MINUTES) * 60_000;
+  const otMultiplier = opts.otMultiplier ?? OVERTIME_MULTIPLIER;
+  const inWeek = new Set(dates);
+  const byEmployee = new Map<number, ScheduledShift[]>();
+  for (const s of shifts) {
+    const date = s.date.slice(0, 10);
+    if (!inWeek.has(date)) continue;
+    if (!byEmployee.has(s.employeeId)) byEmployee.set(s.employeeId, []);
+    byEmployee.get(s.employeeId)!.push({ ...s, date });
+  }
+
+  const out: ScheduledEmployeeCost[] = [];
+  for (const [employeeId, list] of byEmployee) {
+    const pieces = list
+      .flatMap((s) =>
+        splitAtMidnights(
+          {
+            start: zonedTimeToUtc(s.date, s.startMinutes, tz).getTime(),
+            end: zonedTimeToUtc(s.date, s.endMinutes, tz).getTime(),
+            scheduleId: null,
+          },
+          tz,
+        ).map((p) => ({ ...p, shiftDate: s.date, positionId: s.positionId ?? null })),
+      )
+      .sort((a, b) => a.start - b.start);
+
+    let elapsed = 0;
+    let cost = 0;
+    let rated = false;
+    let missingRate = false;
+    const dayCost: Record<string, number> = {};
+    for (const p of pieces) {
+      const len = p.end - p.start;
+      const regular = Math.max(0, Math.min(len, thresholdMs - elapsed));
+      const overtime = len - regular;
+      elapsed += len;
+      const { rate } = rates(employeeId, p.day, p.positionId);
+      if (rate == null) { missingRate = true; continue; }
+      rated = true;
+      const c = (regular / 3_600_000) * rate + (overtime / 3_600_000) * rate * otMultiplier;
+      cost += c;
+      dayCost[p.shiftDate] = (dayCost[p.shiftDate] ?? 0) + c;
+    }
+    const totalMinutes = Math.round(elapsed / 60_000);
+    const weekCost = rated ? round2(cost) : null;
+    const cents = weekCost == null ? dates.map(() => 0) : apportion(Math.round(weekCost * 100), dates.map((d) => dayCost[d] ?? 0));
+    out.push({
+      employeeId,
+      totalMinutes,
+      regularMinutes: Math.min(totalMinutes, thresholdMs / 60_000),
+      overtimeMinutes: Math.max(0, totalMinutes - thresholdMs / 60_000),
+      cost: weekCost,
+      missingRate,
+      days: Object.fromEntries(dates.map((d, i) => [d, cents[i] / 100])),
+    });
+  }
+  return out;
 }

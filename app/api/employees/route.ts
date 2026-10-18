@@ -6,7 +6,7 @@ import { getOrgContext } from "@/lib/org-context";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { writeAuditLog } from "@/lib/audit";
 import { validateEmployeeSchedulingPatch } from "@/lib/scheduling-rules";
-import { loadPayRates } from "@/lib/pay-rates";
+import { loadPayRates, loadPayrollIds } from "@/lib/pay-rates";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,7 @@ const SCHEDULING_COLUMNS = "employment_type, min_weekly_hours, max_weekly_hours,
 const UNDEFINED_COLUMN = "42703";
 // Postgres foreign_key_violation.
 const FOREIGN_KEY_VIOLATION = "23503";
+const PAYROLL_ID_MAX = 40;
 const SCHEDULING_FIELDS = ["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
 
 // numeric columns can arrive as strings; hours are plain numbers in the API.
@@ -77,18 +78,28 @@ export async function GET(request: Request) {
   const rows = (data ?? []).map(normalizeHours);
   if (!ctx!.isManager) return NextResponse.json(sortByName(rows));
 
-  // Pay rates are for managers (labor cost); coworkers get the roster without them.
-  const { rates, error: rateError } = await loadPayRates(supabase, ctx!.orgId);
+  // Pay rates and payroll IDs are for managers (labor cost, payroll export);
+  // coworkers get the roster without them.
+  const [{ rates, error: rateError }, { ids: payrollIds, error: payrollIdError }] = await Promise.all([
+    loadPayRates(supabase, ctx!.orgId),
+    loadPayrollIds(supabase, ctx!.orgId),
+  ]);
   if (rateError) {
     console.error("[api/employees] pay rates", rateError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  return NextResponse.json(sortByName(rows.map((r) => ({ ...r, pay_rate: rates.get(Number(r.id)) ?? null }))));
+  // Before migration 0061 there are no payroll IDs: the roster goes out without them.
+  if (payrollIdError) console.error("[api/employees] payroll ids", payrollIdError);
+  return NextResponse.json(sortByName(rows.map((r) => ({
+    ...r,
+    pay_rate: rates.get(Number(r.id)) ?? null,
+    payroll_id: payrollIds.get(Number(r.id)) ?? null,
+  }))));
 }
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, userId, name, payRate, archived } = body;
+  const { id, userId, name, payRate, archived, payrollId } = body;
 
   if (id == null)
     return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -114,6 +125,16 @@ export async function PATCH(request: Request) {
   )
     return NextResponse.json(
       { error: "payRate must be a non-negative number or null to clear" },
+      { status: 400 }
+    );
+  // The employee's ID in the payroll provider (migration 0061). Blank clears it.
+  if (
+    payrollId !== undefined &&
+    payrollId !== null &&
+    (typeof payrollId !== "string" || payrollId.trim().length > PAYROLL_ID_MAX || /[\t\r\n]/.test(payrollId))
+  )
+    return NextResponse.json(
+      { error: `payrollId must be text of at most ${PAYROLL_ID_MAX} characters on one line, or null to clear` },
       { status: 400 }
     );
 
@@ -146,7 +167,11 @@ export async function PATCH(request: Request) {
   if (archived === false) updates.archived_at = null;
   if (userId !== undefined) updates.user_id = userId;
   if (name !== undefined) updates.name = name.trim();
+  // Writing pay_rate adds a rate effective today to the history (0061); a
+  // dated change goes through /api/employees/[id]/pay-rates.
   if (payRate !== undefined) updates.pay_rate = payRate;
+  if (payrollId !== undefined)
+    updates.payroll_id = typeof payrollId === "string" && payrollId.trim() ? payrollId.trim() : null;
 
   // Employment type and weekly limits. A one-sided min/max change is checked
   // against the stored other end, so the range can't invert.

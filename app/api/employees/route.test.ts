@@ -88,7 +88,48 @@ describe("GET /api/employees", () => {
     const employeeView = await res.json();
     expect(employeeView).toHaveLength(2);
     expect(employeeView[0]).not.toHaveProperty("pay_rate");
+    expect(employeeView[0]).not.toHaveProperty("payroll_id");
     expect(employee.rpc).not.toHaveBeenCalled();
+  });
+
+  it("includes payroll IDs for managers, read through employee_payroll_ids", async () => {
+    const manager = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    manager.rpc = vi.fn((fn: string) =>
+      Promise.resolve(
+        fn === "employee_payroll_ids"
+          ? { data: [{ employee_id: 1, payroll_id: "G-1" }, { employee_id: 2, payroll_id: null }], error: null }
+          : { data: [], error: null }
+      )
+    ) as any;
+    mockCreateClient.mockResolvedValue(manager as any);
+    const view = await (await GET(new Request("http://localhost/api/employees"))).json();
+    expect(manager.rpc).toHaveBeenCalledWith("employee_payroll_ids", { p_org: MOCK_ORG_ID });
+    expect(view.find((e: any) => e.id === 1)).toHaveProperty("payroll_id", "G-1");
+    expect(view.find((e: any) => e.id === 2)).toHaveProperty("payroll_id", null);
+  });
+
+  it("still returns the roster when payroll IDs can't be read (before migration 0061)", async () => {
+    const manager = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    manager.rpc = vi.fn((fn: string) =>
+      Promise.resolve(
+        fn === "employee_payroll_ids"
+          ? { data: null, error: { code: "PGRST202", message: "no function" } }
+          : { data: [{ employee_id: 1, pay_rate: 20 }], error: null }
+      )
+    ) as any;
+    mockCreateClient.mockResolvedValue(manager as any);
+    const res = await GET(new Request("http://localhost/api/employees"));
+    expect(res.status).toBe(200);
+    const view = await res.json();
+    expect(view.find((e: any) => e.id === 1)).toMatchObject({ pay_rate: 20, payroll_id: null });
+  });
+
+  it("never selects payroll_id from employees (it isn't in the API grant)", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/employees"));
+    for (const r of client.from.mock.results)
+      for (const [cols] of r.value.select.mock.calls) expect(String(cols)).not.toContain("payroll_id");
   });
 
   it("never selects pay_rate from employees", async () => {
@@ -113,7 +154,7 @@ describe("GET /api/employees", () => {
     const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
-    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED.map((e) => ({ ...e, pay_rate: null })));
+    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED.map((e) => ({ ...e, pay_rate: null, payroll_id: null })));
   });
 
   it("returns 500 on database error", async () => {
@@ -132,7 +173,7 @@ describe("GET /api/employees", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(await res.json()).toEqual([
-      { id: 1, name: "Alice Smith", employment_type: "part_time", min_weekly_hours: 12, max_weekly_hours: 24.5, max_days_per_week: 4, pay_rate: null },
+      { id: 1, name: "Alice Smith", employment_type: "part_time", min_weekly_hours: 12, max_weekly_hours: 24.5, max_days_per_week: 4, pay_rate: null, payroll_id: null },
     ]);
   });
 
@@ -154,7 +195,7 @@ describe("GET /api/employees", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/employees"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED.map((e) => ({ ...e, pay_rate: null })));
+    expect(await res.json()).toEqual(MOCK_EMPLOYEES_SORTED.map((e) => ({ ...e, pay_rate: null, payroll_id: null })));
   });
 });
 
@@ -290,6 +331,50 @@ describe("PATCH /api/employees", () => {
     mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
     const res = await PATCH(patchReq({ id: 1, payRate: "20" }));
     expect(res.status).toBe(400);
+  });
+
+  // ── Payroll ID (migration 0061) ─────────────────────────────────────────────
+
+  function employeeUpdate(client: ReturnType<typeof makeSupabaseClient>) {
+    for (const r of (client.from as ReturnType<typeof vi.fn>).mock.results) {
+      const calls = (r.value.update as ReturnType<typeof vi.fn>).mock.calls;
+      if (calls.length) return calls[0][0];
+    }
+    return undefined;
+  }
+
+  it("saves a payroll ID, trimmed", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PATCH(patchReq({ id: 1, payrollId: "  ADP-0042 " }));
+    expect(res.status).toBe(200);
+    expect(employeeUpdate(client)).toEqual({ payroll_id: "ADP-0042" });
+  });
+
+  it("clears a payroll ID with null or blank", async () => {
+    for (const payrollId of [null, "   "]) {
+      const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+      mockCreateClient.mockResolvedValue(client as any);
+      expect((await PATCH(patchReq({ id: 1, payrollId }))).status).toBe(200);
+      expect(employeeUpdate(client)).toEqual({ payroll_id: null });
+    }
+  });
+
+  it("refuses a payroll ID that is too long, not text, or has a tab (it would split an export record)", async () => {
+    for (const payrollId of ["x".repeat(41), 42, "a\tb", "a\nb"]) {
+      const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+      mockCreateClient.mockResolvedValue(client as any);
+      const res = await PATCH(patchReq({ id: 1, payrollId }));
+      expect(res.status).toBe(400);
+      expect(employeeUpdate(client)).toBeUndefined();
+    }
+  });
+
+  it("refuses a payroll ID change from an employee", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: false });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await PATCH(patchReq({ id: 1, payrollId: "X" }))).status).toBe(403);
+    expect(employeeUpdate(client)).toBeUndefined();
   });
 
   // ── Employment type and weekly limits ───────────────────────────────────────

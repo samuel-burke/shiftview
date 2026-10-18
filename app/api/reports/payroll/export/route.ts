@@ -2,166 +2,24 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
-import { computePayroll, EmployeePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
+import { computePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
 import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 import { writeAuditLog } from "@/lib/audit";
-import { csvRow } from "@/lib/csv";
+import { computePay, type CostPunch } from "@/lib/pay-cost";
+import { loadPayContext } from "@/lib/pay-context-server";
+import { EXPORT_FORMATS, renderExport, type ExportFormat } from "@/lib/payroll-export";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// ADP company codes are three letters or digits.
+const ADP_CO_CODE_RE = /^[A-Za-z0-9]{3}$/;
 
-// ─── Export helpers ──────────────────────────────────────────────────────────
-
-// IIF is tab-separated, one record per line: a tab or line break inside a
-// value would split the record.
-function iifField(v: string): string {
-  return v.replace(/[\t\r\n]+/g, " ");
-}
-
-// MM/DD/YYYY
-function mmddyyyy(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-");
-  return `${m}/${d}/${y}`;
-}
-
-// ─── Format generators ────────────────────────────────────────────────────────
-
-function summaryCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Week Of", "Regular Hrs", "OT Hrs", "Break Hrs", "Total Hrs", "Incomplete"])];
-  for (const emp of rows) {
-    for (const week of emp.weeks) {
-      lines.push(csvRow([
-        emp.employeeName,
-        week.weekStart,
-        week.regularHours.toFixed(2),
-        week.overtimeHours.toFixed(2),
-        week.breakHours.toFixed(2),
-        week.totalWorkedHours.toFixed(2),
-        week.hasIncomplete ? "Yes" : "",
-      ]));
-    }
-    if (emp.weeks.length > 1) {
-      lines.push(csvRow([
-        emp.employeeName + " (total)",
-        "",
-        emp.totalRegularHours.toFixed(2),
-        emp.totalOvertimeHours.toFixed(2),
-        emp.totalBreakHours.toFixed(2),
-        emp.totalWorkedHours.toFixed(2),
-        "",
-      ]));
-    }
-  }
-  return lines.join("\n");
-}
-
-// Daily detail — works with QuickBooks Online time import, Gusto, ADP, and most modern payroll platforms
-function dailyCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete"])];
-  for (const emp of rows) {
-    for (const week of emp.weeks) {
-      for (const day of week.days) {
-        if (day.workedHours === 0 && !day.hasIncomplete) continue;
-        lines.push(csvRow([
-          emp.employeeName,
-          day.date,
-          day.dayName,
-          day.workedHours.toFixed(2),
-          day.breakHours.toFixed(2),
-          day.hasIncomplete ? "Yes" : "",
-        ]));
-      }
-    }
-  }
-  return lines.join("\n");
-}
-
-// Calculation breakdown — shows how each worked day accumulates toward the
-// weekly 40h regular cap (hours beyond it become overtime), alongside that
-// day's break hours. Hours worked earlier in a workweek the range starts
-// part-way through open the week as a "worked before this period" row: they
-// were paid in the previous period but count toward this week's overtime. The
-// per-week subtotal rows are exactly the figures the Summary sheet reports.
-// The day-level split is computePayroll's, so the QuickBooks export matches.
-function detailedCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow([
-    "Employee", "Week Of", "Date", "Day",
-    "Worked Hrs", "Cumulative Wk Hrs", "Regular Hrs", "OT Hrs", "Break Hrs", "Incomplete",
-  ])];
-  for (const emp of rows) {
-    for (const week of emp.weeks) {
-      let weekAccum = week.priorHours;
-      if (week.priorHours > 0) {
-        lines.push(csvRow([
-          emp.employeeName, week.weekStart, "", "Worked before this period",
-          week.priorHours.toFixed(2), weekAccum.toFixed(2), "", "", "", "",
-        ]));
-      }
-      for (const day of week.days) {
-        if (day.workedHours === 0 && !day.hasIncomplete) continue;
-        weekAccum += day.workedHours;
-        lines.push(csvRow([
-          emp.employeeName,
-          week.weekStart,
-          day.date,
-          day.dayName,
-          day.workedHours.toFixed(2),
-          weekAccum.toFixed(2),
-          day.regularHours.toFixed(2),
-          day.overtimeHours.toFixed(2),
-          day.breakHours.toFixed(2),
-          day.hasIncomplete ? "Yes" : "",
-        ]));
-      }
-      lines.push(csvRow([
-        `${emp.employeeName} — week total`,
-        week.weekStart,
-        "", "",
-        week.totalWorkedHours.toFixed(2),
-        "",
-        week.regularHours.toFixed(2),
-        week.overtimeHours.toFixed(2),
-        week.breakHours.toFixed(2),
-        week.hasIncomplete ? "Yes" : "",
-      ]));
-    }
-    lines.push(""); // blank separator between employees
-  }
-  return lines.join("\n");
-}
-
-// QuickBooks Desktop IIF — one TIMEACT row per employee per worked day and
-// pay type, using computePayroll's day-level regular/overtime split.
-function quickbooksIIF(rows: EmployeePayroll[]): string {
-  const lines = [
-    "!TIMETYPE\tNAME",
-    "TIMETYPE\tRegular Time",
-    "TIMETYPE\tOvertime",
-    "!TIMEACT\tDATE\tJOB\tEMP\tSERVICE\tDURATION\tNOTE\tBILLINGSTATUS\tPITEM\tCLASS",
-  ];
-
-  for (const emp of rows) {
-    for (const week of emp.weeks) {
-      for (const day of week.days) {
-        const note = day.hasIncomplete ? "Incomplete punch — verify hours" : "";
-        for (const [service, hrs] of [["Regular Time", day.regularHours], ["Overtime", day.overtimeHours]] as const) {
-          if (hrs <= 0) continue;
-          lines.push(
-            ["TIMEACT", mmddyyyy(day.date), "", iifField(emp.employeeName), service,
-             hrs.toFixed(2), note, "0", "", ""].join("\t")
-          );
-        }
-      }
-    }
-  }
-
-  return lines.join("\n");
-}
-
-// ─── Route handler ────────────────────────────────────────────────────────────
-
+// GET /api/reports/payroll/export?from&to&format[&coCode] (manager-only)
+// The file formats live in lib/payroll-export.ts, with the providers' import
+// layouts they follow. Dollars are at the rate in effect when each hour was
+// worked (lib/pay-cost.ts).
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
@@ -171,7 +29,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const from   = searchParams.get("from");
   const to     = searchParams.get("to");
-  const format = searchParams.get("format") ?? "summary";
+  // An unknown format gets the summary, as it always has.
+  const asked = searchParams.get("format") ?? "summary";
+  const format: ExportFormat = (EXPORT_FORMATS as readonly string[]).includes(asked) ? (asked as ExportFormat) : "summary";
+  const coCode = searchParams.get("coCode") ?? "";
 
   if (!from || !to)
     return NextResponse.json({ error: "from and to params required" }, { status: 400 });
@@ -183,6 +44,8 @@ export async function GET(request: Request) {
   const daysDiff = daysBetweenKeys(from, to);
   if (daysDiff > 366)
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
+  if (format === "adp" && !ADP_CO_CODE_RE.test(coCode))
+    return NextResponse.json({ error: "ADP needs your 3-character company code (coCode)" }, { status: 400 });
 
   const tz = await getOrgTimezone(supabase, orgId!);
 
@@ -190,7 +53,7 @@ export async function GET(request: Request) {
   const { data, error, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
-      .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
+      .select("id, employee_id, schedule_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
       .eq("org_id", orgId!)
       .gte("punched_at", span.start)
       .lte("punched_at", span.end)
@@ -208,7 +71,15 @@ export async function GET(request: Request) {
   if (truncated)
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+  const punches = data as unknown as (PunchRow & CostPunch)[];
+  const payroll = computePayroll(punches, tz, { from, to });
+
+  const { ctx, error: payError } = await loadPayContext(supabase, orgId!, punches.map((p) => p.schedule_id));
+  if (payError || !ctx) {
+    console.error("[api/reports/payroll/export] pay rates", payError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const pay = computePay(payroll, punches, ctx.rates, ctx.positionBySchedule, tz);
 
   writeAuditLog({
     action:       "payroll.export",
@@ -218,31 +89,14 @@ export async function GET(request: Request) {
     metadata:     { from, to, format, employeeCount: payroll.length },
   }).catch(() => {});
 
-  let content: string;
-  let contentType: string;
-  let filename: string;
-
-  switch (format) {
-    case "qb-iif":
-      content     = quickbooksIIF(payroll);
-      contentType = "text/plain";
-      filename    = `payroll_${from}_to_${to}.iif`;
-      break;
-    case "daily":
-      content     = dailyCSV(payroll);
-      contentType = "text/csv";
-      filename    = `payroll_daily_${from}_to_${to}.csv`;
-      break;
-    case "detailed":
-      content     = detailedCSV(payroll);
-      contentType = "text/csv";
-      filename    = `payroll_breakdown_${from}_to_${to}.csv`;
-      break;
-    default:
-      content     = summaryCSV(payroll);
-      contentType = "text/csv";
-      filename    = `payroll_${from}_to_${to}.csv`;
-  }
+  const { content, contentType, filename } = renderExport(format, payroll, {
+    from,
+    to,
+    pay,
+    payrollIds: ctx.payrollIds,
+    positionNames: ctx.positionNames,
+    adpCoCode: coCode,
+  });
 
   return new Response(content, {
     headers: {
