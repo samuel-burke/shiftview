@@ -531,3 +531,23 @@ describe("SettingsPageClient — employee view", () => {
     expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
   });
 });
+
+describe("SettingsPageClient — geofence without 'Require GPS'", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("offers the geofence switch while GPS isn't required, and saves it on its own", async () => {
+    const fetchSpy = setupFetch();
+    await renderAndSettle();
+    const gps = screen.getByTestId("toggle-gps-required");
+    expect(gps).toHaveAttribute("aria-checked", "false");
+    const fence = screen.getByTestId("toggle-geofence-enabled");
+    await act(async () => { fireEvent.click(fence); });
+    await waitFor(() => {
+      const put = fetchSpy.mock.calls.find(([url, opts]) =>
+        url === "/api/settings" && opts?.method === "PUT" && String(opts.body).includes("geofenceEnabled"));
+      expect(put).toBeTruthy();
+      expect(JSON.parse(put![1]!.body as string)).toEqual({ geofenceEnabled: true });
+    });
+  });
+});

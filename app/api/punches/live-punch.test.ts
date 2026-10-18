@@ -141,3 +141,86 @@ describe("POST /api/punches — an employee's note on a live punch", () => {
     expect(client.inserted[0]).toMatchObject({ punch_type: "clock_out", employee_note: "Left at close" });
   });
 });
+
+describe("POST /api/punches — the geofence applies with or without 'Require GPS'", () => {
+  // 100m around lower Manhattan.
+  const fence = (gpsRequired: boolean, extra: Record<string, string> = {}) => ({
+    gps_required: String(gpsRequired),
+    geofence_enabled: "true",
+    geofence_lat: "40.7128",
+    geofence_lng: "-74.006",
+    geofence_radius: "100",
+    ...extra,
+  });
+  const INSIDE = { lat: 40.7129, lng: -74.0061 };
+  const OUTSIDE = { lat: 40.73, lng: -74.006 }; // about 2 km north
+
+  for (const gpsRequired of [true, false]) {
+    describe(`GPS ${gpsRequired ? "required" : "not required"}`, () => {
+      it("accepts a clock-in inside the fence", async () => {
+        const client = makeClient({ settings: fence(gpsRequired) });
+        mockCreateClient.mockResolvedValue(client as any);
+        const res = await post({ punchType: "clock_in", ...INSIDE });
+        expect(res.status).toBe(201);
+        expect(client.inserted[0]).toMatchObject(INSIDE);
+      });
+
+      it("refuses a clock-in outside the fence", async () => {
+        const client = makeClient({ settings: fence(gpsRequired) });
+        mockCreateClient.mockResolvedValue(client as any);
+        const res = await post({ punchType: "clock_in", ...OUTSIDE });
+        expect(res.status).toBe(422);
+        expect((await res.json()).error).toMatch(/Outside geofence/);
+        expect(client.inserted).toHaveLength(0);
+      });
+
+      it("refuses a clock-in with no location and says location is needed", async () => {
+        const client = makeClient({ settings: fence(gpsRequired) });
+        mockCreateClient.mockResolvedValue(client as any);
+        const res = await post({ punchType: "clock_in" });
+        expect(res.status).toBe(422);
+        expect((await res.json()).error).toMatch(/Location needed/);
+        expect(client.inserted).toHaveLength(0);
+      });
+
+      it("fails closed on a misconfigured centre", async () => {
+        const client = makeClient({ settings: fence(gpsRequired, { geofence_lat: "nope" }) });
+        mockCreateClient.mockResolvedValue(client as any);
+        const res = await post({ punchType: "clock_in", ...INSIDE });
+        expect(res.status).toBe(422);
+        expect((await res.json()).error).toMatch(/misconfigured/);
+      });
+    });
+  }
+
+  it("doesn't fence a break", async () => {
+    const client = makeClient({ settings: fence(false), today: [{ punch_type: "clock_in", punched_at: minutesAgo(30) }] });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await post({ punchType: "break_start" })).status).toBe(201);
+  });
+
+  it("lets a clock-in without location through when the geofence is off, GPS required or not", async () => {
+    for (const gpsRequired of [true, false]) {
+      const client = makeClient({ settings: fence(gpsRequired, { geofence_enabled: "false" }) });
+      mockCreateClient.mockResolvedValue(client as any);
+      expect((await post({ punchType: "clock_in" })).status).toBe(201);
+    }
+  });
+
+  it("lets a clock-in without location through when no centre has been saved", async () => {
+    const client = makeClient({ settings: fence(false, { geofence_lat: "", geofence_lng: "" }) });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await post({ punchType: "clock_in" })).status).toBe(201);
+  });
+
+  it("maps the database's own refusal (GF002) to 422", async () => {
+    const client = makeClient({
+      settings: { geofence_enabled: "false" },
+      insertError: { code: "GF002", message: "Location needed to clock in" },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await post({ punchType: "clock_in" });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/Location needed/);
+  });
+});

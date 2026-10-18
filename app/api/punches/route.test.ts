@@ -1299,7 +1299,7 @@ describe("POST /api/punches — geofence coordinate validation", () => {
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "clock_in" }));
     expect(res.status).toBe(422);
-    expect((await res.json()).error).toMatch(/GPS location required/);
+    expect((await res.json()).error).toMatch(/Location needed/);
     expect(insert).not.toHaveBeenCalled();
   });
 

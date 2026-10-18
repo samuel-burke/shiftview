@@ -1183,7 +1183,7 @@ export default function SettingsPageClient({
                 />
               </button>
             </div>
-            <div className={`flex items-center justify-between gap-3 ${gpsRequired ? "pb-4 border-b border-line/60" : ""}`}>
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-line/60">
               <div>
                 <div className="text-sm font-semibold text-fg-body">Require GPS for Clock-In</div>
                 <div className="text-xs text-fg-subtle mt-0.5">Block clock-in if location is denied</div>
@@ -1211,13 +1211,14 @@ export default function SettingsPageClient({
               </button>
             </div>
 
-            {/* Geofence enforcement — only visible when GPS is required */}
-            {gpsRequired && (
+            {/* Geofence enforcement — applies on its own, GPS required or not
+                (a geofenced clock-in always needs the phone's location). */}
+            {(
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-fg-body">Enforce Geofence</div>
-                    <div className="text-xs text-fg-subtle mt-0.5">Only allow clock-in within a set radius</div>
+                    <div className="text-xs text-fg-subtle mt-0.5">Only allow clock-in within a set radius (uses the phone&apos;s location even when GPS isn&apos;t required)</div>
                   </div>
                   <button
                     role="switch"

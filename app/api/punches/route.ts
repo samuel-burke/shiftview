@@ -19,6 +19,11 @@ export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Refusal for a geofenced clock-in sent without a location (the database's
+// GF002 says the same).
+const GEOFENCE_LOCATION_NEEDED =
+  "Location needed to clock in — this store only allows clock-in near the store. Turn on location and try again";
+
 // How far back an employee may ask for a missed punch to be added. Managers
 // have no limit.
 const CORRECTION_REQUEST_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -234,11 +239,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // Server-side geofence enforcement for clock_in
+  // Server-side geofence enforcement for clock_in. It applies whenever the
+  // geofence is on, whether or not "Require GPS" is; a clock-in without a
+  // location is refused then, or the geofence would be pointless. The
+  // database applies the same rule (migration 0065).
   if (punchType === "clock_in") {
-    const gpsRequired    = settingsMap.gps_required === "true";
-    const geofenceEnabled = settingsMap.geofence_enabled === "true";
-    if (gpsRequired && geofenceEnabled) {
+    if (settingsMap.geofence_enabled === "true") {
       const geofence = parseGeofenceConfig(
         settingsMap.geofence_lat,
         settingsMap.geofence_lng,
@@ -257,7 +263,7 @@ export async function POST(request: Request) {
         const { lat: geofenceLat, lng: geofenceLng, radius: geofenceRadius } = geofence;
         if (lat === null || lng === null) {
           return NextResponse.json(
-            { error: "GPS location required — geofence enforcement is active" },
+            { error: GEOFENCE_LOCATION_NEEDED },
             { status: 422 }
           );
         }

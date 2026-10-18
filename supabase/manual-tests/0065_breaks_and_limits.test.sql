@@ -144,6 +144,20 @@ create or replace function pg_temp.set_alder(k text, v text) returns void langua
   on conflict (org_id, key) do update set value = excluded.value
 $$;
 
+
+-- The geofence: 100m around lower Manhattan, with "Require GPS" as given.
+create or replace function pg_temp.fence(gps_required text, enabled text default 'true') returns void language sql as $$
+  select pg_temp.set_alder('gps_required', gps_required);
+  select pg_temp.set_alder('geofence_enabled', enabled);
+  select pg_temp.set_alder('geofence_lat', '40.7128');
+  select pg_temp.set_alder('geofence_lng', '-74.006');
+  select pg_temp.set_alder('geofence_radius', '100');
+$$;
+
+-- Cara clocking in at lat, lng (SQL literals).
+create or replace function pg_temp.cara_in(lat text, lng text) returns text language sql as $$
+  select pg_temp.live('cara', 'clock_in', ', lat, lng', format(', %s, %s', lat, lng))
+$$;
 -- ===========================================================================
 -- Part 1: before 0065
 -- ===========================================================================
@@ -151,6 +165,13 @@ $$;
 select pg_temp.expect('before 0065: a live punch can''t carry an employee''s note',
   pg_temp.try(:cara, pg_temp.live('cara', 'clock_in', ', employee_note', ', ''Covering for Sam''')), 'err:42703');
 
+
+select pg_temp.fence('false');
+select pg_temp.expect('before 0065: with GPS not required, a geofenced store let a clock-in from 2 km away through',
+  pg_temp.try(:cara, pg_temp.cara_in('40.73', '-74.006')), 'ok:1');
+select pg_temp.expect('before 0065: ... and one with no location',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
+select pg_temp.fence('false', 'false');
 -- ===========================================================================
 -- Part 2: 0065, applied twice
 -- ===========================================================================
@@ -208,6 +229,55 @@ select pg_temp.expect('the employee''s note stays apart from a manager''s reason
   pg_temp.got(:mia, format('update public.punch_records set note = ''Badge reader down'' where id = %s returning note || '' / '' || employee_note',
     (select v from fx where k = 'dan_in'))), 'val:Badge reader down / Register 2 down');
 
+
+-- ── The geofence applies with or without "Require GPS" ─────────────────────
+
+select pg_temp.fence('false');
+select pg_temp.expect('GPS not required: a clock-in inside the fence is accepted',
+  pg_temp.try(:cara, pg_temp.cara_in('40.7129', '-74.0061')), 'ok:1');
+select pg_temp.expect('GPS not required: a clock-in 2 km away is refused',
+  pg_temp.try(:cara, pg_temp.cara_in('40.73', '-74.006')), 'err:GF001');
+select pg_temp.expect('GPS not required: a clock-in with no location is refused (location needed)',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'err:GF002');
+select pg_temp.set_alder('geofence_radius', 'wide');
+select pg_temp.expect('GPS not required: a misconfigured radius fails closed',
+  pg_temp.try(:cara, pg_temp.cara_in('40.7129', '-74.0061')), 'err:GF003');
+
+select pg_temp.fence('true');
+select pg_temp.expect('GPS required: a clock-in inside the fence is accepted',
+  pg_temp.try(:cara, pg_temp.cara_in('40.7129', '-74.0061')), 'ok:1');
+select pg_temp.expect('GPS required: a clock-in 2 km away is refused',
+  pg_temp.try(:cara, pg_temp.cara_in('40.73', '-74.006')), 'err:GF001');
+select pg_temp.expect('GPS required: a clock-in with no location is refused',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'err:GF002');
+
+select pg_temp.fence('false');
+select pg_temp.expect('the geofence doesn''t apply to a clock-out',
+  pg_temp.try(:dan, pg_temp.live('dan', 'clock_out')), 'ok:1');
+select pg_temp.expect('a manager''s manual clock-in needs no location',
+  pg_temp.try(:mia, pg_temp.manual('cara', 'clock_in', 'now() - interval ''1 day''')), 'ok:1');
+select pg_temp.expect('the service role needs no location',
+  pg_temp.try(null, pg_temp.cara_in('null', 'null'), 'service_role'), 'ok:1');
+select pg_temp.expect('another org''s clock-in fails ownership, not the geofence',
+  pg_temp.try(:cara, format(
+    'insert into public.punch_records (org_id, employee_id, punch_type, lat, lng) values (%L, %s, ''clock_in'', 0, 0)',
+    (select v from fx where k = 'birch'), (select v from fx where k = 'bea'))), 'err:42501');
+
+select pg_temp.set_alder('geofence_lat', '');
+select pg_temp.set_alder('geofence_lng', '');
+select pg_temp.expect('no centre saved: a clock-in with no location is accepted',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
+
+select pg_temp.fence('true', 'false');
+select pg_temp.expect('geofence off, GPS required: a clock-in with no location is accepted (as before)',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
+select pg_temp.fence('false', 'false');
+select pg_temp.expect('geofence off, GPS not required: a clock-in from anywhere is accepted',
+  pg_temp.try(:cara, pg_temp.cara_in('40.73', '-74.006')), 'ok:1');
+select pg_temp.expect('geofence off: malformed coordinates are still refused',
+  pg_temp.try(:cara, pg_temp.cara_in('''NaN''::float8', '0')), 'err:23514');
+select pg_temp.expect('enforce_punch_geofence is not executable by authenticated',
+  (not has_function_privilege('authenticated', 'public.enforce_punch_geofence()', 'execute'))::text, 'true');
 -- ── What still works ────────────────────────────────────────────────────────
 
 select pg_temp.expect('a live punch with no note',

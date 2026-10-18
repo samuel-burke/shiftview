@@ -440,10 +440,15 @@ export default function ClockPageClient() {
     let lat: number | null = null;
     let lng: number | null = null;
 
-    if (punchType === "clock_in" && gpsRequired) {
+    // A geofence needs the location whether or not "Require GPS" is on; the
+    // server refuses a geofenced clock-in without one.
+    const geofenced = geofenceEnabled && geofenceLat !== null && geofenceLng !== null;
+    if (punchType === "clock_in" && (gpsRequired || geofenced)) {
       const gps = await getGps();
       if (!gps) {
-        setActionError("GPS location is required to clock in. Please enable location access.");
+        setActionError(gpsRequired
+          ? "GPS location is required to clock in. Please enable location access."
+          : "Location is needed to clock in at this store. Please enable location access.");
         setActionPending(false);
         return;
       }
