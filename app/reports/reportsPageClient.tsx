@@ -143,6 +143,8 @@ function auditTitle(entry: AuditEntry): string {
     case "employee.delete":      return `Deleted employee ${empName}`;
     case "employee.archive":     return `Archived employee ${empName}`;
     case "employee.restore":     return `Restored employee ${empName}`;
+    case "employee.pay_rate":   return `Set a pay rate for ${empName}`;
+    case "employee.pay_rate_delete": return `Removed a pay rate`;
     case "time_off.request":     return `Time-off requested`;
     case "time_off.approve":     return `Approved time-off for ${empName}`;
     case "time_off.deny":        return `Denied time-off for ${empName}`;
@@ -241,7 +243,7 @@ function auditDetail(entry: AuditEntry, tz: string): string | null {
     case "timecard.export":
       return `${m.from} to ${m.to} · ${m.totalViolations} flags`;
     case "payroll.export": {
-      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", detailed: "Breakdown CSV", "qb-iif": "QuickBooks IIF" };
+      const fmtLabel: Record<string, string> = { summary: "Summary CSV", daily: "Daily CSV", detailed: "Breakdown CSV", "qb-iif": "QuickBooks IIF", gusto: "Gusto CSV", adp: "ADP CSV", qbo: "QuickBooks Online CSV" };
       return `${m.from} to ${m.to} · ${fmtLabel[m.format as string] ?? m.format} · ${m.employeeCount} employees`;
     }
     case "availability.upsert":
