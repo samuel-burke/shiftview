@@ -274,3 +274,267 @@ describe("computeTimecard — shifts past midnight", () => {
     expect(tc.days[0].workedHours).toBe(9);
   });
 });
+
+describe("computeTimecard — punches that don't pair up (timekeeping audit)", () => {
+  it("flags a doubled clock-in and counts from the first one", () => {
+    const tc = run({ punches: [punch("clock_in", 8, 0), punch("clock_in", 12, 0), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].workedHours).toBe(8);
+    expect(tc.days[0].hasIncomplete).toBe(true);
+  });
+
+  it("flags a break end with no break start", () => {
+    const tc = run({ punches: [punch("clock_in", 8, 0), punch("break_end", 12, 0), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].hasIncomplete).toBe(true);
+    expect(tc.days[0].workedHours).toBe(8);
+  });
+
+  it("flags a clock-out with no clock-in", () => {
+    const tc = run({ punches: [punch("clock_out", 16, 0)] });
+    expect(tc.days[0].hasIncomplete).toBe(true);
+  });
+
+  it("keeps a clean day unflagged", () => {
+    const tc = run({ punches: [punch("clock_in", 8, 0), punch("break_start", 12, 0), punch("break_end", 12, 30), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].hasIncomplete).toBe(false);
+    expect(tc.days[0].workedHours).toBe(7.5);
+  });
+
+  it("orders punches stamped the same instant by id", () => {
+    const a = punch("clock_in", 8, 0), b = punch("break_start", 12, 0), c = punch("break_end", 12, 0), d = punch("clock_out", 16, 0);
+    const tc = run({ punches: [d, c, b, a] });
+    expect(tc.days[0].punches.map((p) => p.punchType)).toEqual(["clock_in", "break_start", "break_end", "clock_out"]);
+    expect(tc.days[0].hasIncomplete).toBe(false);
+  });
+});
+
+describe("computeTimecard — totals (timekeeping audit)", () => {
+  it("sums exact worked time and rounds once", () => {
+    // Three days of 8h 0m 20s (8.0056h, shown 8.01) total 24.02h, not 24.03.
+    const at = (d: string, hms: string) => `2026-01-${d}T${hms}-05:00`;
+    const punches: TimecardPunchInput[] = [];
+    for (const d of ["13", "14", "15"]) {
+      punches.push({ id: nextId++, punchType: "clock_in", punchedAt: at(d, "08:00:00") });
+      punches.push({ id: nextId++, punchType: "clock_out", punchedAt: at(d, "16:00:20") });
+    }
+    const tc = computeTimecard({
+      employeeId: 1, employeeName: "T", from: "2026-01-13", to: "2026-01-15", timezone: TZ,
+      policy: DEFAULT_PUNCH_POLICY, schedules: [], punches, callouts: [], nowMs: Date.parse("2026-01-16T00:00:00Z"),
+    });
+    expect(tc.days.map((d) => d.workedHours)).toEqual([8.01, 8.01, 8.01]);
+    expect(tc.totalWorkedHours).toBe(24.02);
+  });
+});
+
+// ── Edge cases from the time card audit (2026-10) ───────────────────────────
+// Times are EST (−05:00) unless a test says otherwise.
+
+const types = (tc: ReturnType<typeof runRange>, i = 0) => tc.days[i].violations.map((v) => v.type);
+const lateNight = { lateOutEnabled: true, earlyInEnabled: true };
+
+describe("computeTimecard — clock-ins on the other side of midnight", () => {
+  it("puts an 11:50 PM clock-in for a midnight shift on the shift's day, with no NCNS", () => {
+    const tc = runRange({
+      from: "2026-01-14", to: "2026-01-15", policy: lateNight,
+      schedules: [{ date: "2026-01-15", startMinutes: 0, endMinutes: 480 }],
+      punches: [at("2026-01-14T23:50:00-05:00", "clock_in"), at("2026-01-15T08:00:00-05:00", "clock_out")],
+    });
+    // Before: Jan 14 showed the punches as unscheduled, and Jan 15 a false NCNS.
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-01-15"]);
+    expect(tc.days[0].workedHours).toBeCloseTo(8.17, 2);
+    expect(tc.days[0].punches[0].localMinutes).toBe(-10);
+    expect(types(tc)).toEqual([]);
+  });
+
+  it("flags a big early arrival before midnight as early-in, not a no-show", () => {
+    const tc = runRange({
+      from: "2026-01-14", to: "2026-01-15", policy: { earlyInEnabled: true, earlyInMinutes: 15 },
+      schedules: [{ date: "2026-01-15", startMinutes: 60, endMinutes: 540 }], // 1 AM
+      punches: [at("2026-01-14T23:30:00-05:00", "clock_in"), at("2026-01-15T09:00:00-05:00", "clock_out")],
+    });
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-01-15"]);
+    expect(tc.days[0].violations.map((v) => [v.type, v.minutes])).toEqual([["early_in", 90]]);
+  });
+
+  it("judges a 12:10 AM clock-in for an 11 PM shift as 70 min late, not a no-show", () => {
+    const tc = runRange({
+      from: "2026-01-14", to: "2026-01-15",
+      schedules: [{ date: "2026-01-14", startMinutes: 1380, endMinutes: 1860 }], // 11 PM – 7 AM
+      punches: [at("2026-01-15T00:10:00-05:00", "clock_in"), at("2026-01-15T07:00:00-05:00", "clock_out")],
+    });
+    // Before: a false NCNS on Jan 14 and unscheduled punches on Jan 15.
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-01-14"]);
+    expect(tc.days[0].violations.map((v) => [v.type, v.minutes])).toEqual([["late_in", 70]]);
+    expect(tc.days[0].punches[0].localMinutes).toBe(1450);
+  });
+
+  it("matches across the range edge when the shift's day is outside the range", () => {
+    // Only Jan 14 asked for; the clock-in belongs to Jan 15's midnight shift.
+    const tc = runRange({
+      from: "2026-01-14", to: "2026-01-14",
+      schedules: [{ date: "2026-01-15", startMinutes: 0, endMinutes: 480 }],
+      punches: [at("2026-01-14T23:50:00-05:00", "clock_in"), at("2026-01-15T08:00:00-05:00", "clock_out")],
+    });
+    expect(tc.days).toEqual([]);
+  });
+
+  it("scores a scheduled overnight shift's clock-out against the next morning", () => {
+    const tc = runRange({
+      from: "2026-01-14", to: "2026-01-15", policy: lateNight,
+      schedules: [{ date: "2026-01-14", startMinutes: 1320, endMinutes: 1800 }], // 10 PM – 6 AM
+      punches: [at("2026-01-14T22:00:00-05:00", "clock_in"), at("2026-01-15T06:30:00-05:00", "clock_out")],
+    });
+    expect(tc.days[0].violations.map((v) => [v.type, v.minutes])).toEqual([["late_out", 30]]);
+  });
+
+  it("drops a shift that began the night before `from` (it belongs to that day)", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", schedules: [],
+      punches: [
+        at("2026-01-14T20:00:00-05:00", "clock_in"), at("2026-01-14T23:30:00-05:00", "break_start"),
+        at("2026-01-15T00:30:00-05:00", "break_end"), at("2026-01-15T02:00:00-05:00", "clock_out"),
+      ],
+    });
+    expect(tc.days).toEqual([]);
+  });
+});
+
+describe("computeTimecard — split shifts", () => {
+  const split = [
+    { date: "2026-01-15", startMinutes: 480, endMinutes: 720 },   // 8 AM – noon
+    { date: "2026-01-15", startMinutes: 1020, endMinutes: 1260 }, // 5 – 9 PM
+  ];
+
+  it("judges each shift on its own: late for the second, nothing false on the first", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", policy: lateNight, schedules: split,
+      punches: [
+        at("2026-01-15T08:00:00-05:00", "clock_in"), at("2026-01-15T12:00:00-05:00", "clock_out"),
+        at("2026-01-15T17:30:00-05:00", "clock_in"), at("2026-01-15T21:00:00-05:00", "clock_out"),
+      ],
+    });
+    // Before: only the 5 PM shift was kept, so the 8 AM clock-in was a
+    // 540-min early-in and the 30-min-late return wasn't flagged.
+    expect(tc.days[0].violations.map((v) => [v.type, v.minutes])).toEqual([["late_in", 30]]);
+    expect(tc.days[0].schedules).toEqual([
+      { startMinutes: 480, endMinutes: 720 }, { startMinutes: 1020, endMinutes: 1260 },
+    ]);
+    expect(tc.days[0].schedule).toEqual({ startMinutes: 480, endMinutes: 720 });
+    expect(tc.days[0].workedHours).toBe(7.5);
+  });
+
+  it("flags a no-show for the second shift when only the first was worked", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", policy: lateNight, schedules: split,
+      punches: [at("2026-01-15T08:00:00-05:00", "clock_in"), at("2026-01-15T12:00:00-05:00", "clock_out")],
+    });
+    expect(tc.days[0].violations.map((v) => [v.type, v.scheduledMinutes])).toEqual([["ncns", 1020]]);
+  });
+
+  it("flags the first shift as missed when only the second was worked", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", schedules: split,
+      punches: [at("2026-01-15T17:00:00-05:00", "clock_in"), at("2026-01-15T21:00:00-05:00", "clock_out")],
+    });
+    expect(tc.days[0].violations.map((v) => [v.type, v.scheduledMinutes])).toEqual([["ncns", 480]]);
+  });
+
+  it("does not call a shift missed when it was worked straight through from the first", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", schedules: split,
+      punches: [at("2026-01-15T08:00:00-05:00", "clock_in"), at("2026-01-15T21:00:00-05:00", "clock_out")],
+    });
+    expect(types(tc)).not.toContain("ncns");
+  });
+
+  it("treats back-to-back shifts as one block (no early-out at the handover)", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", policy: lateNight,
+      schedules: [
+        { date: "2026-01-15", startMinutes: 480, endMinutes: 720 },
+        { date: "2026-01-15", startMinutes: 720, endMinutes: 960 },
+      ],
+      punches: [at("2026-01-15T08:00:00-05:00", "clock_in"), at("2026-01-15T16:00:00-05:00", "clock_out")],
+    });
+    expect(types(tc)).toEqual([]);
+    expect(tc.days[0].schedules).toEqual([{ startMinutes: 480, endMinutes: 960 }]);
+  });
+
+  it("keeps a lunch clock-out/in inside one shift on that shift", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15", policy: lateNight,
+      schedules: [{ date: "2026-01-15", startMinutes: 480, endMinutes: 960 }],
+      punches: [
+        at("2026-01-15T08:00:00-05:00", "clock_in"), at("2026-01-15T12:00:00-05:00", "clock_out"),
+        at("2026-01-15T12:30:00-05:00", "clock_in"), at("2026-01-15T16:00:00-05:00", "clock_out"),
+      ],
+    });
+    expect(types(tc)).toEqual([]);
+    expect(tc.days[0].workedHours).toBe(7.5);
+    expect(tc.days[0].hasIncomplete).toBe(false);
+  });
+});
+
+describe("computeTimecard — other edge cases", () => {
+  it("does not flag an early-out for a shift still in progress", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15",
+      schedules: [{ date: "2026-01-15", startMinutes: 480, endMinutes: 960 }],
+      punches: [at("2026-01-15T08:00:00-05:00", "clock_in")],
+      nowMs: Date.parse("2026-01-15T12:00:00-05:00"),
+    });
+    expect(types(tc)).toEqual([]);
+    expect(tc.days[0].hasIncomplete).toBe(true);
+  });
+
+  it("does not flag NCNS for a shift that hasn't started", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-15",
+      schedules: [{ date: "2026-01-15", startMinutes: 1020, endMinutes: 1260 }],
+      punches: [],
+      nowMs: Date.parse("2026-01-15T12:00:00-05:00"),
+    });
+    expect(types(tc)).toEqual([]);
+  });
+
+  it("shows hours worked on a called-out day, never with an NCNS (arriving later still counts as late)", () => {
+    const tc = run({ callouts: [{ date: DATE, reason: "sick" }], punches: [punch("clock_in", 13, 0), punch("clock_out", 16, 0)] });
+    expect(tc.days[0].workedHours).toBe(3);
+    expect(tc.days[0].violations.map((v) => v.type)).toEqual(["callout", "late_in"]);
+  });
+
+  it("lists unscheduled work as its own day next to a missed scheduled day", () => {
+    const tc = runRange({
+      from: "2026-01-15", to: "2026-01-16",
+      schedules: [{ date: "2026-01-15", startMinutes: 480, endMinutes: 960 }],
+      punches: [at("2026-01-16T08:00:00-05:00", "clock_in"), at("2026-01-16T16:00:00-05:00", "clock_out")],
+    });
+    expect(tc.days.map((d) => [d.date, d.violations.map((v) => v.type)])).toEqual([
+      ["2026-01-15", ["ncns"]], ["2026-01-16", []],
+    ]);
+  });
+
+  it("is on time for a shift scheduled in the hour skipped by spring-forward", () => {
+    // 2:30 AM doesn't exist on Mar 8 2026; the shift starts at 3:30 AM EDT.
+    const tc = runRange({
+      from: "2026-03-08", to: "2026-03-08",
+      schedules: [{ date: "2026-03-08", startMinutes: 150, endMinutes: 600 }],
+      punches: [at("2026-03-08T03:30:00-04:00", "clock_in"), at("2026-03-08T10:00:00-04:00", "clock_out")],
+      nowMs: Date.parse("2026-03-09T00:00:00Z"),
+    });
+    expect(types(tc)).toEqual([]);
+    expect(tc.days[0].workedHours).toBe(6.5);
+  });
+
+  it("matches an overnight shift on the fall-back night", () => {
+    // 10 PM Oct 31 – 6 AM Nov 1 2026 is 9 real hours; clock-in 12:20 AM is 140 min late.
+    const tc = runRange({
+      from: "2026-10-31", to: "2026-11-01",
+      schedules: [{ date: "2026-10-31", startMinutes: 1320, endMinutes: 1800 }],
+      punches: [at("2026-11-01T00:20:00-04:00", "clock_in"), at("2026-11-01T06:00:00-05:00", "clock_out")],
+      nowMs: Date.parse("2026-11-02T00:00:00Z"),
+    });
+    expect(tc.days.map((d) => d.date)).toEqual(["2026-10-31"]);
+    expect(tc.days[0].violations.map((v) => [v.type, v.minutes])).toEqual([["late_in", 140]]);
+    expect(tc.days[0].workedHours).toBeCloseTo(6.67, 2);
+  });
+});

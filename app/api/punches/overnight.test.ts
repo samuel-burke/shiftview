@@ -182,6 +182,80 @@ describe("missed-punch banner", () => {
   });
 });
 
+// Clocked in 8:00 PM Jan 15, a break from 11:30 PM to 12:15 AM, then never
+// clocked out. The post-midnight break end must not keep the shift open all
+// of Jan 16.
+describe("a forgotten clock-out after a break past midnight", () => {
+  const BREAK_PAST_MIDNIGHT: Punch[] = [
+    { id: 1, punch_type: "clock_in", punched_at: "2026-01-16T01:00:00.000Z" },
+    { id: 2, punch_type: "break_start", punched_at: "2026-01-16T04:30:00.000Z" },
+    { id: 3, punch_type: "break_end", punched_at: "2026-01-16T05:15:00.000Z" },
+  ];
+
+  it("still lets the closer clock out at 1:00 AM", async () => {
+    vi.setSystemTime(new Date("2026-01-16T06:00:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(BREAK_PAST_MIDNIGHT) as any);
+    expect((await punch("clock_out")).status).toBe(201);
+  });
+
+  it("allows clocking in the next afternoon", async () => {
+    vi.setSystemTime(new Date("2026-01-16T22:00:00Z")); // 5:00 PM
+    mockCreateClient.mockResolvedValue(makeClient(BREAK_PAST_MIDNIGHT) as any);
+    expect((await punch("clock_in")).status).toBe(201);
+  });
+
+  it("no longer accepts a clock-out for the old shift after 4:00 AM", async () => {
+    vi.setSystemTime(new Date("2026-01-16T10:00:00Z")); // 5:00 AM
+    mockCreateClient.mockResolvedValue(makeClient(BREAK_PAST_MIDNIGHT) as any);
+    expect((await punch("clock_out")).status).toBe(409);
+  });
+
+  it("shows nothing as the current shift", async () => {
+    vi.setSystemTime(new Date("2026-01-16T22:00:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(BREAK_PAST_MIDNIGHT) as any);
+    const body = await (await getCurrent(new Request("http://localhost/api/punches/current"))).json();
+    expect(body).toEqual({ carriedOver: false, punches: [] });
+  });
+
+  it("flags the missed clock-out, naming the last punch made", async () => {
+    vi.setSystemTime(new Date("2026-01-16T22:00:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(BREAK_PAST_MIDNIGHT) as any);
+    const body = await (await getMissed(req())).json();
+    expect(body.missedPunch).toEqual({
+      date: "2026-01-16",
+      lastPunchType: "break_end",
+      lastPunchedAt: "2026-01-16T05:15:00.000Z",
+      suggestedPunchType: "clock_out",
+    });
+  });
+
+  it("asks for the break end when the break itself was left open", async () => {
+    vi.setSystemTime(new Date("2026-01-16T22:00:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient(BREAK_PAST_MIDNIGHT.slice(0, 2).concat(
+      { id: 3, punch_type: "break_start", punched_at: "2026-01-16T05:15:00.000Z" },
+    ).filter((p) => p.id !== 2)) as any);
+    const body = await (await getMissed(req())).json();
+    expect(body.missedPunch).toMatchObject({ lastPunchType: "break_start", suggestedPunchType: "break_end" });
+  });
+
+  it("keeps flagging it after the employee clocks in for today", async () => {
+    vi.setSystemTime(new Date("2026-01-16T22:00:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient([
+      ...BREAK_PAST_MIDNIGHT, { id: 4, punch_type: "clock_in", punched_at: "2026-01-16T21:00:00.000Z" },
+    ]) as any);
+    const body = await (await getMissed(req())).json();
+    expect(body.missedPunch).toMatchObject({ lastPunchType: "break_end", lastPunchedAt: "2026-01-16T05:15:00.000Z" });
+  });
+
+  it("doesn't flag it once it was clocked out after midnight", async () => {
+    vi.setSystemTime(new Date("2026-01-16T22:00:00Z"));
+    mockCreateClient.mockResolvedValue(makeClient([
+      ...BREAK_PAST_MIDNIGHT, { id: 4, punch_type: "clock_out", punched_at: "2026-01-16T06:00:00.000Z" },
+    ]) as any);
+    expect(await (await getMissed(req())).json()).toEqual({ missedPunch: null });
+  });
+});
+
 describe("GET /api/punches/current", () => {
   it("returns the open shift from before midnight", async () => {
     vi.setSystemTime(new Date("2026-01-16T05:30:00Z"));

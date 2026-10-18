@@ -81,10 +81,16 @@ function makePunchClient({
         }
         b.maybeSingle = vi.fn().mockResolvedValue({ data: lastPunch, error: lastPunchError });
         b.single = vi.fn().mockResolvedValue({ data: insertData, error: insertError });
-        // The current-shift query (awaited list): `lastPunch`, if any, was punched today.
+        // The current-shift query (awaited list): `lastPunch`, if any, was
+        // punched today, after a clock-in earlier today when it continues one.
+        const now = Date.now();
+        const continues = lastPunch && !["clock_in", "clock_out"].includes(lastPunch.punch_type);
         b.then = (resolve: any, _reject: any) =>
           Promise.resolve({
-            data: lastPunch ? [{ ...lastPunch, punched_at: new Date().toISOString() }] : [],
+            data: [
+              ...(continues ? [{ punch_type: "clock_in", punched_at: new Date(now - 60_000).toISOString() }] : []),
+              ...(lastPunch ? [{ ...lastPunch, punched_at: new Date(now).toISOString() }] : []),
+            ],
             error: lastPunchError,
           }).then(resolve, _reject);
         return b;
@@ -106,6 +112,21 @@ function makePostRequest(body: Record<string, unknown>) {
 // ── POST /api/punches — input validation ─────────────────────────────────────
 
 describe("POST /api/punches — input validation", () => {
+  it("returns 400 for a malformed JSON body instead of a 500", async () => {
+    mockCreateClient.mockResolvedValue(makePunchClient() as any);
+    const res = await POST(new Request("http://localhost/api/punches", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{punchType:",
+    }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+  });
+
+  it("returns 400 when the body is JSON but not an object", async () => {
+    mockCreateClient.mockResolvedValue(makePunchClient() as any);
+    const res = await POST(new Request("http://localhost/api/punches", { method: "POST", body: "null" }));
+    expect(res.status).toBe(400);
+  });
+
   it("returns 400 when punchType is missing", async () => {
     mockCreateClient.mockResolvedValue(makePunchClient() as any);
     const res = await POST(makePostRequest({}));
@@ -322,11 +343,14 @@ function makeTimezoneClockInClient({
   scheduleStartMinutes,
   timezone = "America/New_York",
   empName = "Alice",
+  policy = {} as Record<string, string>,
 }: {
   punchedAtUTC: string;
   scheduleStartMinutes: number;
   timezone?: string;
   empName?: string;
+  /** Extra app_settings rows (punch policy keys). */
+  policy?: Record<string, string>;
 }) {
   const insertData = {
     id: 99,
@@ -358,7 +382,10 @@ function makeTimezoneClockInClient({
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers")    return buildSimple(null);
       if (table === "employees")   return buildSimple({ id: 1, name: empName, org_id: MOCK_ORG_ID });
-      if (table === "app_settings") return buildSimple([{ key: "timezone", value: timezone }]);
+      if (table === "app_settings") return buildSimple([
+        { key: "timezone", value: timezone },
+        ...Object.entries(policy).map(([key, value]) => ({ key, value })),
+      ]);
       if (table === "schedules")   return buildSimple({ id: 10, start_minutes: scheduleStartMinutes, end_minutes: scheduleStartMinutes + 480, date: "2026-05-26", employee_id: 1 });
       if (table === "punch_records") {
         const b: any = {};
@@ -421,6 +448,40 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
         punchedAtUTC: "2026-05-26T12:04:00.000Z",
         scheduleStartMinutes: 480,
         timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fire at 6 minutes late — the default policy flags more than 6", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({ punchedAtUTC: "2026-05-26T12:06:00.000Z", scheduleStartMinutes: 480 }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("uses the org's late threshold, the same one the time card flags with", async () => {
+    const policy = { punch_late_in_minutes: "15" };
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({ punchedAtUTC: "2026-05-26T12:12:00.000Z", scheduleStartMinutes: 480, policy }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({ punchedAtUTC: "2026-05-26T12:16:00.000Z", scheduleStartMinutes: 480, policy }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).toHaveBeenCalledOnce();
+    expect(mockNotifyManagers.mock.calls[0][4]).toMatchObject({ lateMinutes: 16 });
+  });
+
+  it("does NOT fire when the org has turned late clock-ins off", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T13:00:00.000Z", scheduleStartMinutes: 480, policy: { punch_late_in_enabled: "false" },
       }) as any
     );
     await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
@@ -502,6 +563,15 @@ const validPutBody = {
   note: "Forgot to punch",
   employeeId: 1,
 };
+
+describe("PUT /api/punches — malformed body", () => {
+  it("returns 400 for a malformed JSON body instead of a 500", async () => {
+    mockCreateClient.mockResolvedValue(makeManualPunchClient() as any);
+    const res = await PUT(new Request("http://localhost/api/punches", { method: "PUT", body: "not json" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+  });
+});
 
 describe("PUT /api/punches — manual punches setting", () => {
   it("returns 200 when manual punches are enabled (default)", async () => {
@@ -1021,11 +1091,21 @@ describe("POST /api/punches — the shift must be the employee's own", () => {
     expect(client.inserts[0]).toMatchObject({ schedule_id: 10 });
   });
 
-  it("accepts a clock-in to yesterday's overnight shift", async () => {
+  it("accepts a clock-in to yesterday's overnight shift while it is running", async () => {
+    vi.setSystemTime(new Date("2026-10-15T08:00:00.000Z")); // 4 AM, shift ends 6 AM
     const client = makeShiftOwnershipClient({ shifts });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 14 }));
     expect(res.status).toBe(201);
+  });
+
+  it("refuses a clock-in to yesterday's overnight shift hours after it ended (422)", async () => {
+    // NOW is 10 AM; the shift ended at 6 AM, past the late clock-out grace.
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 14 }));
+    expect(res.status).toBe(422);
+    expect(client.inserts).toHaveLength(0);
   });
 
   it("accepts a clock-in with no shift", async () => {

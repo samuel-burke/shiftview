@@ -77,3 +77,32 @@ describe("TimeCardPanel", () => {
     expect(onExport).toHaveBeenCalledOnce();
   });
 });
+
+describe("TimeCardPanel — split shifts", () => {
+  it("shows every scheduled shift of the day", () => {
+    const split = computeTimecard({
+      employeeId: 3, employeeName: "Alex Rivera", from: "2026-10-06", to: "2026-10-06", timezone: TZ,
+      policy: DEFAULT_PUNCH_POLICY,
+      schedules: [
+        { date: "2026-10-06", startMinutes: 480, endMinutes: 720 },
+        { date: "2026-10-06", startMinutes: 1020, endMinutes: 1260 },
+      ],
+      punches: [
+        { id: 1, punchType: "clock_in", punchedAt: "2026-10-06T12:00:00Z" },
+        { id: 2, punchType: "clock_out", punchedAt: "2026-10-06T16:00:00Z" },
+        { id: 3, punchType: "clock_in", punchedAt: "2026-10-06T21:00:00Z" },
+        { id: 4, punchType: "clock_out", punchedAt: "2026-10-07T01:00:00Z" },
+      ],
+      callouts: [],
+      nowMs: Date.parse("2026-10-08T02:00:00Z"),
+    });
+    render(
+      <TimeCardPanel
+        employee={{ id: 3, name: "Alex Rivera" }} from={split.from} to={split.to}
+        onFromChange={() => {}} onToChange={() => {}} onApply={() => {}} onClose={() => {}} onExport={vi.fn()}
+        data={split} loading={false} error={null}
+      />
+    );
+    expect(screen.getByText("8:00 AM – 12:00 PM, 5:00 PM – 9:00 PM")).toBeInTheDocument();
+  });
+});

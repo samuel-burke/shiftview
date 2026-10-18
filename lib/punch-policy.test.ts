@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_PUNCH_POLICY, parsePunchPolicy, punchPolicyRows } from "./punch-policy";
+import { clockInTiming, clockOutTiming, DEFAULT_PUNCH_POLICY, parsePunchPolicy, punchPolicyRows } from "./punch-policy";
 
 describe("parsePunchPolicy", () => {
   it("returns defaults for an empty map", () => {
@@ -53,5 +53,22 @@ describe("punchPolicyRows", () => {
     const { rows, error } = punchPolicyRows({ somethingElse: true });
     expect(error).toBeNull();
     expect(rows).toEqual([]);
+  });
+});
+
+describe("clockInTiming / clockOutTiming", () => {
+  it("flags only past the threshold, and only when the rule is on", () => {
+    const p = { ...DEFAULT_PUNCH_POLICY, lateInMinutes: 10, earlyInEnabled: true, earlyInMinutes: 5 };
+    expect(clockInTiming(p, 10)).toBeNull();
+    expect(clockInTiming(p, 11)).toBe("late");
+    expect(clockInTiming(p, -5)).toBeNull();
+    expect(clockInTiming(p, -6)).toBe("early");
+    expect(clockInTiming({ ...p, lateInEnabled: false }, 60)).toBeNull();
+  });
+
+  it("applies the clock-out rules to clock-outs", () => {
+    expect(clockOutTiming(DEFAULT_PUNCH_POLICY, -7)).toBe("early");
+    expect(clockOutTiming(DEFAULT_PUNCH_POLICY, 60)).toBeNull(); // late-out off by default
+    expect(clockOutTiming({ ...DEFAULT_PUNCH_POLICY, lateOutEnabled: true }, 16)).toBe("late");
   });
 });

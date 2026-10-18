@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
 import { parsePunchPolicy } from "@/lib/punch-policy";
@@ -63,14 +64,16 @@ export async function GET(request: Request) {
   const tz = resolveTimezone(settingsMap.timezone);
   const policy = parsePunchPolicy(settingsMap);
 
-  // Schedules for the employee in range.
+  // Schedules for the employee in range, plus a day either side: a clock-in
+  // just before midnight can be for the next day's shift, or one just after
+  // midnight for the previous day's (computeTimecard matches them).
   const { data: scheduleRows, error: schedErr } = await supabase
     .from("schedules")
     .select("date, start_minutes, end_minutes")
     .eq("org_id", orgId!)
     .eq("employee_id", employeeId)
-    .gte("date", from)
-    .lte("date", to);
+    .gte("date", addDaysToKey(from, -1))
+    .lte("date", addDaysToKey(to, 1));
   if (schedErr) {
     console.error("[api/timecard] schedules", schedErr);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -80,19 +83,25 @@ export async function GET(request: Request) {
   // past midnight is seen whole; computeTimecard restricts to [from, to].
   const padStart = localDayBoundsUtc(addDaysToKey(from, -1), tz).start.toISOString();
   const padEnd = localDayBoundsUtc(addDaysToKey(to, 1), tz).end.toISOString();
-  const { data: punchRows, error: punchErr } = await supabase
-    .from("punch_records")
-    .select("id, punch_type, punched_at, is_manual, note")
-    .eq("org_id", orgId!)
-    .eq("employee_id", employeeId)
-    .gte("punched_at", padStart)
-    .lte("punched_at", padEnd)
-    .order("punched_at")
-    .limit(10_000);
+  const { data: punchRows, error: punchErr, truncated } = await fetchAllRows((first, last) =>
+    supabase
+      .from("punch_records")
+      .select("id, punch_type, punched_at, is_manual, note")
+      .eq("org_id", orgId!)
+      .eq("employee_id", employeeId)
+      .gte("punched_at", padStart)
+      .lte("punched_at", padEnd)
+      .order("punched_at")
+      .order("id")
+      .range(first, last),
+    { maxRows: 10_000 },
+  );
   if (punchErr) {
     console.error("[api/timecard] punches", punchErr);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  if (truncated)
+    return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
   // Call-outs in range.
   const { data: calloutRows, error: calloutErr } = await supabase

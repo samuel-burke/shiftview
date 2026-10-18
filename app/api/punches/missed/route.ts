@@ -46,33 +46,34 @@ export async function GET(request?: Request) {
     return NextResponse.json({ missedPunch: null });
   }
 
-  // Not missed if that shift carried on past midnight: either it's still the
-  // current shift (a closer within the overnight grace window), or its
-  // continuation — a break or clock-out — was already punched today.
-  const [{ shift }, { data: firstToday }] = await Promise.all([
+  // Not missed while that shift is still the current one (a closer within the
+  // overnight grace window), or once it was closed after midnight. Breaks
+  // punched after midnight continue it: if it was then left open, the latest
+  // of those is the punch to fix.
+  const [{ shift }, { data: todays }] = await Promise.all([
     loadCurrentShift(supabase, orgId, employeeId, tz),
     supabase
       .from("punch_records")
-      .select("punch_type")
+      .select("punch_type, punched_at")
       .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .gte("punched_at", todayStart.toISOString())
       .order("punched_at", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .order("id", { ascending: true }),
   ]);
-  if (shift?.carriedOver || (firstToday && firstToday.punch_type !== "clock_in")) {
-    return NextResponse.json({ missedPunch: null });
-  }
-
-  const missedDate = dateKeyInTz(prevPunch.punched_at as string, tz);
+  if (shift?.carriedOver) return NextResponse.json({ missedPunch: null });
+  const rows = (todays ?? []) as { punch_type: string; punched_at: string }[];
+  const end = rows.findIndex((p) => p.punch_type === "clock_in" || p.punch_type === "clock_out");
+  if (end >= 0 && rows[end].punch_type === "clock_out") return NextResponse.json({ missedPunch: null });
+  const continued = end >= 0 ? rows.slice(0, end) : rows;
+  const open = continued.length > 0 ? continued[continued.length - 1] : prevPunch;
 
   return NextResponse.json({
     missedPunch: {
-      date: missedDate,
-      lastPunchType: prevPunch.punch_type,
-      lastPunchedAt: prevPunch.punched_at,
-      suggestedPunchType: prevPunch.punch_type === "break_start" ? "break_end" : "clock_out",
+      date: dateKeyInTz(open.punched_at as string, tz),
+      lastPunchType: open.punch_type,
+      lastPunchedAt: open.punched_at,
+      suggestedPunchType: open.punch_type === "break_start" ? "break_end" : "clock_out",
     },
   });
 }
