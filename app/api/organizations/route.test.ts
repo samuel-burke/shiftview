@@ -3,6 +3,7 @@ import { POST, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { writeAuditLog } from "@/lib/audit";
+import { sendNtfy } from "@/lib/ntfy";
 import { makeQueryBuilder } from "../__tests__/helpers";
 import { DEFAULT_ORG_ID } from "@/lib/org-context";
 import { DEMO_ORG_ID } from "@/lib/demo-org";
@@ -10,7 +11,9 @@ import { DEMO_ORG_ID } from "@/lib/demo-org";
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
+  after: (fn: () => unknown) => fn(),
   NextResponse: {
     json: (data: any, init?: { status?: number }) =>
       new Response(JSON.stringify(data), {
@@ -23,6 +26,7 @@ vi.mock("next/server", () => ({
 const mockCreateClient = vi.mocked(createClient);
 const mockCreateAdminClient = vi.mocked(createAdminClient);
 const mockWriteAuditLog = vi.mocked(writeAuditLog);
+const mockSendNtfy = vi.mocked(sendNtfy);
 
 const MOCK_USER = { id: "user-123", email: "founder@test.com", is_anonymous: false };
 const NEW_ORG_ID = "11111111-2222-3333-4444-555555555555";
@@ -151,6 +155,24 @@ describe("POST /api/organizations — provisioning", () => {
     expect(mockWriteAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "organization.create", orgId: NEW_ORG_ID, actorId: MOCK_USER.id })
     );
+  });
+
+  it("sends an ntfy alert with the org name and creator", async () => {
+    const res = await POST(postReq({ name: "Acme Coffee", ownerName: "Alice Smith" }));
+    expect(res.status).toBe(201);
+    expect(mockSendNtfy).toHaveBeenCalledTimes(1);
+    const { message } = mockSendNtfy.mock.calls[0][0];
+    expect(message).toContain("Acme Coffee");
+    expect(message).toContain("Alice Smith");
+    expect(message).toContain(MOCK_USER.email);
+  });
+
+  it("sends a sign-up failed alert instead when creation errors", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: "XX000", message: "db down" } });
+    mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
+    await POST(postReq({ name: "Acme Coffee", ownerName: "Alice Smith" }));
+    expect(mockSendNtfy).toHaveBeenCalledTimes(1);
+    expect(mockSendNtfy.mock.calls[0][0].title).toBe("Organization sign-up failed");
   });
 
   it("retries with a suffixed slug when the slug is already taken", async () => {

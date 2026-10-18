@@ -5,7 +5,9 @@ vi.mock("@/lib/email", async (importOriginal) => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: vi.fn().mockResolvedValue(true) }));
+vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
+  after: (fn: () => unknown) => fn(),
   NextResponse: {
     json: (data: unknown, init?: { status?: number }) =>
       new Response(JSON.stringify(data), {
@@ -64,6 +66,17 @@ describe("POST /api/contact", () => {
     expect(arg.replyTo).toBe("dana@example.com");
     expect(arg.subject).toBe("[ShiftView] Question from Dana Owner");
     expect(arg.html).toContain("Do you support multiple store locations?");
+  });
+
+  it("sends an ntfy heads-up with the sender and a preview", async () => {
+    const { POST } = await load();
+    const { sendNtfy } = await import("@/lib/ntfy");
+    await POST(req({ ...VALID, message: "x".repeat(300) }));
+    const arg = vi.mocked(sendNtfy).mock.calls[0][0];
+    expect(arg.title).toBe("Contact form: Question");
+    expect(arg.message).toContain("Dana Owner (dana@example.com)");
+    expect(arg.message).toContain(`${"x".repeat(200)}…`);
+    expect(arg.message).not.toContain("x".repeat(201));
   });
 
   it("escapes HTML in the submitted fields", async () => {

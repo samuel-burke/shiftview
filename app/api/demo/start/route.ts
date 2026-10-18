@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
       .maybeSingle();
     alreadyMember = Boolean(membership);
   }
+  // A returning demo manager re-provisioning their session isn't a new visit.
+  const isNewSession = !alreadyMember;
   if (!alreadyMember && !(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
     return NextResponse.json(
       { error: "Verification failed — please try again" },
@@ -137,6 +140,28 @@ export async function POST(request: Request) {
   if (linkError) {
     console.error("[api/demo/start] employee link failed:", linkError);
     // Non-fatal: the session still works as manager-only.
+  }
+
+  // Alert on new demo visits only.
+  // Coarse location comes from Vercel's geo headers; the IP is left out.
+  if (isNewSession) {
+    const where = [
+      request.headers.get("x-vercel-ip-city"),
+      request.headers.get("x-vercel-ip-country-region"),
+      request.headers.get("x-vercel-ip-country"),
+    ]
+      .filter(Boolean)
+      .map((part) => {
+        try { return decodeURIComponent(part!); } catch { return part!; }
+      })
+      .join(", ");
+    after(() =>
+      sendNtfy({
+        title: "Demo started on ShiftView",
+        message: where ? `Someone just opened the demo from ${where}.` : "Someone just opened the demo.",
+        tags: ["eyes"],
+      })
+    );
   }
 
   return NextResponse.json({ ok: true });

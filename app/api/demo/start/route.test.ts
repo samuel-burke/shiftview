@@ -3,12 +3,15 @@ import { POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { sendNtfy } from "@/lib/ntfy";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: vi.fn() }));
 vi.mock("@/lib/demo-seed", () => ({ seedDemoOrg: vi.fn().mockResolvedValue({}) }));
+vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
+  after: (fn: () => unknown) => fn(),
   NextResponse: {
     json: (data: any, init?: { status?: number }) =>
       new Response(JSON.stringify(data), {
@@ -47,6 +50,7 @@ const req = (body: object = {}) =>
 
 beforeEach(() => {
   mockVerify.mockReset();
+  vi.mocked(sendNtfy).mockClear();
 });
 
 describe("POST /api/demo/start — bot gate", () => {
@@ -76,6 +80,7 @@ describe("POST /api/demo/start — bot gate", () => {
     expect(res.status).toBe(200);
     expect(mockVerify).not.toHaveBeenCalled();
     expect(signInAnonymously).not.toHaveBeenCalled();
+    expect(sendNtfy).not.toHaveBeenCalled();
   });
 
   it("starts a session for a verified new visitor", async () => {
@@ -88,6 +93,19 @@ describe("POST /api/demo/start — bot gate", () => {
       expect.objectContaining({ user_id: "anon-new" }),
       expect.anything()
     );
+    expect(sendNtfy).toHaveBeenCalledWith(expect.objectContaining({ title: "Demo started on ShiftView" }));
+  });
+
+  it("includes the visitor's coarse location in the alert", async () => {
+    mockVerify.mockResolvedValue(true);
+    setup();
+    const request = new Request("http://localhost/api/demo/start", {
+      method: "POST",
+      body: "{}",
+      headers: { "x-vercel-ip-city": "San%20Francisco", "x-vercel-ip-country": "US" },
+    });
+    await POST(request);
+    expect(vi.mocked(sendNtfy).mock.calls[0][0].message).toContain("San Francisco, US");
   });
 
   it("refuses a signed-in real account", async () => {
