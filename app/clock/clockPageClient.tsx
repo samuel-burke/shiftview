@@ -40,6 +40,7 @@ import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import FormError from "../../components/FormError";
 import DemoBanner from "@/components/DemoBanner";
 import PunchHistoryToggle from "@/components/PunchHistoryToggle";
+import MyHours from "./MyHours";
 import { tint } from "../../lib/theme-colors";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -583,6 +584,13 @@ export default function ClockPageClient() {
     [punches],
   );
 
+  // Saved punches only (optimistic ones have negative ids), so My Hours
+  // reloads once a punch is recorded rather than on the tap.
+  const savedPunchKey = useMemo(
+    () => punches.filter((p) => p.id > 0).map((p) => p.id).join(","),
+    [punches],
+  );
+
   // While clocked in, the shift is the one the clock-in was for.
   const openClockInScheduleId = useMemo(() => {
     if (status !== "clocked_in" && status !== "on_break") return null;
@@ -1011,6 +1019,9 @@ export default function ClockPageClient() {
             </motion.div>
           </div>
         )}
+
+        {/* This workweek's and last week's hours, as payroll counts them */}
+        {employeeId && <MyHours employeeId={employeeId} todayKey={todayKey} refreshKey={savedPunchKey} />}
 
         {/* Punch correction form — hidden when setting is disabled */}
         {manualPunchesEnabled && <div className="bg-card rounded-2xl border border-line/60" style={missedPunchInfo ? { borderColor: tint("var(--color-warning)", 30) } : {}}>
