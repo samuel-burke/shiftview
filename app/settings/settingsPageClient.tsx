@@ -17,6 +17,8 @@ import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText
 import SettingsSectionLabel from "../../components/SettingsSectionLabel";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
+import KioskSettingsSection from "../../components/KioskSettingsSection";
+import KioskPinSection from "../../components/KioskPinSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
@@ -307,6 +309,7 @@ export default function SettingsPageClient({
 
   // ── Time Clock ─────────────────────────────────────────────────────────────
   const [manualPunchesEnabled, setManualPunchesEnabled] = useState(true);
+  const [kioskEnabled, setKioskEnabled] = useState(false);
   const [gpsRequired, setGpsRequired] = useState(false);
   const [timeclockSaving, setTimeclockSaving] = useState(false);
   const [timeclockSaved, setTimeclockSaved] = useState(false);
@@ -678,6 +681,7 @@ export default function SettingsPageClient({
         if (s.timezone)                setTimezone(s.timezone);
         if (s.manualPunchesEnabled != null) setManualPunchesEnabled(s.manualPunchesEnabled);
         if (s.gpsRequired != null) setGpsRequired(s.gpsRequired);
+        if (s.kioskEnabled != null) setKioskEnabled(s.kioskEnabled);
         if (s.geofenceEnabled != null) setGeofenceEnabled(s.geofenceEnabled);
         if (s.geofenceLat     != null) setGeofenceLat(s.geofenceLat);
         if (s.geofenceLng     != null) setGeofenceLng(s.geofenceLng);
@@ -1357,6 +1361,9 @@ export default function SettingsPageClient({
           </div>
         </section>}
 
+        {/* Kiosk — manager only. A shared store tablet with PINs. */}
+        {isManager && <KioskSettingsSection />}
+
         {/* Punch Violations — manager only. Orgs precisely define what counts as
             a violation and cap breaks per shift (enforced at clock-in time). */}
         {isManager && <section>
@@ -1769,6 +1776,16 @@ export default function SettingsPageClient({
 
         {/* ── Account (all users) ── */}
         <SettingsGroupHeader label="Account" />
+
+        {/* The employee's own kiosk PIN, while the store uses kiosk mode. */}
+        {kioskEnabled && employeeId != null && (
+          <section>
+            <SettingsSectionLabel label="Kiosk" />
+            <div className="bg-card rounded-2xl border border-line/60 px-4 py-4">
+              <KioskPinSection />
+            </div>
+          </section>
+        )}
 
         {/* Sign out */}
         <section className="pb-2">

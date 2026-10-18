@@ -53,6 +53,7 @@ describe("GET /api/settings", () => {
       geofenceLng: null,
       geofenceRadius: 100,
       geofenceAddress: null,
+      kioskEnabled: false,
       punchPolicy: DEFAULT_PUNCH_POLICY,
       schedulingRules: DEFAULT_SCHEDULING_RULES,
     });
@@ -107,6 +108,7 @@ describe("GET /api/settings", () => {
       geofenceLng: null,
       geofenceRadius: 100,
       geofenceAddress: null,
+      kioskEnabled: false,
       punchPolicy: DEFAULT_PUNCH_POLICY,
       schedulingRules: DEFAULT_SCHEDULING_RULES,
     });
@@ -127,6 +129,19 @@ describe("GET /api/settings", () => {
     const body = await res.json();
     expect(body.manualPunchesEnabled).toBe(false);
     expect(body.gpsRequired).toBe(true);
+  });
+
+  it("kiosk mode is off by default and on only when stored as true", async () => {
+    for (const [value, want] of [[undefined, false], ["false", false], ["TRUE", false], ["1", false], ["true", true]] as const) {
+      mockCreateClient.mockResolvedValue(
+        makeSupabaseClient({
+          user: MOCK_USER,
+          isManager: true,
+          queryData: value === undefined ? [] : [{ key: "kiosk_enabled", value }],
+        }) as any
+      );
+      expect((await (await GET()).json()).kioskEnabled).toBe(want);
+    }
   });
 
   it("returns 500 on database error for authenticated users", async () => {
@@ -288,6 +303,31 @@ describe("PUT /api/settings", () => {
     const res = await PUT(putReq({ gpsRequired: 1 }));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("gpsRequired") });
+  });
+
+  it("a manager turns kiosk mode on and off", async () => {
+    for (const v of [true, false]) {
+      const client = makeSupabaseClient({ user: MOCK_USER, isManager: true });
+      mockCreateClient.mockResolvedValue(client as any);
+      const res = await PUT(putReq({ kioskEnabled: v }));
+      expect(res.status).toBe(200);
+      const idx = (client.from as ReturnType<typeof vi.fn>).mock.calls.findIndex((c: string[]) => c[0] === "app_settings");
+      const builder = (client.from as ReturnType<typeof vi.fn>).mock.results[idx].value;
+      expect((builder.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0]).toEqual([
+        { org_id: MOCK_ORG_ID, key: "kiosk_enabled", value: String(v) },
+      ]);
+    }
+  });
+
+  it("returns 400 when kioskEnabled is not a boolean", async () => {
+    const res = await PUT(putReq({ kioskEnabled: "true" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("kioskEnabled") });
+  });
+
+  it("an employee can't turn kiosk mode on", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: false }) as any);
+    expect((await PUT(putReq({ kioskEnabled: true }))).status).toBe(403);
   });
 
   // ── Geofence centre ──────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import {
 } from "../data/types";
 import { useScrollLock } from "@/lib/scroll-lock";
 import FormError from "./FormError";
+import KioskPinSection from "./KioskPinSection";
 import { tint } from "../lib/theme-colors";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -551,6 +552,8 @@ export default function EmployeeDrawer({
                         View Time Card
                       </motion.button>
                     )}
+
+                    {isManager && !readOnly && <KioskPinSection employeeId={employee.id} compact />}
 
                     {isManager && onResendInvite && !employee.user_id && employee.email && (
                       <motion.button

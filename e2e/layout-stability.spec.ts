@@ -39,7 +39,7 @@ const PUNCHES = [
 const DELAYS: Record<string, number> = {
   "/api/me": 150, "/api/settings": 250, "/api/store-hours": 200, "/api/employees": 300, "/api/schedules": 400,
   "/api/punches": 500, "/api/callouts": 650, "/api/coverage-assignments": 350, "/api/coverage-profiles": 300,
-  "/api/my-schedule": 400, "/api/time-off": 550, "/api/swaps": 600, "/api/punches/current": 450, "/api/drafts": 500,
+  "/api/my-schedule": 400, "/api/time-off": 550, "/api/kiosk/status": 400, "/api/swaps": 600, "/api/punches/current": 450, "/api/drafts": 500,
 };
 
 async function mockApis(page: Page, role: "manager" | "employee") {
@@ -67,6 +67,7 @@ async function mockApis(page: Page, role: "manager" | "employee") {
         case "/api/my-schedule": return { employeeId: me.employeeId, employeeName: me.employeeName, schedules: SCHEDULES.filter((s) => s.employeeId === me.employeeId && s.date >= from && s.date <= to) };
         case "/api/time-off": return { requests: [] };
         case "/api/reports/coverage": return { days: [] };
+        case "/api/kiosk/status": return { kioskName: "Front counter", orgName: "Alder Street" };
         default: return [];
       }
     })();
@@ -110,6 +111,7 @@ const SCREENS: { path: string; role: "manager" | "employee"; ready: (page: Page)
   { path: "/schedule", role: "employee", ready: (p) => expect(p.getByText("Shifts this week")).toBeVisible() },
   { path: "/clock", role: "employee", ready: (p) => expect(p.getByText("Today's Shift")).toBeVisible() },
   { path: "/week", role: "manager", ready: (p) => expect(p.getByTestId("day-list").getByRole("button").first()).toBeVisible() },
+  { path: "/kiosk", role: "employee", ready: (p) => expect(p.getByText("Front counter")).toBeVisible() },
   { path: "/reports", role: "manager", ready: (p) => expect(p.getByRole("button", { name: "Export CSV" })).toBeVisible() },
 ];
 

@@ -215,7 +215,7 @@ function writeConfigCache(config: OrgConfig) {
 // load.
 function isPublicPath(pathname: string | null): boolean {
   return pathname === "/login" || pathname === "/signup" || pathname === "/privacy" ||
-    pathname === "/contact" || !!pathname?.startsWith("/auth/");
+    pathname === "/contact" || pathname === "/kiosk" || !!pathname?.startsWith("/auth/");
 }
 
 // Identity and org settings change rarely and stream over Realtime while the

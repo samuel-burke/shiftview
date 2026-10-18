@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
   // as getUser() did.
   const { data } = await supabase.auth.getClaims();
   const signedIn = !!data?.claims?.sub;
-  const isPublic = pathname === "/" || pathname === "/welcome" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname === "/contact" || pathname.startsWith("/auth/");
+  const isPublic = pathname === "/" || pathname === "/welcome" || pathname === "/login" || pathname === "/signup" || pathname === "/privacy" || pathname === "/contact" || pathname === "/kiosk" || pathname.startsWith("/auth/");
 
   if (!signedIn && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));

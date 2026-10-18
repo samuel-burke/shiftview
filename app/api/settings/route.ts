@@ -47,6 +47,7 @@ export async function GET(request?: Request) {
     geofenceLng:          map.geofence_lng ? parseFloat(map.geofence_lng) : null,
     geofenceRadius:       parseInt(map.geofence_radius ?? "100"),
     geofenceAddress:      map.geofence_address || null,
+    kioskEnabled:         map.kiosk_enabled === "true",
     punchPolicy:          parsePunchPolicy(map),
     schedulingRules:      parseSchedulingRules(map),
   });
@@ -130,6 +131,14 @@ export async function PUT(request: Request) {
     if (body.geofenceAddress !== null && typeof body.geofenceAddress !== "string")
       return NextResponse.json({ error: "geofenceAddress must be a string or null" }, { status: 400 });
     rows.push({ key: "geofence_address", value: body.geofenceAddress ?? "" });
+  }
+
+  // Kiosk mode (shared store tablet with PINs, migration 0063). Off unless a
+  // manager turns it on; turning it off stops every kiosk at once.
+  if (body.kioskEnabled !== undefined) {
+    if (typeof body.kioskEnabled !== "boolean")
+      return NextResponse.json({ error: "kioskEnabled must be a boolean" }, { status: 400 });
+    rows.push({ key: "kiosk_enabled", value: String(body.kioskEnabled) });
   }
 
   // Punch-violation policy — a nested object of booleans/integers. Validated and
