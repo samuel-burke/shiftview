@@ -10,6 +10,10 @@
     {
       "path": "/api/cron/demo-reset",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/attendance",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
