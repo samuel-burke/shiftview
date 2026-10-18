@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, POST, PUT } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { notifyManagers } from "@/lib/notify";
@@ -81,10 +81,16 @@ function makePunchClient({
         }
         b.maybeSingle = vi.fn().mockResolvedValue({ data: lastPunch, error: lastPunchError });
         b.single = vi.fn().mockResolvedValue({ data: insertData, error: insertError });
-        // The current-shift query (awaited list): `lastPunch`, if any, was punched today.
+        // The current-shift query (awaited list): `lastPunch`, if any, was
+        // punched today, after a clock-in earlier today when it continues one.
+        const now = Date.now();
+        const continues = lastPunch && !["clock_in", "clock_out"].includes(lastPunch.punch_type);
         b.then = (resolve: any, _reject: any) =>
           Promise.resolve({
-            data: lastPunch ? [{ ...lastPunch, punched_at: new Date().toISOString() }] : [],
+            data: [
+              ...(continues ? [{ punch_type: "clock_in", punched_at: new Date(now - 60_000).toISOString() }] : []),
+              ...(lastPunch ? [{ ...lastPunch, punched_at: new Date(now).toISOString() }] : []),
+            ],
             error: lastPunchError,
           }).then(resolve, _reject);
         return b;
@@ -106,6 +112,21 @@ function makePostRequest(body: Record<string, unknown>) {
 // ── POST /api/punches — input validation ─────────────────────────────────────
 
 describe("POST /api/punches — input validation", () => {
+  it("returns 400 for a malformed JSON body instead of a 500", async () => {
+    mockCreateClient.mockResolvedValue(makePunchClient() as any);
+    const res = await POST(new Request("http://localhost/api/punches", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{punchType:",
+    }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+  });
+
+  it("returns 400 when the body is JSON but not an object", async () => {
+    mockCreateClient.mockResolvedValue(makePunchClient() as any);
+    const res = await POST(new Request("http://localhost/api/punches", { method: "POST", body: "null" }));
+    expect(res.status).toBe(400);
+  });
+
   it("returns 400 when punchType is missing", async () => {
     mockCreateClient.mockResolvedValue(makePunchClient() as any);
     const res = await POST(makePostRequest({}));
@@ -322,11 +343,14 @@ function makeTimezoneClockInClient({
   scheduleStartMinutes,
   timezone = "America/New_York",
   empName = "Alice",
+  policy = {} as Record<string, string>,
 }: {
   punchedAtUTC: string;
   scheduleStartMinutes: number;
   timezone?: string;
   empName?: string;
+  /** Extra app_settings rows (punch policy keys). */
+  policy?: Record<string, string>;
 }) {
   const insertData = {
     id: 99,
@@ -358,8 +382,11 @@ function makeTimezoneClockInClient({
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers")    return buildSimple(null);
       if (table === "employees")   return buildSimple({ id: 1, name: empName, org_id: MOCK_ORG_ID });
-      if (table === "app_settings") return buildSimple([{ key: "timezone", value: timezone }]);
-      if (table === "schedules")   return buildSimple({ start_minutes: scheduleStartMinutes, date: "2026-05-26", employee_id: 1 });
+      if (table === "app_settings") return buildSimple([
+        { key: "timezone", value: timezone },
+        ...Object.entries(policy).map(([key, value]) => ({ key, value })),
+      ]);
+      if (table === "schedules")   return buildSimple({ id: 10, start_minutes: scheduleStartMinutes, end_minutes: scheduleStartMinutes + 480, date: "2026-05-26", employee_id: 1 });
       if (table === "punch_records") {
         const b: any = {};
         for (const m of ["select", "insert", "eq", "gte", "lte", "lt", "order", "limit"]) {
@@ -380,6 +407,12 @@ function makeTimezoneClockInClient({
 describe("POST /api/punches — late clock-in notification uses store timezone", () => {
   beforeEach(() => {
     mockNotifyManagers.mockClear();
+    // The shift (2026-05-26) must be today's for the clock-in to accept it.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-26T15:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("does NOT fire notification when employee clocks in early in store timezone (UTC would appear late)", async () => {
@@ -415,6 +448,40 @@ describe("POST /api/punches — late clock-in notification uses store timezone",
         punchedAtUTC: "2026-05-26T12:04:00.000Z",
         scheduleStartMinutes: 480,
         timezone: "America/New_York",
+      }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fire at 6 minutes late — the default policy flags more than 6", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({ punchedAtUTC: "2026-05-26T12:06:00.000Z", scheduleStartMinutes: 480 }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it("uses the org's late threshold, the same one the time card flags with", async () => {
+    const policy = { punch_late_in_minutes: "15" };
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({ punchedAtUTC: "2026-05-26T12:12:00.000Z", scheduleStartMinutes: 480, policy }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({ punchedAtUTC: "2026-05-26T12:16:00.000Z", scheduleStartMinutes: 480, policy }) as any
+    );
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(mockNotifyManagers).toHaveBeenCalledOnce();
+    expect(mockNotifyManagers.mock.calls[0][4]).toMatchObject({ lateMinutes: 16 });
+  });
+
+  it("does NOT fire when the org has turned late clock-ins off", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeTimezoneClockInClient({
+        punchedAtUTC: "2026-05-26T13:00:00.000Z", scheduleStartMinutes: 480, policy: { punch_late_in_enabled: "false" },
       }) as any
     );
     await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
@@ -496,6 +563,15 @@ const validPutBody = {
   note: "Forgot to punch",
   employeeId: 1,
 };
+
+describe("PUT /api/punches — malformed body", () => {
+  it("returns 400 for a malformed JSON body instead of a 500", async () => {
+    mockCreateClient.mockResolvedValue(makeManualPunchClient() as any);
+    const res = await PUT(new Request("http://localhost/api/punches", { method: "PUT", body: "not json" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+  });
+});
 
 describe("PUT /api/punches — manual punches setting", () => {
   it("returns 200 when manual punches are enabled (default)", async () => {
@@ -921,6 +997,383 @@ describe("POST /api/punches — max breaks per shift", () => {
     });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "break_start" }));
+    expect(res.status).toBe(201);
+  });
+});
+
+// ── Punches may only name the employee's own, current shift ───────────────────
+
+/**
+ * POST/PUT client whose `schedules` look-up honours the org, id and employee
+ * filters the route applies, over the given shift rows.
+ */
+function makeShiftOwnershipClient({
+  shifts,
+  isManager = false,
+  insertError = null as any,
+}: {
+  shifts: Array<{ id: number; org_id: string; employee_id: number; date: string; start_minutes: number; end_minutes: number }>;
+  isManager?: boolean;
+  insertError?: any;
+}) {
+  const inserts: any[] = [];
+  const builder = (result: { data: any; error: any }) => {
+    const b: any = {};
+    for (const m of ["select", "update", "eq", "gt", "gte", "lte", "lt", "order", "limit"]) {
+      b[m] = vi.fn().mockReturnValue(b);
+    }
+    b.insert = vi.fn().mockImplementation((row: any) => { inserts.push(row); return b; });
+    b.maybeSingle = vi.fn().mockResolvedValue(result);
+    b.single = vi.fn().mockResolvedValue(result);
+    b.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
+    return b;
+  };
+  const client = {
+    inserts,
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === "managers")
+        return builder({ data: isManager ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID } : null, error: null });
+      if (table === "employees") return builder({ data: { id: 1, name: "Alice", org_id: MOCK_ORG_ID }, error: null });
+      if (table === "app_settings") return builder({ data: [{ key: "timezone", value: "America/New_York" }], error: null });
+      if (table === "schedules") {
+        const filters: Record<string, unknown> = {};
+        const b = builder({ data: null, error: null });
+        b.eq = vi.fn().mockImplementation((col: string, val: unknown) => { filters[col] = val; return b; });
+        b.maybeSingle = vi.fn().mockImplementation(async () => ({
+          data: shifts.find((s) =>
+            Object.entries(filters).every(([col, val]) => (s as any)[col] === val)) ?? null,
+          error: null,
+        }));
+        return b;
+      }
+      if (table === "punch_records") {
+        const b = builder({ data: [], error: null });
+        b.single = vi.fn().mockImplementation(async () => insertError
+          ? { data: null, error: insertError }
+          : { data: { id: 5, employee_id: 1, punched_at: new Date().toISOString(), ...inserts[inserts.length - 1] }, error: null });
+        return b;
+      }
+      return builder({ data: null, error: null });
+    }),
+  };
+  return client;
+}
+
+describe("POST /api/punches — the shift must be the employee's own", () => {
+  // 10:00 AM in New York on 2026-10-15.
+  const NOW = new Date("2026-10-15T14:00:00.000Z");
+  const OTHER_ORG = "00000000-0000-0000-0000-00000000beef";
+  const shifts = [
+    { id: 10, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-15", start_minutes: 540, end_minutes: 1020 },
+    { id: 11, org_id: MOCK_ORG_ID, employee_id: 2, date: "2026-10-15", start_minutes: 540, end_minutes: 1020 },
+    { id: 12, org_id: OTHER_ORG,   employee_id: 1, date: "2026-10-15", start_minutes: 540, end_minutes: 1020 },
+    { id: 13, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-05", start_minutes: 540, end_minutes: 1020 },
+    { id: 14, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-14", start_minutes: 1320, end_minutes: 1800 },
+    { id: 15, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-14", start_minutes: 540, end_minutes: 1020 },
+    { id: 16, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-16", start_minutes: 540, end_minutes: 1020 },
+  ];
+
+  beforeEach(() => {
+    mockNotifyManagers.mockClear();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("accepts a clock-in to the employee's own shift today", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(res.status).toBe(201);
+    expect(client.inserts[0]).toMatchObject({ schedule_id: 10 });
+  });
+
+  it("accepts a clock-in to yesterday's overnight shift while it is running", async () => {
+    vi.setSystemTime(new Date("2026-10-15T08:00:00.000Z")); // 4 AM, shift ends 6 AM
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 14 }));
+    expect(res.status).toBe(201);
+  });
+
+  it("refuses a clock-in to yesterday's overnight shift hours after it ended (422)", async () => {
+    // NOW is 10 AM; the shift ended at 6 AM, past the late clock-out grace.
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 14 }));
+    expect(res.status).toBe(422);
+    expect(client.inserts).toHaveLength(0);
+  });
+
+  it("accepts a clock-in with no shift", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(201);
+    expect(client.inserts[0]).toMatchObject({ schedule_id: null });
+  });
+
+  it.each([
+    ["a coworker's shift", 11],
+    ["another organization's shift", 12],
+    ["a shift id that doesn't exist", 999],
+    ["the employee's shift from ten days ago", 13],
+    ["yesterday's shift that didn't run past midnight", 15],
+    ["tomorrow's shift", 16],
+  ])("refuses a clock-in to %s (422) and records nothing", async (_label, scheduleId) => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId }));
+    expect(res.status).toBe(422);
+    expect(client.inserts).toHaveLength(0);
+    expect(mockNotifyManagers).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a string", "10"],
+    ["a float", 10.5],
+    ["zero", 0],
+    ["a negative id", -1],
+    ["an object", { id: 10 }],
+  ])("rejects a scheduleId that is %s (400)", async (_label, scheduleId) => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId }));
+    expect(res.status).toBe(400);
+    expect(client.inserts).toHaveLength(0);
+  });
+
+  it("looks the shift up by org, id and the signed-in employee", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    mockCreateClient.mockResolvedValue(client as any);
+    await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    const schedCall = client.from.mock.results.find((_r: any, i: number) => client.from.mock.calls[i][0] === "schedules");
+    const eqCalls = schedCall!.value.eq.mock.calls;
+    expect(eqCalls).toContainEqual(["org_id", MOCK_ORG_ID]);
+    expect(eqCalls).toContainEqual(["id", 10]);
+    expect(eqCalls).toContainEqual(["employee_id", 1]);
+  });
+
+  it("records a clock-out without a coworker's shift instead of refusing it", async () => {
+    const client = makeShiftOwnershipClient({ shifts });
+    // Clocked in already, so clock_out is a valid step.
+    const original = client.from.getMockImplementation()!;
+    client.from.mockImplementation((table: string) => {
+      const b = original(table);
+      if (table === "punch_records") {
+        b.then = (resolve: any, reject: any) =>
+          Promise.resolve({
+            data: [{ id: 1, employee_id: 1, punch_type: "clock_in", punched_at: new Date(NOW.getTime() - 3600_000).toISOString() }],
+            error: null,
+          }).then(resolve, reject);
+      }
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_out", scheduleId: 11 }));
+    expect(res.status).toBe(201);
+    expect(client.inserts[0]).toMatchObject({ punch_type: "clock_out", schedule_id: null });
+  });
+
+  it("returns 422 when the database's shift check rejects the insert (23514)", async () => {
+    const client = makeShiftOwnershipClient({ shifts, insertError: { code: "23514", message: "own shift" } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", scheduleId: 10 }));
+    expect(res.status).toBe(422);
+  });
+});
+
+describe("PUT /api/punches — a manager's manual punch must name the employee's own shift", () => {
+  const shifts = [
+    { id: 10, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-14", start_minutes: 540, end_minutes: 1020 },
+    { id: 11, org_id: MOCK_ORG_ID, employee_id: 2, date: "2026-10-14", start_minutes: 540, end_minutes: 1020 },
+    { id: 13, org_id: MOCK_ORG_ID, employee_id: 1, date: "2026-10-05", start_minutes: 540, end_minutes: 1020 },
+  ];
+  const body = { punchType: "clock_in", localDate: "2026-10-14", localTime: "09:00", note: "Missed", employeeId: 1 };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T14:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("accepts the employee's own shift on that day", async () => {
+    const client = makeShiftOwnershipClient({ shifts, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PUT(makePutRequest({ ...body, scheduleId: 10 }));
+    expect(res.status).toBe(200);
+    expect(client.inserts[0]).toMatchObject({ employee_id: 1, schedule_id: 10 });
+  });
+
+  it.each([
+    ["a coworker's shift", 11],
+    ["a shift from another day", 13],
+    ["a shift id that doesn't exist", 999],
+  ])("refuses %s (422)", async (_label, scheduleId) => {
+    const client = makeShiftOwnershipClient({ shifts, isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PUT(makePutRequest({ ...body, scheduleId }));
+    expect(res.status).toBe(422);
+    expect(client.inserts).toHaveLength(0);
+  });
+});
+
+// ── POST /api/punches — geofence coordinate validation ───────────────────────
+
+describe("POST /api/punches — geofence coordinate validation", () => {
+  const emp = { id: 1, org_id: MOCK_ORG_ID, name: "Tester" };
+  // Geofence centred on lower Manhattan, 100m radius.
+  const CENTRE = { lat: 40.7128, lng: -74.006 };
+  const enforced = (overrides: Record<string, string> = {}) =>
+    Object.entries({
+      timezone: "America/New_York",
+      gps_required: "true",
+      geofence_enabled: "true",
+      geofence_lat: String(CENTRE.lat),
+      geofence_lng: String(CENTRE.lng),
+      geofence_radius: "100",
+      ...overrides,
+    }).map(([key, value]) => ({ key, value }));
+
+  function makeGeofenceClient(settingsRows: { key: string; value: string }[]) {
+    const insertData = {
+      id: 7, employee_id: 1, schedule_id: null, punch_type: "clock_in",
+      punched_at: new Date().toISOString(), lat: null, lng: null, is_manual: false, note: null,
+    };
+    const insert = vi.fn();
+    const client = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "employees") return makeBuilder({ data: emp, error: null });
+        if (table === "app_settings") return makeBuilder({ data: settingsRows, error: null });
+        if (table === "punch_records") {
+          const b: any = {};
+          for (const m of ["select", "eq", "gt", "gte", "lte", "lt", "order", "limit"]) {
+            b[m] = vi.fn().mockReturnValue(b);
+          }
+          b.insert = vi.fn((row: unknown) => { insert(row); return b; });
+          b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
+          // Current-shift read: nothing punched today.
+          b.then = (resolve: any, reject: any) =>
+            Promise.resolve({ data: [], error: null }).then(resolve, reject);
+          return b;
+        }
+        return makeBuilder({ data: null, error: null });
+      }),
+    };
+    return { client, insert };
+  }
+
+  function rawPost(json: string) {
+    return new Request("http://localhost/api/punches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: json,
+    });
+  }
+
+  it("accepts a clock-in inside the geofence", async () => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.7129, lng: -74.0061 }));
+    expect(res.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ lat: 40.7129, lng: -74.0061 }));
+  });
+
+  it("rejects a clock-in outside the geofence", async () => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.73, lng: -74.006 }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/Outside geofence/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a clock-in with no coordinates while enforcement is on", async () => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/GPS location required/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  // Each of these used to reach haversineMeters, produce a NaN distance, and
+  // pass the `dist > radius` check — i.e. bypass the geofence entirely.
+  it.each([
+    ["string latitude", `{"punchType":"clock_in","lat":"abc","lng":-74.006}`],
+    ["numeric-string latitude", `{"punchType":"clock_in","lat":"40.7128","lng":-74.006}`],
+    ["overflowing latitude (Infinity)", `{"punchType":"clock_in","lat":1e999,"lng":-74.006}`],
+    ["overflowing longitude (-Infinity)", `{"punchType":"clock_in","lat":40.7128,"lng":-1e999}`],
+    ["latitude above 90", `{"punchType":"clock_in","lat":90.5,"lng":-74.006}`],
+    ["latitude below -90", `{"punchType":"clock_in","lat":-91,"lng":-74.006}`],
+    ["longitude above 180", `{"punchType":"clock_in","lat":40.7128,"lng":180.1}`],
+    ["longitude below -180", `{"punchType":"clock_in","lat":40.7128,"lng":-286}`],
+    ["latitude without longitude", `{"punchType":"clock_in","lat":40.7128}`],
+    ["longitude without latitude", `{"punchType":"clock_in","lng":-74.006}`],
+    ["object latitude", `{"punchType":"clock_in","lat":{},"lng":-74.006}`],
+    ["array longitude", `{"punchType":"clock_in","lat":40.7128,"lng":[-74.006]}`],
+    ["boolean latitude", `{"punchType":"clock_in","lat":true,"lng":-74.006}`],
+  ])("rejects a %s with 400 and records nothing", async (_label, json) => {
+    const { client, insert } = makeGeofenceClient(enforced());
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(rawPost(json));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/lat|lng/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed coordinates even when the geofence is off", async () => {
+    const { client, insert } = makeGeofenceClient(enforced({ geofence_enabled: "false" }));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(rawPost(`{"punchType":"clock_out","lat":1e999,"lng":0}`));
+    expect(res.status).toBe(400);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an unparseable centre latitude", { geofence_lat: "not-a-number" }],
+    ["an infinite centre latitude", { geofence_lat: "1e999" }],
+    ["an out-of-range centre longitude", { geofence_lng: "200" }],
+    ["half a centre", { geofence_lng: "" }],
+    ["an unparseable radius", { geofence_radius: "wide" }],
+  ])("fails closed on %s in stored settings", async (_label, overrides) => {
+    const { client, insert } = makeGeofenceClient(enforced(overrides));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.7128, lng: -74.006 }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/misconfigured/);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when the database's geofence trigger rejects the insert", async () => {
+    // Settings changed between the route's check and the insert.
+    const { client } = makeGeofenceClient(enforced({ geofence_enabled: "false" }));
+    const base = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = base(table);
+      if (table === "punch_records")
+        b.single = vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: "GF001", message: "Outside geofence — you must be within 100m of the designated location to clock in" },
+        });
+      return b;
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 40.73, lng: -74.006 }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/Outside geofence/);
+  });
+
+  it("skips the distance check when no centre has been saved", async () => {
+    const { client } = makeGeofenceClient(enforced({ geofence_lat: "", geofence_lng: "" }));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in" }));
     expect(res.status).toBe(201);
   });
 });

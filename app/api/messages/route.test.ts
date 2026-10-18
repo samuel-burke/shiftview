@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { GET, POST, PATCH } from "./route";
 import { createClient } from "@/lib/supabase-server";
+import { notify } from "@/lib/notify";
 import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
@@ -51,9 +52,19 @@ function makeMessagesClient({
       }
       b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
       b.then = (resolve: any, reject: any) => Promise.resolve({ data: null, error: null }).then(resolve, reject);
+      // Lookups filtered on someone else's user_id are membership checks on
+      // the counterpart; they find a row only when counterpartInOrg.
+      let lookedUpUser: string | undefined;
+      b.eq = vi.fn().mockImplementation((col: string, val: any) => {
+        if (col === "user_id") lookedUpUser = val;
+        return b;
+      });
+      const isCounterpartLookup = () => lookedUpUser !== undefined && lookedUpUser !== user?.id;
 
       if (table === "managers") {
-        b.maybeSingle = vi.fn().mockResolvedValue({ data: managerRow, error: null });
+        b.maybeSingle = vi.fn().mockImplementation(() =>
+          Promise.resolve({ data: isCounterpartLookup() ? null : managerRow, error: null })
+        );
         b.then = (resolve: any, reject: any) => Promise.resolve({ data: managerRow, error: null }).then(resolve, reject);
         return b;
       }
@@ -61,6 +72,8 @@ function makeMessagesClient({
         // Track call number to determine context: getOrgContext call vs sender name call vs counterpart check
         let callCount = 0;
         b.maybeSingle = vi.fn().mockImplementation(() => {
+          if (isCounterpartLookup())
+            return Promise.resolve({ data: counterpartEmpRow, error: null });
           callCount++;
           if (!isManager && callCount === 1) {
             // First call in getOrgContext: return employee row for org resolution
@@ -200,6 +213,22 @@ describe("POST /api/messages", () => {
     );
   });
 
+  it("rejects a recipient outside the organization without inserting or notifying", async () => {
+    const { notify } = await import("@/lib/notify");
+    vi.mocked(notify).mockClear();
+    const client = makeMessagesClient({ isManager: true, counterpartInOrg: false });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(
+      new Request("http://localhost/api/messages", {
+        method: "POST",
+        body: JSON.stringify({ toUserId: "user-in-another-org", body: "hello" }),
+      })
+    );
+    expect(res.status).toBe(403);
+    expect((client.from as any).mock.calls.some((c: any) => c[0] === "messages")).toBe(false);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when message is too long", async () => {
     mockCreateClient.mockResolvedValue(makeMessagesClient({ isManager: true }) as any);
     const res = await POST(
@@ -247,5 +276,21 @@ describe("PATCH /api/messages", () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+});
+
+describe("POST /api/messages — notification preview", () => {
+  it("keeps the message text out of the notification and push preview", async () => {
+    vi.mocked(notify).mockClear();
+    mockCreateClient.mockResolvedValue(makeMessagesClient() as any);
+    const res = await POST(
+      new Request("http://localhost/api/messages", {
+        method: "POST",
+        body: JSON.stringify({ toUserId: "other-user-id", body: "my door code is 4321" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(vi.mocked(notify).mock.calls[0][0])).not.toContain("4321");
   });
 });

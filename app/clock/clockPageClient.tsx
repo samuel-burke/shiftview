@@ -25,13 +25,15 @@ import UserMenu from "../../components/UserMenu";
 import { MegaphoneIcon } from "../../components/ShiftIcons";
 import { createClient } from "@/lib/supabase-browser";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
-import { isOvernight, shiftWindowOn } from "@/lib/shift-times";
+import { isOvernight } from "@/lib/shift-times";
+import { pickClockInShift } from "@/lib/punch-schedule";
+import { clockInTiming } from "@/lib/punch-policy";
 import { SkeletonClockBody } from "../../components/Skeleton";
 import { haversineMeters } from "@/lib/haversine";
 import { motion } from "framer-motion";
 import { haptic } from "@/lib/haptic";
 import { playPunchSound } from "@/lib/sounds";
-import { addDaysToKey, dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, minutesFromScheduled, nowMinutesInTz } from "@/lib/dates";
+import { addDaysToKey, dateFromKey, dateKeyInTz, dayOfWeekForKey, formatDateKey, formatTimeInTz, getLocalMinutes, minutesFromScheduled, nowMinutesInTz, parseHHMM } from "@/lib/dates";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
 import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
@@ -75,20 +77,21 @@ export default function ClockPageClient() {
     window.location.href = "/login";
   }
 
-  const [schedule, setSchedule] = useState<Schedule | null>(null);
+  // The employee's shifts today and yesterday (an overnight shift may still be
+  // running); which one the clock is for is picked from these on every render.
+  const [myShifts, setMyShifts] = useState<{ today: Schedule[]; yesterday: Schedule[] }>({ today: [], yesterday: [] });
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
-  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress, timezone } = settings;
+  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress, timezone, punchPolicy } = settings;
   // "Today" and every displayed time are in the store's timezone, whatever
   // timezone this device is set to.
   const todayKey = useStoreTodayKey(timezone);
   const today = useMemo(() => dateFromKey(todayKey), [todayKey]);
-  // The store's current wall-clock minute, derived each render; a ticker below
-  // re-renders once a minute so it stays live.
+  // A ticker below re-renders once a minute, so the shift picked for the
+  // clock (derived each render) stays live.
   const [, setMinuteTick] = useState(0);
-  const nowMinutes = nowMinutesInTz(timezone);
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
 
@@ -165,6 +168,7 @@ export default function ClockPageClient() {
   // Pre-punch warning confirmation
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
   const [pendingWarning, setPendingWarning] = useState<PunchWarning | null>(null);
+  const [pendingSchedule, setPendingSchedule] = useState<Schedule | null>(null);
 
   const storeHours = weeklyHours[dayOfWeekForKey(todayKey)];
 
@@ -195,7 +199,7 @@ export default function ClockPageClient() {
     }
   }, [punches, status]);
 
-  // Live nowMinutes for shift status
+  // Re-render each minute so the picked shift stays current
   useEffect(() => {
     const t = setInterval(() => setMinuteTick((n) => n + 1), 60000);
     return () => clearInterval(t);
@@ -241,9 +245,7 @@ export default function ClockPageClient() {
       const current = await currentRes.json().catch(() => null);
       const carried = !!current?.carriedOver && Array.isArray(current.punches);
       setCarriedOver(carried);
-      setSchedule(pickMySchedule(
-        empId, todayKey, scheds, Array.isArray(prevScheds) ? (prevScheds as Schedule[]) : [], carried, nowMinutesInTz(timezone),
-      ));
+      setMyShifts({ today: Array.isArray(scheds) ? scheds : [], yesterday: Array.isArray(prevScheds) ? (prevScheds as Schedule[]) : [] });
       if (carried) {
         const byId = new Map<number, PunchRecord>();
         for (const p of [...(current.punches as PunchRecord[]), ...myPunches]) byId.set(p.id, p);
@@ -259,7 +261,7 @@ export default function ClockPageClient() {
     } finally {
       if (!background) setLoading(false);
     }
-  }, [todayKey, timezone, setScheduleCache, setPunchCache]);
+  }, [todayKey, setScheduleCache, setPunchCache]);
 
   useEffect(() => {
     if (meLoading) return; // don't load data until employee identity is known
@@ -267,9 +269,7 @@ export default function ClockPageClient() {
     const cachedScheds = scheduleCache[todayKey];
     const cachedPunches = punchCache[todayKey];
     if (cachedScheds && cachedPunches) {
-      setSchedule(pickMySchedule(
-        empId, todayKey, cachedScheds, scheduleCache[addDaysToKey(todayKey, -1)] ?? [], false, nowMinutesInTz(timezone),
-      ));
+      setMyShifts({ today: cachedScheds, yesterday: scheduleCache[addDaysToKey(todayKey, -1)] ?? [] });
       setPunches(empId ? cachedPunches.filter((p) => p.employeeId === empId) : []);
       setLoading(false);
       loadData(true);
@@ -400,27 +400,33 @@ export default function ClockPageClient() {
   }
 
   function handlePunchClick(punchType: PunchType) {
-    const warning = getPunchWarning(punchType, nowMinutes, schedule, { nowMs: Date.now(), tz: timezone });
+    // Pick the shift again at the moment of the tap — the screen may have been
+    // open since before the previous shift ended.
+    const target = pickMySchedule(employeeId, myShifts.today, myShifts.yesterday, carriedOver, openClockInScheduleId, timezone);
+    const warning = getPunchWarning(punchType, nowMinutesInTz(timezone), target, { nowMs: Date.now(), tz: timezone }, punchPolicy);
     if (warning) {
       setPendingPunchType(punchType);
+      setPendingSchedule(target);
       setPendingWarning(warning);
     } else {
-      submitPunch(punchType);
+      submitPunch(punchType, target);
     }
   }
 
   function confirmPunch() {
-    if (pendingPunchType) submitPunch(pendingPunchType);
+    if (pendingPunchType) submitPunch(pendingPunchType, pendingSchedule);
     setPendingPunchType(null);
+    setPendingSchedule(null);
     setPendingWarning(null);
   }
 
   function cancelPunch() {
     setPendingPunchType(null);
+    setPendingSchedule(null);
     setPendingWarning(null);
   }
 
-  async function submitPunch(punchType: PunchType) {
+  async function submitPunch(punchType: PunchType, punchSchedule: Schedule | null = schedule) {
     if (actionPending) return;
     haptic();
     setActionPending(true);
@@ -461,7 +467,7 @@ export default function ClockPageClient() {
     const optimisticPunch: PunchRecord = {
       id: tempId,
       employeeId: employeeId ?? 0,
-      scheduleId: schedule?.id ?? null,
+      scheduleId: punchSchedule?.id ?? null,
       punchType,
       punchedAt: new Date().toISOString(),
       lat,
@@ -478,7 +484,7 @@ export default function ClockPageClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           punchType,
-          scheduleId: schedule?.id ?? null,
+          scheduleId: punchSchedule?.id ?? null,
           lat,
           lng,
         }),
@@ -491,12 +497,31 @@ export default function ClockPageClient() {
       const newPunch: PunchRecord = await res.json();
       setPunches((prev) => prev.map((p) => (p.id === tempId ? newPunch : p)));
     } catch (e) {
-      // Roll back the optimistic punch so the UI reflects reality.
+      // Roll back the optimistic punch, then reload: a refused punch (409/422)
+      // or a lost response means this screen's idea of the shift may be stale
+      // — the punch may even have landed — and without a refresh every tap
+      // would be refused again.
       setPunches((prev) => prev.filter((p) => p.id !== tempId));
       setActionError(e instanceof Error ? e.message : "Unknown error");
+      loadData(true);
     } finally {
       setActionPending(false);
     }
+  }
+
+  // A missed clock-out (or break punch) earlier in the day than the open punch
+  // it follows belongs to the next morning — an overnight shift. Move the date
+  // along with the time; the server applies the same rule.
+  function changeCorrectionTime(value: string) {
+    setCorrectionTime(value);
+    if (!missedPunchInfo || correctionType === "clock_in") return;
+    const openDay = missedPunchInfo.date;
+    const nextDay = addDaysToKey(openDay, 1);
+    if (correctionDate !== openDay && correctionDate !== nextDay) return;
+    const minutes = parseHHMM(value);
+    if (minutes === null) return;
+    const beforeOpenPunch = minutes < getLocalMinutes(missedPunchInfo.lastPunchedAt, timezone);
+    setCorrectionDate(beforeOpenPunch && nextDay <= todayKey ? nextDay : openDay);
   }
 
   async function submitCorrection() {
@@ -518,7 +543,9 @@ export default function ClockPageClient() {
           localDate: correctionDate,
           localTime: correctionTime,
           note: correctionNote.trim(),
-          scheduleId: schedule?.id ?? null,
+          // Only link the shift when the correction is for its day; the
+          // server refuses a shift from another day.
+          scheduleId: schedule && schedule.date === correctionDate ? schedule.id : null,
           employeeId: isManager ? employeeId : undefined,
         }),
       });
@@ -555,16 +582,28 @@ export default function ClockPageClient() {
     [punches],
   );
 
-  // Derive late / early status
+  // While clocked in, the shift is the one the clock-in was for.
+  const openClockInScheduleId = useMemo(() => {
+    if (status !== "clocked_in" && status !== "on_break") return null;
+    return [...sortedPunches].reverse().find((p) => p.punchType === "clock_in")?.scheduleId ?? null;
+  }, [sortedPunches, status]);
+
+  // Re-picked on every render, so the minute ticker moves it on from a shift
+  // that has ended to the next one (a split shift's afternoon half).
+  const schedule = pickMySchedule(employeeId, myShifts.today, myShifts.yesterday, carriedOver, openClockInScheduleId, timezone);
+
+  // Late / early badge for the clock-in of the shift shown — by the org's
+  // punch policy, the same rule as the time card and the manager's alert.
   const punchFlair = useMemo((): { text: string; color: string } | null => {
-    if (!schedule || sortedPunches.length === 0) return null;
-    const clockIn = sortedPunches.find((p) => p.punchType === "clock_in");
+    if (!schedule) return null;
+    const clockIn = sortedPunches.find((p) => p.punchType === "clock_in" && p.scheduleId === schedule.id);
     if (!clockIn) return null;
     const diff = minutesFromScheduled(clockIn.punchedAt, schedule.date.slice(0, 10), schedule.startMinutes, timezone);
-    if (diff > 5) return { text: `${diff}m late`, color: "var(--status-bad)" };
-    if (diff < -5) return { text: `${Math.abs(diff)}m early`, color: "var(--status-info)" };
+    const timing = clockInTiming(punchPolicy, diff);
+    if (timing === "late") return { text: `${diff}m late`, color: "var(--status-bad)" };
+    if (timing === "early") return { text: `${Math.abs(diff)}m early`, color: "var(--status-info)" };
     return null;
-  }, [schedule, sortedPunches, timezone]);
+  }, [schedule, sortedPunches, timezone, punchPolicy]);
 
   // A pending correction already covers the missed-punch day.
   const missedPunchPending = !!missedPunchInfo && myCorrections.some(
@@ -1028,7 +1067,7 @@ export default function ClockPageClient() {
                   id="correction-time"
                   type="time"
                   value={correctionTime}
-                  onChange={(e) => setCorrectionTime(e.target.value)}
+                  onChange={(e) => changeCorrectionTime(e.target.value)}
                   className="w-full bg-fill border border-field rounded-[10px] px-3 py-2 text-sm text-fg focus:outline-none focus:border-accent transition-colors"
                 />
               </div>
@@ -1200,18 +1239,23 @@ export default function ClockPageClient() {
   );
 }
 
-// The employee's shift for the clock screen: yesterday's overnight shift while
-// it's still running (or its punches carried past midnight), else today's.
+// The employee's shift for the clock screen: the shift the open clock-in was
+// for, else yesterday's overnight shift whose punches carried past midnight,
+// else the shift a clock-in now would be for (pickClockInShift).
 function pickMySchedule(
   empId: number | null | undefined,
-  todayKey: string,
   todays: Schedule[],
   yesterdays: Schedule[],
   carriedOver: boolean,
-  nowMinutes: number,
+  openClockInScheduleId: number | null,
+  tz: string,
+  nowMs: number = Date.now(),
 ): Schedule | null {
   if (!empId) return null;
+  const mine = [...todays, ...yesterdays].filter((s) => s.employeeId === empId);
+  const attached = openClockInScheduleId != null ? mine.find((s) => s.id === openClockInScheduleId) : undefined;
+  if (attached) return attached;
   const overnight = yesterdays.find((s) => s.employeeId === empId && isOvernight(s));
-  if (overnight && (carriedOver || nowMinutes < shiftWindowOn(overnight, todayKey).end)) return overnight;
-  return todays.find((s) => s.employeeId === empId) ?? null;
+  if (overnight && carriedOver) return overnight;
+  return pickClockInShift(empId, mine, tz, nowMs);
 }

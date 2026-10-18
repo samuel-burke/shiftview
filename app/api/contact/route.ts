@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { CONTACT_LIMITS as LIMITS, TOPIC_LABELS, isContactTopic } from "@/lib/contact";
+import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 //      that do get a 200 so they don't learn to skip it; nothing is sent.
 //   2. Best-effort per-instance rate limit (same caveat as /api/demo/start:
 //      serverless memory only blunts naive loops on one warm instance).
-//   3. Cloudflare Turnstile when TURNSTILE_SECRET_KEY is set.
+//   3. Cloudflare Turnstile (lib/turnstile.ts; required in production).
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -85,11 +86,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (process.env.TURNSTILE_SECRET_KEY) {
-    const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
-    if (!(await verifyTurnstileToken(token, ip === "unknown" ? null : ip))) {
-      return NextResponse.json({ error: "Verification failed — please try again" }, { status: 403 });
-    }
+  const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
+  if (!(await verifyTurnstileToken(token, ip === "unknown" ? null : ip))) {
+    return NextResponse.json({ error: "Verification failed — please try again" }, { status: 403 });
   }
 
   // Header injection guard: the name lands in the subject line.
@@ -112,6 +111,17 @@ export async function POST(request: Request) {
     console.error("[api/contact] send failed:", err);
     return NextResponse.json({ error: "We couldn't send your message — please try again" }, { status: 502 });
   }
+
+  // The full message is in the email; the push is a heads-up with a preview.
+  const preview = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+  after(() =>
+    sendNtfy({
+      title: `Contact form: ${TOPIC_LABELS[topic]}`,
+      message: `${name} (${email})\n${preview}`,
+      tags: ["envelope"],
+      priority: 4,
+    })
+  );
 
   return NextResponse.json({ ok: true });
 }

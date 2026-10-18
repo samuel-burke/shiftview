@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
 
@@ -50,28 +51,41 @@ export async function POST(request: Request) {
     );
   }
 
+  const admin = createAdminClient();
   let userId = existing?.id ?? null;
-  if (!userId) {
-    // Bot gate applies only when minting a NEW anonymous auth user — that's
-    // the abusable resource (no email step, unlike login/signup). Anonymous
-    // sign-in is the only auth path this app gates with Turnstile; the
-    // email-OTP login and signup flows rely on Supabase's built-in email
-    // rate limits instead. Re-provisioning an existing session (the
-    // self-heal path) skips the gate: that visitor already passed the
-    // challenge once, and no new user is created.
-    //
-    // Verification is route-level: set TURNSTILE_SECRET_KEY and this route
-    // checks the token against siteverify itself. With no secret key set
-    // the gate is off (local dev, e2e, preview without keys).
-    if (process.env.TURNSTILE_SECRET_KEY) {
-      if (!(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
-        return NextResponse.json(
-          { error: "Verification failed — please try again" },
-          { status: 403 }
-        );
-      }
-    }
 
+  // Bot gate. Anonymous users can be minted straight from Supabase Auth with
+  // the public anon key, bypassing this route, so the gate keys on demo
+  // membership rather than on whether a session exists: only a visitor who
+  // already holds the demo manager role (the self-heal path re-linking their
+  // employee row) skips it. Anyone else, with or without an anonymous
+  // session, must pass Turnstile before getting manager access to the demo.
+  // Login and signup rely on Supabase's email rate limits plus the gate in
+  // /api/auth/signup-otp.
+  //
+  // Verification is route-level (lib/turnstile.ts): off without
+  // TURNSTILE_SECRET_KEY in local dev, e2e and previews, required in
+  // production.
+  let alreadyMember = false;
+  if (userId) {
+    const { data: membership } = await admin
+      .from("managers")
+      .select("user_id")
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("user_id", userId)
+      .maybeSingle();
+    alreadyMember = Boolean(membership);
+  }
+  // A returning demo manager re-provisioning their session isn't a new visit.
+  const isNewSession = !alreadyMember;
+  if (!alreadyMember && !(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
+    return NextResponse.json(
+      { error: "Verification failed — please try again" },
+      { status: 403 }
+    );
+  }
+
+  if (!userId) {
     const { data, error } = await supabase.auth.signInAnonymously();
     if (error || !data.user) {
       console.error("[api/demo/start] anonymous sign-in failed:", error);
@@ -83,8 +97,6 @@ export async function POST(request: Request) {
     }
     userId = data.user.id;
   }
-
-  const admin = createAdminClient();
 
   // Manager membership (managers PK is (org_id, user_id), so this is idempotent).
   const { error: managerError } = await admin
@@ -128,6 +140,28 @@ export async function POST(request: Request) {
   if (linkError) {
     console.error("[api/demo/start] employee link failed:", linkError);
     // Non-fatal: the session still works as manager-only.
+  }
+
+  // Alert on new demo visits only.
+  // Coarse location comes from Vercel's geo headers; the IP is left out.
+  if (isNewSession) {
+    const where = [
+      request.headers.get("x-vercel-ip-city"),
+      request.headers.get("x-vercel-ip-country-region"),
+      request.headers.get("x-vercel-ip-country"),
+    ]
+      .filter(Boolean)
+      .map((part) => {
+        try { return decodeURIComponent(part!); } catch { return part!; }
+      })
+      .join(", ");
+    after(() =>
+      sendNtfy({
+        title: "Demo started on ShiftView",
+        message: where ? `Someone just opened the demo from ${where}.` : "Someone just opened the demo.",
+        tags: ["eyes"],
+      })
+    );
   }
 
   return NextResponse.json({ ok: true });

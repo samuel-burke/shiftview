@@ -7,6 +7,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
 import { applySchedulingRulesPatch, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { isValidTimezone, resolveTimezone } from "@/lib/dates";
+import { isValidLatitude, isValidLongitude } from "@/lib/geo-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -107,14 +108,14 @@ export async function PUT(request: Request) {
   }
 
   if (body.geofenceLat !== undefined) {
-    if (body.geofenceLat !== null && (typeof body.geofenceLat !== "number" || isNaN(body.geofenceLat)))
-      return NextResponse.json({ error: "geofenceLat must be a number or null" }, { status: 400 });
+    if (body.geofenceLat !== null && !isValidLatitude(body.geofenceLat))
+      return NextResponse.json({ error: "geofenceLat must be a finite number between -90 and 90, or null" }, { status: 400 });
     rows.push({ key: "geofence_lat", value: body.geofenceLat == null ? "" : String(body.geofenceLat) });
   }
 
   if (body.geofenceLng !== undefined) {
-    if (body.geofenceLng !== null && (typeof body.geofenceLng !== "number" || isNaN(body.geofenceLng)))
-      return NextResponse.json({ error: "geofenceLng must be a number or null" }, { status: 400 });
+    if (body.geofenceLng !== null && !isValidLongitude(body.geofenceLng))
+      return NextResponse.json({ error: "geofenceLng must be a finite number between -180 and 180, or null" }, { status: 400 });
     rows.push({ key: "geofence_lng", value: body.geofenceLng == null ? "" : String(body.geofenceLng) });
   }
 
@@ -166,6 +167,10 @@ export async function PUT(request: Request) {
     .from("app_settings")
     .upsert(withOrgAll(orgId!, rows));
 
+  // The database only stores zones it knows (migration 0047), so the clock
+  // triggers read the same store day as the app.
+  if (error?.code === "22023")
+    return NextResponse.json({ error: "timezone is not a valid IANA timezone identifier" }, { status: 422 });
   if (error) {
     console.error("[api/settings]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { writeAuditLog } from "@/lib/audit";
 import { getOrgContext, DEFAULT_ORG_ID } from "@/lib/org-context";
+import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,16 @@ function slugify(name: string): string {
 
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 6);
+}
+
+// Someone tried to sign up and hit a server error: worth knowing right away.
+function alertSignupFailed(orgName: string, reason: string) {
+  return sendNtfy({
+    title: "Organization sign-up failed",
+    message: `"${orgName}" could not be created (${reason}). Check the server logs.`,
+    tags: ["warning"],
+    priority: 4,
+  });
 }
 
 export async function POST(request: Request) {
@@ -104,6 +115,18 @@ export async function POST(request: Request) {
         metadata: { ownerUserId: user.id },
       }).catch(() => {});
 
+      // Runs after the response is sent, so a slow or failing ntfy server
+      // never delays or breaks sign-up.
+      const creator = ownerName.trim();
+      const creatorEmail = user.email;
+      after(() =>
+        sendNtfy({
+          title: "New organization on ShiftView",
+          message: `${orgName}\nCreated by ${creator} (${creatorEmail})`,
+          tags: ["tada"],
+        })
+      );
+
       return NextResponse.json({ ok: true, organizationId: orgId }, { status: 201 });
     }
 
@@ -120,10 +143,12 @@ export async function POST(request: Request) {
     }
 
     console.error("[api/organizations]", error);
+    after(() => alertSignupFailed(orgName, "database error"));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   console.error("[api/organizations] slug generation exhausted for base:", base);
+  after(() => alertSignupFailed(orgName, "no free slug"));
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 

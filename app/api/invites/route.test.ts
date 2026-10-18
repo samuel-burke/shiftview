@@ -41,17 +41,28 @@ function makeQueryBuilder(result: { data: any; error: any }) {
   return b;
 }
 
+// `teamMember`: the employee row a re-invite (PUT) finds for the email.
 function makeServerClient({
   user = MOCK_USER as any,
   isManager = true,
+  teamMember = { id: 7, user_id: null } as Record<string, unknown> | null,
 } = {}) {
   const managerRow =
     isManager && user ? { user_id: user.id, org_id: MOCK_ORG_ID } : null;
+  const membership = makeQueryBuilder({ data: managerRow, error: null });
+  const employees = makeQueryBuilder({ data: teamMember, error: null });
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
-    from: vi.fn().mockReturnValue(makeQueryBuilder({ data: managerRow, error: null })),
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table !== "employees") return membership;
+      // Membership resolution reads employees by user_id; the re-invite
+      // check reads them by email.
+      const b = makeQueryBuilder({ data: managerRow, error: null });
+      b.ilike = vi.fn().mockReturnValue(employees);
+      return b;
+    }),
   };
 }
 
@@ -190,6 +201,26 @@ describe("POST /api/invites — business logic", () => {
     expect(deleteBuilder?.delete).toHaveBeenCalled();
   });
 
+  it("refuses an email that isn't on the caller's team, sending nothing", async () => {
+    mockCreateClient.mockResolvedValue(makeServerClient({ teamMember: null }) as any);
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await PUT(putReq({ email: "stranger@example.com" }));
+    expect(res.status).toBe(404);
+    expect(adminClient.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses to re-invite someone who has already joined", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeServerClient({ teamMember: { id: 7, user_id: "user-999" } }) as any
+    );
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await PUT(putReq({ email: "alice@example.com" }));
+    expect(res.status).toBe(409);
+    expect(adminClient.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+  });
+
   it("sends the invite to the provided email", async () => {
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
@@ -298,6 +329,26 @@ describe("PUT /api/invites — business logic", () => {
     const res = await PUT(putReq({ email: "alice@example.com" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("refuses an email that isn't on the caller's team, sending nothing", async () => {
+    mockCreateClient.mockResolvedValue(makeServerClient({ teamMember: null }) as any);
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await PUT(putReq({ email: "stranger@example.com" }));
+    expect(res.status).toBe(404);
+    expect(adminClient.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses to re-invite someone who has already joined", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeServerClient({ teamMember: { id: 7, user_id: "user-999" } }) as any
+    );
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const res = await PUT(putReq({ email: "alice@example.com" }));
+    expect(res.status).toBe(409);
+    expect(adminClient.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
   });
 
   it("sends the invite to the provided email", async () => {

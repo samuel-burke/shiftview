@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { computePayroll, PunchRow } from "@/lib/payroll";
-import { addDaysToKey, daysBetweenKeys, localDayBoundsUtc } from "@/lib/dates";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
+import { computePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
+import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
@@ -32,21 +33,28 @@ export async function GET(request: Request) {
 
   const tz = await getOrgTimezone(supabase, orgId!);
 
-  const { data, error } = await supabase
-    .from("punch_records")
-    .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
-    .eq("org_id", orgId!)
-    .gte("punched_at", localDayBoundsUtc(from, tz).start.toISOString())
-    .lte("punched_at", localDayBoundsUtc(addDaysToKey(to, 1), tz).end.toISOString())
-    .order("employee_id")
-    .order("punched_at")
-    .limit(50_000);
+  const span = payrollQueryWindow(from, to, tz);
+  const { data, error, truncated } = await fetchAllRows((first, last) =>
+    supabase
+      .from("punch_records")
+      .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
+      .eq("org_id", orgId!)
+      .gte("punched_at", span.start)
+      .lte("punched_at", span.end)
+      .order("employee_id")
+      .order("punched_at")
+      .order("id")
+      .range(first, last)
+  );
 
   if (error) {
     console.error("[api/reports/payroll]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  // Paying from a partial set of punches would underpay silently.
+  if (truncated)
+    return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const rows = computePayroll((data ?? []) as unknown as PunchRow[], tz, { from, to });
+  const rows = computePayroll(data as unknown as PunchRow[], tz, { from, to });
   return NextResponse.json({ rows, from, to });
 }

@@ -5,6 +5,9 @@ on:
     branches: [main, dev]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   static-checks:
     runs-on: ubuntu-latest
@@ -37,6 +40,45 @@ jobs:
       - run: npm ci
 
       - run: npm test
+
+  security:
+    # Security regression tests: every behavioural SQL suite in
+    # supabase/manual-tests (RLS, cross-organization isolation, RPC privileges,
+    # punch integrity) against a fresh database built the way a new project is,
+    # plus unit tests named *.security.test.ts. Production runs Postgres 17.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Database security tests
+        run: npm run test:sql
+
+      - name: Security unit tests
+        run: npm run test:security
 
   unit-timezones:
     # Date logic must not depend on the server's or browser's timezone. Re-run

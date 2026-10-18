@@ -2,10 +2,21 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { notify } from "@/lib/notify";
+import { sendNtfy } from "@/lib/ntfy";
 import { fmtMinutes } from "@/data/types";
 import { addDaysToKey, DEFAULT_TIMEZONE, formatDateKey, resolveTimezone, todayKeyInTz } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
+
+// Nobody gets tomorrow's shift reminders when this fails, so tell the operator.
+function alertCronFailed(reason: string) {
+  return sendNtfy({
+    title: "Shift reminder cron failed",
+    message: `${reason}, so no shift reminders went out. Check the server logs.`,
+    tags: ["warning"],
+    priority: 4,
+  });
+}
 
 export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) {
@@ -24,6 +35,7 @@ export async function GET(request: Request) {
     .eq("is_demo", true);
   if (demoErr) {
     console.error("[cron/reminders] demo orgs fetch failed:", demoErr);
+    await alertCronFailed("Fetching demo orgs failed");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
   const demoOrgIds = new Set((demoOrgs ?? []).map((o) => o.id));
@@ -53,6 +65,7 @@ export async function GET(request: Request) {
 
   if (schedErr) {
     console.error("[cron/reminders] schedules fetch failed:", schedErr);
+    await alertCronFailed("Fetching schedules failed");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
@@ -69,6 +82,7 @@ export async function GET(request: Request) {
 
   if (empErr) {
     console.error("[cron/reminders] employees fetch failed:", empErr);
+    await alertCronFailed("Fetching employees failed");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 

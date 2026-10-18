@@ -75,23 +75,21 @@ export function currentShift<P extends SessionPunch>(
     const i = list.map((p) => p.punchType).lastIndexOf("clock_in");
     return i >= 0 ? list.slice(i) : [];
   };
-  const startedBeforeToday = (session: P[]) =>
-    session.length > 0 && dateKeyInTz(session[0].punchedAt, tz) < today;
-
   const todays = punches.filter((p) => dateKeyInTz(p.punchedAt, tz) === today);
-  if (todays.length > 0) {
-    const session = sinceLastClockIn(punches);
-    const state = todays[todays.length - 1].punchType;
-    return {
-      state,
-      punches: session,
-      carriedOver: state !== "clock_out" && startedBeforeToday(session) && todays.every((p) => p.punchType !== "clock_in"),
-    };
+  const session = sinceLastClockIn(punches);
+  const last = punches[punches.length - 1];
+  if (todays.some((p) => p.punchType === "clock_in")) {
+    return { state: last.punchType, punches: session, carriedOver: false };
+  }
+  // A shift that ended after midnight (a closer clocking out at 1:00 AM).
+  if (todays.length > 0 && last.punchType === "clock_out") {
+    return { state: "clock_out", punches: session, carriedOver: false };
   }
 
-  // Nothing yet today: is yesterday's shift still open and within the grace window?
-  const last = punches[punches.length - 1];
-  const session = sinceLastClockIn(punches);
+  // No clock-in yet today: is yesterday's shift still open and within the
+  // grace window? Breaks taken after midnight don't extend it — a closer who
+  // took a break at 12:15 AM and forgot to clock out is released at 4:00 AM
+  // like any other forgotten clock-out.
   const clockIn = session[0];
   const scheduledOvernight = overnightEndMs !== null && nowMs <= overnightEndMs + LATE_CLOCK_OUT_GRACE_MS;
   const withinGrace = getLocalMinutes(nowMs, tz) < OVERNIGHT_GRACE_MINUTES || scheduledOvernight;

@@ -81,6 +81,24 @@ describe("WeekGrid", () => {
     expect(screen.getByRole("button", { name: /Alice Smith, Monday, October 5/ })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("shows approved time off, distinct from a pending request", () => {
+    renderGrid({
+      timeOff: [
+        { id: 1, employeeId: 2, date: "2026-10-07", status: "approved" },
+        { id: 2, employeeId: 2, date: "2026-10-08", status: "pending" },
+        { id: 3, employeeId: 1, date: "2026-10-05", status: "approved" },
+        { id: 4, employeeId: 1, date: "2026-10-09", status: "denied" },
+      ],
+    });
+    expect(screen.getByRole("button", { name: /^Time off approved, Bob Jones, Wednesday, October 7: off/ })).toHaveTextContent("Time off approved");
+    expect(screen.getByRole("button", { name: /^Time off requested, Bob Jones, Thursday, October 8: off/ })).toHaveTextContent("Time off requested");
+    // On a scheduled day, approved time off leads the cell without the "?".
+    const monday = screen.getByRole("button", { name: /Alice Smith, Monday, October 5, time off approved$/ });
+    expect(monday).toHaveTextContent("Time off · Opener");
+    // A denied request isn't shown.
+    expect(screen.getByRole("button", { name: /^Alice Smith, Friday, October 9: off/ })).not.toHaveTextContent("Time off");
+  });
+
   describe("in Draft mode", () => {
     // Alice's Monday and Bob's Monday are live; drafts fill the rest.
     const LIVE = SCHEDULES.map((s) => ({ ...s, source: "live" as const }));

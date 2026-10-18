@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { csvCell } from "@/lib/csv";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
 import { writeAuditLog } from "@/lib/audit";
@@ -7,14 +9,6 @@ import { dateKeyInTz, daysBetweenKeys, localDayBoundsUtc, resolveTimezone } from
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function escapeCSV(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 // GET /api/punches/export?from=YYYY-MM-DD&to=YYYY-MM-DD&employeeId=N
 // Manager: all employees (or filtered by employeeId)
@@ -59,30 +53,31 @@ export async function GET(request: Request) {
   const rangeStart = localDayBoundsUtc(from, tz).start.toISOString();
   const rangeEnd   = localDayBoundsUtc(to, tz).end.toISOString();
 
-  let query = supabase
-    .from("punch_records")
-    .select("*, employees!punch_records_employee_org_fkey(name)")
-    .eq("org_id", orgId)
-    .gte("punched_at", rangeStart)
-    .lte("punched_at", rangeEnd)
-    .order("employee_id")
-    .order("punched_at")
-    .limit(10_000);
-
   const filterEmpId = searchParams.get("employeeId");
+  if (!isManager && !employeeId)
+    return NextResponse.json({ error: "No employee record" }, { status: 403 });
+  const onlyEmployee = !isManager ? employeeId : filterEmpId ? Number(filterEmpId) : null;
 
-  if (!isManager) {
-    if (!employeeId) return NextResponse.json({ error: "No employee record" }, { status: 403 });
-    query = query.eq("employee_id", employeeId);
-  } else {
-    if (filterEmpId) query = query.eq("employee_id", Number(filterEmpId));
-  }
-
-  const { data, error: fetchError } = await query;
+  const { data, error: fetchError, truncated } = await fetchAllRows((first, last) => {
+    let query = supabase
+      .from("punch_records")
+      .select("*, employees!punch_records_employee_org_fkey(name)")
+      .eq("org_id", orgId)
+      .gte("punched_at", rangeStart)
+      .lte("punched_at", rangeEnd);
+    if (onlyEmployee != null) query = query.eq("employee_id", onlyEmployee);
+    return query
+      .order("employee_id")
+      .order("punched_at")
+      .order("id")
+      .range(first, last);
+  }, { maxRows: 10_000 });
   if (fetchError) {
     console.error("[api/punches/export GET]", fetchError);
     return NextResponse.json({ error: "Failed to fetch punch records" }, { status: 500 });
   }
+  if (truncated)
+    return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
   const rows = data ?? [];
 
@@ -100,7 +95,10 @@ export async function GET(request: Request) {
     },
   }).catch(() => {});
 
-  const headers = ["Employee", "Date", "Time", "Punch Type", "Manual", "Note", "Lat", "Lng"];
+  // Timestamp (UTC) makes every row unambiguous: on the night clocks fall back,
+  // the store's 1:00–1:59 AM happens twice and the local Time alone can't say
+  // which one a punch was in.
+  const headers = ["Employee", "Date", "Time", "Punch Type", "Manual", "Note", "Lat", "Lng", "Timestamp (UTC)"];
   const lines = [headers.join(",")];
 
   for (const r of rows) {
@@ -117,7 +115,8 @@ export async function GET(request: Request) {
       r.note ?? "",
       r.lat ?? "",
       r.lng ?? "",
-    ].map(escapeCSV).join(","));
+      punchedAt.toISOString(),
+    ].map(csvCell).join(","));
   }
 
   const csv = lines.join("\n");

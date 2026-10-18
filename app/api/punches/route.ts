@@ -6,10 +6,13 @@ import { notifyManagers } from "@/lib/notify";
 import { fmtMinutes } from "@/data/types";
 import { writeAuditLog } from "@/lib/audit";
 import { haversineMeters } from "@/lib/haversine";
-import { dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
-import { parsePunchPolicy } from "@/lib/punch-policy";
+import { parseGeofenceConfig, parsePunchCoordinates } from "@/lib/geo-validation";
+import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, isDateKey, localDayBoundsUtc, minutesFromScheduled, parseHHMM, resolveTimezone, todayKeyInTz, zonedTimeToUtc } from "@/lib/dates";
+import { clockInTiming, parsePunchPolicy } from "@/lib/punch-policy";
+import { resolveManualPunchTime } from "@/lib/manual-punch-time";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
+import { isClockInShift, isScheduleIdInput, isShiftNearPunch, loadOwnSchedule, type PunchSchedule } from "@/lib/punch-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -101,12 +104,24 @@ export async function GET(request: Request) {
 // POST /api/punches — employee clocks a punch
 // Body: { punchType, scheduleId?, lat?, lng? }
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { punchType, scheduleId, lat, lng } = body;
+  const body = await request.json().catch(() => null);
+  if (typeof body !== "object" || body === null)
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  const { punchType, scheduleId } = body;
 
   const VALID_TYPES = ["clock_in", "clock_out", "break_start", "break_end"];
   if (!punchType || !VALID_TYPES.includes(punchType))
     return NextResponse.json({ error: "punchType must be one of: " + VALID_TYPES.join(", ") }, { status: 400 });
+  if (!isScheduleIdInput(scheduleId))
+    return NextResponse.json({ error: "scheduleId must be a positive integer" }, { status: 400 });
+
+  // Coordinates are stored with every punch and fed to the geofence distance
+  // check, so malformed values (strings, NaN, Infinity, out of range, half a
+  // pair) are rejected before anything else uses them.
+  const coords = parsePunchCoordinates(body.lat, body.lng);
+  if (!coords.ok)
+    return NextResponse.json({ error: coords.error }, { status: 400 });
+  const { lat, lng } = coords;
 
   const supabase = await createClient();
 
@@ -189,24 +204,52 @@ export async function POST(request: Request) {
     }
   }
 
+  // The shift a punch is for must be the employee's own — never a coworker's,
+  // another org's or a guessed id — and one they can punch now. A clock-in
+  // naming any other shift is refused. Later punches only carry the shift as
+  // a label, so a stale one (the shift was reassigned mid-shift) is dropped
+  // rather than trapping the employee on the clock. Migration 0043 enforces
+  // ownership in the database too.
+  let sched: PunchSchedule | null = null;
+  if (scheduleId != null) {
+    sched = await loadOwnSchedule(supabase, orgId, emp.id, scheduleId);
+    if (punchType === "clock_in") {
+      if (!sched || !isClockInShift(sched, tz, Date.now()))
+        return NextResponse.json({ error: "That shift isn't one you can clock in to" }, { status: 422 });
+    } else if (sched && !isShiftNearPunch(sched, Date.now(), tz)) {
+      sched = null;
+    }
+  }
 
   // Server-side geofence enforcement for clock_in
   if (punchType === "clock_in") {
     const gpsRequired    = settingsMap.gps_required === "true";
     const geofenceEnabled = settingsMap.geofence_enabled === "true";
     if (gpsRequired && geofenceEnabled) {
-      const geofenceLat = settingsMap.geofence_lat ? parseFloat(settingsMap.geofence_lat) : null;
-      const geofenceLng = settingsMap.geofence_lng ? parseFloat(settingsMap.geofence_lng) : null;
-      const geofenceRadius = parseInt(settingsMap.geofence_radius ?? "100");
-      if (geofenceLat !== null && geofenceLng !== null && !isNaN(geofenceLat) && !isNaN(geofenceLng)) {
-        if (lat == null || lng == null) {
+      const geofence = parseGeofenceConfig(
+        settingsMap.geofence_lat,
+        settingsMap.geofence_lng,
+        settingsMap.geofence_radius
+      );
+      if (geofence.status === "invalid") {
+        // Fail closed: a stored centre or radius that can't be used must not
+        // silently turn enforcement off.
+        console.error("[api/punches] invalid geofence settings for org", orgId);
+        return NextResponse.json(
+          { error: "Geofence location is misconfigured — ask a manager to update it in Settings" },
+          { status: 422 }
+        );
+      }
+      if (geofence.status === "ok") {
+        const { lat: geofenceLat, lng: geofenceLng, radius: geofenceRadius } = geofence;
+        if (lat === null || lng === null) {
           return NextResponse.json(
             { error: "GPS location required — geofence enforcement is active" },
             { status: 422 }
           );
         }
         const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
-        if (dist > geofenceRadius) {
+        if (!(dist <= geofenceRadius)) {
           writeAuditLog({
             action:       "punch.geofence_rejected",
             orgId,
@@ -237,7 +280,7 @@ export async function POST(request: Request) {
     .from("punch_records")
     .insert(withOrg(orgId, {
       employee_id: emp.id,
-      schedule_id: scheduleId ?? null,
+      schedule_id: sched?.id ?? null,
       punch_type:  punchType,
       lat:         lat ?? null,
       lng:         lng ?? null,
@@ -254,29 +297,30 @@ export async function POST(request: Request) {
         { error: "Your punch changed on another request — refresh and try again" },
         { status: 409 }
       );
+    // The database's shift check (migration 0043) — the shift changed hands
+    // after the check above.
+    if (insertError.code === "23514")
+      return NextResponse.json({ error: "That shift isn't yours to punch — refresh and try again" }, { status: 422 });
+    // The database enforces the geofence too (migration 0050), for punches
+    // written without this route. Settings changed since the check above.
+    if (typeof insertError.code === "string" && /^GF00[123]$/.test(insertError.code))
+      return NextResponse.json({ error: insertError.message }, { status: 422 });
     console.error("[api/punches]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  // Check for late clock-in and alert managers
-  if (punchType === "clock_in" && scheduleId) {
-    const { data: sched } = await supabase
-      .from("schedules")
-      .select("start_minutes, date, employee_id")
-      .eq("org_id", orgId)
-      .eq("id", scheduleId)
-      .maybeSingle();
-    if (sched) {
-      const lateMinutes = minutesFromScheduled(data.punched_at, sched.date, sched.start_minutes, tz);
-      if (lateMinutes > 5) {
-        notifyManagers(
-          orgId,
-          "late_clock_in",
-          "Late Clock-In",
-          `${emp.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
-          { employeeId: sched.employee_id, scheduleId, lateMinutes }
-        ).catch(() => {});
-      }
+  // Alert managers to a late clock-in — late by the org's punch policy, the
+  // same rule the time card flags it with.
+  if (punchType === "clock_in" && sched) {
+    const lateMinutes = minutesFromScheduled(data.punched_at, sched.date, sched.start_minutes, tz);
+    if (clockInTiming(policy, lateMinutes) === "late") {
+      notifyManagers(
+        orgId,
+        "late_clock_in",
+        "Late Clock-In",
+        `${emp.name ?? "An employee"} clocked in ${lateMinutes}m late (scheduled ${fmtMinutes(sched.start_minutes)})`,
+        { employeeId: sched.employee_id, scheduleId: sched.id, lateMinutes }
+      ).catch(() => {});
     }
   }
 
@@ -286,7 +330,7 @@ export async function POST(request: Request) {
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   String(data.id),
-    after: { employeeId: emp.id, punchType, scheduleId: scheduleId ?? null },
+    after: { employeeId: emp.id, punchType, scheduleId: sched?.id ?? null },
     metadata: {
       employeeId:   emp.id,
       employeeName: emp.name,
@@ -311,13 +355,17 @@ export async function POST(request: Request) {
 // way the server validates it against its own clock and stores a normalized
 // timestamp. Live punches (POST) never accept a client time at all.
 export async function PUT(request: Request) {
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (typeof body !== "object" || body === null)
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   const { id, employeeId, punchType, punchedAt, localDate, localTime, note, scheduleId } = body;
 
   const VALID_TYPES = ["clock_in", "clock_out", "break_start", "break_end"];
 
   if (!punchType || !VALID_TYPES.includes(punchType))
     return NextResponse.json({ error: "punchType required" }, { status: 400 });
+  if (!isScheduleIdInput(scheduleId))
+    return NextResponse.json({ error: "scheduleId must be a positive integer" }, { status: 400 });
 
   const usesLocalTime = localDate !== undefined || localTime !== undefined;
   if (usesLocalTime) {
@@ -362,7 +410,7 @@ export async function PUT(request: Request) {
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
   if (ts.getTime() > now || ts.getTime() < now - thirtyDaysMs)
     return NextResponse.json({ error: "The punch time must be within the last 30 days and not in the future" }, { status: 400 });
-  const punchedAtIso = ts.toISOString();
+  let punchedAtIso = ts.toISOString();
 
   // Employees may only *add* a missing punch — never rewrite an existing one,
   // which would let them move a real, server-stamped punch.
@@ -397,13 +445,36 @@ export async function PUT(request: Request) {
     targetEmployeeName = empData?.name ?? null;
   }
 
+  // A missed clock-out (or break punch) typed on the open shift's own date but
+  // earlier than its clock-in means the next morning — an overnight shift
+  // (lib/manual-punch-time.ts). Applies to an employee's request and a
+  // manager's new punch alike; an absolute punchedAt or an edit of an existing
+  // punch is taken as given.
+  if (usesLocalTime && id == null && punchType !== "clock_in") {
+    const { data: open } = await supabase
+      .from("punch_records")
+      .select("punch_type, punched_at")
+      .eq("org_id", orgId)
+      .eq("employee_id", targetEmployeeId)
+      .gte("punched_at", zonedTimeToUtc(localDate, 0, tz).toISOString())
+      .lt("punched_at", zonedTimeToUtc(addDaysToKey(localDate, 1), 0, tz).toISOString())
+      .order("punched_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    punchedAtIso = resolveManualPunchTime(
+      punchType, localDate, parseHHMM(localTime)!, tz,
+      open ? { punchType: open.punch_type, punchedAt: open.punched_at } : null,
+      now,
+    ).toISOString();
+  }
+
   // Employees don't write punches directly: their correction is filed for a
   // manager to approve (see /api/punch-corrections), and only approval creates
   // the punch. It must still be a valid next step from their previous punch
   // and may only be slotted in before an existing punch to close a previous
   // shift left open (lib/manual-punch-rules.ts).
   if (!isManager) {
-    const ruleError = await checkManualPunchAgainstHistory(supabase, orgId, targetEmployeeId, punchType, punchedAtIso);
+    const ruleError = await checkManualPunchAgainstHistory(supabase, orgId, targetEmployeeId, punchType, punchedAtIso, { tz });
     if (ruleError) return NextResponse.json({ error: ruleError }, { status: 409 });
 
     const { data: request, error: requestError } = await supabase
@@ -463,6 +534,14 @@ export async function PUT(request: Request) {
       note:       existing.note ?? null,
       isManual:   existing.is_manual,
     };
+  }
+
+  // A manager's manual punch may name a shift only if it is the target
+  // employee's own and falls on the punch's store day (or the day either side).
+  if (id == null && scheduleId != null) {
+    const sched = await loadOwnSchedule(supabase, orgId, targetEmployeeId, scheduleId);
+    if (!sched || !isShiftNearPunch(sched, punchedAtIso, tz))
+      return NextResponse.json({ error: "That shift doesn't belong to this employee on that day" }, { status: 422 });
   }
 
   if (id != null) {

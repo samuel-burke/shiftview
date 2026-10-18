@@ -306,8 +306,10 @@ export function TimeCardPanel({
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="text-sm font-bold text-fg">{formatDayHeader(day.date)}</div>
                       <div className="text-[11px] text-fg-muted">
-                        {day.schedule
-                          ? `${fmtMinutes(day.schedule.startMinutes)} – ${fmtMinutes(day.schedule.endMinutes)}`
+                        {(day.schedules ?? (day.schedule ? [day.schedule] : [])).length > 0
+                          ? (day.schedules ?? [day.schedule!])
+                              .map((s) => `${fmtMinutes(s.startMinutes)} – ${fmtMinutes(s.endMinutes)}`)
+                              .join(", ")
                           : "Unscheduled"}
                       </div>
                     </div>

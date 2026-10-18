@@ -254,6 +254,16 @@ describe("PUT /api/settings", () => {
     expect(await res.json()).toMatchObject({ error: expect.stringMatching(/IANA|valid/i) });
   });
 
+  it("returns 422 when the database refuses a timezone the runtime accepted", async () => {
+    // Migration 0047 only stores zones Postgres knows, so the clock triggers
+    // and the app agree on the store day.
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, queryError: { code: "22023", message: "not a valid IANA timezone" } }) as any
+    );
+    const res = await PUT(putReq({ timezone: "America/Los_Angeles" }));
+    expect(res.status).toBe(422);
+  });
+
   // ── manualPunchesEnabled / gpsRequired ─────────────────────────────────────
 
   it("returns 200 when updating manualPunchesEnabled to false", async () => {
@@ -278,6 +288,36 @@ describe("PUT /api/settings", () => {
     const res = await PUT(putReq({ gpsRequired: 1 }));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("gpsRequired") });
+  });
+
+  // ── Geofence centre ──────────────────────────────────────────────────────────
+
+  it("accepts a valid geofence centre and null to clear it", async () => {
+    expect((await PUT(putReq({ geofenceLat: 40.7128, geofenceLng: -74.006 }))).status).toBe(200);
+    expect((await PUT(putReq({ geofenceLat: -90, geofenceLng: 180 }))).status).toBe(200);
+    expect((await PUT(putReq({ geofenceLat: null, geofenceLng: null }))).status).toBe(200);
+  });
+
+  it.each([
+    ["geofenceLat", 90.01],
+    ["geofenceLat", -91],
+    ["geofenceLat", "40.7"],
+    ["geofenceLng", 180.5],
+    ["geofenceLng", -181],
+    ["geofenceLng", "-74"],
+  ])("returns 400 when %s is %j", async (field, value) => {
+    const res = await PUT(putReq({ [field]: value }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining(field) });
+  });
+
+  it("returns 400 when a geofence coordinate overflows to Infinity", async () => {
+    const res = await PUT(new Request("http://localhost/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: `{"geofenceLat":1e999}`,
+    }));
+    expect(res.status).toBe(400);
   });
 
   // ── Scheduling rules ─────────────────────────────────────────────────────────
