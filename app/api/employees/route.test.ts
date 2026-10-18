@@ -528,18 +528,5 @@ describe("DELETE /api/employees", () => {
     expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 
-  // ── DB error ────────────────────────────────────────────────────────────────
-
-  it("returns 500 on database error during deletion", async () => {
-    mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({
-        user: MOCK_USER,
-        isManager: true,
-        linkedEmployee: { id: 1, user_id: null },
-        queryError: { message: "db error" },
-      }) as any
-    );
-    const res = await DELETE(deleteReq({ id: 1 }));
-    expect(res.status).toBe(500);
-  });
+  // Database errors during the delete: see delete.security.test.ts.
 });
