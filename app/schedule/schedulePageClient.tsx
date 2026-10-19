@@ -37,6 +37,8 @@ import {
 import RequestsDrawer from "../../components/RequestsDrawer";
 import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapRequestSheet";
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
+import TimeOffRequestForm, { type TimeOffRequestBody } from "@/components/TimeOffRequestForm";
+import { expandTimeOffRequests } from "@/lib/time-off";
 import { removeOptimistically } from "@/hooks/useManagerRequests";
 import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
 import { shiftWindowOn } from "@/lib/shift-times";
@@ -60,9 +62,43 @@ type ManagerTimeOffRequest = {
   id: number;
   employeeName: string;
   date: string;
+  endDate?: string;
+  startMinutes?: number | null;
+  endMinutes?: number | null;
   note?: string;
   status: string;
 };
+
+// The employee's own requests as GET /api/time-off?mine=true returns them
+// (one entry per request; a multi-day one carries its endDate).
+type MyTimeOffRow = {
+  id: number;
+  date: string;
+  endDate?: string;
+  status: string;
+  note?: string;
+  startMinutes?: number | null;
+  endMinutes?: number | null;
+  groupId?: string | null;
+};
+
+function toTimeOffRequest(r: MyTimeOffRow): TimeOffRequest & { endDate?: string } {
+  return {
+    id: r.id,
+    date: r.date,
+    endDate: r.endDate,
+    status: r.status as TimeOffRequest["status"],
+    note: r.note,
+    startMinutes: r.startMinutes ?? null,
+    endMinutes: r.endMinutes ?? null,
+    groupId: r.groupId ?? null,
+  };
+}
+
+/** ", 3:00 PM – 6:00 PM" for a part-day request, else nothing. */
+function partDayLabel(r: TimeOffRequest | null): string {
+  return r && r.startMinutes != null && r.endMinutes != null ? `, ${fmtMinutes(r.startMinutes)} – ${fmtMinutes(r.endMinutes)}` : "";
+}
 
 type View = "week" | "month";
 
@@ -421,12 +457,7 @@ export default function SchedulePageClient() {
       .then((r) => r.json())
       .then(({ requests }) => {
         if (Array.isArray(requests)) {
-          setTimeOffRequests(requests.map((r: { id: number; date: string; status: string; note?: string }) => ({
-            id: r.id,
-            date: r.date,
-            status: r.status as TimeOffRequest["status"],
-            note: r.note,
-          })));
+          setTimeOffRequests(expandTimeOffRequests(requests.map((r: MyTimeOffRow) => toTimeOffRequest(r))));
         }
       })
       .catch(() => {})
@@ -529,7 +560,7 @@ export default function SchedulePageClient() {
     setSwapRequestStatus("idle");
   }, [selectedDate]);
 
-  async function handleRequestDayOff() {
+  async function handleRequestDayOff(request: TimeOffRequestBody) {
     if (!employeeId) return;
     setTimeOffStatus("loading");
     setTimeOffError(null);
@@ -537,7 +568,7 @@ export default function SchedulePageClient() {
       const res = await fetch("/api/time-off", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, date: selectedDateKey }),
+        body: JSON.stringify({ employeeId, ...request }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -545,10 +576,17 @@ export default function SchedulePageClient() {
         setTimeOffStatus("error");
       } else {
         setTimeOffStatus("success");
-        setTimeOffRequests((prev) => [
-          ...prev.filter((r) => r.date !== selectedDateKey),
-          { id: json.id, date: selectedDateKey, status: "pending" },
-        ]);
+        const added = expandTimeOffRequests([{
+          id: json.id,
+          date: request.date,
+          endDate: request.endDate ?? request.date,
+          status: "pending" as const,
+          startMinutes: request.startMinutes ?? null,
+          endMinutes: request.endMinutes ?? null,
+          groupId: json.groupId ?? null,
+        }]);
+        const days = new Set(added.map((r) => r.date));
+        setTimeOffRequests((prev) => [...prev.filter((r) => !days.has(r.date)), ...added]);
       }
     } catch {
       setTimeOffError("Failed to submit request");
@@ -606,12 +644,7 @@ export default function SchedulePageClient() {
         .then((r) => r.json())
         .then(({ requests }) => {
           if (Array.isArray(requests)) {
-            setTimeOffRequests(requests.map((r: { id: number; date: string; status: string; note?: string }) => ({
-              id: r.id,
-              date: r.date,
-              status: r.status as TimeOffRequest["status"],
-              note: r.note,
-            })));
+            setTimeOffRequests(expandTimeOffRequests(requests.map((r: MyTimeOffRow) => toTimeOffRequest(r))));
           }
         })
         .catch(() => {});
@@ -761,7 +794,7 @@ export default function SchedulePageClient() {
       clockedInToday,
     }) === null;
 
-  // Show "Request Day Off" when: no shift, future date, has employeeId, and no
+  // Show the time-off form when: no shift, future date, has employeeId, and no
   // request for the day yet. A denied day stays denied; it can't be re-requested.
   const canRequestDayOff =
     !selectedSchedule &&
@@ -1065,13 +1098,13 @@ export default function SchedulePageClient() {
         {selectedTimeOff?.status === "pending" && !selectedSchedule && (
           <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/30">
             <TimeOffPendingIcon size={16} color="var(--status-caution-mark)" />
-            <span className="text-sm text-warning-fg-strong font-semibold">Time-off request pending</span>
+            <span className="text-sm text-warning-fg-strong font-semibold">Time-off request pending{partDayLabel(selectedTimeOff)}</span>
           </div>
         )}
         {selectedTimeOff?.status === "approved" && !selectedSchedule && (
           <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-success/10 border border-success/30">
             <TimeOffApprovedIcon size={16} color="var(--status-teal-mark)" />
-            <span className="text-sm text-success-fg-strong font-semibold">Time off approved</span>
+            <span className="text-sm text-success-fg-strong font-semibold">Time off approved{partDayLabel(selectedTimeOff)}</span>
           </div>
         )}
         {selectedTimeOff?.status === "denied" && !selectedSchedule && selectedDateKey > todayKey && (
@@ -1085,16 +1118,11 @@ export default function SchedulePageClient() {
             {timeOffStatus === "success" ? (
               <div role="status" aria-live="polite" className="text-sm text-success-fg font-semibold">Request submitted ✓</div>
             ) : (
-              <>
-                <button
-                  onClick={handleRequestDayOff}
-                  disabled={timeOffStatus === "loading"}
-                  aria-busy={timeOffStatus === "loading"}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-from to-brand-to text-on-accent font-bold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                >
-                  {timeOffStatus === "loading" ? "Submitting…" : "Request Day Off"}
-                </button>
-              </>
+              <TimeOffRequestForm
+                date={selectedDateKey}
+                submitting={timeOffStatus === "loading"}
+                onSubmit={handleRequestDayOff}
+              />
             )}
           </div>
         )}

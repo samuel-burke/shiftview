@@ -2,6 +2,7 @@ import { fmtMinutes } from "@/data/types";
 import { addDaysToKey, dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 import { shiftParts, shiftsOverlap } from "@/lib/shift-times";
 import { fitsAvailability, isUnavailableAllDay } from "@/lib/availability-rules";
+import { timeOffOverlaps, timeOffWindow } from "@/lib/time-off";
 import { limitsFromColumns, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { checkShiftRules, type RuleWarning } from "@/lib/shift-rules";
 
@@ -27,14 +28,20 @@ export async function findShiftConflict(
   for (const part of shiftParts({ date, startMinutes, endMinutes })) {
     const { data: timeOff } = await supabase
       .from("time_off_requests")
-      .select("id, status")
+      .select("id, status, start_minutes, end_minutes")
       .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .eq("date", part.date)
       .eq("status", "approved")
       .maybeSingle();
-    if (timeOff) {
-      return { conflict: "time_off", message: `Employee has approved time off on ${part.date}` };
+    if (timeOff && timeOffOverlaps(timeOffWindow(timeOff), part.start, part.end)) {
+      const w = timeOffWindow(timeOff);
+      return {
+        conflict: "time_off",
+        message: w
+          ? `Employee has approved time off on ${part.date} from ${fmtMinutes(w.startMinutes)} to ${fmtMinutes(w.endMinutes)}`
+          : `Employee has approved time off on ${part.date}`,
+      };
     }
 
     const { data: avail } = await supabase

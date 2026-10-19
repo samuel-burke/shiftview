@@ -11,6 +11,12 @@ export type ManagerTimeOff = {
   employeeId: number;
   employeeName: string;
   date: string;
+  // The last day of a multi-day request (the same as date for one day).
+  endDate?: string;
+  days?: number;
+  startMinutes?: number | null;
+  endMinutes?: number | null;
+  groupId?: string | null;
   note?: string;
   status: string;
 };

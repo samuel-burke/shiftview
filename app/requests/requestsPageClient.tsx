@@ -95,11 +95,11 @@ export default function RequestsPageClient() {
         kind: "timeoff",
         id: r.id,
         title: r.employeeName,
-        summary: `Off ${shortDate(r.date)}`,
+        summary: timeOffSummary(r),
         date: r.date,
         note: r.note,
         employeeNames: [r.employeeName],
-        detail: [{ label: "Day", value: longDate(r.date) }],
+        detail: timeOffDetail(r),
       })),
       ...requests.swaps.map((s): Item => ({
         key: `swap-${s.id}`,
@@ -403,4 +403,28 @@ export default function RequestsPageClient() {
       </main>
     </AppShell>
   );
+}
+
+type TimeOffItem = { date: string; endDate?: string; days?: number; startMinutes?: number | null; endMinutes?: number | null };
+
+function timeOffSummary(r: TimeOffItem): string {
+  if (r.endDate && r.endDate !== r.date) return `Off ${shortDate(r.date)} – ${shortDate(r.endDate)}`;
+  if (r.startMinutes != null && r.endMinutes != null)
+    return `Off ${shortDate(r.date)}, ${fmtMinutes(r.startMinutes)} – ${fmtMinutes(r.endMinutes)}`;
+  return `Off ${shortDate(r.date)}`;
+}
+
+function timeOffDetail(r: TimeOffItem): { label: string; value: string }[] {
+  if (r.endDate && r.endDate !== r.date)
+    return [
+      { label: "From", value: longDate(r.date) },
+      { label: "To", value: longDate(r.endDate) },
+      { label: "Days", value: String(r.days ?? "") },
+    ];
+  if (r.startMinutes != null && r.endMinutes != null)
+    return [
+      { label: "Day", value: longDate(r.date) },
+      { label: "Hours", value: `${fmtMinutes(r.startMinutes)} – ${fmtMinutes(r.endMinutes)}` },
+    ];
+  return [{ label: "Day", value: longDate(r.date) }];
 }

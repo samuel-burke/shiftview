@@ -26,6 +26,7 @@
 \ir ../migrations/0051_punch_session_limits.sql
 \ir ../migrations/0052_employee_delete_cascade.sql
 \ir ../migrations/0070_shift_notes.sql
+\ir ../migrations/0072_time_off_ranges.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
