@@ -134,7 +134,8 @@ describe("PUT /api/open-shifts/[id]", () => {
     mockCreateClient.mockResolvedValue(
       makeClient({
         tables: {
-          open_shifts: { single: OPEN_SHIFT },
+          // thenData: the conditional open → filled update took the shift.
+          open_shifts: { single: OPEN_SHIFT, thenData: [{ id: 3 }] },
           open_shift_claims: { single: { id: 9, open_shift_id: 3, employee_id: 5, status: "pending" } },
           employees: { single: { user_id: "u-5", name: "Alex P" } },
         },

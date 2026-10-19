@@ -29,6 +29,7 @@ vi.mock("next/server", () => ({
 
 import * as schedules from "../schedules/route";
 import * as drafts from "../drafts/route";
+import * as publish from "../drafts/publish/route";
 import * as timeOff from "../time-off/route";
 import * as timeOffDecision from "../time-off/[id]/route";
 import * as feed from "../my-schedule/calendar/feed/route";
@@ -194,10 +195,13 @@ describe("shift notes", () => {
     expect(db.rows("schedules")).toHaveLength(0);
   });
 
-  it("carries a draft's note to the live schedule on publish-ready drafts", async () => {
+  it("carries a draft's note to the live schedule when the week is published", async () => {
     const res = await drafts.POST(req("POST", { employeeId: 6, date: FUTURE, startMinutes: 540, endMinutes: 1020, note: "Cover register" }));
     expect(res.status).toBeLessThan(300);
     expect(db.rows("draft_schedules")[0].note).toBe("Cover register");
+    const published = await publish.POST(req("POST", { weekStart: FUTURE }));
+    expect(published.status).toBe(200);
+    expect(db.rows("schedules")).toEqual([expect.objectContaining({ employee_id: 6, date: FUTURE, note: "Cover register" })]);
   });
 });
 
