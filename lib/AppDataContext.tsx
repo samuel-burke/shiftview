@@ -205,9 +205,73 @@ function readConfigCache(orgId: string | null): OrgConfig | null {
   }
 }
 
+const CONFIG_CACHE_ENC_PREFIX = "enc:v1:";
+
+function getConfigCachePassphrase(): string {
+  // App-local keying material; avoids cleartext-at-rest caching.
+  // In a stronger model this should come from a server-managed secret.
+  return `${window.location.origin}::app-config-cache-v1`;
+}
+
+async function deriveAesKey(passphrase: string): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const material = await window.crypto.subtle.importKey(
+    "raw",
+    enc.encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  return window.crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: enc.encode("config-cache-salt-v1"),
+      iterations: 100_000,
+      hash: "SHA-256",
+    },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+async function encryptConfigCache(plaintext: string): Promise<string> {
+  const key = await deriveAesKey(getConfigCachePassphrase());
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const cipher = await window.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(plaintext),
+  );
+  const payload = `${bytesToBase64(iv)}.${bytesToBase64(new Uint8Array(cipher))}`;
+  return `${CONFIG_CACHE_ENC_PREFIX}${payload}`;
+}
+
 function writeConfigCache(config: OrgConfig) {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(config)); } catch {}
+  try {
+    const plaintext = JSON.stringify(config);
+    void (async () => {
+      try {
+        const encrypted = await encryptConfigCache(plaintext);
+        localStorage.setItem(CONFIG_CACHE_KEY, encrypted);
+      } catch {}
+    })();
+  } catch {}
 }
 
 // Signed-out pages (the root URL serves the landing page too, but only the
