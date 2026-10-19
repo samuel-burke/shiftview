@@ -137,17 +137,19 @@ export function useAppData() {
 
 export const ME_CACHE_KEY = "sv_me";
 
+type MeCacheData = Pick<MeData, "isManager" | "isDemo" | "orgId" | "organizations">;
+
 function readMeCache(): MeData | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(ME_CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<MeData>;
+    const parsed = JSON.parse(raw) as Partial<MeCacheData>;
     if (typeof parsed.isManager !== "boolean") return null;
     return {
       isManager: parsed.isManager,
-      employeeId: parsed.employeeId ?? null,
-      employeeName: parsed.employeeName ?? null,
+      employeeId: null,
+      employeeName: null,
       isDemo: parsed.isDemo ?? false,
       orgId: parsed.orgId ?? null,
       organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
@@ -159,7 +161,15 @@ function readMeCache(): MeData | null {
 
 function writeMeCache(data: MeData) {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(ME_CACHE_KEY, JSON.stringify(data)); } catch {}
+  try {
+    const cacheData: MeCacheData = {
+      isManager: data.isManager,
+      isDemo: data.isDemo,
+      orgId: data.orgId,
+      organizations: data.organizations,
+    };
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify(cacheData));
+  } catch {}
 }
 
 function clearMeCache() {
