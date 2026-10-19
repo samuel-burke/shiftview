@@ -9,6 +9,8 @@ import { computePayroll, payrollQueryWindow, type PayrollWeek, type PunchRow } f
 import { timecardToCsv } from "@/lib/timecard-csv";
 import { writeAuditLog } from "@/lib/audit";
 import type { PunchType } from "@/data/types";
+import { parseBreakRules } from "@/lib/break-rules";
+import { loadBreakTypes } from "@/lib/break-types-server";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +113,7 @@ export async function GET(request: Request) {
   const { data: punchRows, error: punchErr, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
-      .select("id, punch_type, punched_at, is_manual, note, employee_note")
+      .select("id, punch_type, punched_at, is_manual, note, employee_note, break_type_id, break_paid, breaks_attested")
       .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .gte("punched_at", padStart)
@@ -127,6 +129,13 @@ export async function GET(request: Request) {
   }
   if (truncated)
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
+
+  // Break types, archived ones too (old breaks name them).
+  const { types: breakTypes, error: typesErr } = await loadBreakTypes(supabase, orgId);
+  if (typesErr) {
+    console.error("[api/timecard] break types", typesErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   // Call-outs in range.
   const { data: calloutRows, error: calloutErr } = await supabase
@@ -160,7 +169,12 @@ export async function GET(request: Request) {
       isManual: p.is_manual,
       note: p.note,
       employeeNote: p.employee_note,
+      breakTypeId: p.break_type_id ?? null,
+      breakPaid: !!p.break_paid,
+      breaksAttested: p.breaks_attested ?? null,
     })),
+    breakTypes,
+    breakRules: parseBreakRules(settingsMap),
     callouts: (calloutRows ?? []).map((c) => ({ date: c.date, reason: c.reason })),
   });
 
@@ -194,6 +208,7 @@ export async function GET(request: Request) {
       employee_id: employeeId,
       punch_type: p.punch_type,
       punched_at: p.punched_at,
+      break_paid: !!p.break_paid,
       employees: { name: emp.name },
     })),
     tz,

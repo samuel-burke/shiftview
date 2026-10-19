@@ -14,6 +14,8 @@ import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
 import { isClockInShift, isScheduleIdInput, isShiftNearPunch, loadOwnSchedule, type PunchSchedule } from "@/lib/punch-schedule";
 import { parsePunchNote } from "@/lib/punch-note";
+import { activeBreakTypes, parseBreakRules } from "@/lib/break-rules";
+import { loadBreakTypes } from "@/lib/break-types-server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,9 @@ function mapRow(r: Record<string, unknown>) {
     isManual:   r.is_manual,
     note:       r.note ?? null,
     employeeNote: r.employee_note ?? null,
+    breakTypeId: r.break_type_id ?? null,
+    breakPaid:  !!r.break_paid,
+    breaksAttested: r.breaks_attested ?? null,
   };
 }
 
@@ -116,6 +121,9 @@ export async function GET(request: Request) {
 // Body: { punchType, scheduleId?, lat?, lng?, note? }
 // `note` is the employee's own optional short note on the punch (at most 140
 // characters, cleaned by lib/punch-note.ts and again by the database).
+// `breakTypeId` picks the type of a break_start; it's required when the store
+// offers more than one type. `breaksAttested` is the employee's answer, at
+// clock-out, to "I was able to take my breaks", stored when the store asks.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (typeof body !== "object" || body === null)
@@ -140,6 +148,20 @@ export async function POST(request: Request) {
   if (!parsedNote.ok)
     return NextResponse.json({ error: parsedNote.error }, { status: 400 });
   const employeeNote = parsedNote.note;
+
+  const { breakTypeId, breaksAttested } = body;
+  if (breakTypeId !== undefined && breakTypeId !== null) {
+    if (!Number.isInteger(breakTypeId) || breakTypeId <= 0)
+      return NextResponse.json({ error: "breakTypeId must be a positive integer" }, { status: 400 });
+    if (punchType !== "break_start")
+      return NextResponse.json({ error: "breakTypeId only applies to break_start" }, { status: 400 });
+  }
+  if (breaksAttested !== undefined && breaksAttested !== null) {
+    if (typeof breaksAttested !== "boolean")
+      return NextResponse.json({ error: "breaksAttested must be a boolean" }, { status: 400 });
+    if (punchType !== "clock_out")
+      return NextResponse.json({ error: "breaksAttested only applies to clock_out" }, { status: 400 });
+  }
 
   const supabase = await createClient();
 
@@ -221,6 +243,29 @@ export async function POST(request: Request) {
       );
     }
   }
+
+  // The break's type: one the store offers now. With several on offer the
+  // employee must pick; with one (or none, the implicit unpaid "Break") the
+  // database stamps it (migration 0065).
+  let chosenBreakTypeId: number | null = null;
+  if (punchType === "break_start") {
+    const { types, error: typesError } = await loadBreakTypes(supabase, orgId);
+    if (typesError) {
+      console.error("[api/punches] break types", typesError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    const offered = activeBreakTypes(types);
+    if (breakTypeId != null) {
+      if (!offered.some((t) => t.id === breakTypeId))
+        return NextResponse.json({ error: "That break type isn't offered — refresh and pick again" }, { status: 422 });
+      chosenBreakTypeId = breakTypeId;
+    } else if (offered.length > 1) {
+      return NextResponse.json({ error: "Choose a break type" }, { status: 400 });
+    }
+  }
+  const attested = punchType === "clock_out" && parseBreakRules(settingsMap).attestationEnabled && typeof breaksAttested === "boolean"
+    ? breaksAttested
+    : null;
 
   // The shift a punch is for must be the employee's own — never a coworker's,
   // another org's or a guessed id — and one they can punch now. A clock-in
@@ -304,6 +349,8 @@ export async function POST(request: Request) {
       lat:         lat ?? null,
       lng:         lng ?? null,
       employee_note: employeeNote,
+      ...(chosenBreakTypeId != null ? { break_type_id: chosenBreakTypeId } : {}),
+      ...(attested != null ? { breaks_attested: attested } : {}),
     }))
     .select()
     .single();

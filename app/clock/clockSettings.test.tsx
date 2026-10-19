@@ -143,3 +143,90 @@ describe("Clock — a geofence with GPS not required", () => {
     expect(posts[0]).toMatchObject({ lat: null, lng: null });
   });
 });
+
+const clockedIn = [{ id: 1, employeeId: 5, scheduleId: null, punchType: "clock_in", punchedAt: "2026-11-01T13:00:00.000Z", lat: null, lng: null, isManual: false, note: null }];
+const twoTypes = [
+  { id: 7, name: "Rest", paid: true, minMinutes: 10, sortOrder: 0, archived: false },
+  { id: 8, name: "Meal", paid: false, minMinutes: 30, sortOrder: 1, archived: false },
+];
+
+describe("Clock — break types", () => {
+  it("asks which break when the store has more than one, and sends the one picked", async () => {
+    const { posts } = mockApi({ todayPunches: clockedIn, breakTypes: twoTypes });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Start Break" }));
+    const picker = await screen.findByTestId("break-type-picker");
+    expect(picker).toHaveTextContent("Rest");
+    expect(picker).toHaveTextContent("Paid · 10 min");
+    expect(picker).toHaveTextContent("Unpaid · 30 min");
+    expect(posts).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: /Meal/ }));
+    await waitFor(() => expect(posts).toEqual([expect.objectContaining({ punchType: "break_start", breakTypeId: 8 })]));
+    expect(screen.queryByTestId("break-type-picker")).not.toBeInTheDocument();
+  });
+
+  it("sends nothing when the picker is cancelled", async () => {
+    const { posts } = mockApi({ todayPunches: clockedIn, breakTypes: twoTypes });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Start Break" }));
+    await screen.findByTestId("break-type-picker");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByTestId("break-type-picker")).not.toBeInTheDocument();
+    expect(posts).toHaveLength(0);
+  });
+
+  it("starts the one break type straight away", async () => {
+    const { posts } = mockApi({ todayPunches: clockedIn, breakTypes: [twoTypes[1]] });
+    render(<ClockPageClient />);
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([u]) => String(u).startsWith("/api/break-types"))).toBe(true));
+    fireEvent.click(await screen.findByRole("button", { name: "Start Break" }));
+    await waitFor(() => expect(posts).toEqual([expect.objectContaining({ punchType: "break_start", breakTypeId: 8 })]));
+    expect(screen.queryByTestId("break-type-picker")).not.toBeInTheDocument();
+  });
+
+  it("starts a plain break with no type when none are set up (today's behavior)", async () => {
+    const { posts } = mockApi({ todayPunches: clockedIn });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Start Break" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({ punchType: "break_start" });
+    expect(posts[0]).not.toHaveProperty("breakTypeId");
+  });
+});
+
+describe("Clock — break attestation at clock-out", () => {
+  it("doesn't ask when the setting is off", async () => {
+    const { posts } = mockApi({ todayPunches: clockedIn });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "End Shift" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).not.toHaveProperty("breaksAttested");
+    expect(screen.queryByText(/Were you able to take your breaks/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["Yes, I took them", true],
+    ["No, I couldn't", false],
+  ])("asks when the setting is on and sends the answer (%s)", async (label, answer) => {
+    settings = { ...settings, breakRules: { mealRequiredAfterMinutes: 0, attestationEnabled: true } };
+    const { posts } = mockApi({ todayPunches: clockedIn });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "End Shift" }));
+    expect(await screen.findByText(/Were you able to take your breaks/)).toBeInTheDocument();
+    expect(posts).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    await waitFor(() => expect(posts).toEqual([expect.objectContaining({ punchType: "clock_out", breaksAttested: answer })]));
+  });
+
+  it("stays clocked in when the question is cancelled", async () => {
+    settings = { ...settings, breakRules: { mealRequiredAfterMinutes: 0, attestationEnabled: true } };
+    const { posts } = mockApi({ todayPunches: clockedIn });
+    render(<ClockPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "End Shift" }));
+    await screen.findByText(/Were you able to take your breaks/);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText(/Were you able to take your breaks/)).not.toBeInTheDocument();
+    expect(posts).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "End Shift" })).toBeInTheDocument();
+  });
+});

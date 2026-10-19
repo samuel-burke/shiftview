@@ -148,6 +148,11 @@ export type PunchRecord = {
   note: string | null;
   // The employee's own optional note on a live punch.
   employeeNote?: string | null;
+  // On a break_start: its type, and whether it is paid (paid breaks are
+  // worked time). On a clock_out: "I was able to take my breaks".
+  breakTypeId?: number | null;
+  breakPaid?: boolean;
+  breaksAttested?: boolean | null;
 };
 
 export function getAttendanceStatus(punches: PunchRecord[]): AttendanceStatus {
@@ -172,8 +177,13 @@ export function getTotalClockedSeconds(punches: PunchRecord[], now = Date.now())
   let segStart: number | null = null;
   for (const p of sorted) {
     const t = new Date(p.punchedAt).getTime();
-    if (p.punchType === "clock_in" || p.punchType === "break_end") {
+    // A paid break is worked time: it doesn't stop the clock.
+    if (p.punchType === "break_start" && p.breakPaid) continue;
+    if (p.punchType === "clock_in") {
       segStart = t;
+    } else if (p.punchType === "break_end") {
+      // After a paid break the segment never stopped.
+      if (segStart === null) segStart = t;
     } else if ((p.punchType === "clock_out" || p.punchType === "break_start") && segStart !== null) {
       total += t - segStart;
       segStart = null;

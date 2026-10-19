@@ -57,6 +57,9 @@ const VIOLATION_FLAGS: Record<ViolationType, MyHoursFlag> = {
   callout:     { label: "Called out", tone: "warn" },
   early_in:    { label: "Early in", tone: "info" },
   late_out:    { label: "Stayed late", tone: "info" },
+  missed_meal: { label: "Missed meal", tone: "warn" },
+  late_meal:   { label: "Late meal", tone: "warn" },
+  breaks_not_taken: { label: "Breaks not taken", tone: "warn" },
 };
 
 function dayFlags(day: TimecardDay, todayKey: string): MyHoursFlag[] {

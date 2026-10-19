@@ -42,6 +42,9 @@ export async function GET(request: Request) {
       isManual:   r.is_manual ?? false,
       note:       r.note ?? null,
       employeeNote: r.employee_note ?? null,
+      breakTypeId: r.break_type_id ?? null,
+      breakPaid:  !!r.break_paid,
+      breaksAttested: r.breaks_attested ?? null,
     })),
   });
 }

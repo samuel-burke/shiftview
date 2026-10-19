@@ -17,6 +17,8 @@ import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText
 import SettingsSectionLabel from "../../components/SettingsSectionLabel";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
+import BreaksSection from "../../components/BreaksSection";
+import { DEFAULT_BREAK_RULES, type BreakRules, type BreakType } from "../../lib/break-rules";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
@@ -452,6 +454,8 @@ export default function SettingsPageClient({
   // ── Punch Violations ─────────────────────────────────────────────────────────
   const [punchPolicy, setPunchPolicy] = useState<PunchPolicy>(DEFAULT_PUNCH_POLICY);
   const [schedulingRules, setSchedulingRules] = useState<SchedulingRules>(DEFAULT_SCHEDULING_RULES);
+  const [breakRules, setBreakRules] = useState<BreakRules>(DEFAULT_BREAK_RULES);
+  const [breakTypes, setBreakTypes] = useState<BreakType[]>([]);
   const [punchPolicyStatus, setPunchPolicyStatus] = useState<SaveStatus>("idle");
 
   // Optimistically apply a policy patch, then persist it. Reverts on failure.
@@ -692,7 +696,13 @@ export default function SettingsPageClient({
         }
         if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
         if (s.schedulingRules) setSchedulingRules({ ...DEFAULT_SCHEDULING_RULES, ...s.schedulingRules });
+        if (s.breakRules) setBreakRules({ ...DEFAULT_BREAK_RULES, ...s.breakRules });
       })
+      .catch(() => {});
+    // Break types load with the page so the Breaks section shows complete.
+    const breakTypesLoad = fetch("/api/break-types?all=1")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((d) => { if (Array.isArray(d?.breakTypes)) setBreakTypes(d.breakTypes); })
       .catch(() => {});
     fetch("/api/employees")
       .then((r) => r.ok ? r.json() : Promise.reject())
@@ -717,7 +727,7 @@ export default function SettingsPageClient({
         }
       })
       .catch(() => {});
-    Promise.allSettled([settingsLoad, meLoad]).then(() => setLoading(false));
+    Promise.allSettled([settingsLoad, meLoad, breakTypesLoad]).then(() => setLoading(false));
   }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────
@@ -1445,6 +1455,15 @@ export default function SettingsPageClient({
             </div>
           </div>
         </section>}
+
+        {/* Breaks — manager only. Break types and the meal and attestation rules. */}
+        {isManager && (
+          <BreaksSection
+            types={breakTypes}
+            rules={breakRules}
+            onRulesSaved={(next) => { setBreakRules(next); refreshSettings(); }}
+          />
+        )}
 
         {/* Week Start — manager only */}
         {isManager && <section>

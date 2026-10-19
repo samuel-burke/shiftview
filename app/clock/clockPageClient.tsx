@@ -42,6 +42,7 @@ import DemoBanner from "@/components/DemoBanner";
 import PunchHistoryToggle from "@/components/PunchHistoryToggle";
 import MyHours from "./MyHours";
 import { PUNCH_NOTE_MAX_LENGTH } from "@/lib/punch-note";
+import type { BreakType } from "@/lib/break-rules";
 import { tint } from "../../lib/theme-colors";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -87,7 +88,7 @@ export default function ClockPageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { me: cachedMe, storeHours: weeklyHours, settings, scheduleCache, setScheduleCache, punchCache, setPunchCache, setLiveStatus } = useAppData();
-  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress, timezone, punchPolicy } = settings;
+  const { manualPunchesEnabled, gpsRequired, geofenceEnabled, geofenceLat, geofenceLng, geofenceRadius, geofenceAddress, timezone, punchPolicy, breakRules } = settings;
   // "Today" and every displayed time are in the store's timezone, whatever
   // timezone this device is set to.
   const todayKey = useStoreTodayKey(timezone);
@@ -169,6 +170,23 @@ export default function ClockPageClient() {
   const [calloutReason, setCalloutReason] = useState("");
   const [calloutPending, setCalloutPending] = useState(false);
   const [calloutError, setCalloutError] = useState<string | null>(null);
+
+  // Break types (lib/break-rules.ts): the clock asks which one only when the
+  // store offers more than one. An empty list is the one implicit "Break".
+  const [breakTypes, setBreakTypes] = useState<BreakType[]>([]);
+  const [choosingBreak, setChoosingBreak] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/break-types")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d && Array.isArray(d.breakTypes)) setBreakTypes(d.breakTypes); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Break attestation at clock-out (off by default): the shift to clock out
+  // of while the question is open.
+  const [attesting, setAttesting] = useState<{ schedule: Schedule | null } | null>(null);
 
   // Pre-punch warning confirmation
   const [pendingPunchType, setPendingPunchType] = useState<PunchType | null>(null);
@@ -414,12 +432,23 @@ export default function ClockPageClient() {
       setPendingSchedule(target);
       setPendingWarning(warning);
     } else {
-      submitPunch(punchType, target);
+      beginPunch(punchType, target);
     }
   }
 
+  // A clock-out under the attestation rule asks about breaks first.
+  function beginPunch(punchType: PunchType, target: Schedule | null) {
+    if (punchType === "clock_out" && breakRules.attestationEnabled) setAttesting({ schedule: target });
+    else submitPunch(punchType, target);
+  }
+
+  function startBreakClick() {
+    if (breakTypes.length > 1) setChoosingBreak(true);
+    else submitPunch("break_start", schedule, breakTypes.length === 1 ? { breakTypeId: breakTypes[0].id } : {});
+  }
+
   function confirmPunch() {
-    if (pendingPunchType) submitPunch(pendingPunchType, pendingSchedule);
+    if (pendingPunchType) beginPunch(pendingPunchType, pendingSchedule);
     setPendingPunchType(null);
     setPendingSchedule(null);
     setPendingWarning(null);
@@ -431,7 +460,11 @@ export default function ClockPageClient() {
     setPendingWarning(null);
   }
 
-  async function submitPunch(punchType: PunchType, punchSchedule: Schedule | null = schedule) {
+  async function submitPunch(
+    punchType: PunchType,
+    punchSchedule: Schedule | null = schedule,
+    extra: { breakTypeId?: number; breaksAttested?: boolean } = {},
+  ) {
     if (actionPending) return;
     haptic();
     setActionPending(true);
@@ -486,6 +519,8 @@ export default function ClockPageClient() {
       isManual: false,
       note: null,
       employeeNote: sentNote,
+      ...(extra.breakTypeId !== undefined ? { breakTypeId: extra.breakTypeId, breakPaid: !!breakTypes.find((t) => t.id === extra.breakTypeId)?.paid } : {}),
+      ...(extra.breaksAttested !== undefined ? { breaksAttested: extra.breaksAttested } : {}),
     };
     setPunches((prev) => [...prev, optimisticPunch]);
     playPunchSound(punchType);
@@ -500,6 +535,7 @@ export default function ClockPageClient() {
           lat,
           lng,
           ...(sentNote ? { note: sentNote } : {}),
+          ...extra,
         }),
       });
       if (!res.ok) {
@@ -877,7 +913,7 @@ export default function ClockPageClient() {
           {effectiveStatus === "clocked_in" && (
             <div className="grid grid-cols-2 gap-3">
               <motion.button
-                onClick={() => submitPunch("break_start")}
+                onClick={startBreakClick}
                 disabled={actionPending}
                 aria-busy={actionPending}
                 whileHover={{ scale: 1.02, boxShadow: `0 4px 20px ${tint("var(--color-warning)", 20)}` }}
@@ -1234,6 +1270,87 @@ export default function ClockPageClient() {
       </div>
 
       <BottomNav active="clock" />
+
+      {/* Which break — only when the store has more than one type */}
+      {choosingBreak && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="break-type-heading"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/60 backdrop-blur-sm"
+          onClick={() => setChoosingBreak(false)}
+        >
+          <div
+            className="w-full max-w-[480px] bg-card rounded-t-3xl border border-line-strong px-6 pt-6 pb-10 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-stronger mx-auto mb-2" />
+            <div id="break-type-heading" className="text-lg font-extrabold text-fg text-center">Which break?</div>
+            <div className="grid gap-2" data-testid="break-type-picker">
+              {breakTypes.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => { setChoosingBreak(false); submitPunch("break_start", schedule, { breakTypeId: t.id }); }}
+                  className="w-full py-3.5 px-4 rounded-2xl text-sm font-bold bg-warning/15 text-warning-fg border border-warning/30 flex items-center justify-between cursor-pointer hover:bg-warning/25"
+                >
+                  <span>{t.name}</span>
+                  <span className="text-xs font-semibold text-fg-muted">
+                    {t.paid ? "Paid" : "Unpaid"}{t.minMinutes ? ` · ${t.minMinutes} min` : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setChoosingBreak(false)}
+              className="w-full py-3 rounded-2xl text-sm font-bold bg-fill text-fg-secondary border border-line-strong cursor-pointer hover:bg-fill-strong"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Break attestation at clock-out */}
+      {attesting && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="attest-heading"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/60 backdrop-blur-sm"
+          onClick={() => setAttesting(null)}
+        >
+          <div
+            className="w-full max-w-[480px] bg-card rounded-t-3xl border border-line-strong px-6 pt-6 pb-10 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div aria-hidden="true" className="w-10 h-1 rounded-full bg-fill-stronger mx-auto mb-2" />
+            <div className="text-center">
+              <div id="attest-heading" className="text-lg font-extrabold text-fg">Before you go</div>
+              <div className="text-sm text-fg-muted mt-1">Were you able to take your breaks this shift?</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                onClick={() => { const s = attesting.schedule; setAttesting(null); submitPunch("clock_out", s, { breaksAttested: false }); }}
+                className="py-3.5 rounded-2xl text-sm font-bold bg-fill text-fg-secondary border border-line-strong cursor-pointer hover:bg-fill-strong"
+              >
+                No, I couldn&apos;t
+              </button>
+              <button
+                onClick={() => { const s = attesting.schedule; setAttesting(null); submitPunch("clock_out", s, { breaksAttested: true }); }}
+                className="py-3.5 rounded-2xl text-sm font-bold bg-ok/20 text-ok-fg border border-ok/30 cursor-pointer hover:bg-ok/30"
+              >
+                Yes, I took them
+              </button>
+            </div>
+            <button
+              onClick={() => setAttesting(null)}
+              className="w-full py-3 rounded-2xl text-sm font-bold text-fg-muted cursor-pointer hover:text-fg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pre-punch warning modal */}
       {pendingWarning && pendingPunchType && (

@@ -42,6 +42,7 @@ describe("GET /api/settings", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({
+      breakRules: { mealRequiredAfterMinutes: 0, attestationEnabled: false },
       coverageAlertsEnabled: true,
       emailNotifications: false,
       firstDayOfWeek: 1,
@@ -96,6 +97,7 @@ describe("GET /api/settings", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({
+      breakRules: { mealRequiredAfterMinutes: 0, attestationEnabled: false },
       coverageAlertsEnabled: true,
       emailNotifications: false,
       firstDayOfWeek: 6,

@@ -8,6 +8,7 @@ import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
 import { applySchedulingRulesPatch, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { isValidTimezone, resolveTimezone } from "@/lib/dates";
 import { isValidLatitude, isValidLongitude } from "@/lib/geo-validation";
+import { breakRulesRows, parseBreakRules } from "@/lib/break-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export async function GET(request?: Request) {
     geofenceAddress:      map.geofence_address || null,
     punchPolicy:          parsePunchPolicy(map),
     schedulingRules:      parseSchedulingRules(map),
+    breakRules:           parseBreakRules(map),
   });
 }
 
@@ -140,6 +142,13 @@ export async function PUT(request: Request) {
     const { rows: policyRows, error: policyError } = punchPolicyRows(body.punchPolicy);
     if (policyError) return NextResponse.json({ error: policyError }, { status: 400 });
     rows.push(...policyRows);
+  }
+
+  // Break rules (meal rule, attestation) — a nested object of optional fields.
+  if (body.breakRules !== undefined) {
+    const { rows: breakRows, error: breakError } = breakRulesRows(body.breakRules);
+    if (breakError) return NextResponse.json({ error: breakError }, { status: 400 });
+    rows.push(...breakRows);
   }
 
   // Auto-scheduler rules — a nested object, validated against the stored rules

@@ -6,7 +6,7 @@ type QueryClient = {
 };
 
 // Exactly the PunchRow columns — the reads below return nothing else.
-export const PUNCH_COLUMNS = "id, employee_id, schedule_id, punch_type, punched_at, lat, lng, is_manual, note, employee_note";
+export const PUNCH_COLUMNS = "id, employee_id, schedule_id, punch_type, punched_at, lat, lng, is_manual, note, employee_note, break_type_id, break_paid, breaks_attested";
 
 export type PunchRow = {
   id: number;
@@ -19,6 +19,9 @@ export type PunchRow = {
   is_manual?: boolean;
   note?: string | null;
   employee_note?: string | null;
+  break_type_id?: number | null;
+  break_paid?: boolean;
+  breaks_attested?: boolean | null;
   punchType: string;
   punchedAt: string;
 };

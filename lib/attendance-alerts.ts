@@ -162,6 +162,7 @@ export function projectWeeklyHours(input: {
     employee_id: 0,
     punch_type: p.punchType,
     punched_at: p.punchedAt,
+    break_paid: !!p.breakPaid,
     employees: null,
   }));
   let workedMs = (computePayroll(rows, tz, { from: weekStart, to: today })[0]?.totalWorkedHours ?? 0) * HOUR_MS;

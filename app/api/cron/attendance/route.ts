@@ -92,10 +92,10 @@ export async function GET(request: Request) {
         .order("id")
         .range(a, b)
     ),
-    fetchAllRows<{ id: number; org_id: string; employee_id: number; punch_type: string; punched_at: string }>((a, b) =>
+    fetchAllRows<{ id: number; org_id: string; employee_id: number; punch_type: string; punched_at: string; break_paid?: boolean }>((a, b) =>
       supabase
         .from("punch_records")
-        .select("id, org_id, employee_id, punch_type, punched_at")
+        .select("id, org_id, employee_id, punch_type, punched_at, break_paid")
         .gte("punched_at", punchesSince)
         .order("id")
         .range(a, b)
@@ -157,7 +157,7 @@ export async function GET(request: Request) {
   }
   for (const p of punchRes.data) {
     if (!orgIds.has(p.org_id)) continue;
-    empData(p.org_id, p.employee_id).punches.push({ id: p.id, punchType: p.punch_type as PunchType, punchedAt: p.punched_at });
+    empData(p.org_id, p.employee_id).punches.push({ id: p.id, punchType: p.punch_type as PunchType, punchedAt: p.punched_at, breakPaid: !!p.break_paid });
   }
   for (const c of calloutRes.data) {
     if (!orgIds.has(c.org_id)) continue;

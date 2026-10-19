@@ -6,6 +6,9 @@ export type PunchRow = {
   employee_id: number;
   punch_type: string;
   punched_at: string;
+  // On a break_start: the break is paid (a paid break type, migration 0065)
+  // and counts as worked time instead of being deducted.
+  break_paid?: boolean | null;
   employees: { name: string } | null;
 };
 
@@ -92,10 +95,18 @@ function computeSegments(punches: PunchRow[]): {
   let breakMs = 0;
   let segStart: number | null = null;
   let breakStart: number | null = null;
+  // A paid break doesn't stop the work segment: its time is worked, not
+  // deducted. Only unpaid breaks add to breakMs.
+  let breakPaid = false;
   // A punch that doesn't follow from the one before it — a second clock-in, a
   // clock-out with no clock-in, a break end with no break start — means
   // punches are missing or doubled. Count what can be paired, and flag the day.
   let outOfSequence = false;
+  const endBreak = (t: number) => {
+    if (breakStart !== null && !breakPaid) breakMs += t - breakStart;
+    breakStart = null;
+    breakPaid = false;
+  };
 
   for (const p of punches) {
     const t = new Date(p.punched_at).getTime();
@@ -103,23 +114,28 @@ function computeSegments(punches: PunchRow[]): {
       case "clock_in":
         // A second clock-in keeps the first: the time between them was worked.
         if (segStart !== null || breakStart !== null) outOfSequence = true;
-        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
+        endBreak(t);
         if (segStart === null) segStart = t;
         break;
       case "break_end":
-        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
-        else outOfSequence = true;
+        if (breakStart === null) outOfSequence = true;
+        endBreak(t);
         if (segStart === null) segStart = t;
         break;
       case "break_start":
+        if (p.break_paid) {
+          if (segStart === null || breakStart !== null) outOfSequence = true;
+          if (breakStart === null && segStart !== null) { breakStart = t; breakPaid = true; }
+          break;
+        }
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
         else outOfSequence = true;
-        if (breakStart === null) breakStart = t;
+        if (breakStart === null) { breakStart = t; breakPaid = false; }
         break;
       case "clock_out":
         if (segStart === null && breakStart === null) outOfSequence = true;
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
-        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
+        endBreak(t);
         break;
     }
   }

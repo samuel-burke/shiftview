@@ -11,6 +11,15 @@ import { fmtMinutes } from "@/data/types";
 import { daysBetweenKeys, dayOfWeekForKey, eachDateKey, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
 import { assignPunchDays, MAX_SHIFT_MS } from "@/lib/punch-sessions";
 import { clockInTiming, clockOutTiming, type PunchPolicy } from "@/lib/punch-policy";
+import { DEFAULT_BREAK_RULES, type BreakRules } from "@/lib/break-rules";
+import { mealFlags } from "@/lib/meal-rule";
+
+// 330 → "5h 30m", 300 → "5h", 45 → "45m".
+function fmtDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h === 0 ? `${m}m` : m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
 
 export type ViolationType =
   | "late_in"
@@ -20,7 +29,11 @@ export type ViolationType =
   | "long_break"
   | "short_break"
   | "callout"
-  | "ncns";
+  | "ncns"
+  // Break rules (lib/break-rules.ts), off by default.
+  | "missed_meal"
+  | "late_meal"
+  | "breaks_not_taken";
 
 export type Violation = {
   type: ViolationType;
@@ -44,7 +57,14 @@ export type TimecardPunchInput = {
   note?: string | null;
   // The employee's own note on a live punch (0065).
   employeeNote?: string | null;
+  // On a break_start: its type and whether it was paid (0065).
+  breakTypeId?: number | null;
+  breakPaid?: boolean;
+  // On a clock_out: the employee's answer to "I was able to take my breaks".
+  breaksAttested?: boolean | null;
 };
+
+export type TimecardBreakType = { id: number; name: string; paid: boolean; minMinutes: number | null };
 
 export type TimecardScheduleInput = {
   date: string; // YYYY-MM-DD
@@ -65,6 +85,11 @@ export type TimecardPunch = {
   isManual: boolean;
   note: string | null;
   employeeNote?: string | null;
+  breakTypeId?: number | null;
+  breakPaid?: boolean;
+  // The break type's name, on a break_start that has one.
+  breakTypeName?: string | null;
+  breaksAttested?: boolean | null;
 };
 
 export type TimecardDay = {
@@ -127,12 +152,14 @@ function getDayName(dateStr: string): string {
   return DAY_NAMES[dayOfWeekForKey(dateStr)];
 }
 
-// Worked/break time plus every completed break's duration and the break-end
-// punch that closed it (so break violations can attach to a specific punch).
-function computeSegments(punches: { id: number; punchType: PunchType; punchedAt: string }[]): {
+// Worked/break time plus every completed break's duration, type and the
+// break-end punch that closed it (so break violations can attach to a
+// specific punch). A paid break (break types, migration 0065) is worked time,
+// as payroll pays it: it doesn't stop the work segment and isn't in breakMs.
+function computeSegments(punches: { id: number; punchType: PunchType; punchedAt: string; breakPaid?: boolean; breakTypeId?: number | null }[]): {
   workedMs: number;
   breakMs: number;
-  breaks: { minutes: number; endPunchId: number }[];
+  breaks: { minutes: number; endPunchId: number; breakTypeId: number | null; paid: boolean }[];
   breakCount: number;
   hasIncomplete: boolean;
 } {
@@ -140,28 +167,34 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
   let breakMs = 0;
   let segStart: number | null = null;
   let breakStart: number | null = null;
+  let breakPaid = false;
+  let breakTypeId: number | null = null;
   let breakCount = 0;
-  const breaks: { minutes: number; endPunchId: number }[] = [];
+  const breaks: { minutes: number; endPunchId: number; breakTypeId: number | null; paid: boolean }[] = [];
 
   // A punch that doesn't follow from the one before it (a second clock-in, a
   // clock-out with no clock-in, …) means punches are missing or doubled: count
   // what pairs up and flag the day, as lib/payroll.ts does.
   let outOfSequence = false;
+  const dropBreak = (t: number) => {
+    if (breakStart !== null && !breakPaid) breakMs += t - breakStart;
+    breakStart = null;
+    breakPaid = false;
+  };
 
   for (const p of punches) {
     const t = new Date(p.punchedAt).getTime();
     switch (p.punchType) {
       case "clock_in":
         if (segStart !== null || breakStart !== null) outOfSequence = true;
-        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
+        dropBreak(t);
         if (segStart === null) segStart = t;
         break;
       case "break_end":
         if (breakStart !== null) {
           const ms = t - breakStart;
-          breakMs += ms;
-          breaks.push({ minutes: Math.round(ms / 60_000), endPunchId: p.id });
-          breakStart = null;
+          breaks.push({ minutes: Math.round(ms / 60_000), endPunchId: p.id, breakTypeId, paid: breakPaid });
+          dropBreak(t);
         } else {
           outOfSequence = true;
         }
@@ -169,14 +202,19 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
         break;
       case "break_start":
         breakCount++;
+        if (p.breakPaid) {
+          if (segStart === null || breakStart !== null) outOfSequence = true;
+          if (breakStart === null && segStart !== null) { breakStart = t; breakPaid = true; breakTypeId = p.breakTypeId ?? null; }
+          break;
+        }
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
         else outOfSequence = true;
-        if (breakStart === null) breakStart = t;
+        if (breakStart === null) { breakStart = t; breakPaid = false; breakTypeId = p.breakTypeId ?? null; }
         break;
       case "clock_out":
         if (segStart === null && breakStart === null) outOfSequence = true;
         if (segStart !== null) { workedMs += t - segStart; segStart = null; }
-        if (breakStart !== null) { breakMs += t - breakStart; breakStart = null; }
+        dropBreak(t);
         break;
     }
   }
@@ -243,6 +281,8 @@ export function matchSessionsToShifts(input: {
       isManual: !!p.isManual,
       note: p.note ?? null,
       employeeNote: p.employeeNote ?? null,
+      ...(p.punchType === "break_start" ? { breakTypeId: p.breakTypeId ?? null, breakPaid: !!p.breakPaid } : {}),
+      ...(p.punchType === "clock_out" && p.breaksAttested != null ? { breaksAttested: p.breaksAttested } : {}),
     };
     if (!last || p.punchType === "clock_in" || assigned[i].day !== last.ownDay) {
       sessions.push({ ownDay: assigned[i].day, startMs: ms, endMs: ms, punches: [tp], shift: null });
@@ -278,8 +318,14 @@ export function computeTimecard(input: {
   punches: TimecardPunchInput[];
   callouts: TimecardCalloutInput[];
   nowMs?: number;
+  // The org's break types (archived ones too: old punches name them).
+  breakTypes?: TimecardBreakType[];
+  // Break rules; omitted = all off (lib/break-rules.ts).
+  breakRules?: BreakRules;
 }): Timecard {
   const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
+  const breakRules = input.breakRules ?? DEFAULT_BREAK_RULES;
+  const typeById = new Map((input.breakTypes ?? []).map((t) => [t.id, t]));
   const nowMs = input.nowMs ?? Date.now();
 
   const calloutByDate = new Map<string, TimecardCalloutInput>();
@@ -309,6 +355,7 @@ export function computeTimecard(input: {
   const violationCounts: Record<ViolationType, number> = {
     late_in: 0, early_in: 0, late_out: 0, early_out: 0,
     long_break: 0, short_break: 0, callout: 0, ncns: 0,
+    missed_meal: 0, late_meal: 0, breaks_not_taken: 0,
   };
   let totalWorkedMs = 0; // summed exactly, rounded once
   let totalBreakMs = 0;
@@ -411,8 +458,22 @@ export function computeTimecard(input: {
     }
 
     // Break length — one violation per offending break, attached to the
-    // break-end punch that closed it.
-    for (const { minutes: mins, endPunchId } of breaks) {
+    // break-end punch that closed it. A break shorter than its type's own
+    // minimum is short too, when the policy hasn't flagged it already.
+    for (const { minutes: mins, endPunchId, breakTypeId } of breaks) {
+      const type = breakTypeId != null ? typeById.get(breakTypeId) : undefined;
+      const policyShort = policy.shortBreakEnabled && mins < policy.shortBreakMinutes;
+      const policyLong = policy.longBreakEnabled && mins > policy.longBreakMinutes;
+      if (type?.minMinutes != null && mins < type.minMinutes && !policyShort && !policyLong) {
+        add({
+          type: "short_break",
+          label: "Short Break",
+          detail: `${mins} min ${type.name.toLowerCase()} (minimum ${type.minMinutes} min)`,
+          minutes: mins,
+          punchId: endPunchId,
+        });
+        continue;
+      }
       if (policy.longBreakEnabled && mins > policy.longBreakMinutes) {
         add({
           type: "long_break",
@@ -430,6 +491,43 @@ export function computeTimecard(input: {
           punchId: endPunchId,
         });
       }
+    }
+
+    // The meal rule, per shift on this day.
+    for (const f of mealFlags(dayPunches, breakRules.mealRequiredAfterMinutes, (id) => (id != null ? typeById.get(id)?.minMinutes ?? null : null))) {
+      const limit = fmtDuration(breakRules.mealRequiredAfterMinutes);
+      add(f.kind === "missed"
+        ? {
+            type: "missed_meal",
+            label: "Missed Meal",
+            detail: `Worked ${fmtDuration(f.workedMinutes)} with no meal break (required after ${limit})`,
+            minutes: f.workedMinutes,
+            punchId: f.punchId,
+          }
+        : {
+            type: "late_meal",
+            label: "Late Meal",
+            detail: `Meal break started after ${fmtDuration(f.workedBeforeMealMinutes ?? 0)} of work (required by ${limit})`,
+            minutes: f.workedBeforeMealMinutes ?? 0,
+            punchId: f.punchId,
+          });
+    }
+
+    // The employee said at clock-out they couldn't take their breaks.
+    for (const p of dayPunches) {
+      if (p.punchType === "clock_out" && p.breaksAttested === false) {
+        add({
+          type: "breaks_not_taken",
+          label: "Breaks Not Taken",
+          detail: "Said at clock-out they weren't able to take their breaks",
+          punchId: p.id,
+        });
+      }
+    }
+
+    // Name each break by its type.
+    for (const p of dayPunches) {
+      if (p.punchType === "break_start" && p.breakTypeId != null) p.breakTypeName = typeById.get(p.breakTypeId)?.name ?? null;
     }
 
     const daySchedules = dayShifts.map((s) => ({ startMinutes: s.startMinutes, endMinutes: s.endMinutes }));

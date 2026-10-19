@@ -165,3 +165,19 @@ describe("elapsed timers when the device clock is behind the server", () => {
     expect(fmtElapsed(90)).toBe("1m 30s");
   });
 });
+
+describe("getTotalClockedSeconds — paid breaks", () => {
+  const at = (punchType: PunchRecord["punchType"], iso: string, breakPaid?: boolean): PunchRecord =>
+    ({ id: 1, employeeId: 1, scheduleId: null, punchType, punchedAt: iso, lat: null, lng: null, isManual: false, note: null, breakPaid });
+  it("keeps the clock running through a paid break and stops it for an unpaid one", () => {
+    const punches = [
+      at("clock_in", "2026-01-15T14:00:00Z"),
+      at("break_start", "2026-01-15T15:00:00Z", true),
+      at("break_end", "2026-01-15T15:15:00Z"),
+      at("break_start", "2026-01-15T16:00:00Z", false),
+      at("break_end", "2026-01-15T16:30:00Z"),
+      at("clock_out", "2026-01-15T17:00:00Z"),
+    ];
+    expect(getTotalClockedSeconds(punches)).toBe(2.5 * 3600);
+  });
+});

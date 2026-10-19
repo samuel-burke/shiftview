@@ -40,6 +40,9 @@ const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string
   short_break: { label: "Short Break", className: "bg-attention/15 text-attention-fg border border-attention/25" },
   callout:     { label: "Call Out",    className: "bg-tag-rose/15 text-tag-rose-fg border border-tag-rose/25" },
   ncns:        { label: "No Call No Show", className: "bg-danger-solid/20 text-danger-fg-strong border border-danger/40" },
+  missed_meal: { label: "Missed Meal", className: "bg-attention/15 text-attention-fg border border-attention/25" },
+  late_meal:   { label: "Late Meal",   className: "bg-attention/15 text-attention-fg border border-attention/25" },
+  breaks_not_taken: { label: "Breaks Not Taken", className: "bg-warning/15 text-warning-fg border border-warning/25" },
 };
 
 const todayKey = todayKeyInTz;
@@ -339,7 +342,14 @@ export function TimeCardPanel({
                               className="size-1.5 rounded-full shrink-0"
                               style={{ background: PUNCH_COLORS[p.punchType] }}
                             />
-                            <span className="text-fg-muted">{PUNCH_LABELS[p.punchType]}</span>
+                            <span className="text-fg-muted">
+                              {PUNCH_LABELS[p.punchType]}
+                              {p.punchType === "break_start" && (p.breakTypeName || p.breakPaid) && (
+                                <span data-testid="timecard-break-type">
+                                  {" "}({p.breakTypeName ?? "Break"}{p.breakPaid ? ", paid" : ""})
+                                </span>
+                              )}
+                            </span>
                             <span className="text-fg-body font-semibold tabular-nums">
                               {formatPunchTime(p.punchedAt, data.timezone)}
                             </span>
@@ -351,6 +361,14 @@ export function TimeCardPanel({
                                 title="Manual correction"
                                 className="text-[9px] text-warning-fg uppercase cursor-pointer"
                               />
+                            )}
+                            {p.punchType === "clock_out" && p.breaksAttested != null && (
+                              <span
+                                data-testid="timecard-attestation"
+                                className={p.breaksAttested ? "text-ok-fg" : "text-warning-fg font-semibold"}
+                              >
+                                {p.breaksAttested ? "Took breaks ✓" : "Couldn't take breaks"}
+                              </span>
                             )}
                             {p.employeeNote && (
                               <span

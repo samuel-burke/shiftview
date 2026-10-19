@@ -7,6 +7,18 @@ import { daysBetweenKeys } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 import { writeAuditLog } from "@/lib/audit";
 import { csvRow } from "@/lib/csv";
+import { parseBreakRules } from "@/lib/break-rules";
+import { loadBreakTypes } from "@/lib/break-types-server";
+import { mealFlagCounts } from "@/lib/meal-rule";
+
+// Meal-rule flags (missed or late meal) per employee and day; null when the
+// org's meal rule is off, and the exports then carry no Meal Flags column.
+type MealCounts = Map<number, Map<string, number>> | null;
+
+function mealCount(meals: MealCounts, employeeId: number, dates: string[]): number {
+  const byDay = meals?.get(employeeId);
+  return byDay ? dates.reduce((n, d) => n + (byDay.get(d) ?? 0), 0) : 0;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +40,9 @@ function mmddyyyy(dateStr: string): string {
 
 // ─── Format generators ────────────────────────────────────────────────────────
 
-function summaryCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Week Of", "Regular Hrs", "OT Hrs", "Break Hrs", "Total Hrs", "Incomplete"])];
+function summaryCSV(rows: EmployeePayroll[], meals: MealCounts = null): string {
+  const mealCol = (n: number) => (meals ? [String(n)] : []);
+  const lines = [csvRow(["Employee", "Week Of", "Regular Hrs", "OT Hrs", "Break Hrs", "Total Hrs", "Incomplete", ...(meals ? ["Meal Flags"] : [])])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
       lines.push(csvRow([
@@ -40,6 +53,7 @@ function summaryCSV(rows: EmployeePayroll[]): string {
         week.breakHours.toFixed(2),
         week.totalWorkedHours.toFixed(2),
         week.hasIncomplete ? "Yes" : "",
+        ...mealCol(mealCount(meals, emp.employeeId, week.days.map((d) => d.date))),
       ]));
     }
     if (emp.weeks.length > 1) {
@@ -51,6 +65,7 @@ function summaryCSV(rows: EmployeePayroll[]): string {
         emp.totalBreakHours.toFixed(2),
         emp.totalWorkedHours.toFixed(2),
         "",
+        ...mealCol(mealCount(meals, emp.employeeId, emp.weeks.flatMap((w) => w.days.map((d) => d.date)))),
       ]));
     }
   }
@@ -58,8 +73,8 @@ function summaryCSV(rows: EmployeePayroll[]): string {
 }
 
 // Daily detail — works with QuickBooks Online time import, Gusto, ADP, and most modern payroll platforms
-function dailyCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete"])];
+function dailyCSV(rows: EmployeePayroll[], meals: MealCounts = null): string {
+  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete", ...(meals ? ["Meal Flags"] : [])])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
       for (const day of week.days) {
@@ -71,6 +86,7 @@ function dailyCSV(rows: EmployeePayroll[]): string {
           day.workedHours.toFixed(2),
           day.breakHours.toFixed(2),
           day.hasIncomplete ? "Yes" : "",
+          ...(meals ? [String(mealCount(meals, emp.employeeId, [day.date]))] : []),
         ]));
       }
     }
@@ -190,7 +206,7 @@ export async function GET(request: Request) {
   const { data, error, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
-      .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
+      .select("id, employee_id, punch_type, punched_at, break_paid, break_type_id, employees!punch_records_employee_org_fkey(name)")
       .eq("org_id", orgId!)
       .gte("punched_at", span.start)
       .lte("punched_at", span.end)
@@ -209,6 +225,29 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
   const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+
+  // The meal rule's flags, counted when the rule is on.
+  let meals: MealCounts = null;
+  if (format !== "qb-iif" && format !== "detailed") {
+    const { data: ruleRows } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .eq("org_id", orgId!)
+      .eq("key", "meal_required_after_minutes");
+    const rules = parseBreakRules(Object.fromEntries(((ruleRows ?? []) as { key: string; value: string }[]).map((r) => [r.key, r.value])));
+    if (rules.mealRequiredAfterMinutes > 0) {
+      const { types, error: typesError } = await loadBreakTypes(supabase, orgId!);
+      if (typesError) {
+        console.error("[api/reports/payroll/export] break types", typesError);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+      }
+      const minOf = new Map(types.map((t) => [t.id, t.minMinutes]));
+      meals = mealFlagCounts(
+        data as unknown as Parameters<typeof mealFlagCounts>[0], tz, rules.mealRequiredAfterMinutes,
+        (id) => (id != null ? minOf.get(id) ?? null : null),
+      );
+    }
+  }
 
   writeAuditLog({
     action:       "payroll.export",
@@ -229,7 +268,7 @@ export async function GET(request: Request) {
       filename    = `payroll_${from}_to_${to}.iif`;
       break;
     case "daily":
-      content     = dailyCSV(payroll);
+      content     = dailyCSV(payroll, meals);
       contentType = "text/csv";
       filename    = `payroll_daily_${from}_to_${to}.csv`;
       break;
@@ -239,7 +278,7 @@ export async function GET(request: Request) {
       filename    = `payroll_breakdown_${from}_to_${to}.csv`;
       break;
     default:
-      content     = summaryCSV(payroll);
+      content     = summaryCSV(payroll, meals);
       contentType = "text/csv";
       filename    = `payroll_${from}_to_${to}.csv`;
   }

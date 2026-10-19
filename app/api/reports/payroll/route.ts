@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   const { data, error, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
-      .select("id, employee_id, punch_type, punched_at, employees!punch_records_employee_org_fkey(name)")
+      .select("id, employee_id, punch_type, punched_at, break_paid, employees!punch_records_employee_org_fkey(name)")
       .eq("org_id", orgId!)
       .gte("punched_at", span.start)
       .lte("punched_at", span.end)

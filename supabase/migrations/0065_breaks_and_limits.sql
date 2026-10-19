@@ -21,6 +21,16 @@
 --    stores without a geofence (the app asks for location there). The API
 --    applies the same rule (POST /api/punches).
 --
+-- 3. Break types (break_types): per organization, each paid or unpaid with
+--    an optional minimum length; archived rather than deleted. A store with
+--    none configured has one implicit unpaid "Break", so every break is
+--    deducted exactly as before. A break_start records its type
+--    (break_type_id) and whether it was paid (break_paid), stamped from the
+--    type by the punch_records_integrity_break trigger and never taken from
+--    the writer; payroll counts a paid break as worked time. A clock_out may
+--    record the employee's answer to "I was able to take my breaks"
+--    (breaks_attested, null when not asked).
+--
 -- DEPLOY THIS BEFORE THE APP: the app reads and writes the new columns.
 -- Safe to repeat.
 
@@ -160,5 +170,122 @@ end;
 $$;
 
 revoke all on function public.enforce_punch_geofence() from public, anon, authenticated;
+
+
+-- ── 3. Break types and break attestation ───────────────────────────────────
+
+create table if not exists public.break_types (
+  id          bigint generated always as identity primary key,
+  org_id      uuid not null references public.organizations (id) on delete cascade,
+  name        text not null check (char_length(btrim(name)) between 1 and 40),
+  paid        boolean not null default false,
+  min_minutes int check (min_minutes is null or min_minutes between 1 and 240),
+  sort_order  int not null default 0,
+  archived_at timestamptz,
+  created_at  timestamptz not null default now(),
+  constraint break_types_id_org_key unique (id, org_id)
+);
+
+create unique index if not exists break_types_org_name_active_idx
+  on public.break_types (org_id, lower(btrim(name))) where archived_at is null;
+
+alter table public.break_types enable row level security;
+
+-- Members read their organization's types (the clock offers them); managers
+-- add and change them. Types are archived, never deleted: punches name them.
+revoke all on table public.break_types from public, anon, authenticated;
+grant select, insert, update on table public.break_types to authenticated;
+grant all on table public.break_types to service_role;
+
+drop policy if exists mt_select on public.break_types;
+create policy mt_select on public.break_types for select to authenticated
+  using (org_id in (select public.my_org_ids()));
+drop policy if exists mt_insert on public.break_types;
+create policy mt_insert on public.break_types for insert to authenticated
+  with check (org_id in (select public.my_managed_org_ids()));
+drop policy if exists mt_update on public.break_types;
+create policy mt_update on public.break_types for update to authenticated
+  using (org_id in (select public.my_managed_org_ids()))
+  with check (org_id in (select public.my_managed_org_ids()));
+
+alter table public.punch_records add column if not exists break_type_id bigint;
+alter table public.punch_records add column if not exists break_paid boolean not null default false;
+alter table public.punch_records add column if not exists breaks_attested boolean;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'punch_records_break_type_org_fkey') then
+    alter table public.punch_records add constraint punch_records_break_type_org_fkey
+      foreign key (break_type_id, org_id) references public.break_types (id, org_id);
+  end if;
+end $$;
+
+-- Stamps a break_start with its type and whether it is paid, from the type
+-- itself: break_paid is never taken from the writer. A break_start naming no
+-- type gets the org's first active type (none configured: no type, unpaid,
+-- which is how every break was paid before). An edit that changes neither
+-- the type nor the punch type keeps the paid flag the break was taken with,
+-- so changing a type later never re-prices old breaks. Only a clock_out
+-- carries breaks_attested; once written, a signed-in user can't change it.
+create or replace function public.enforce_punch_break()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_type record;
+begin
+  if tg_op = 'UPDATE' and auth.uid() is not null then
+    new.breaks_attested := old.breaks_attested;
+  end if;
+  if new.punch_type <> 'clock_out' then
+    new.breaks_attested := null;
+  end if;
+
+  if new.punch_type <> 'break_start' then
+    new.break_type_id := null;
+    new.break_paid := false;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and new.break_type_id is not distinct from old.break_type_id
+     and old.punch_type = 'break_start' then
+    new.break_paid := old.break_paid;
+    return new;
+  end if;
+
+  if new.break_type_id is null then
+    select id, paid, archived_at into v_type
+      from public.break_types
+     where org_id = new.org_id and archived_at is null
+     order by sort_order, id
+     limit 1;
+  else
+    select id, paid, archived_at into v_type
+      from public.break_types
+     where org_id = new.org_id and id = new.break_type_id;
+    if v_type.id is null then
+      raise exception 'Unknown break type' using errcode = '23503';
+    end if;
+    -- A live break must be one the store still offers.
+    if v_type.archived_at is not null and not coalesce(new.is_manual, false) and auth.uid() is not null then
+      raise exception 'That break type is no longer offered' using errcode = '23514';
+    end if;
+  end if;
+
+  new.break_type_id := v_type.id;
+  new.break_paid := coalesce(v_type.paid, false);
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_punch_break() from public, anon, authenticated;
+
+drop trigger if exists punch_records_integrity_break on public.punch_records;
+create trigger punch_records_integrity_break
+  before insert or update on public.punch_records
+  for each row execute function public.enforce_punch_break();
 
 commit;

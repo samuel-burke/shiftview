@@ -6,6 +6,7 @@ import { getAttendanceStatus, type AttendanceStatus, type Employee, type Schedul
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "@/lib/punch-policy";
 import { DEFAULT_SCHEDULING_RULES, type SchedulingRules } from "@/lib/scheduling-rules";
 import { DEFAULT_TIMEZONE } from "@/lib/dates";
+import { DEFAULT_BREAK_RULES, type BreakRules } from "@/lib/break-rules";
 
 export type AppSettings = {
   firstDayOfWeek: number;
@@ -21,6 +22,7 @@ export type AppSettings = {
   geofenceAddress: string | null;
   punchPolicy: PunchPolicy;
   schedulingRules: SchedulingRules;
+  breakRules: BreakRules;
 };
 
 export type OrgSummary = { id: string; name: string; isManager: boolean };
@@ -66,6 +68,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geofenceAddress: null,
   punchPolicy: DEFAULT_PUNCH_POLICY,
   schedulingRules: DEFAULT_SCHEDULING_RULES,
+  breakRules: DEFAULT_BREAK_RULES,
 };
 
 // /api/settings fills every field, but a response from an older server (or a
@@ -76,6 +79,7 @@ function withSettingsDefaults(data: Partial<AppSettings>): AppSettings {
     ...data,
     punchPolicy: { ...DEFAULT_PUNCH_POLICY, ...data.punchPolicy },
     schedulingRules: { ...DEFAULT_SCHEDULING_RULES, ...data.schedulingRules },
+    breakRules: { ...DEFAULT_BREAK_RULES, ...data.breakRules },
   };
 }
 
