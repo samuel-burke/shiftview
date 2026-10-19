@@ -11,9 +11,20 @@
 //
 // The anchor must be attached to the document for the click to register on iOS.
 
+function toSafeDownloadHref(url: string): string {
+  const parsed = new URL(url, window.location.origin);
+
+  // Only allow same-origin http(s) downloads.
+  if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.origin !== window.location.origin) {
+    throw new Error("Unsafe download URL");
+  }
+
+  return parsed.href;
+}
+
 function triggerDownload(url: string, filename: string): void {
   const a = document.createElement("a");
-  a.href = url;
+  a.href = toSafeDownloadHref(url);
   a.download = filename;
   a.rel = "noopener";
   a.style.display = "none";
