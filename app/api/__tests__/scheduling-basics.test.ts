@@ -258,17 +258,98 @@ describe("deciding a multi-day request", () => {
     expect(mockNotify).toHaveBeenCalledTimes(1);
     expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ userId: ALICE.id, type: "pto_approved" }));
   });
+});
+describe("approving time off over scheduled shifts", () => {
+  function pending(days: number, window?: { start: number; end: number }) {
+    const group = days > 1 ? "group-1" : null;
+    for (let i = 0; i < days; i++) {
+      db.rows("time_off_requests").push({
+        id: 100 + i, org_id: ORG, employee_id: 5, date: addDays(FUTURE, i), status: "pending",
+        start_minutes: window?.start ?? null, end_minutes: window?.end ?? null, group_id: group,
+      });
+    }
+  }
+  const shift = (id: number, offset: number, start = 540, end = 1020) =>
+    db.rows("schedules").push({ id, org_id: ORG, employee_id: 5, date: addDays(FUTURE, offset), start_minutes: start, end_minutes: end });
+  const decide = (id: number, body: unknown) =>
+    timeOffDecision.PUT(req("PUT", body), params({ id: String(id) }));
 
-  it("denies the whole multi-day request", async () => {
+  it("approves straight away when nothing clashes", async () => {
+    pending(1);
+    shift(1, 3);
+    const res = await decide(100, { status: "approved" });
+    expect(res.status).toBe(200);
+    expect(db.rows("time_off_requests")[0].status).toBe("approved");
+    expect(db.rows("schedules")).toHaveLength(1);
+  });
+
+  it("asks first when they're scheduled, and changes nothing", async () => {
+    pending(1);
+    shift(1, 0);
+    const res = await decide(100, { status: "approved" });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body).toMatchObject({ conflict: "scheduled", shifts: [{ id: 1, date: FUTURE, startMinutes: 540, endMinutes: 1020 }] });
+    expect(db.rows("time_off_requests")[0].status).toBe("pending");
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it("removes the shifts (and matching drafts) when asked, and tells the employee", async () => {
+    pending(3);
+    shift(1, 0);
+    shift(2, 2);
+    shift(3, 5); // outside the request
+    db.rows("draft_schedules").push({ id: 9, org_id: ORG, employee_id: 5, date: addDays(FUTURE, 1), start_minutes: 540, end_minutes: 1020 });
+    const res = await decide(101, { status: "approved", resolve: "remove" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ids: [100, 101, 102], removedShifts: [1, 2], keptShifts: [] });
+    expect(db.rows("time_off_requests").every((r) => r.status === "approved")).toBe(true);
+    expect(db.rows("schedules").map((s) => s.id)).toEqual([3]);
+    expect(db.rows("draft_schedules")).toHaveLength(0);
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({
+      userId: ALICE.id,
+      type: "pto_approved",
+      body: expect.stringMatching(/2 shifts during that time were removed/),
+    }));
+  });
+
+  it("keeps the shifts when asked", async () => {
+    pending(1);
+    shift(1, 0);
+    const res = await decide(100, { status: "approved", resolve: "keep" });
+    expect(await res.json()).toMatchObject({ removedShifts: [], keptShifts: [1] });
+    expect(db.rows("schedules")).toHaveLength(1);
+    expect(db.rows("time_off_requests")[0].status).toBe("approved");
+  });
+
+  it("only counts shifts that meet a part-day request", async () => {
+    pending(1, { start: 900, end: 1080 });
+    shift(1, 0, 480, 900); // ends as the time off starts
+    expect((await decide(100, { status: "approved" })).status).toBe(200);
+  });
+
+  it("counts an overnight shift from the day before", async () => {
+    pending(1);
+    shift(1, -1, 1320, 1800);
+    expect((await decide(100, { status: "approved" })).status).toBe(409);
+  });
+
+  it("denies the whole multi-day request without looking at shifts", async () => {
     pending(2);
+    shift(1, 0);
     const res = await decide(100, { status: "denied" });
     expect(res.status).toBe(200);
     expect(db.rows("time_off_requests").map((r) => r.status)).toEqual(["denied", "denied"]);
+    expect(db.rows("schedules")).toHaveLength(1);
   });
 
   it("answers 404 for another org's request", async () => {
     db.rows("time_off_requests").push({ id: 300, org_id: OTHER_ORG, employee_id: 50, date: FUTURE, status: "pending" });
     expect((await decide(300, { status: "approved" })).status).toBe(404);
     expect(db.rows("time_off_requests")[0].status).toBe("pending");
+  });
+
+  it("refuses an unknown resolve", async () => {
+    expect((await decide(100, { status: "approved", resolve: "maybe" })).status).toBe(400);
   });
 });
