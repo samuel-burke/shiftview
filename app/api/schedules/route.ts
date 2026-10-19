@@ -11,7 +11,7 @@ import { withOrg } from "@/lib/org-scope";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { getCurveForDate } from "@/lib/coverage-server";
 import { findUnderstaffedFromCurves } from "@/lib/coverage";
-import { findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
+import { findRuleConflict, findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
 import { isDateKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +108,8 @@ export async function PUT(request: Request) {
     if (!override) {
       const conflict = await findShiftConflict(supabase, orgId, existing.employee_id, dateStr, startMinutes, endMinutes);
       if (conflict) return NextResponse.json(conflict, { status: 409 });
+      const rules = await findRuleConflict(supabase, orgId, "schedules", existing.employee_id, { id, date: dateStr, startMinutes, endMinutes });
+      if (rules) return NextResponse.json(rules, { status: 409 });
     }
   }
 
@@ -196,6 +198,8 @@ export async function POST(request: Request) {
   if (!override) {
     const conflict = await findShiftConflict(supabase, orgId, employeeId, date, startMinutes, endMinutes);
     if (conflict) return NextResponse.json(conflict, { status: 409 });
+    const rules = await findRuleConflict(supabase, orgId, "schedules", employeeId, { date, startMinutes, endMinutes });
+    if (rules) return NextResponse.json(rules, { status: 409 });
   }
 
   const { data: created, error } = await supabase

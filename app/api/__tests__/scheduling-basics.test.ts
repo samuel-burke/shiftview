@@ -24,6 +24,7 @@ vi.mock("next/server", () => ({
 }));
 
 import * as schedules from "../schedules/route";
+import * as drafts from "../drafts/route";
 
 const ORG = MOCK_ORG_ID;
 const OTHER_ORG = "00000000-0000-0000-0000-0000000000aa";
@@ -106,5 +107,52 @@ describe("removing a shift", () => {
     await schedules.DELETE(req("DELETE", { id: 12 }));
     expect(db.rows("schedules")).toHaveLength(1);
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+});
+
+describe("scheduling rules on hand-made shifts", () => {
+  const closing = () =>
+    db.rows("schedules").push({ id: 20, org_id: ORG, employee_id: 5, date: FUTURE, start_minutes: 960, end_minutes: 1380 });
+
+  it("warns about a clopen and saves nothing", async () => {
+    closing();
+    const res = await schedules.POST(req("POST", { employeeId: 5, date: addDays(FUTURE, 1), startMinutes: 360, endMinutes: 840 }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.conflict).toBe("rules");
+    expect(body.warnings.map((w: { rule: string }) => w.rule)).toEqual(["rest"]);
+    expect(body.message).toMatch(/Only 7h rest/);
+    expect(db.rows("schedules")).toHaveLength(1);
+  });
+
+  it("follows the org's own rest rule", async () => {
+    closing();
+    db.rows("app_settings").push({ org_id: ORG, key: "sched_min_rest_minutes", value: "420" });
+    const res = await schedules.POST(req("POST", { employeeId: 5, date: addDays(FUTURE, 1), startMinutes: 360, endMinutes: 840 }));
+    expect(res.status).toBe(201);
+  });
+
+  it("saves when the manager overrides", async () => {
+    closing();
+    const res = await schedules.POST(req("POST", { employeeId: 5, date: addDays(FUTURE, 1), startMinutes: 360, endMinutes: 840, override: true }));
+    expect(res.status).toBe(201);
+    expect(db.rows("schedules")).toHaveLength(2);
+  });
+
+  it("checks an edit against the person's other shifts, not the shift itself", async () => {
+    closing();
+    db.rows("schedules").push({ id: 21, org_id: ORG, employee_id: 5, date: addDays(FUTURE, 1), start_minutes: 720, end_minutes: 1200 });
+    const later = await schedules.PUT(req("PUT", { id: 21, startMinutes: 780, endMinutes: 1200 }));
+    expect(later.status).toBe(200);
+    const early = await schedules.PUT(req("PUT", { id: 21, startMinutes: 360, endMinutes: 840 }));
+    expect(early.status).toBe(409);
+    expect((await early.json()).conflict).toBe("rules");
+  });
+
+  it("warns on drafts too, counting both live and draft shifts", async () => {
+    db.rows("draft_schedules").push({ id: 30, org_id: ORG, employee_id: 5, date: FUTURE, start_minutes: 960, end_minutes: 1380 });
+    const res = await drafts.POST(req("POST", { employeeId: 5, date: addDays(FUTURE, 1), startMinutes: 360, endMinutes: 840 }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).conflict).toBe("rules");
   });
 });

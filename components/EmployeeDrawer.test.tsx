@@ -305,4 +305,18 @@ describe("EmployeeDrawer", () => {
     expect(screen.queryByLabelText("Start time")).toBeNull();
     expect(screen.getByRole("button", { name: "Add Shift" })).toBeInTheDocument();
   });
+
+  it("titles a scheduling-rules warning and lets the manager override it", async () => {
+    const rulesError = Object.assign(new Error("Only 8h rest after the shift ending Fri 11:00 PM (your rules ask for 10h)."), {
+      conflict: "rules",
+    });
+    const onSave = vi.fn().mockRejectedValueOnce(rulesError).mockResolvedValueOnce(undefined);
+    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onSave={onSave} />);
+    await userEvent.click(screen.getByText("Edit Shift"));
+    await userEvent.click(screen.getByText("Save Shift"));
+    await waitFor(() => expect(screen.getByText("Scheduling Rules")).toBeInTheDocument());
+    expect(screen.getByText(/Only 8h rest/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText("Override & Save"));
+    await waitFor(() => expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true));
+  });
 });
