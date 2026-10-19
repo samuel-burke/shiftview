@@ -25,6 +25,7 @@ vi.mock("next/server", () => ({
 
 import * as schedules from "../schedules/route";
 import * as drafts from "../drafts/route";
+import * as publish from "../drafts/publish/route";
 
 const ORG = MOCK_ORG_ID;
 const OTHER_ORG = "00000000-0000-0000-0000-0000000000aa";
@@ -154,5 +155,40 @@ describe("scheduling rules on hand-made shifts", () => {
     const res = await drafts.POST(req("POST", { employeeId: 5, date: addDays(FUTURE, 1), startMinutes: 360, endMinutes: 840 }));
     expect(res.status).toBe(409);
     expect((await res.json()).conflict).toBe("rules");
+  });
+});
+
+describe("shift notes", () => {
+  it("saves, returns, edits, and clears a note", async () => {
+    const created = await schedules.POST(req("POST", { employeeId: 6, date: FUTURE, startMinutes: 540, endMinutes: 1020, note: "  Truck at 7  " }));
+    expect(created.status).toBe(201);
+    const row = db.rows("schedules")[0];
+    expect(row.note).toBe("Truck at 7");
+
+    const list = await schedules.GET(new Request(`http://localhost/api/schedules?date=${FUTURE}`));
+    expect((await list.json())[0].note).toBe("Truck at 7");
+
+    await schedules.PUT(req("PUT", { id: row.id, startMinutes: 540, endMinutes: 1020, note: "Train Ben" }));
+    expect(row.note).toBe("Train Ben");
+    // Leaving the note out of an edit keeps it.
+    await schedules.PUT(req("PUT", { id: row.id, startMinutes: 600, endMinutes: 1020 }));
+    expect(row.note).toBe("Train Ben");
+    await schedules.PUT(req("PUT", { id: row.id, startMinutes: 600, endMinutes: 1020, note: "" }));
+    expect(row.note).toBeNull();
+  });
+
+  it("refuses a note over 280 characters", async () => {
+    const res = await schedules.POST(req("POST", { employeeId: 6, date: FUTURE, startMinutes: 540, endMinutes: 1020, note: "x".repeat(281) }));
+    expect(res.status).toBe(422);
+    expect(db.rows("schedules")).toHaveLength(0);
+  });
+
+  it("carries a draft's note to the live schedule when the week is published", async () => {
+    const res = await drafts.POST(req("POST", { employeeId: 6, date: FUTURE, startMinutes: 540, endMinutes: 1020, note: "Cover register" }));
+    expect(res.status).toBeLessThan(300);
+    expect(db.rows("draft_schedules")[0].note).toBe("Cover register");
+    const published = await publish.POST(req("POST", { weekStart: FUTURE }));
+    expect(published.status).toBe(200);
+    expect(db.rows("schedules")).toEqual([expect.objectContaining({ employee_id: 6, date: FUTURE, note: "Cover register" })]);
   });
 });

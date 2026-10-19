@@ -44,8 +44,8 @@ type Props = {
   date?: string;
   availabilityRecords?: AvailabilityRecord[];
   onClose: () => void;
-  onSave: (scheduleId: number, startMinutes: number, endMinutes: number, override?: boolean) => Promise<void>;
-  onCreate: (employeeId: number, startMinutes: number, endMinutes: number, override?: boolean) => Promise<void>;
+  onSave: (scheduleId: number, startMinutes: number, endMinutes: number, override?: boolean, note?: string | null) => Promise<void>;
+  onCreate: (employeeId: number, startMinutes: number, endMinutes: number, override?: boolean, note?: string | null) => Promise<void>;
   onMarkOff: (scheduleId: number) => Promise<void>;
   onResendInvite?: (email: string) => Promise<void>;
   onViewTimeCard?: () => void;
@@ -99,6 +99,7 @@ export default function EmployeeDrawer({
   const [editing, setEditing] = useState(false);
   const [startVal, setStartVal] = useState("");
   const [endVal, setEndVal] = useState("");
+  const [noteVal, setNoteVal] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
@@ -128,6 +129,7 @@ export default function EmployeeDrawer({
       setEditing(false);
       setStartVal(schedule ? minutesToTime(schedule.startMinutes) : "09:00");
       setEndVal(schedule ? minutesToTime(schedule.endMinutes) : "17:00");
+      setNoteVal(schedule?.note ?? "");
       setError(null);
       setConflict(null);
       setInviteSent(false);
@@ -186,10 +188,11 @@ export default function EmployeeDrawer({
     setError(null);
     setConflict(null);
     try {
+      const note = noteVal.trim() === "" ? null : noteVal.trim();
       if (schedule) {
-        await onSave(schedule.id, start, end, overrideFlag);
+        await onSave(schedule.id, start, end, overrideFlag, note);
       } else {
-        await onCreate(employee.id, start, end, overrideFlag);
+        await onCreate(employee.id, start, end, overrideFlag, note);
       }
       setEditing(false);
       onClose();
@@ -425,6 +428,21 @@ export default function EmployeeDrawer({
                       </div>
                     ))}
 
+                    <div>
+                      <label htmlFor="edit-shift-note" className="text-[11px] text-fg-muted uppercase tracking-[0.08em] mb-1.5 block">
+                        Note <span className="normal-case tracking-normal">(optional, the employee sees it)</span>
+                      </label>
+                      <input
+                        id="edit-shift-note"
+                        type="text"
+                        value={noteVal}
+                        maxLength={280}
+                        placeholder="e.g. Truck at 7"
+                        onChange={(e) => { setNoteVal(e.target.value); setError(null); }}
+                        className="w-full bg-card border border-field rounded-[10px] px-[14px] py-3 text-fg text-base focus:outline-none focus:border-accent transition-colors"
+                      />
+                    </div>
+
                     {startVal && endVal && endVal <= startVal && (
                       <div className="text-xs text-accent-fg-strong -mt-1" data-testid="edit-shift-overnight">Ends the next day (overnight shift)</div>
                     )}
@@ -494,6 +512,13 @@ export default function EmployeeDrawer({
                         </motion.div>
                       ))}
                     </motion.div>
+
+                    {schedule?.note && (
+                      <div data-testid="shift-note" className="mb-4 rounded-xl border border-line-subtle bg-card px-[14px] py-3">
+                        <div className="text-[10px] text-fg-muted uppercase tracking-[0.08em] mb-1 select-none">Note</div>
+                        <div className="text-sm text-fg whitespace-pre-wrap break-words">{schedule.note}</div>
+                      </div>
+                    )}
 
                     {readOnly && (
                       <div className="mb-3 rounded-xl border border-line-strong bg-fill/40 px-4 py-3 text-xs text-fg-muted">

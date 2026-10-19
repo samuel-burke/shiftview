@@ -17,6 +17,7 @@ type DraftRow = {
   start_minutes: number;
   end_minutes: number;
   generation_run_id: number | null;
+  note?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 
   const { data: drafts, error: draftsError } = await supabase
     .from("draft_schedules")
-    .select("id, employee_id, date, start_minutes, end_minutes")
+    .select("id, employee_id, date, start_minutes, end_minutes, note")
     .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6]);
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
       .delete()
       .eq("org_id", orgId)
       .in("id", toPublish.map((d) => d.id))
-      .select("id, employee_id, date, start_minutes, end_minutes, generation_run_id");
+      .select("id, employee_id, date, start_minutes, end_minutes, generation_run_id, note");
 
     if (claimError) {
       console.error("[api/drafts/publish]", claimError);
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
         date:          dateKey(d.date),
         start_minutes: d.start_minutes,
         end_minutes:   d.end_minutes,
+        note:          d.note ?? null,
       }))));
 
     if (insertError) {
@@ -109,6 +111,7 @@ export async function POST(request: Request) {
           start_minutes:     d.start_minutes,
           end_minutes:       d.end_minutes,
           generation_run_id: d.generation_run_id,
+          note:              d.note ?? null,
         }))));
       if (restoreError) console.error("[api/drafts/publish] restoring drafts failed", restoreError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });

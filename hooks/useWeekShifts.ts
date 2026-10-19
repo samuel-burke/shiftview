@@ -126,10 +126,10 @@ export function useWeekShifts({ enabled, dates, apiFetch }: { enabled: boolean; 
       const [live, drafts] = await Promise.all([fetchLive(), fetchDrafts()]);
       patchWeek(weekStart, { live, drafts });
     }, [fetchLive, fetchDrafts, patchWeek, weekStart]),
-    save: (source: ShiftSource, id: number, startMinutes: number, endMinutes: number, override = false) =>
-      send(source, { method: "PUT", body: JSON.stringify({ id, startMinutes, endMinutes, override }) }, "Failed to save shift"),
-    create: (source: ShiftSource, employeeId: number, date: string, startMinutes: number, endMinutes: number, override = false) =>
-      send(source, { method: "POST", body: JSON.stringify({ employeeId, date, startMinutes, endMinutes, override }) }, "Failed to add shift"),
+    save: (source: ShiftSource, id: number, startMinutes: number, endMinutes: number, override = false, note?: string | null) =>
+      send(source, { method: "PUT", body: JSON.stringify({ id, startMinutes, endMinutes, override, note }) }, "Failed to save shift"),
+    create: (source: ShiftSource, employeeId: number, date: string, startMinutes: number, endMinutes: number, override = false, note?: string | null) =>
+      send(source, { method: "POST", body: JSON.stringify({ employeeId, date, startMinutes, endMinutes, override, note }) }, "Failed to add shift"),
     remove: (source: ShiftSource, id: number) =>
       send(source, { method: "DELETE", body: JSON.stringify({ id }) }, source === "draft" ? "Failed to remove draft" : "Failed to mark as off"),
   };

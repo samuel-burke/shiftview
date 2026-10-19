@@ -489,9 +489,9 @@ export default function WeekPageClient() {
           notice={editor.notice}
           onSwitchToLive={() => go("live", weekStart)}
           onClose={() => setPicked(null)}
-          onSave={(id, startMinutes, endMinutes, override = false) => week.save(editor.source, id, startMinutes, endMinutes, override)}
-          onCreate={(employeeId, startMinutes, endMinutes, override = false) =>
-            week.create(editor.source, employeeId, pickedCell!.date, startMinutes, endMinutes, override)}
+          onSave={(id, startMinutes, endMinutes, override = false, note) => week.save(editor.source, id, startMinutes, endMinutes, override, note)}
+          onCreate={(employeeId, startMinutes, endMinutes, override = false, note) =>
+            week.create(editor.source, employeeId, pickedCell!.date, startMinutes, endMinutes, override, note)}
           onMarkOff={(id) => week.remove(editor.source, id)}
         />
 

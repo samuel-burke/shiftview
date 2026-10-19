@@ -264,7 +264,7 @@ describe("EmployeeDrawer", () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledTimes(2);
-      expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true);
+      expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true, null);
     });
   });
 
@@ -305,6 +305,28 @@ describe("EmployeeDrawer", () => {
     expect(screen.queryByLabelText("Start time")).toBeNull();
     expect(screen.getByRole("button", { name: "Add Shift" })).toBeInTheDocument();
   });
+  it("saves a trimmed note with the shift", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={schedule} onSave={onSave} />);
+    await userEvent.click(screen.getByText("Edit Shift"));
+    await userEvent.type(screen.getByLabelText(/note/i), "  Open the register  ");
+    await userEvent.click(screen.getByText("Save Shift"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(schedule.id, 480, 960, false, "Open the register"));
+  });
+
+  it("clears a note when the field is emptied", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={{ ...schedule, note: "Old note" }} onSave={onSave} />);
+    await userEvent.click(screen.getByText("Edit Shift"));
+    await userEvent.clear(screen.getByLabelText(/note/i));
+    await userEvent.click(screen.getByText("Save Shift"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(schedule.id, 480, 960, false, null));
+  });
+
+  it("shows the shift's note when viewing it", () => {
+    render(<EmployeeDrawer {...baseProps} employee={employee} schedule={{ ...schedule, note: "Train Sam on close" }} />);
+    expect(screen.getByTestId("shift-note")).toHaveTextContent("Train Sam on close");
+  });
 
   it("titles a scheduling-rules warning and lets the manager override it", async () => {
     const rulesError = Object.assign(new Error("Only 8h rest after the shift ending Fri 11:00 PM (your rules ask for 10h)."), {
@@ -317,6 +339,6 @@ describe("EmployeeDrawer", () => {
     await waitFor(() => expect(screen.getByText("Scheduling Rules")).toBeInTheDocument());
     expect(screen.getByText(/Only 8h rest/)).toBeInTheDocument();
     await userEvent.click(screen.getByText("Override & Save"));
-    await waitFor(() => expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true));
+    await waitFor(() => expect(onSave).toHaveBeenNthCalledWith(2, schedule.id, 480, 960, true, null));
   });
 });
