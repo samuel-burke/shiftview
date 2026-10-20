@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 
+// Never throws. Resolves false when the row wasn't written, so a caller that
+// cares can say so in its own log.
 export async function writeAuditLog(entry: {
   action: string;
   orgId: string;
@@ -9,10 +11,10 @@ export async function writeAuditLog(entry: {
   before?: Record<string, unknown> | null;
   after?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const admin = createAdminClient();
-    await admin.from("audit_logs").insert({
+    const { error } = await admin.from("audit_logs").insert({
       action:        entry.action,
       org_id:        entry.orgId,
       actor_id:      entry.actorId ?? null,
@@ -22,7 +24,14 @@ export async function writeAuditLog(entry: {
       after:         entry.after ?? null,
       metadata:      entry.metadata ?? null,
     });
+    // supabase-js reports a failed insert in `error` rather than throwing.
+    if (error) {
+      console.error("[audit]", entry.action, error);
+      return false;
+    }
+    return true;
   } catch (e) {
-    console.error("[audit]", e);
+    console.error("[audit]", entry.action, e);
+    return false;
   }
 }

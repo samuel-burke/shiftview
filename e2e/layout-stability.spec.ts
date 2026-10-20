@@ -67,6 +67,11 @@ async function mockApis(page: Page, role: "manager" | "employee") {
         case "/api/my-schedule": return { employeeId: me.employeeId, employeeName: me.employeeName, schedules: SCHEDULES.filter((s) => s.employeeId === me.employeeId && s.date >= from && s.date <= to) };
         case "/api/time-off": return { requests: [] };
         case "/api/reports/coverage": return { days: [] };
+        // A store with weekly pay periods, so the clock's sign-off card loads too.
+        case "/api/pay-periods": return {
+          frequency: "weekly", anchor: null, enabled: true, today: TODAY,
+          periods: [{ id: null, start: addDays(TODAY, -13), end: addDays(TODAY, -7), status: "open", approvedAt: null, lockedAt: null, signoffs: [] }],
+        };
         default: return [];
       }
     })();
