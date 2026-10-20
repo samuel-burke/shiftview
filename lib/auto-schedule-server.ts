@@ -62,7 +62,8 @@ export async function loadWeek(
   const results = await Promise.all([
     supabase.from("employees")
       .select("id, name, employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week")
-      .eq("org_id", orgId),
+      .eq("org_id", orgId)
+      .is("archived_at", null),
     supabase.from("availability").select("employee_id, day_of_week, start_minutes, end_minutes").eq("org_id", orgId),
     supabase.from("time_off_requests").select("employee_id, date, status")
       .eq("org_id", orgId).gte("date", dates[0]).lte("date", dates[6]).in("status", ["approved", "pending"]),

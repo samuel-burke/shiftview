@@ -42,7 +42,7 @@ function makeClient({
     correctionFilters: [] as [string, unknown][],
     correctionUpdates: [] as Record<string, unknown>[],
     punchInserts: [] as Record<string, unknown>[],
-    punchDeletes: [] as [string, unknown][][],
+    punchDeletes: [] as Record<string, unknown>[],
   };
   history = [...history];
 
@@ -64,6 +64,11 @@ function makeClient({
   const client = {
     calls,
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }) },
+    // Punches are deleted through delete_punch (0053), never directly.
+    rpc: vi.fn().mockImplementation(async (fn: string, args: Record<string, unknown>) => {
+      if (fn === "delete_punch") calls.punchDeletes.push(args);
+      return { data: null, error: null };
+    }),
     from: vi.fn().mockImplementation((table: string) => {
       if (table === "managers") {
         return chain(async () => ({ data: isManager ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID, is_owner: false } : null, error: null }));
@@ -100,10 +105,9 @@ function makeClient({
       }
       if (table === "punch_records") {
         const filters: { lt?: string; gte?: string; neqId?: number } = {};
-        let deleteFilters: [string, unknown][] | null = null;
         const b: any = {};
         for (const m of ["select", "order", "limit"]) b[m] = vi.fn().mockReturnValue(b);
-        b.eq = vi.fn().mockImplementation((c: string, v: unknown) => { deleteFilters?.push([c, v]); return b; });
+        b.eq = vi.fn().mockReturnValue(b);
         b.neq = vi.fn().mockImplementation((_c: string, v: number) => { filters.neqId = v; return b; });
         b.lt = vi.fn().mockImplementation((_c: string, v: string) => { filters.lt = v; return b; });
         b.gte = vi.fn().mockImplementation((_c: string, v: string) => { filters.gte = v; return b; });
@@ -112,7 +116,6 @@ function makeClient({
           history.push({ id: 501, punch_type: row.punch_type as string, punched_at: row.punched_at as string }, ...concurrentInserts);
           return b;
         });
-        b.delete = vi.fn().mockImplementation(() => { deleteFilters = []; calls.punchDeletes.push(deleteFilters); return b; });
         b.then = (res: any, rej: any) => Promise.resolve({ data: null, error: null }).then(res, rej);
         b.single = vi.fn().mockResolvedValue({ data: { id: 501 }, error: null });
         b.maybeSingle = vi.fn().mockImplementation(async () => {
@@ -267,7 +270,7 @@ describe("PUT /api/punch-corrections/[id]", () => {
     const res = await review(7, { status: "approved" });
     expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/Another correction changed this shift/);
-    expect(client.calls.punchDeletes).toEqual([[["org_id", MOCK_ORG_ID], ["id", 501]]]);
+    expect(client.calls.punchDeletes).toEqual([{ p_id: 501, p_reason: expect.stringContaining("another correction changed this shift") }]);
     expect(client.calls.correctionUpdates.at(-1)).toMatchObject({ status: "pending", reviewed_by: null });
     expect(client.calls.correctionUpdates).not.toContainEqual({ punch_id: 501 });
     expect(mockNotify).not.toHaveBeenCalled();

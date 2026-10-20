@@ -6,6 +6,7 @@ import type { Timecard, ViolationType } from "@/lib/timecard";
 import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
 import { useScrollLock } from "@/lib/scroll-lock";
 import StableLabel from "./StableLabel";
+import PunchHistoryToggle from "./PunchHistoryToggle";
 
 type Props = {
   open: boolean;
@@ -343,7 +344,13 @@ export function TimeCardPanel({
                               {formatPunchTime(p.punchedAt, data.timezone)}
                             </span>
                             {p.isManual && (
-                              <span className="text-[9px] text-warning-fg uppercase" title="Manual correction">✎</span>
+                              <PunchHistoryToggle
+                                punchId={p.id}
+                                timezone={data.timezone}
+                                label="✎"
+                                title="Manual correction"
+                                className="text-[9px] text-warning-fg uppercase cursor-pointer"
+                              />
                             )}
                           </div>
                         ))}

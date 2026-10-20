@@ -37,6 +37,7 @@ function mockApi({
   current = { carriedOver: false, punches: [] } as { carriedOver: boolean; punches: Record<string, unknown>[] },
   // Answers a live punch (POST); defaults to recording it.
   onPost = undefined as undefined | ((body: Record<string, unknown>) => { status: number; data: unknown }),
+  timecard = { days: [], weeks: [] } as Record<string, unknown>,
 } = {}) {
   const puts: unknown[] = [];
   const posts: Record<string, unknown>[] = [];
@@ -82,6 +83,7 @@ function mockApi({
     if (url.startsWith("/api/punches")) { reads.punches++; return json(todayPunches); }
     if (url.startsWith("/api/punch-corrections")) return json({ corrections: currentCorrections });
     if (url.startsWith("/api/callouts")) return json({ callouts: [] });
+    if (url.startsWith("/api/timecard")) return json(timecard);
     return json({});
   }));
   return { puts, posts, reads };
@@ -292,5 +294,28 @@ describe("Clock — overnight missed clock-out", () => {
     await waitFor(() => expect(puts).toEqual([
       expect.objectContaining({ punchType: "clock_out", localDate: "2026-11-01", localTime: "06:00" }),
     ]));
+  });
+});
+
+describe("Clock — my hours", () => {
+  it("shows the employee their own hours this week", async () => {
+    mockApi({
+      missedPunch: false,
+      timecard: {
+        days: [{
+          date: "2026-10-26", dayName: "Mon", schedule: null, schedules: [], punches: [], callout: null,
+          workedHours: 8, breakHours: 0.5, breakCount: 1, hasIncomplete: false, violations: [],
+        }],
+        weeks: [{
+          weekStart: "2026-10-26", priorHours: 0, regularHours: 37, overtimeHours: 0, breakHours: 2,
+          totalWorkedHours: 37, hasIncomplete: false, days: [],
+        }],
+      },
+    });
+    render(<ClockPageClient />);
+    // Sunday Nov 1 is the last day of the workweek that began Monday Oct 26.
+    expect(await screen.findByTestId("my-hours-worked")).toHaveTextContent("37h");
+    expect(screen.getByText(/3h until overtime/)).toBeInTheDocument();
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/timecard?employeeId=5&from=2026-10-19&to=2026-11-01");
   });
 });

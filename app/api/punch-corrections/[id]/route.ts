@@ -105,18 +105,19 @@ export async function PUT(
     // Manual inserts take no lock, so another correction for this employee
     // approved at the same moment can pass the check above too (two clock-outs
     // for one clock-in). Re-check the new punch against its neighbours now
-    // that it's in; if the sequence broke, take it back out (managers may
-    // delete punches) and let the manager retry against the current punches.
+    // that it's in; if the sequence broke, take it back out and let the
+    // manager retry against the current punches. Punches are deleted only
+    // through delete_punch (0053), which records the delete and its reason in
+    // the punch's history.
     const raceError = await checkManualPunchAgainstHistory(
       supabase, orgId!, correction.employee_id, correction.punch_type as PunchKind, correction.punched_at,
       { tz, excludePunchId: punch.id }
     );
     if (raceError) {
-      const { error: deleteError } = await supabase
-        .from("punch_records")
-        .delete()
-        .eq("org_id", orgId!)
-        .eq("id", punch.id);
+      const { error: deleteError } = await supabase.rpc("delete_punch", {
+        p_id:     punch.id,
+        p_reason: `Approval of correction ${id} undone: another correction changed this shift at the same time`,
+      });
       if (deleteError) {
         // The punch stays, so keep the request approved and linked to it.
         console.error("[api/punch-corrections/[id]]", deleteError);

@@ -452,29 +452,52 @@ describe("DELETE /api/employees", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ error: expect.stringContaining("owner") });
   });
+  // ── Archive or delete ───────────────────────────────────────────────────────
+  // employee_remove (migration 0054) decides: anyone with history is archived,
+  // a mistaken add with none is deleted.
 
-  it("returns 200 on success for an unlinked employee", async () => {
+  it("archives an employee with history and keeps their account", async () => {
+    const adminClient = makeAdminClient();
+    mockCreateAdminClient.mockReturnValue(adminClient as any);
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      linkedEmployee: { id: 1, user_id: "other-user-456" },
+      rpcData: "archived",
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, archived: true });
+    expect(client.rpc).toHaveBeenCalledWith("employee_remove", { p_org: MOCK_ORG_ID, p_employee: 1 });
+    expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
+    // The route itself deletes nothing: no employee row, no shifts.
+    for (const r of client.from.mock.results) expect(r.value.delete).not.toHaveBeenCalled();
+  });
+
+  it("treats an already archived employee as archived", async () => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({
-        user: MOCK_USER,
-        isManager: true,
-        linkedEmployee: { id: 1, user_id: null },
-      }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: { id: 1, user_id: null }, rpcData: "already_archived" }) as any
     );
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, archived: true });
   });
 
-  it("deletes the auth account when the employee has a linked user", async () => {
+  it("deletes an employee with no history outright", async () => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: { id: 1, user_id: null }, rpcData: "deleted" }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, archived: false });
+  });
+
+  it("deletes the auth account of a deleted employee's last membership", async () => {
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({
-        user: MOCK_USER,
-        isManager: true,
-        linkedEmployee: { id: 1, user_id: "other-user-456" },
-      }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: { id: 1, user_id: "other-user-456" }, rpcData: "deleted" }) as any
     );
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(200);
@@ -485,19 +508,14 @@ describe("DELETE /api/employees", () => {
     const adminClient = makeAdminClient({ memberships: 1 });
     mockCreateAdminClient.mockReturnValue(adminClient as any);
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({
-        user: MOCK_USER,
-        isManager: true,
-        linkedEmployee: { id: 1, user_id: "other-user-456" },
-      }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: { id: 1, user_id: "other-user-456" }, rpcData: "deleted" }) as any
     );
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(200);
-    expect(adminClient.from).toHaveBeenCalledWith("managers");
     expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 
-  it("never removes another demo visitor's account or role", async () => {
+  it("never removes another demo visitor's account", async () => {
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
     mockCreateClient.mockResolvedValue(
@@ -506,11 +524,13 @@ describe("DELETE /api/employees", () => {
         isManager: true,
         orgId: DEMO_ORG_ID,
         linkedEmployee: { id: 1, user_id: "other-visitor" },
+        rpcData: "deleted",
       }) as any
     );
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(200);
     expect(adminClient.from).not.toHaveBeenCalledWith("managers");
+    expect(adminClient.from).not.toHaveBeenCalledWith("employees");
     expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 
@@ -518,15 +538,101 @@ describe("DELETE /api/employees", () => {
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({
-        user: MOCK_USER,
-        isManager: true,
-        linkedEmployee: { id: 1, user_id: null },
-      }) as any
+      makeSupabaseClient({ user: MOCK_USER, isManager: true, linkedEmployee: { id: 1, user_id: null }, rpcData: "deleted" }) as any
     );
     await DELETE(deleteReq({ id: 1 }));
     expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 
-  // Database errors during the delete: see delete.security.test.ts.
+  // ── Database errors ─────────────────────────────────────────────────────────
+
+  it.each([
+    ["P0002", 404],
+    ["42501", 403],
+    ["23503", 409],
+    [undefined, 500],
+  ])("maps employee_remove error %s to %i", async (code, status) => {
+    mockCreateClient.mockResolvedValue(
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        linkedEmployee: { id: 1, user_id: null },
+        rpcError: { code, message: "boom" },
+      }) as any
+    );
+    const res = await DELETE(deleteReq({ id: 1 }));
+    expect(res.status).toBe(status);
+  });
+});
+
+// ── Archived employees: roster and restore ──────────────────────────────────
+
+describe("archived employees", () => {
+  function patchReq(body: unknown) {
+    return new Request("http://localhost/api/employees", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+  // The roster query: the employees builder that selected archived_at.
+  function rosterBuilder(client: ReturnType<typeof makeSupabaseClient>) {
+    return client.from.mock.results
+      .map((r: any) => r.value)
+      .find((b: any) => b.select.mock.calls.some(([cols]: [string]) => String(cols).includes("archived_at")));
+  }
+
+  it("leaves archived employees out of the roster by default", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/employees"));
+    expect(rosterBuilder(client).is).toHaveBeenCalledWith("archived_at", null);
+  });
+
+  it("includes them for a manager who asks (reports, restore)", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: MOCK_EMPLOYEES });
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/employees?include=archived"));
+    expect(rosterBuilder(client).is).not.toHaveBeenCalledWith("archived_at", null);
+  });
+
+  it("never includes them for a non-manager", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: false });
+    const roster = makeQueryBuilder({ data: MOCK_EMPLOYEES, error: null });
+    roster.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1, org_id: MOCK_ORG_ID }, error: null });
+    const fallback = client.from.getMockImplementation()!;
+    client.from.mockImplementation((table: string) => (table === "employees" ? roster : fallback(table)));
+    mockCreateClient.mockResolvedValue(client as any);
+    await GET(new Request("http://localhost/api/employees?include=archived"));
+    expect(roster.is).toHaveBeenCalledWith("archived_at", null);
+    // Only the membership lookup and the roster: both filter.
+    expect(roster.is.mock.calls.every(([col, v]: [string, unknown]) => col === "archived_at" && v === null)).toBe(true);
+  });
+
+  it("restores an archived employee with archived: false", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER,
+      isManager: true,
+      queryData: { id: 1, name: "Alice Smith", email: null, user_id: null, archived_at: "2026-10-01T00:00:00Z" },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PATCH(patchReq({ id: 1, archived: false }));
+    expect(res.status).toBe(200);
+    const updates = client.from.mock.results
+      .map((r: any) => r.value.update.mock.calls[0]?.[0])
+      .find(Boolean);
+    expect(updates).toEqual({ archived_at: null });
+  });
+
+  it("refuses archived: true (archiving goes through DELETE)", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any);
+    const res = await PATCH(patchReq({ id: 1, archived: true }));
+    expect(res.status).toBe(400);
+  });
+
+  it("only managers restore", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: false }) as any);
+    const res = await PATCH(patchReq({ id: 1, archived: false }));
+    expect(res.status).toBe(403);
+  });
 });
