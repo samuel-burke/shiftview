@@ -23,6 +23,7 @@ import UserMenu from "../../components/UserMenu";
 import NotificationBell from "../../components/NotificationBell";
 import DatePickerSheet from "../../components/DatePickerSheet";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 import {
   SkeletonNextShift,
   SkeletonWeekCalendar,
@@ -363,7 +364,7 @@ export default function SchedulePageClient() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    if (!await signOut(supabase)) return;
     window.location.href = "/login";
   }
 

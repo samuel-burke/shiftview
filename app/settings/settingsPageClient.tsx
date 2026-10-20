@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
+import { reconcilePushSubscription, revokePushSubscription } from "@/lib/push-subscription";
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.045 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 import AppShell from "../../components/AppShell";
@@ -492,10 +494,11 @@ export default function SettingsPageClient({
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
     setPushSupported(true);
-    navigator.serviceWorker.ready.then((reg) =>
-      reg.pushManager.getSubscription().then((sub) => setPushSubscribed(!!sub))
-    );
-  }, []);
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => reconcilePushSubscription(supabase, user?.id ?? null))
+      .then((sub) => setPushSubscribed(!!sub))
+      .catch(() => setPushError("Unable to check push notifications. Please try again."));
+  }, [supabase]);
 
   // ── Notification Preferences ─────────────────────────────────────────────────
   type NotifPrefs = {
@@ -585,16 +588,7 @@ export default function SettingsPageClient({
     setPushError(null);
     try {
       if (pushSubscribed) {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          await sub.unsubscribe();
-          await fetch("/api/push/subscribe", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ endpoint: sub.endpoint }),
-          });
-        }
+        await revokePushSubscription();
         setPushSubscribed(false);
       } else {
         if ("Notification" in window && Notification.permission === "default") {
@@ -618,11 +612,15 @@ export default function SettingsPageClient({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
         });
-        await fetch("/api/push/subscribe", {
+        const response = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(sub.toJSON()),
         });
+        if (!response.ok) {
+          await sub.unsubscribe();
+          throw new Error("Failed to enable push notifications. Please try again.");
+        }
         setPushSubscribed(true);
       }
     } catch (err) {
@@ -713,7 +711,7 @@ export default function SettingsPageClient({
 
   // ── Employee actions ────────────────────────────────────────────────────────
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    if (!await signOut(supabase)) return;
     window.location.href = "/login";
   }
 
@@ -761,7 +759,10 @@ export default function SettingsPageClient({
     setDeleteAccountError(null);
     const res = await fetch("/api/account", { method: "DELETE" }).catch(() => null);
     if (res?.ok) {
-      await supabase.auth.signOut();
+      if (!await signOut(supabase)) {
+        setDeletingAccount(false);
+        return;
+      }
       window.location.href = "/login";
       return;
     }

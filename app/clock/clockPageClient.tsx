@@ -24,6 +24,7 @@ import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
 import { MegaphoneIcon } from "../../components/ShiftIcons";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { isOvernight } from "@/lib/shift-times";
 import { pickClockInShift } from "@/lib/punch-schedule";
@@ -73,7 +74,7 @@ export default function ClockPageClient() {
   const supabase = createClient();
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    if (!await signOut(supabase)) return;
     window.location.href = "/login";
   }
 

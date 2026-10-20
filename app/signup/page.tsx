@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 import { useRouter } from "next/navigation";
 import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 import Logo from "@/components/Logo";
@@ -138,7 +139,7 @@ export default function SignupPage() {
   }
 
   async function handleSwitchAccount() {
-    await getSupabase().auth.signOut();
+    if (!await signOut(getSupabase())) return;
     setSessionEmail(null);
     setError(null);
   }

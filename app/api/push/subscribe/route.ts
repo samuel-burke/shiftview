@@ -42,10 +42,15 @@ export async function DELETE(request: Request) {
   const { endpoint } = body;
   if (!endpoint) return NextResponse.json({ error: "endpoint required" }, { status: 400 });
 
-  await supabase.from("push_subscriptions")
+  const { error } = await supabase.from("push_subscriptions")
     .delete()
     .eq("user_id", user.id)
     .eq("endpoint", endpoint);
+
+  if (error) {
+    console.error("[api/push/subscribe]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
