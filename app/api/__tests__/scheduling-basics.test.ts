@@ -26,6 +26,8 @@ vi.mock("next/server", () => ({
 import * as schedules from "../schedules/route";
 import * as drafts from "../drafts/route";
 import * as publish from "../drafts/publish/route";
+import * as timeOff from "../time-off/route";
+import * as timeOffDecision from "../time-off/[id]/route";
 
 const ORG = MOCK_ORG_ID;
 const OTHER_ORG = "00000000-0000-0000-0000-0000000000aa";
@@ -33,7 +35,7 @@ const MANAGER = { id: "user-manager", email: "m@test.com" };
 const ALICE = { id: "user-alice", email: "a@test.com" };
 const mockNotify = vi.mocked(notify);
 
-// A day safely in the future.
+// Far enough ahead to always be "today or later" for time-off requests.
 const FUTURE = (() => {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + 30);
@@ -56,8 +58,8 @@ function seed(): Record<string, Record<string, unknown>[]> {
     app_settings: [],
     schedules: [],
     draft_schedules: [],
-    availability: [],
     time_off_requests: [],
+    availability: [],
   };
 }
 
@@ -67,6 +69,7 @@ function signIn(user: { id: string; email?: string } | null) {
     user,
     unique: {
       schedules: [["org_id", "employee_id", "date"]],
+      time_off_requests: [["org_id", "employee_id", "date"]],
     },
   });
   vi.mocked(createClient).mockResolvedValue(db.client as never);
@@ -75,6 +78,7 @@ function signIn(user: { id: string; email?: string } | null) {
 
 const req = (method: string, body?: unknown, url = "http://localhost/api/x") =>
   new Request(url, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+const params = <T,>(p: T) => ({ params: Promise.resolve(p) });
 
 beforeEach(() => {
   db = undefined as unknown as FakeDb;
@@ -190,5 +194,81 @@ describe("shift notes", () => {
     const published = await publish.POST(req("POST", { weekStart: FUTURE }));
     expect(published.status).toBe(200);
     expect(db.rows("schedules")).toEqual([expect.objectContaining({ employee_id: 6, date: FUTURE, note: "Cover register" })]);
+  });
+});
+
+describe("requesting time off", () => {
+  beforeEach(() => signIn(ALICE));
+
+  it("stores several days as one request", async () => {
+    const res = await timeOff.POST(req("POST", { employeeId: 5, date: FUTURE, endDate: addDays(FUTURE, 2), note: "Trip" }));
+    expect(res.status).toBe(201);
+    const rows = db.rows("time_off_requests");
+    expect(rows.map((r) => r.date)).toEqual([FUTURE, addDays(FUTURE, 1), addDays(FUTURE, 2)]);
+    expect(new Set(rows.map((r) => r.group_id)).size).toBe(1);
+    expect(rows[0].group_id).toBeTruthy();
+    expect(rows.every((r) => r.status === undefined || r.status === "pending")).toBe(true);
+
+    // The employee sees it as one request.
+    const mine = await (await timeOff.GET(req("GET"))).json();
+    const list = Array.isArray(mine) ? mine : mine.requests ?? mine;
+    const entry = list.find((r: { date: string }) => String(r.date).slice(0, 10) === FUTURE);
+    expect(entry).toMatchObject({ endDate: addDays(FUTURE, 2), days: 3 });
+  });
+
+  it("stores part of a day", async () => {
+    const res = await timeOff.POST(req("POST", { employeeId: 5, date: FUTURE, startMinutes: 900, endMinutes: 1080 }));
+    expect(res.status).toBe(201);
+    expect(db.rows("time_off_requests")[0]).toMatchObject({ start_minutes: 900, end_minutes: 1080 });
+    expect(db.rows("time_off_requests")[0].group_id ?? null).toBeNull();
+  });
+
+  it("names the days already asked for, and stores none of the new request", async () => {
+    db.rows("time_off_requests").push({ id: 1, org_id: ORG, employee_id: 5, date: addDays(FUTURE, 1), status: "denied" });
+    const res = await timeOff.POST(req("POST", { employeeId: 5, date: FUTURE, endDate: addDays(FUTURE, 2) }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).dates).toEqual([addDays(FUTURE, 1)]);
+    expect(db.rows("time_off_requests")).toHaveLength(1);
+  });
+
+  it("refuses a request for someone else", async () => {
+    const res = await timeOff.POST(req("POST", { employeeId: 6, date: FUTURE }));
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("deciding a multi-day request", () => {
+  function pending(days: number) {
+    for (let i = 0; i < days; i++) {
+      db.rows("time_off_requests").push({
+        id: 100 + i, org_id: ORG, employee_id: 5, date: addDays(FUTURE, i), status: "pending",
+        start_minutes: null, end_minutes: null, group_id: days > 1 ? "group-1" : null,
+      });
+    }
+  }
+  const decide = (id: number, body: unknown) =>
+    timeOffDecision.PUT(req("PUT", body), params({ id: String(id) }));
+
+  it("approves every day of the request together and tells the employee once", async () => {
+    pending(3);
+    const res = await decide(101, { status: "approved" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ids: [100, 101, 102] });
+    expect(db.rows("time_off_requests").map((r) => r.status)).toEqual(["approved", "approved", "approved"]);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ userId: ALICE.id, type: "pto_approved" }));
+  });
+
+  it("denies the whole multi-day request", async () => {
+    pending(2);
+    const res = await decide(100, { status: "denied" });
+    expect(res.status).toBe(200);
+    expect(db.rows("time_off_requests").map((r) => r.status)).toEqual(["denied", "denied"]);
+  });
+
+  it("answers 404 for another org's request", async () => {
+    db.rows("time_off_requests").push({ id: 300, org_id: OTHER_ORG, employee_id: 50, date: FUTURE, status: "pending" });
+    expect((await decide(300, { status: "approved" })).status).toBe(404);
+    expect(db.rows("time_off_requests")[0].status).toBe("pending");
   });
 });

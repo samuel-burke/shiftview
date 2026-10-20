@@ -29,6 +29,16 @@ export function timeOffByCell(timeOff: WeekTimeOff[]): Map<string, "pending" | "
   return byCell;
 }
 
+/** Part-day time off by cell key ("Off 3–6p"); whole days aren't listed. */
+export function partDayByCell(timeOff: WeekTimeOff[]): Map<string, { startMinutes: number; endMinutes: number }> {
+  const byCell = new Map<string, { startMinutes: number; endMinutes: number }>();
+  for (const t of timeOff) {
+    if ((t.status === "pending" || t.status === "approved") && t.startMinutes != null && t.endMinutes != null)
+      byCell.set(`${t.employeeId}|${t.date}`, { startMinutes: t.startMinutes, endMinutes: t.endMinutes });
+  }
+  return byCell;
+}
+
 /** A shift on the grid: live (published) or a draft. */
 export type GridShift = SourcedShift;
 
@@ -85,6 +95,7 @@ export default function WeekGrid({
   const EMPTY: WeekCell = { live: null, draft: null, shown: null };
   const cellOf = (employeeId: number, date: string): WeekCell => cells.get(cellKey(employeeId, date)) ?? EMPTY;
   const timeOffCell = timeOffByCell(timeOff);
+  const partDayCell = partDayByCell(timeOff);
   const hoursOf = (s: GridShift) => Math.max(0, shiftMinutes(s, timezone)) / 60;
 
   const dayTotals = dates.map((date) => {
@@ -180,6 +191,8 @@ export default function WeekGrid({
                   const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
                   const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
                   const timeOffStatus = timeOffCell.get(`${emp.id}|${date}`);
+                  const partDay = partDayCell.get(`${emp.id}|${date}`);
+                  const partDayText = partDay ? ` ${shortTime(partDay.startMinutes)}–${shortTime(partDay.endMinutes)}` : "";
                   const requested = timeOffStatus === "pending";
                   const approved = timeOffStatus === "approved";
                   const isSel = selected?.employeeId === emp.id && selected.date === date;
@@ -206,7 +219,7 @@ export default function WeekGrid({
                     : isLiveContext
                     ? ", live shift (change it in Live mode)"
                     : "";
-                  const timeOffNote = approved ? ", time off approved" : requested ? ", time off requested" : "";
+                  const timeOffNote = approved ? `, time off approved${partDayText}` : requested ? `, time off requested${partDayText}` : "";
                   const context = s
                     ? `, ${emp.name}, ${dayLabel}${status}${timeOffNote}`
                     : `${timeOffStatus ? ", " : ""}${emp.name}, ${dayLabel}: off. Add a ${isDraftMode ? "draft " : ""}shift`;
@@ -253,14 +266,14 @@ export default function WeekGrid({
                                 line short still shows it. */}
                             <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "var(--status-warn)" : color }}>
                               <span className="sr-only">, </span>
-                              {approved ? "Time off · " : requested ? "Time off? · " : ""}
+                              {approved ? (partDay ? `Off${partDayText} · ` : "Time off · ") : requested ? (partDay ? `Off${partDayText}? · ` : "Time off? · ") : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
                             </span>
                           </>
                         ) : approved ? (
-                          <span className="block text-[11px] font-semibold text-success-fg-strong">Time off approved</span>
+                          <span className="block text-[11px] font-semibold text-success-fg-strong">{partDay ? `Off${partDayText}` : "Time off approved"}</span>
                         ) : requested ? (
-                          <span className="block text-[11px] font-semibold text-fg-muted">Time off requested</span>
+                          <span className="block text-[11px] font-semibold text-fg-muted">{partDay ? `Off${partDayText}?` : "Time off requested"}</span>
                         ) : (
                           <span aria-hidden="true" className="block text-center text-lg text-fg-subtle opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
                         )}
