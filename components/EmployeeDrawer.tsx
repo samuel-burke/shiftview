@@ -260,7 +260,7 @@ export default function EmployeeDrawer({
               </div>
               <div>
                 <div id="conflict-modal-title" className="text-base font-bold text-fg">
-                  {conflict.type === "time_off" ? "Time Off Conflict" : "Availability Conflict"}
+                  {conflict.type === "time_off" ? "Time Off Conflict" : conflict.type === "rules" ? "Scheduling Rules" : "Availability Conflict"}
                 </div>
                 <div className="text-sm text-fg-muted mt-1.5">{conflict.message}</div>
                 {conflict.type === "availability" && conflict.window && (

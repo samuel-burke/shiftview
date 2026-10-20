@@ -4,7 +4,7 @@ import { validateShiftMinutes } from "@/app/api/schedules/validation";
 import { requireManager } from "@/lib/require-manager";
 import { withOrg } from "@/lib/org-scope";
 import { weekDates } from "@/lib/draft-metrics";
-import { findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
+import { findRuleConflict, findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +40,12 @@ async function findConflict(
   supabase: SupabaseClient,
   orgId: string,
   employeeId: number,
-  date: string,
-  startMinutes: number,
-  endMinutes: number
+  shift: { id?: number; date: string; startMinutes: number; endMinutes: number }
 ): Promise<NextResponse | null> {
-  const conflict = await findShiftConflict(supabase, orgId, employeeId, date, startMinutes, endMinutes);
-  return conflict ? NextResponse.json(conflict, { status: 409 }) : null;
+  const conflict = await findShiftConflict(supabase, orgId, employeeId, shift.date, shift.startMinutes, shift.endMinutes);
+  if (conflict) return NextResponse.json(conflict, { status: 409 });
+  const rules = await findRuleConflict(supabase, orgId, "draft_schedules", employeeId, shift);
+  return rules ? NextResponse.json(rules, { status: 409 }) : null;
 }
 
 export async function GET(request: Request) {
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   if (liveClash) return liveClash;
 
   if (!override) {
-    const conflict = await findConflict(supabase, orgId!, employeeId, date, startMinutes, endMinutes);
+    const conflict = await findConflict(supabase, orgId!, employeeId, { date, startMinutes, endMinutes });
     if (conflict) return conflict;
   }
 
@@ -168,7 +168,7 @@ export async function PUT(request: Request) {
   if (liveClash) return liveClash;
 
   if (!override) {
-    const conflict = await findConflict(supabase, orgId!, existing.employee_id, dateStr, startMinutes, endMinutes);
+    const conflict = await findConflict(supabase, orgId!, existing.employee_id, { id, date: dateStr, startMinutes, endMinutes });
     if (conflict) return conflict;
   }
 
