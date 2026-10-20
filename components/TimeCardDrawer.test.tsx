@@ -107,6 +107,44 @@ describe("TimeCardPanel — split shifts", () => {
   });
 });
 
+describe("TimeCardPanel — pay period sign-off", () => {
+  function withPeriods(payPeriods: unknown[]) {
+    render(
+      <TimeCardPanel
+        employee={{ id: 3, name: "Alex Rivera" }} from={card.from} to={card.to}
+        onFromChange={() => {}} onToChange={() => {}} onApply={() => {}} onClose={() => {}} onExport={vi.fn()}
+        data={{ ...card, payPeriods } as any} loading={false} error={null}
+      />
+    );
+  }
+
+  it("shows nothing when the store doesn't use pay periods", () => {
+    withPeriods([]);
+    expect(screen.queryByTestId("timecard-pay-period")).toBeNull();
+  });
+
+  it("shows each period's status and the employee's sign-off, in store time", () => {
+    withPeriods([
+      { start: "2026-09-28", end: "2026-10-04", status: "locked",
+        signoff: { employeeId: 3, status: "signed", note: null, signedAt: "2026-10-05T01:30:00Z" } },
+      { start: "2026-10-05", end: "2026-10-11", status: "open",
+        signoff: { employeeId: 3, status: "disputed", note: "Missing Thursday", signedAt: "2026-10-12T01:30:00Z" } },
+      { start: "2026-10-12", end: "2026-10-18", status: "approved", signoff: null },
+    ]);
+    const rows = screen.getAllByTestId("timecard-pay-period");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Pay period Mon, Sep 28 – Sun, Oct 4");
+    expect(rows[0]).toHaveTextContent("Locked");
+    // 01:30 UTC on Oct 5 is 9:30 PM on Oct 4 in New York.
+    expect(rows[0]).toHaveTextContent("Signed Oct 4 9:30 PM");
+    expect(rows[1]).toHaveTextContent("Open");
+    expect(rows[1]).toHaveTextContent("Disputed");
+    expect(rows[1]).toHaveTextContent("Missing Thursday");
+    expect(rows[2]).toHaveTextContent("Approved");
+    expect(rows[2]).toHaveTextContent("Not signed");
+  });
+});
+
 describe("TimeCardPanel — pay rules", () => {
   function renderWith(data: Parameters<typeof TimeCardPanel>[0]["data"]) {
     render(

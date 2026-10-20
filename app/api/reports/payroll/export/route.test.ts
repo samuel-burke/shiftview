@@ -22,19 +22,24 @@ const mockCreateClient = vi.mocked(createClient);
 // request, like the Supabase API's max-rows setting.
 function makeClient(
   punches: any[],
-  { cap = 1000, tz = "America/New_York", settings = [] as { key: string; value: string }[], exemptIds = [] as number[], isManager = true } = {},
+  {
+    cap = 1000, tz = "America/New_York", settings = [] as { key: string; value: string }[],
+    payPeriods = [] as any[], signoffs = [] as any[], exemptIds = [] as number[], isManager = true,
+  } = {},
 ) {
   const calls: { table: string; gte?: string; lte?: string }[] = [];
   const builder = (table: string) => {
     const b: any = {};
     const filters: { gte?: string; lte?: string } = {};
-    for (const m of ["select", "eq", "order", "limit", "in"]) b[m] = vi.fn().mockReturnValue(b);
+    for (const m of ["select", "eq", "order", "limit", "in", "like"]) b[m] = vi.fn().mockReturnValue(b);
     b.gte = vi.fn((_c: string, v: string) => { filters.gte = v; return b; });
     b.lte = vi.fn((_c: string, v: string) => { filters.lte = v; return b; });
     const rows = () =>
       table === "punch_records"
         ? punches.filter((p) => (!filters.gte || p.punched_at >= filters.gte) && (!filters.lte || p.punched_at <= filters.lte))
         : table === "app_settings" ? [{ key: "timezone", value: tz }, ...settings]
+        : table === "pay_periods" ? payPeriods
+        : table === "pay_period_signoffs" ? signoffs
         : table === "employees" ? exemptIds.map((id) => ({ id })) : [];
     b.range = vi.fn((from: number, to: number) => {
       calls.push({ table, ...filters });
@@ -144,6 +149,90 @@ describe("GET /api/reports/payroll/export — timekeeping audit regressions", ()
     mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(1, "=cmd|' /C calc'!A0")) as any);
     const csv = await (await GET(req("from=2026-06-08&to=2026-06-14&format=daily"))).text();
     expect(csv.split("\n")[1].startsWith("'=cmd")).toBe(true);
+  });
+});
+
+describe("payroll and pay periods (migration 0062)", () => {
+  const WEEKLY = [{ key: "pay_period_frequency", value: "weekly" }];
+  const row = (status: string) => ({
+    id: 3, start_date: "2026-06-08", end_date: "2026-06-14", status,
+    approved_at: status === "open" ? null : "2026-06-15T13:00:00Z",
+    locked_at: status === "locked" ? "2026-06-15T14:00:00Z" : null,
+  });
+
+  it("no pay periods: the export is exactly as before", async () => {
+    mockCreateClient.mockResolvedValue(makeClient(tenHourWeek()) as any);
+    const res = await GET(req("from=2026-06-08&to=2026-06-14&format=summary"));
+    const text = await res.text();
+    expect(text).not.toMatch(/Pay period/);
+    expect(res.headers.get("Content-Disposition")).toBe('attachment; filename="payroll_2026-06-08_to_2026-06-14.csv"');
+    expect(res.headers.get("X-Pay-Period-Status")).toBeNull();
+  });
+
+  it("a locked period: says so on the last line, in the file name and headers", async () => {
+    mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(), { settings: WEEKLY, payPeriods: [row("locked")] }) as any);
+    const res = await GET(req("from=2026-06-08&to=2026-06-14&format=summary"));
+    const lines = (await res.text()).split("\n");
+    expect(lines.at(-1)).toBe("Pay period 2026-06-08 to 2026-06-14: Locked");
+    expect(res.headers.get("Content-Disposition")).toBe('attachment; filename="payroll_2026-06-08_to_2026-06-14_locked.csv"');
+    expect(res.headers.get("X-Pay-Period")).toBe("2026-06-08/2026-06-14");
+    expect(res.headers.get("X-Pay-Period-Status")).toBe("locked");
+  });
+
+  it("an unlocked period: warns that hours can still change", async () => {
+    for (const status of ["open", "approved"]) {
+      mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(), { settings: WEEKLY, payPeriods: [row(status)] }) as any);
+      const res = await GET(req("from=2026-06-08&to=2026-06-14&format=detailed"));
+      expect((await res.text()).split("\n").at(-1))
+        .toMatch(/^"?Pay period 2026-06-08 to 2026-06-14: (Open|Approved), not locked: hours can still change/);
+      expect(res.headers.get("Content-Disposition")).toContain("_NOT_LOCKED.csv");
+      expect(res.headers.get("X-Pay-Period-Status")).toBe(status);
+    }
+  });
+
+  it("a period nobody has acted on is open, not locked", async () => {
+    mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(), { settings: WEEKLY }) as any);
+    const res = await GET(req("from=2026-06-08&to=2026-06-14&format=summary"));
+    expect(res.headers.get("X-Pay-Period-Status")).toBe("open");
+    expect(res.headers.get("Content-Disposition")).toContain("_NOT_LOCKED");
+  });
+
+  it("a range that isn't one pay period says so", async () => {
+    mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(), { settings: WEEKLY, payPeriods: [row("locked")] }) as any);
+    const res = await GET(req("from=2026-06-08&to=2026-06-12&format=summary"));
+    expect((await res.text()).split("\n").at(-1)).toMatch(/Not a single pay period/);
+    expect(res.headers.get("X-Pay-Period-Status")).toBe("not_a_period");
+    expect(res.headers.get("X-Pay-Period")).toBeNull();
+  });
+
+  it("the import formats keep their body unchanged and say it in the file name", async () => {
+    for (const format of ["daily", "qb-iif"]) {
+      mockCreateClient.mockResolvedValue(makeClient(tenHourWeek()) as any);
+      const before = await (await GET(req(`from=2026-06-08&to=2026-06-14&format=${format}`))).text();
+      mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(), { settings: WEEKLY, payPeriods: [row("open")] }) as any);
+      const res = await GET(req(`from=2026-06-08&to=2026-06-14&format=${format}`));
+      expect(await res.text()).toBe(before);
+      expect(res.headers.get("Content-Disposition")).toContain("_NOT_LOCKED.");
+    }
+  });
+
+  it("the report returns the period, its status and sign-offs", async () => {
+    mockCreateClient.mockResolvedValue(makeClient(tenHourWeek(), {
+      settings: WEEKLY, payPeriods: [row("approved")],
+      signoffs: [{ period_id: 3, employee_id: 1, status: "signed", note: null, signed_at: "2026-06-14T22:00:00Z" }],
+    }) as any);
+    const body = await (await GET_REPORT(new Request("http://localhost/api/reports/payroll?from=2026-06-08&to=2026-06-14"))).json();
+    expect(body.payPeriod.period).toMatchObject({ id: 3, start: "2026-06-08", end: "2026-06-14", status: "approved" });
+    expect(body.payPeriod.period.signoffs).toEqual([
+      { employeeId: 1, status: "signed", note: null, signedAt: "2026-06-14T22:00:00Z" },
+    ]);
+  });
+
+  it("the report's payPeriod is null when the store doesn't use pay periods", async () => {
+    mockCreateClient.mockResolvedValue(makeClient(tenHourWeek()) as any);
+    const body = await (await GET_REPORT(new Request("http://localhost/api/reports/payroll?from=2026-06-08&to=2026-06-14"))).json();
+    expect(body.payPeriod).toBeNull();
+    expect(body.rows).toHaveLength(1);
   });
 });
 

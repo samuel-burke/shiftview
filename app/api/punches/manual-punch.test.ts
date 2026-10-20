@@ -30,7 +30,10 @@ function makeClient({
   isManager = false,
   timezone = "America/New_York",
   history = [] as Punch[],
-}: { isManager?: boolean; timezone?: string; history?: Punch[] } = {}) {
+  // What the database answers a punch or correction write (e.g. a locked pay
+  // period's refusal, migration 0062).
+  writeError = null as { code: string; message: string } | null,
+}: { isManager?: boolean; timezone?: string; history?: Punch[]; writeError?: { code: string; message: string } | null } = {}) {
   const inserted: Record<string, unknown>[] = [];
   const updated: Record<string, unknown>[] = [];
   const requested: Record<string, unknown>[] = [];
@@ -62,7 +65,7 @@ function makeClient({
         const b: any = {};
         b.insert = vi.fn().mockImplementation((row: Record<string, unknown>) => { requested.push(row); return b; });
         b.select = vi.fn().mockReturnValue(b);
-        b.single = vi.fn().mockResolvedValue({ data: { id: 99 }, error: null });
+        b.single = vi.fn().mockResolvedValue(writeError ? { data: null, error: writeError } : { data: { id: 99 }, error: null });
         return b;
       }
       if (table === "punch_records") {
@@ -82,7 +85,8 @@ function makeClient({
           else data = sorted[sorted.length - 1] ?? null; // lookup by id (edit)
           return Promise.resolve({ data, error: null });
         });
-        b.then = (res: any, rej: any) => Promise.resolve({ data: null, error: null }).then(res, rej);
+        b.then = (res: any, rej: any) =>
+          Promise.resolve({ data: null, error: inserted.length + updated.length > 0 ? writeError : null }).then(res, rej);
         return b;
       }
       return simple({ data: null, error: null });
@@ -301,5 +305,64 @@ describe("PUT /api/punches — overnight missed clock-out", () => {
     const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "23:30", note: "Forgot" });
     expect(res.status).toBe(202);
     expect(client.requested[0].punched_at).toBe("2026-11-01T03:30:00.000Z");
+  });
+});
+
+describe("PUT /api/punches — a locked pay period (migration 0062)", () => {
+  const locked = {
+    code: "PP001",
+    message: "That time is in a locked pay period (2026-10-26 to 2026-11-01). A manager must reopen it first.",
+  };
+  const history = [{ punch_type: "clock_in", punched_at: "2026-11-01T14:30:00Z", note: null, is_manual: false }];
+
+  it("a manager's edit is refused with the database's reason", async () => {
+    const client = makeClient({ isManager: true, history, writeError: locked });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(locked.message);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  it("a manager's new punch is refused", async () => {
+    const client = makeClient({ isManager: true, history, writeError: locked });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-01", localTime: "09:45", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/locked pay period/);
+  });
+
+  it("an employee's correction request is refused", async () => {
+    const client = makeClient({ history: [{ punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" }], writeError: locked });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "17:00", note: "Forgot" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/locked pay period/);
+  });
+
+  it("an overnight shift's Monday clock-out is refused when its Sunday clock-in is in a locked week", async () => {
+    const session = {
+      code: "PP001",
+      message: "That punch belongs to a shift that began in a locked pay period (2026-10-26 to 2026-11-01). A manager must reopen it first.",
+    };
+    // Clocked in Sunday 10:00 PM (Nov 1, EST); the manager moves Monday's clock-out.
+    const client = makeClient({
+      isManager: true,
+      history: [{ punch_type: "clock_in", punched_at: "2026-11-02T03:00:00Z", note: null, is_manual: false }],
+      writeError: session,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    vi.setSystemTime(new Date("2026-11-02T15:00:00Z"));
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-02", localTime: "06:00", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(session.message);
+  });
+
+  it("any other database error is still a 500", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const client = makeClient({ isManager: true, history, writeError: { code: "XX000", message: "boom" } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "Fix" });
+    expect(res.status).toBe(500);
   });
 });

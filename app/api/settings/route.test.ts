@@ -74,6 +74,7 @@ describe("GET /api/settings", () => {
       punchPolicy: DEFAULT_PUNCH_POLICY,
       payRules: DEFAULT_PAY_RULES,
       schedulingRules: DEFAULT_SCHEDULING_RULES,
+      payPeriod: { frequency: "none", anchor: null },
     });
     expect(body).not.toHaveProperty("optimalCoverage");
     expect(body).not.toHaveProperty("minCoverage");
@@ -129,6 +130,7 @@ describe("GET /api/settings", () => {
       punchPolicy: DEFAULT_PUNCH_POLICY,
       payRules: DEFAULT_PAY_RULES,
       schedulingRules: DEFAULT_SCHEDULING_RULES,
+      payPeriod: { frequency: "none", anchor: null },
     });
     expect(body).not.toHaveProperty("optimalCoverage");
     expect(body).not.toHaveProperty("minCoverage");
@@ -384,6 +386,48 @@ describe("PUT /api/settings", () => {
     const res = await PUT(putReq({ schedulingRules: { minShiftMinutes: 360 } }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("minShiftMinutes cannot exceed maxShiftMinutes");
+  });
+
+  // ── Pay periods ──────────────────────────────────────────────────────────────
+
+  it("GET reads the pay period setting", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({
+      user: MOCK_USER, isManager: true,
+      queryData: [{ key: "pay_period_frequency", value: "biweekly" }, { key: "pay_period_anchor", value: "2026-09-28" }],
+    }) as any);
+    expect((await (await GET()).json()).payPeriod).toEqual({ frequency: "biweekly", anchor: "2026-09-28" });
+  });
+
+  it("saves a pay period frequency and anchor", async () => {
+    const client = makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: [] });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await PUT(putReq({ payPeriod: { frequency: "biweekly", anchor: "2026-09-28" } }));
+    expect(res.status).toBe(200);
+    expect(upsertedRows(client)).toEqual([
+      { key: "pay_period_frequency", value: "biweekly", org_id: MOCK_ORG_ID },
+      { key: "pay_period_anchor", value: "2026-09-28", org_id: MOCK_ORG_ID },
+    ]);
+  });
+
+  it("switches to biweekly using the stored anchor", async () => {
+    const client = makeSupabaseClient({
+      user: MOCK_USER, isManager: true, queryData: [{ key: "pay_period_anchor", value: "2026-09-28" }],
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    expect((await PUT(putReq({ payPeriod: { frequency: "biweekly" } }))).status).toBe(200);
+  });
+
+  it("refuses biweekly with no anchor, and bad values", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: true, queryData: [] }) as any);
+    expect((await PUT(putReq({ payPeriod: { frequency: "biweekly" } }))).status).toBe(400);
+    expect((await PUT(putReq({ payPeriod: { frequency: "monthly" } }))).status).toBe(400);
+    expect((await PUT(putReq({ payPeriod: { anchor: "2026-02-30" } }))).status).toBe(400);
+    expect((await PUT(putReq({ payPeriod: "weekly" }))).status).toBe(400);
+  });
+
+  it("an employee cannot change the pay period", async () => {
+    mockCreateClient.mockResolvedValue(makeSupabaseClient({ user: MOCK_USER, isManager: false }) as any);
+    expect((await PUT(putReq({ payPeriod: { frequency: "weekly" } }))).status).toBe(403);
   });
 
   // ── Pay rules ────────────────────────────────────────────────────────────────

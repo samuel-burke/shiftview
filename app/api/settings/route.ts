@@ -9,6 +9,7 @@ import { parsePayRules, payRulesRows } from "@/lib/pay-rules";
 import { applySchedulingRulesPatch, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { isValidTimezone, resolveTimezone } from "@/lib/dates";
 import { isValidLatitude, isValidLongitude } from "@/lib/geo-validation";
+import { parsePayPeriodSettings, payPeriodSettingsRows } from "@/lib/pay-periods";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ export async function GET(request?: Request) {
     punchPolicy:          parsePunchPolicy(map),
     payRules:             parsePayRules(map),
     schedulingRules:      parseSchedulingRules(map),
+    payPeriod:            parsePayPeriodSettings(map),
   });
 }
 
@@ -173,6 +175,24 @@ export async function PUT(request: Request) {
     rows.push(...result.rows);
   }
 
+  // Pay periods (migration 0062): { frequency?, anchor? }, validated against
+  // the stored setting so biweekly never ends up without its anchor.
+  if (body.payPeriod !== undefined) {
+    const { data: stored, error: storedError } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .eq("org_id", orgId!)
+      .like("key", "pay_period_%");
+    if (storedError) {
+      console.error("[api/settings]", storedError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    const current = parsePayPeriodSettings(Object.fromEntries((stored ?? []).map((r) => [r.key, r.value])));
+    const result = payPeriodSettingsRows(body.payPeriod, current);
+    if (result.error !== null) return NextResponse.json({ error: result.error }, { status: 400 });
+    rows.push(...result.rows);
+  }
+
   if (rows.length === 0)
     return NextResponse.json({ error: "No valid fields provided" }, { status: 400 });
 
@@ -185,7 +205,8 @@ export async function PUT(request: Request) {
   // payroll understands (migration 0060).
   if (error?.code === "22023")
     return NextResponse.json(
-      { error: body.timezone !== undefined ? "timezone is not a valid IANA timezone identifier" : "Invalid setting value" },
+      { error: /pay_period/.test(error.message ?? "") ? error.message
+          : body.timezone !== undefined ? "timezone is not a valid IANA timezone identifier" : "Invalid setting value" },
       { status: 422 },
     );
   if (error) {

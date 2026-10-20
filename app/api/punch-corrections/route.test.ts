@@ -34,6 +34,8 @@ function makeClient({
   correction = null as Correction | null,
   history = [] as Punch[],
   claimSucceeds = true,
+  // The database's refusal of the claim (e.g. a locked pay period, 0062).
+  claimError = null as { code: string; message: string } | null,
   listRows = [] as Record<string, unknown>[],
   // Punches another request lands while this approval is inserting its own.
   concurrentInserts = [] as Punch[],
@@ -89,6 +91,7 @@ function makeClient({
           async () => {
             if (pendingUpdate) {
               const claim = pendingUpdate.status !== "pending" && pendingUpdate.punch_id === undefined;
+              if (claim && claimError) return { data: null, error: claimError as any };
               return { data: claim ? (claimSucceeds ? { id: correction?.id } : null) : null, error: null };
             }
             return { data: correction, error: null };
@@ -286,6 +289,21 @@ describe("PUT /api/punch-corrections/[id]", () => {
     mockCreateClient.mockResolvedValue(client as any);
     expect((await review(7, { status: "approved" })).status).toBe(409);
     expect(client.calls.punchInserts).toHaveLength(0);
+  });
+
+  it("refuses to approve a correction in a locked pay period, with the database's reason", async () => {
+    const message = "That time is in a locked pay period (2026-10-26 to 2026-11-01). A manager must reopen it first.";
+    const client = makeClient({
+      correction: pending,
+      history: [{ punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" }],
+      claimError: { code: "PP001", message },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await review(7, { status: "approved" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(message);
+    expect(client.calls.punchInserts).toHaveLength(0);
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown request", async () => {

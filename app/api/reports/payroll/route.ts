@@ -4,6 +4,7 @@ import { requireManager } from "@/lib/require-manager";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { computePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
 import { daysBetweenKeys } from "@/lib/dates";
+import { loadPayrollPeriodInfo } from "@/lib/pay-periods-server";
 import { getOrgPayrollSettings, loadExemptEmployeeIds } from "@/lib/pay-rules";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
   const rows = computePayroll(data as unknown as PunchRow[], tz, { from, to }, { rules, exemptEmployeeIds });
+
+  // The pay period the range covers, its status and sign-offs (null when the
+  // store doesn't use pay periods).
+  const { info: payPeriod, error: periodError } = await loadPayrollPeriodInfo(supabase, orgId!, from, to);
+  if (periodError) {
+    console.error("[api/reports/payroll] pay periods", periodError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
   // The rules the hours were split by, so the report can say so.
-  return NextResponse.json({ rows, from, to, rules });
+  return NextResponse.json({ rows, from, to, rules, payPeriod });
 }

@@ -20,6 +20,8 @@ import EmployeeExemptToggle from "../../components/EmployeeExemptToggle";
 import PayRulesSection from "../../components/PayRulesSection";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
+import PayPeriodSection from "../../components/PayPeriodSection";
+import type { PayPeriodSettings } from "../../lib/pay-periods";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
@@ -282,6 +284,9 @@ export default function SettingsPageClient({
       setTimeout(() => setFirstDayStatus("idle"), 4000);
     }
   }
+
+  // ── Pay period ──────────────────────────────────────────────────────────────
+  const [payPeriod, setPayPeriod] = useState<PayPeriodSettings>({ frequency: "none", anchor: null });
 
   // ── Timezone ────────────────────────────────────────────────────────────────
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
@@ -691,6 +696,7 @@ export default function SettingsPageClient({
           setAddressInput(s.geofenceAddress);
         }
         if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
+        if (s.payPeriod) setPayPeriod(s.payPeriod);
         if (s.payRules) setPayRules({ ...DEFAULT_PAY_RULES, ...s.payRules });
         if (s.schedulingRules) setSchedulingRules({ ...DEFAULT_SCHEDULING_RULES, ...s.schedulingRules });
       })
@@ -1511,6 +1517,11 @@ export default function SettingsPageClient({
             </select>
           </div>
         </section>}
+
+        {/* Pay period — manager only */}
+        {isManager && (
+          <PayPeriodSection value={payPeriod} todayKey={todayKeyInTz(timezone)} onChange={setPayPeriod} />
+        )}
 
         {/* ── Team (people & access, manager only) ── */}
         {isManager && <SettingsGroupHeader label="Team" />}

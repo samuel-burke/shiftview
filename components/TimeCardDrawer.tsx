@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
 import type { PayrollWeek } from "@/lib/payroll";
-import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import type { TimecardPayPeriod } from "@/app/api/timecard/route";
+import { PAY_PERIOD_STATUS_LABELS } from "@/lib/pay-periods";
 import { useScrollLock } from "@/lib/scroll-lock";
 import StableLabel from "./StableLabel";
 import PunchHistoryToggle from "./PunchHistoryToggle";
@@ -46,7 +48,7 @@ const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string
 // What /api/timecard returns: the time card plus its workweeks split by the
 // org's pay rules. The extra fields are optional so a bare Timecard (the home
 // page's demo) still renders.
-export type TimeCardData = Timecard & { weeks?: PayrollWeek[]; exempt?: boolean };
+export type TimeCardData = Timecard & { weeks?: PayrollWeek[]; exempt?: boolean; payPeriods?: TimecardPayPeriod[] };
 
 const todayKey = todayKeyInTz;
 const addDays = addDaysToKey;
@@ -298,6 +300,35 @@ export function TimeCardPanel({
                     </span>
                   ))}
               </div>
+            )}
+
+            {/* Pay periods and this employee's sign-off (migration 0062).
+                Part of the same response as the days, so it never pops in. */}
+            {(data.payPeriods ?? []).length > 0 && (
+              <ul className="flex flex-col gap-1.5 mb-4" aria-label="Pay period sign-off">
+                {data.payPeriods!.map((p) => (
+                  <li
+                    key={p.start}
+                    data-testid="timecard-pay-period"
+                    className="flex items-start justify-between gap-3 bg-card rounded-xl border border-line-subtle px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-fg-body">
+                        Pay period {formatDayHeader(p.start)} – {formatDayHeader(p.end)}
+                      </div>
+                      <div className="text-[11px] text-fg-muted">{PAY_PERIOD_STATUS_LABELS[p.status]}</div>
+                    </div>
+                    <div
+                      className={`text-right shrink-0 ${p.signoff?.status === "signed" ? "text-success-fg" : p.signoff?.status === "disputed" ? "text-warning-fg-strong" : "text-fg-subtle"}`}
+                    >
+                      {!p.signoff ? "Not signed"
+                        : p.signoff.status === "signed"
+                        ? `Signed ${formatDateKey(dateKeyInTz(p.signoff.signedAt, data.timezone), { month: "short", day: "numeric" })} ${formatTimeInTz(p.signoff.signedAt, data.timezone)}`
+                        : <>Disputed<div className="text-[11px] max-w-[12rem] break-words">{p.signoff.note}</div></>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
 
             {/* Workweeks as payroll pays them: regular, overtime, double time */}

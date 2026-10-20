@@ -103,7 +103,22 @@ describe("MyHours", () => {
     const { rerender } = render(<MyHours employeeId={5} todayKey={TODAY} refreshKey="1" />);
     await screen.findByText(/No hours recorded/);
     rerender(<MyHours employeeId={5} todayKey={TODAY} refreshKey="1,2" />);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const timecardCalls = () => fetchMock.mock.calls.filter(([u]) => u.startsWith("/api/timecard"));
+    await vi.waitFor(() => expect(timecardCalls()).toHaveLength(2));
+  });
+
+  it("puts the pay period sign-off after the hours, so it can't push them down as it loads", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(
+      url.startsWith("/api/pay-periods")
+        ? { frequency: "weekly", anchor: null, enabled: true, today: TODAY, periods: [
+            { id: null, start: "2026-10-05", end: "2026-10-11", status: "open", approvedAt: null, lockedAt: null, signoffs: [] },
+          ] }
+        : { days: [], weeks: [] },
+    ), { status: 200 })));
+    render(<MyHours employeeId={5} todayKey={TODAY} refreshKey="" timezone="America/New_York" />);
+    const signoff = await screen.findByTestId("pay-period-signoff");
+    const root = screen.getByTestId("my-hours");
+    expect(root.lastElementChild).toBe(signoff);
   });
 });
 
