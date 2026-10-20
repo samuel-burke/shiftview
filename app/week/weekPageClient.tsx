@@ -456,6 +456,17 @@ export default function WeekPageClient() {
               Click a cell to {isDraftMode ? "draft" : "edit or add"} a shift, or a day to see its coverage.{" "}
               <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd> change the week, <kbd className="font-mono">T</kbd> returns to this week.
             </p>
+            {!isDraftMode && (
+              <a
+                href={`/week/print?week=${weekStart}`}
+                target="_blank"
+                rel="noopener"
+                data-testid="print-week-link"
+                className="inline-block mt-2 text-xs font-semibold text-accent-fg-strong hover:underline"
+              >
+                Print this week
+              </a>
+            )}
           </div>
 
           {firstLoadDone && (
