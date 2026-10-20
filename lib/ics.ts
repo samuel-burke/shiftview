@@ -70,7 +70,7 @@ export type ShiftEvent = {
 // Build a complete VCALENDAR document from a list of shifts.
 export function buildShiftCalendar(
   events: ShiftEvent[],
-  opts: { calendarName: string; dtstamp?: Date; timezone?: string }
+  opts: { calendarName: string; dtstamp?: Date; timezone?: string; refreshMinutes?: number }
 ): string {
   const tz = opts.timezone;
   const fmt = (date: string, minutes: number) =>
@@ -84,6 +84,11 @@ export function buildShiftCalendar(
     "METHOD:PUBLISH",
     foldLine(`X-WR-CALNAME:${escapeICSText(opts.calendarName)}`),
   ];
+  // A subscribed feed: how often calendar apps should fetch it again.
+  if (opts.refreshMinutes) {
+    lines.push(`REFRESH-INTERVAL;VALUE=DURATION:PT${opts.refreshMinutes}M`);
+    lines.push(`X-PUBLISHED-TTL:PT${opts.refreshMinutes}M`);
+  }
 
   for (const e of events) {
     lines.push("BEGIN:VEVENT");

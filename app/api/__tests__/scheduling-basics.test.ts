@@ -7,6 +7,7 @@ import { MOCK_ORG_ID } from "./helpers";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { notify } from "@/lib/notify";
+import { hashFeedToken } from "@/lib/calendar-feed";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
@@ -28,6 +29,8 @@ import * as drafts from "../drafts/route";
 import * as publish from "../drafts/publish/route";
 import * as timeOff from "../time-off/route";
 import * as timeOffDecision from "../time-off/[id]/route";
+import * as feed from "../my-schedule/calendar/feed/route";
+import * as publicFeed from "../calendar/[token]/route";
 
 const ORG = MOCK_ORG_ID;
 const OTHER_ORG = "00000000-0000-0000-0000-0000000000aa";
@@ -60,6 +63,7 @@ function seed(): Record<string, Record<string, unknown>[]> {
     draft_schedules: [],
     time_off_requests: [],
     availability: [],
+    calendar_feeds: [],
   };
 }
 
@@ -70,6 +74,7 @@ function signIn(user: { id: string; email?: string } | null) {
     unique: {
       schedules: [["org_id", "employee_id", "date"]],
       time_off_requests: [["org_id", "employee_id", "date"]],
+      calendar_feeds: [["org_id", "employee_id"], ["token_hash"]],
     },
   });
   vi.mocked(createClient).mockResolvedValue(db.client as never);
@@ -351,5 +356,62 @@ describe("approving time off over scheduled shifts", () => {
 
   it("refuses an unknown resolve", async () => {
     expect((await decide(100, { status: "approved", resolve: "maybe" })).status).toBe(400);
+  });
+});
+
+describe("calendar subscription", () => {
+  beforeEach(() => signIn(ALICE));
+
+  it("creates a feed whose URL serves only the person's shifts, then replaces and turns it off", async () => {
+    db.rows("schedules").push(
+      { id: 1, org_id: ORG, employee_id: 5, date: addDays(new Date().toISOString().slice(0, 10), 2), start_minutes: 540, end_minutes: 1020, note: "Inventory" },
+      { id: 2, org_id: ORG, employee_id: 6, date: addDays(new Date().toISOString().slice(0, 10), 2), start_minutes: 540, end_minutes: 1020 },
+    );
+    expect(await (await feed.GET(req("GET"))).json()).toMatchObject({ active: false });
+
+    const created = await feed.POST(req("POST", undefined, "https://app.test/api/my-schedule/calendar/feed"));
+    expect(created.status).toBe(201);
+    const { url } = await created.json();
+    expect(url).toMatch(/^https:\/\/app\.test\/api\/calendar\/[A-Za-z0-9_-]{43}\.ics$/);
+    const token = url.split("/").pop()!.replace(/\.ics$/, "");
+    // Only the hash is stored.
+    expect(db.rows("calendar_feeds")).toEqual([expect.objectContaining({ org_id: ORG, employee_id: 5, token_hash: hashFeedToken(token) })]);
+    expect(JSON.stringify(db.rows("calendar_feeds"))).not.toContain(token);
+    expect(await (await feed.GET(req("GET"))).json()).toMatchObject({ active: true });
+
+    const ics = await publicFeed.GET(req("GET"), params({ token: `${token}.ics` }));
+    expect(ics.status).toBe(200);
+    expect(ics.headers.get("Content-Type")).toMatch(/text\/calendar/);
+    const text = await ics.text();
+    expect(text).toContain(`shiftview-1-${ORG}`);
+    expect(text).not.toContain(`shiftview-2-${ORG}`);
+    expect(text).toContain("Inventory");
+    expect(text).toContain("REFRESH-INTERVAL");
+
+    // A new link replaces the old one.
+    const again = await (await feed.POST(req("POST", undefined, "https://app.test/x"))).json();
+    expect(db.rows("calendar_feeds")).toHaveLength(1);
+    expect((await publicFeed.GET(req("GET"), params({ token: `${token}.ics` }))).status).toBe(404);
+    const newToken = again.url.split("/").pop()!.replace(/\.ics$/, "");
+    expect((await publicFeed.GET(req("GET"), params({ token: newToken }))).status).toBe(200);
+
+    // Turning it off kills the link.
+    expect((await feed.DELETE(req("DELETE"))).status).toBe(200);
+    expect(db.rows("calendar_feeds")).toHaveLength(0);
+    expect((await publicFeed.GET(req("GET"), params({ token: newToken }))).status).toBe(404);
+  });
+
+  it("refuses malformed and unknown tokens without a lookup", async () => {
+    expect((await publicFeed.GET(req("GET"), params({ token: "nope.ics" }))).status).toBe(404);
+    expect(db.calls.some((c) => c.table === "calendar_feeds")).toBe(false);
+    expect((await publicFeed.GET(req("GET"), params({ token: "a".repeat(43) }))).status).toBe(404);
+  });
+
+  it("needs a signed-in team member", async () => {
+    signIn(null);
+    expect((await feed.POST(req("POST"))).status).toBe(401);
+    signIn(MANAGER); // a manager with no employee record has no schedule
+    expect((await feed.POST(req("POST"))).status).toBe(403);
+    expect(db.rows("calendar_feeds")).toHaveLength(0);
   });
 });
