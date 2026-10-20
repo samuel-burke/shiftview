@@ -20,7 +20,7 @@ async function isOrgMember(
   userId: string
 ): Promise<boolean> {
   const [{ data: emp }, { data: mgr }] = await Promise.all([
-    supabase.from("employees").select("id").eq("org_id", orgId).eq("user_id", userId).maybeSingle(),
+    supabase.from("employees").select("id").eq("org_id", orgId).eq("user_id", userId).is("archived_at", null).maybeSingle(),
     supabase.from("managers").select("user_id").eq("org_id", orgId).eq("user_id", userId).maybeSingle(),
   ]);
   return Boolean(emp || mgr);
