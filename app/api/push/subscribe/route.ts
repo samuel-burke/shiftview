@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { parsePushEndpoint } from "@/lib/push-endpoint";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,12 @@ export async function POST(request: Request) {
   if (!endpoint || !keys?.p256dh || !keys?.auth)
     return NextResponse.json({ error: "endpoint and keys (p256dh, auth) required" }, { status: 400 });
 
+  const pushEndpoint = parsePushEndpoint(endpoint);
+  if (!pushEndpoint)
+    return NextResponse.json({ error: "Unsupported push endpoint" }, { status: 400 });
+
   const { error } = await supabase.from("push_subscriptions").upsert(
-    { user_id: user.id, endpoint, p256dh: keys.p256dh, auth_key: keys.auth },
+    { user_id: user.id, endpoint: pushEndpoint.href, p256dh: keys.p256dh, auth_key: keys.auth },
     { onConflict: "user_id,endpoint" }
   );
 
