@@ -68,6 +68,7 @@ begin
   on conflict (org_id, key) do update set value = excluded.value;
   delete from app_settings where org_id = v_org and key = 'punch_max_breaks_per_shift';
   delete from punch_records where org_id = v_org;
+  delete from schedules where org_id = v_org;
   v_midnight := date_trunc('day', now() at time zone v_tz) at time zone v_tz;
   for i in 1 .. coalesce(array_length(history, 1), 0) loop
     insert into punch_records (org_id, employee_id, punch_type, punched_at)
@@ -156,7 +157,10 @@ select pg_temp.scenario(2, array['clock_in'], array[-1320]);
 select pg_temp.run('a clock-in at 2:00 AM over a shift begun 22 hours ago is allowed', :e1, pg_temp.live('clock_in'), false);
 
 select pg_temp.scenario(5, array['clock_in'], array[-240]);
-select pg_temp.run('a scheduled overnight worker clocks out at 5:00 AM (within 18 hours)', :e1, pg_temp.live('clock_out'), false);
+insert into schedules (org_id, employee_id, date, start_minutes, end_minutes)
+select org_id, id, (now() at time zone public.store_timezone(org_id))::date - 1, 1200, 1800
+  from employees where user_id = :e1::uuid;
+select pg_temp.run('a scheduled overnight worker clocks out at 5:00 AM (within overnight grace)', :e1, pg_temp.live('clock_out'), false);
 
 select pg_temp.scenario(12, array['clock_in'], array[-240]);
 select pg_temp.run('a clock-in the next day after a forgotten shift is allowed', :e1, pg_temp.live('clock_in'), false);
