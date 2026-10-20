@@ -131,6 +131,49 @@ describe("POST /api/invites — validation", () => {
   });
 });
 
+describe.each([
+  ["POST", POST, 201],
+  ["PUT", PUT, 200],
+] as const)("%s /api/invites — email security", (method, handler, successStatus) => {
+  function request(email: unknown) {
+    return new Request("http://localhost/api/invites", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Alice Smith", email }),
+    });
+  }
+
+  it.each([
+    ["an array", ["alice@example.com"]],
+    ["an object", { email: "alice@example.com" }],
+    ["a number", 123],
+    ["255 characters", `a@${"b".repeat(249)}.com`],
+    ["an adversarial domain", `a@${".".repeat(16000)}! `],
+  ])("rejects %s without admin operations", async (_label, email) => {
+    mockCreateAdminClient.mockClear();
+    const res = await handler(request(email));
+    expect(res.status).toBe(400);
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
+  });
+
+  it("accepts 254 characters", async () => {
+    const res = await handler(request(`a@${"b".repeat(248)}.com`));
+    expect(res.status).toBe(successStatus);
+  });
+
+  it.each([
+    ["unauthenticated callers", { user: null }, 401],
+    ["non-managers", { isManager: false }, 403],
+  ] as const)("rejects %s before reading the body", async (_label, options, status) => {
+    mockCreateClient.mockResolvedValue(makeServerClient(options) as any);
+    const req = request(`a@${".".repeat(16000)}! `);
+    const readBody = vi.spyOn(req, "json");
+    const res = await handler(req);
+    expect(res.status).toBe(status);
+    expect(readBody).not.toHaveBeenCalled();
+  });
+});
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 describe("POST /api/invites — auth", () => {

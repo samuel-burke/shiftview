@@ -7,14 +7,13 @@ import { withOrg } from "@/lib/org-scope";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { notify } from "@/lib/notify";
 import { escapeHtml, sendEmail } from "@/lib/email";
+import { isValidEmail } from "@/lib/email-validation";
 
 // Demo visitors hold manager access, and invites send real emails through
 // Supabase Auth — an open spam vector if left enabled for the demo org.
 const DEMO_BLOCKED = "Inviting employees is disabled in the demo organization";
 
 export const dynamic = "force-dynamic";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function formatName(raw: string): string {
   return raw.trim().replace(/\S+/g, (word) =>
@@ -23,15 +22,6 @@ function formatName(raw: string): string {
 }
 
 export async function POST(request: Request) {
-  const { name, email } = await request.json();
-
-  if (!name || typeof name !== "string" || !name.trim())
-    return NextResponse.json({ error: "name required" }, { status: 400 });
-  if (!email || typeof email !== "string")
-    return NextResponse.json({ error: "email required" }, { status: 400 });
-  if (!EMAIL_RE.test(email))
-    return NextResponse.json({ error: "email format is invalid" }, { status: 400 });
-
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
@@ -41,6 +31,15 @@ export async function POST(request: Request) {
     );
   if (isDemoOrgId(orgId!))
     return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
+
+  const { name, email } = await request.json();
+
+  if (!name || typeof name !== "string" || !name.trim())
+    return NextResponse.json({ error: "name required" }, { status: 400 });
+  if (!email || typeof email !== "string")
+    return NextResponse.json({ error: "email required" }, { status: 400 });
+  if (!isValidEmail(email))
+    return NextResponse.json({ error: "email format is invalid" }, { status: 400 });
 
   const admin = createAdminClient();
   const formattedName = formatName(name);
@@ -151,11 +150,6 @@ async function tellExistingAccount(
 }
 
 export async function PUT(request: Request) {
-  const { email } = await request.json();
-
-  if (!email || !EMAIL_RE.test(email))
-    return NextResponse.json({ error: "valid email required" }, { status: 400 });
-
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
   if (authError)
@@ -165,6 +159,11 @@ export async function PUT(request: Request) {
     );
   if (isDemoOrgId(orgId!))
     return NextResponse.json({ error: DEMO_BLOCKED }, { status: 403 });
+
+  const { email } = await request.json();
+
+  if (!isValidEmail(email))
+    return NextResponse.json({ error: "valid email required" }, { status: 400 });
 
   // Re-sending is only for someone on this team who hasn't joined yet. The
   // invite goes out through the service role, so without this any manager

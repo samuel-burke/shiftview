@@ -119,14 +119,26 @@ describe("POST /api/contact", () => {
     ["missing name", { name: "" }],
     ["overlong name", { name: "x".repeat(101) }],
     ["invalid email", { email: "not-an-email" }],
+    ["non-string email", { email: ["dana@example.com"] }],
+    ["overlong email", { email: `a@${"b".repeat(249)}.com` }],
+    ["adversarial email", { email: `a@${".".repeat(16000)}! x` }],
     ["unknown topic", { topic: "sales" }],
     ["short message", { message: "hi" }],
     ["overlong message", { message: "x".repeat(5001) }],
   ])("rejects %s with 400", async (_label, patch) => {
-    const { POST, sendEmail } = await load();
+    const { POST, sendEmail, verify } = await load();
     const res = await POST(req({ ...VALID, ...patch }));
     expect(res.status).toBe(400);
     expect(sendEmail).not.toHaveBeenCalled();
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("accepts a 254-character email after trimming", async () => {
+    const { POST, sendEmail } = await load();
+    const email = `a@${"b".repeat(248)}.com`;
+    const res = await POST(req({ ...VALID, email: ` ${email} ` }));
+    expect(res.status).toBe(200);
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ replyTo: email }));
   });
 
   it("rejects a non-JSON body with 400", async () => {

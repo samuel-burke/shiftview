@@ -3,6 +3,7 @@ import { escapeHtml, sendEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { CONTACT_LIMITS as LIMITS, TOPIC_LABELS, isContactTopic } from "@/lib/contact";
 import { sendNtfy } from "@/lib/ntfy";
+import { isValidEmail } from "@/lib/email-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,6 @@ export const dynamic = "force-dynamic";
 //   2. Best-effort per-instance rate limit (same caveat as /api/demo/start:
 //      serverless memory only blunts naive loops on one warm instance).
 //   3. Cloudflare Turnstile (lib/turnstile.ts; required in production).
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -73,7 +72,7 @@ export async function POST(request: Request) {
   if (!name || name.length > LIMITS.name) {
     return NextResponse.json({ error: "Please enter your name" }, { status: 400 });
   }
-  if (!EMAIL_RE.test(email) || email.length > LIMITS.email) {
+  if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Please enter a valid email address" }, { status: 400 });
   }
   if (!topic) {
