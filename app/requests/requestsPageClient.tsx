@@ -14,6 +14,8 @@ import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { dateKeyInTz, formatDateKey, formatTimeInTz } from "@/lib/dates";
 import { fmtMinutes, getMonogram, type Employee, type Schedule } from "@/data/types";
 import { markColor } from "@/lib/theme-colors";
+import TimeOffClashDialog from "@/components/TimeOffClashDialog";
+import { TimeOffClashError, type ClashingShift } from "@/lib/time-off-client";
 
 type Kind = "timeoff" | "swap" | "correction";
 type Filter = "all" | Kind;
@@ -76,6 +78,9 @@ export default function RequestsPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [daySchedules, setDaySchedules] = useState<{ date: string; schedules: Schedule[] } | null>(null);
+  // Time off waiting on "what about their shifts?".
+  const [clash, setClash] = useState<{ item: Item; shifts: ClashingShift[] } | null>(null);
+  const [clashBusy, setClashBusy] = useState(false);
 
   useEffect(() => {
     if (!sharedLoading && !me.isManager) router.replace("/");
@@ -180,7 +185,24 @@ export default function RequestsPageClient() {
       else await requests.decideCorrection(item.id, status);
     } catch (e) {
       setSelectedKey(item.key);
+      if (e instanceof TimeOffClashError) setClash({ item, shifts: e.shifts });
+      else setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    }
+  }
+
+  async function resolveClash(resolve: "remove" | "keep") {
+    if (!clash) return;
+    setClashBusy(true);
+    setError(null);
+    try {
+      await requests.decideTimeOff(clash.item.id, "approved", resolve);
+      setClash(null);
+      setSelectedKey(null);
+    } catch (e) {
+      setClash(null);
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setClashBusy(false);
     }
   }
 
@@ -398,6 +420,16 @@ export default function RequestsPageClient() {
         <ToastStack>
           {error && <Toast onDismiss={() => setError(null)}>{error}</Toast>}
         </ToastStack>
+
+        <TimeOffClashDialog
+          open={clash !== null}
+          employeeName={clash?.item.title ?? ""}
+          shifts={clash?.shifts ?? []}
+          busy={clashBusy}
+          onRemove={() => resolveClash("remove")}
+          onKeep={() => resolveClash("keep")}
+          onCancel={() => setClash(null)}
+        />
 
         <BottomNav active="requests" />
       </main>

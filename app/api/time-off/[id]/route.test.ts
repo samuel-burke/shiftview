@@ -82,7 +82,7 @@ describe("PUT /api/time-off/[id]", () => {
       makeParams("1")
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, ids: [1] });
+    expect(await res.json()).toEqual({ ok: true, ids: [1], removedShifts: [], keptShifts: [] });
   });
 
   it("returns 200 and ok:true when manager denies a request", async () => {
@@ -94,7 +94,7 @@ describe("PUT /api/time-off/[id]", () => {
       makeParams("1")
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, ids: [1] });
+    expect(await res.json()).toEqual({ ok: true, ids: [1], removedShifts: [], keptShifts: [] });
   });
 });
 

@@ -39,6 +39,8 @@ import SwapRequestSheet, { type CoworkerShift } from "../../components/SwapReque
 import IncomingSwapRequests from "../../components/IncomingSwapRequests";
 import TimeOffRequestForm, { type TimeOffRequestBody } from "@/components/TimeOffRequestForm";
 import { expandTimeOffRequests } from "@/lib/time-off";
+import { decideTimeOffRequest, TimeOffClashError, type ClashingShift } from "@/lib/time-off-client";
+import TimeOffClashDialog from "@/components/TimeOffClashDialog";
 import { removeOptimistically } from "@/hooks/useManagerRequests";
 import { addDaysToKey, dateFromKey, dateKeyInTz, daysBetweenKeys, formatDateKey, formatTimeInTz, localDateKey, nowMinutesInTz } from "@/lib/dates";
 import { shiftWindowOn } from "@/lib/shift-times";
@@ -200,6 +202,8 @@ export default function SchedulePageClient() {
   const [calloutError, setCalloutError] = useState<string | null>(null);
   const [nextShift, setNextShift] = useState<Schedule | null | undefined>(undefined);
   const [pendingManagerTimeOff, setPendingManagerTimeOff] = useState<ManagerTimeOffRequest[]>([]);
+  const [timeOffClash, setTimeOffClash] = useState<{ id: number; employeeName: string; shifts: ClashingShift[] } | null>(null);
+  const [timeOffClashBusy, setTimeOffClashBusy] = useState(false);
   const [pendingPunchCorrections, setPendingPunchCorrections] = useState<PunchCorrection[]>([]);
   // Every in-flight swap the caller can see (their own as employee; all of the
   // org's as a manager). Categorized below into manager-approval vs. incoming.
@@ -246,17 +250,34 @@ export default function SchedulePageClient() {
 
   // Decisions in the requests drawer are optimistic: the request leaves the
   // list at the tap and comes back if the server refuses (useManagerRequests).
-  async function decideManagerTimeOff(id: number, status: "approved" | "denied") {
+  // Approving time off that overlaps the person's shifts first asks what to
+  // do with them (TimeOffClashDialog).
+  async function decideManagerTimeOff(id: number, status: "approved" | "denied", resolve?: "remove" | "keep") {
+    const request = pendingManagerTimeOff.find((r) => r.id === id);
     const restore = removeOptimistically(setPendingManagerTimeOff, id);
-    const res = await fetch(`/api/time-off/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    }).catch(() => null);
-    if (!res?.ok) {
+    try {
+      await decideTimeOffRequest(id, status, resolve);
+    } catch (e) {
       restore();
-      const { error } = (await res?.json().catch(() => ({}))) ?? {};
-      throw new Error(error ?? `Failed to ${status === "approved" ? "approve" : "deny"} request`);
+      if (e instanceof TimeOffClashError) {
+        setTimeOffClash({ id, employeeName: request?.employeeName ?? "They", shifts: e.shifts });
+        return;
+      }
+      throw e;
+    }
+  }
+  async function resolveTimeOffClash(resolve: "remove" | "keep") {
+    if (!timeOffClash) return;
+    setTimeOffClashBusy(true);
+    try {
+      await decideManagerTimeOff(timeOffClash.id, "approved", resolve);
+      setTimeOffClash(null);
+    } catch (e) {
+      setTimeOffClash(null);
+      setTimeOffError(e instanceof Error ? e.message : "Failed to approve request");
+      setTimeOffStatus("error");
+    } finally {
+      setTimeOffClashBusy(false);
     }
   }
   const handleApproveManagerTimeOff = (id: number) => decideManagerTimeOff(id, "approved");
@@ -794,10 +815,11 @@ export default function SchedulePageClient() {
       clockedInToday,
     }) === null;
 
-  // Show the time-off form when: no shift, future date, has employeeId, and no
-  // request for the day yet. A denied day stays denied; it can't be re-requested.
+  // Show the time-off form when: future date, has employeeId, and no request
+  // for the day yet. A denied day stays denied; it can't be re-requested. A
+  // scheduled day can be asked for too: the manager decides what happens to
+  // the shift when approving.
   const canRequestDayOff =
-    !selectedSchedule &&
     selectedDateKey > todayKey &&
     employeeId !== null &&
     !selectedTimeOff;
@@ -1095,13 +1117,13 @@ export default function SchedulePageClient() {
         )}
 
         {/* Time-off request status or action */}
-        {selectedTimeOff?.status === "pending" && !selectedSchedule && (
+        {selectedTimeOff?.status === "pending" && (
           <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/30">
             <TimeOffPendingIcon size={16} color="var(--status-caution-mark)" />
             <span className="text-sm text-warning-fg-strong font-semibold">Time-off request pending{partDayLabel(selectedTimeOff)}</span>
           </div>
         )}
-        {selectedTimeOff?.status === "approved" && !selectedSchedule && (
+        {selectedTimeOff?.status === "approved" && (
           <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-success/10 border border-success/30">
             <TimeOffApprovedIcon size={16} color="var(--status-teal-mark)" />
             <span className="text-sm text-success-fg-strong font-semibold">Time off approved{partDayLabel(selectedTimeOff)}</span>
@@ -1340,7 +1362,16 @@ export default function SchedulePageClient() {
           {calloutError && <Toast onDismiss={() => setCalloutError(null)}>{calloutError}</Toast>}
         </ToastStack>
 
-        <BottomNav active="schedule" />
+        <TimeOffClashDialog
+        open={timeOffClash !== null}
+        employeeName={timeOffClash?.employeeName ?? ""}
+        shifts={timeOffClash?.shifts ?? []}
+        busy={timeOffClashBusy}
+        onRemove={() => resolveTimeOffClash("remove")}
+        onKeep={() => resolveTimeOffClash("keep")}
+        onCancel={() => setTimeOffClash(null)}
+      />
+      <BottomNav active="schedule" />
       </main>
     </AppShell>
   );
