@@ -18,12 +18,14 @@ import { shiftMinutes } from "@/lib/schedule-hours";
 import DemoBanner from "@/components/DemoBanner";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { SkeletonText } from "@/components/Skeleton";
+import PayrollPeriodPanel from "@/components/PayrollPeriodPanel";
+import type { PayrollPeriodInfo } from "@/lib/pay-periods-server";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const listItem = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 26 } } };
 
 type DayCount = { date: string; count: number };
-type Employee = { id: number; name: string; user_id?: string | null };
+type Employee = { id: number; name: string; user_id?: string | null; archived_at?: string | null };
 type Schedule = { id: number; employeeId: number; date: string; startMinutes: number; endMinutes: number };
 
 type PayrollDay = {
@@ -38,6 +40,7 @@ type PayrollWeek = {
   weekStart: string;
   regularHours: number;
   overtimeHours: number;
+  doubleTimeHours: number;
   breakHours: number;
   totalWorkedHours: number;
   hasIncomplete: boolean;
@@ -47,9 +50,11 @@ type PayrollWeek = {
 type PayrollEmployee = {
   employeeId: number;
   employeeName: string;
+  exempt: boolean;
   weeks: PayrollWeek[];
   totalRegularHours: number;
   totalOvertimeHours: number;
+  totalDoubleTimeHours: number;
   totalBreakHours: number;
   totalWorkedHours: number;
 };
@@ -128,6 +133,8 @@ function auditTitle(entry: AuditEntry): string {
     case "employee.reinvite":    return `Resent invite`;
     case "employee.update":      return `Updated employee ${empName}`;
     case "employee.delete":      return `Deleted employee ${empName}`;
+    case "employee.archive":     return `Archived employee ${empName}`;
+    case "employee.restore":     return `Restored employee ${empName}`;
     case "time_off.request":     return `Time-off requested`;
     case "time_off.approve":     return `Approved time-off for ${empName}`;
     case "time_off.deny":        return `Denied time-off for ${empName}`;
@@ -145,6 +152,11 @@ function auditTitle(entry: AuditEntry): string {
     case "punch.export":         return `Exported punch records`;
     case "timecard.export":      return `Exported time card`;
     case "payroll.export":       return `Exported payroll report`;
+    case "pay_period.approve":   return `Approved pay period ${(m.start as string | null) ?? ""}`.trim();
+    case "pay_period.lock":      return `Locked pay period ${(m.start as string | null) ?? ""}`.trim();
+    case "pay_period.reopen":    return `Reopened pay period ${(m.start as string | null) ?? ""}`.trim();
+    case "pay_period.sign":      return `Signed off pay period hours`;
+    case "pay_period.dispute":   return `Disputed pay period hours`;
     case "availability.upsert":  return `Updated availability for ${empName}`;
     case "availability.delete":  return `Removed availability for ${empName}`;
     case "settings.update":      return `Updated app settings`;
@@ -194,6 +206,7 @@ function auditDetail(entry: AuditEntry, tz: string): string | null {
       return `${m.fromDate} to ${m.toDate} · ${m.copied} copied, ${m.skipped} skipped`;
     case "employee.invite":
     case "employee.delete":
+    case "employee.archive":
     case "employee.reinvite":
       return (m.email as string | null) ?? null;
     case "time_off.request":
@@ -343,13 +356,17 @@ export default function ReportsPageClient() {
   const [pendingActorId, setPendingActorId] = useState("");
 
   // ── Payroll state ──
-  // Default payroll range: the previous full Monday–Sunday week.
+  // Default payroll range: the previous full payroll workweek (Monday until
+  // the store's own workweek start loads from settings).
+  const payrollWeekStartRef = useRef(1);
   const [payrollFrom, setPayrollFrom] = useState(() => previousPayWeek(todayKey).from);
   const [payrollTo, setPayrollTo] = useState(() => previousPayWeek(todayKey).to);
   const [payrollFormat, setPayrollFormat] = useState("summary");
   const [payrollData, setPayrollData] = useState<PayrollEmployee[] | null>(null);
   const [payrollLoading, setPayrollLoading] = useState(false);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+  // The pay period the generated report covers (null: the store has none).
+  const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriodInfo | null>(null);
 
   // ── Punctuality state ──
   const [punctualityDate, setPunctualityDate] = useState(todayKey);
@@ -377,8 +394,8 @@ export default function ReportsPageClient() {
     follow(setAuditTo, (k) => k);
     follow(setPendingFrom, (k) => subtractDays(k, 13));
     follow(setPendingTo, (k) => k);
-    follow(setPayrollFrom, (k) => previousPayWeek(k).from);
-    follow(setPayrollTo, (k) => previousPayWeek(k).to);
+    follow(setPayrollFrom, (k) => previousPayWeek(k, payrollWeekStartRef.current).from);
+    follow(setPayrollTo, (k) => previousPayWeek(k, payrollWeekStartRef.current).to);
     follow(setPunctualityDate, (k) => k);
   }, [todayKey]);
 
@@ -428,7 +445,7 @@ export default function ReportsPageClient() {
     }
 
     function refetchEmployees() {
-      fetch("/api/employees")
+      fetch("/api/employees?include=archived")
         .then((r) => r.json())
         .then(setEmployees)
         .catch(() => {});
@@ -472,15 +489,23 @@ export default function ReportsPageClient() {
       .then(({ isManager }) => { if (!isManager) router.replace("/"); })
       .catch(() => {});
 
-    fetch("/api/employees")
+    // Archived employees too: reports cover past weeks they worked.
+    fetch("/api/employees?include=archived")
       .then((r) => r.json())
       .then(setEmployees)
       .catch(() => {});
 
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(({ firstDayOfWeek: fdw }) => {
+      .then(({ firstDayOfWeek: fdw, payRules }) => {
         if (fdw != null) setFirstDayOfWeek(fdw);
+        const ws = payRules?.workweekStartDay;
+        if (typeof ws === "number" && ws !== 1) {
+          payrollWeekStartRef.current = ws;
+          // Move the default range to the store's workweek unless it was edited.
+          setPayrollFrom((v) => (v === previousPayWeek(todayKey).from ? previousPayWeek(todayKey, ws).from : v));
+          setPayrollTo((v) => (v === previousPayWeek(todayKey).to ? previousPayWeek(todayKey, ws).to : v));
+        }
       })
       .catch(() => {});
 
@@ -591,14 +616,15 @@ export default function ReportsPageClient() {
     setAuditActorId(pendingActorId);
   }
 
-  async function generatePayroll() {
+  async function generatePayroll(from = payrollFrom, to = payrollTo) {
     setPayrollLoading(true);
     setPayrollError(null);
     try {
-      const res = await fetch(`/api/reports/payroll?from=${payrollFrom}&to=${payrollTo}`);
+      const res = await fetch(`/api/reports/payroll?from=${from}&to=${to}`);
       const json = await res.json();
       if (!res.ok) { setPayrollError(json.error ?? "Failed to generate report"); return; }
       setPayrollData(json.rows ?? []);
+      setPayrollPeriod(json.payPeriod ?? null);
     } catch {
       setPayrollError("Network error — please try again");
     } finally {
@@ -608,9 +634,11 @@ export default function ReportsPageClient() {
 
   function downloadPayroll() {
     const ext = payrollFormat === "qb-iif" ? "iif" : "csv";
+    // As the export names it: a file of hours that could still change says so.
+    const suffix = !payrollPeriod ? "" : payrollPeriod.period?.status === "locked" ? "_locked" : "_NOT_LOCKED";
     downloadFromUrl(
       `/api/reports/payroll/export?from=${payrollFrom}&to=${payrollTo}&format=${payrollFormat}`,
-      `payroll_${payrollFrom}_to_${payrollTo}.${ext}`
+      `payroll_${payrollFrom}_to_${payrollTo}${suffix}.${ext}`
     );
   }
 
@@ -656,10 +684,16 @@ export default function ReportsPageClient() {
     return map;
   }, [weekSchedules, timezone]);
 
+  // Everyone active, plus archived employees who had shifts this week.
+  const hoursEmployees = useMemo(
+    () => employees.filter((e) => !e.archived_at || employeeHours[e.id]),
+    [employees, employeeHours],
+  );
+
   async function exportCSV() {
     const rows: string[][] = [];
     rows.push(["Employee", ...weekDates.map(formatDateShort), "Total"]);
-    for (const emp of employees) {
+    for (const emp of hoursEmployees) {
       const dayHours = weekDates.map((d) => {
         const h = employeeHours[emp.id]?.[d];
         return h !== undefined ? h.toFixed(1) : "0";
@@ -819,10 +853,10 @@ export default function ReportsPageClient() {
                   ))}
                   <div className="text-[10px] text-fg-subtle font-semibold text-right">Tot</div>
                 </div>
-                {employees.length === 0 ? (
+                {hoursEmployees.length === 0 ? (
                   <div className="px-3 py-4 text-center text-sm text-fg-subtle">No employees</div>
                 ) : (
-                  employees.map((emp) => {
+                  hoursEmployees.map((emp) => {
                     const total = weekDates.reduce((sum, d) => sum + (employeeHours[emp.id]?.[d] ?? 0), 0);
                     return (
                       <div key={emp.id} className="grid grid-cols-[minmax(3.5rem,1.5fr)_repeat(7,minmax(0,1fr))_auto] gap-1 px-3 py-2 border-b border-line/60 last:border-b-0">
@@ -902,7 +936,7 @@ export default function ReportsPageClient() {
               </select>
             </div>
             <button
-              onClick={generatePayroll}
+              onClick={() => generatePayroll()}
               disabled={payrollLoading || !payrollFrom || !payrollTo || payrollFrom > payrollTo}
               aria-busy={payrollLoading}
               className="w-full py-3 rounded-xl bg-accent-solid text-on-accent font-semibold text-sm cursor-pointer hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -917,6 +951,16 @@ export default function ReportsPageClient() {
             </div>
           )}
 
+          {payrollData !== null && (
+            <PayrollPeriodPanel
+              info={payrollPeriod}
+              employees={payrollData.map((e) => ({ employeeId: e.employeeId, employeeName: e.employeeName }))}
+              timezone={timezone}
+              onChanged={() => generatePayroll()}
+              onUseRange={(from, to) => { setPayrollFrom(from); setPayrollTo(to); generatePayroll(from, to); }}
+            />
+          )}
+
           {payrollData !== null && payrollData.length === 0 && (
             <div className="bg-card rounded-2xl border border-line/60 px-4 py-10 text-center">
               <div className="text-fg-muted text-sm font-medium">No punch records in this period</div>
@@ -926,19 +970,32 @@ export default function ReportsPageClient() {
 
           {payrollData !== null && payrollData.length > 0 && (
             <>
-              {/* Preview table */}
-              <div className="bg-card rounded-2xl border border-line/60 overflow-hidden">
-                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-line/60 bg-fill/30">
+              {/* Preview table. Double time (California) gets a column only when there is some. */}
+              {(() => {
+                const showDt = payrollData.some((e) => (e.totalDoubleTimeHours ?? 0) > 0);
+                const grid = showDt ? "grid-cols-[1fr_auto_auto_auto_auto_auto]" : "grid-cols-[1fr_auto_auto_auto_auto]";
+                const reg  = payrollData.reduce((s, e) => s + e.totalRegularHours, 0);
+                const ot   = payrollData.reduce((s, e) => s + e.totalOvertimeHours, 0);
+                const dt   = payrollData.reduce((s, e) => s + (e.totalDoubleTimeHours ?? 0), 0);
+                const brk  = payrollData.reduce((s, e) => s + e.totalBreakHours, 0);
+                const tot  = payrollData.reduce((s, e) => s + e.totalWorkedHours, 0);
+                return (
+              <div className="bg-card rounded-2xl border border-line/60 overflow-hidden" data-testid="payroll-preview">
+                <div className={`grid ${grid} gap-x-3 px-3 py-2 border-b border-line/60 bg-fill/30`}>
                   <div className="text-[10px] text-fg-subtle font-semibold">Employee</div>
                   <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Regular hours">Reg</div>
                   <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Overtime hours">OT</div>
+                  {showDt && <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Double-time hours">DT</div>}
                   <div className="text-[10px] text-fg-subtle font-semibold text-right w-9" title="Break hours">Brk</div>
                   <div className="text-[10px] text-fg-subtle font-semibold text-right w-10">Total</div>
                 </div>
                 {payrollData.map((emp) => (
-                  <div key={emp.employeeId} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-line/60 last:border-b-0">
+                  <div key={emp.employeeId} className={`grid ${grid} gap-x-3 px-3 py-2 border-b border-line/60 last:border-b-0`}>
                     <div className="text-xs text-fg-body font-medium truncate flex items-center gap-1" title={emp.employeeName}>
                       {emp.employeeName.split(" ")[0]}
+                      {emp.exempt && (
+                        <span className="text-[9px] font-semibold px-1 rounded bg-fill-strong text-fg-secondary" title="Exempt: no overtime">EX</span>
+                      )}
                       {emp.weeks.some((w) => w.hasIncomplete) && (
                         <span className="text-warning-fg text-[10px]" aria-label="Incomplete punch pair" role="img">⚠</span>
                       )}
@@ -949,6 +1006,11 @@ export default function ReportsPageClient() {
                     <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalOvertimeHours > 0 ? "text-warning-fg" : "text-fg-subtle"}`}>
                       {emp.totalOvertimeHours > 0 ? emp.totalOvertimeHours.toFixed(1) : "—"}
                     </div>
+                    {showDt && (
+                      <div className={`text-right text-[11px] font-semibold tabular-nums w-9 ${emp.totalDoubleTimeHours > 0 ? "text-danger-fg" : "text-fg-subtle"}`}>
+                        {emp.totalDoubleTimeHours > 0 ? emp.totalDoubleTimeHours.toFixed(1) : "—"}
+                      </div>
+                    )}
                     <div className="text-right text-[11px] text-fg-subtle tabular-nums w-9">
                       {emp.totalBreakHours.toFixed(1)}
                     </div>
@@ -958,24 +1020,21 @@ export default function ReportsPageClient() {
                   </div>
                 ))}
                 {/* Totals */}
-                {(() => {
-                  const reg  = payrollData.reduce((s, e) => s + e.totalRegularHours, 0);
-                  const ot   = payrollData.reduce((s, e) => s + e.totalOvertimeHours, 0);
-                  const brk  = payrollData.reduce((s, e) => s + e.totalBreakHours, 0);
-                  const tot  = payrollData.reduce((s, e) => s + e.totalWorkedHours, 0);
-                  return (
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-fill/40 border-t border-line-strong/60">
+                    <div className={`grid ${grid} gap-x-3 px-3 py-2 bg-fill/40 border-t border-line-strong/60`}>
                       <div className="text-[10px] text-fg-muted font-bold uppercase">Total</div>
                       <div className="text-right text-[11px] font-bold text-success-fg tabular-nums w-9">{reg.toFixed(1)}</div>
                       <div className={`text-right text-[11px] font-bold tabular-nums w-9 ${ot > 0 ? "text-warning-fg" : "text-fg-subtle"}`}>
                         {ot > 0 ? ot.toFixed(1) : "—"}
                       </div>
+                      {showDt && (
+                        <div className="text-right text-[11px] font-bold text-danger-fg tabular-nums w-9">{dt.toFixed(1)}</div>
+                      )}
                       <div className="text-right text-[11px] font-bold text-fg-subtle tabular-nums w-9">{brk.toFixed(1)}</div>
                       <div className="text-right text-[11px] font-bold text-on-accent tabular-nums w-10">{tot.toFixed(1)}</div>
                     </div>
-                  );
-                })()}
               </div>
+                );
+              })()}
 
               {payrollData.some((e) => e.weeks.some((w) => w.hasIncomplete)) && (
                 <div className="text-[11px] text-warning-fg px-1 leading-snug">
