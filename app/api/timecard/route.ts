@@ -10,15 +10,17 @@ import { timecardToCsv } from "@/lib/timecard-csv";
 import { writeAuditLog } from "@/lib/audit";
 import { parsePayPeriodSettings, type PayPeriodStatus } from "@/lib/pay-periods";
 import { loadPayPeriods, type PayPeriodSignoff } from "@/lib/pay-periods-server";
+import { loadExemptEmployeeIds, parsePayRules, type PayRules } from "@/lib/pay-rules";
 import type { PunchType } from "@/data/types";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// The JSON response: the time card plus its workweeks split into regular and
-// overtime hours by the payroll rule (lib/payroll.ts), so what a time card
-// shows as overtime is what payroll pays.
+// The JSON response: the time card plus its workweeks split into regular,
+// overtime and double-time hours by the org's pay rules (lib/payroll.ts,
+// lib/pay-rules.ts), so what a time card shows as overtime is what payroll
+// pays. `exempt`: the employee gets no overtime.
 //
 // payPeriods: the pay periods the range touches, each with its status and this
 // employee's sign-off (migration 0062); empty when the store doesn't use pay
@@ -29,7 +31,12 @@ export type TimecardPayPeriod = {
   status: PayPeriodStatus;
   signoff: PayPeriodSignoff | null;
 };
-export type TimecardResponse = Timecard & { weeks: PayrollWeek[]; payPeriods: TimecardPayPeriod[] };
+export type TimecardResponse = Timecard & {
+  weeks: PayrollWeek[];
+  exempt: boolean;
+  payRules: Pick<PayRules, "overtimeRule" | "workweekStartDay" | "roundingMinutes">;
+  payPeriods: TimecardPayPeriod[];
+};
 
 // GET /api/timecard?employeeId=N&from=YYYY-MM-DD&to=YYYY-MM-DD
 // Returns one employee's punches, hours, call-outs and the punch violations
@@ -99,6 +106,7 @@ export async function GET(request: Request) {
   );
   const tz = resolveTimezone(settingsMap.timezone);
   const policy = parsePunchPolicy(settingsMap);
+  const payRules = parsePayRules(settingsMap);
 
   // Schedules for the employee in range, plus a day either side: a clock-in
   // just before midnight can be for the next day's shift, or one just after
@@ -119,7 +127,7 @@ export async function GET(request: Request) {
   // runs past midnight is seen whole, and back to the start of `from`'s
   // workweek so its earlier days count toward overtime. computeTimecard and
   // computePayroll both restrict what they report to [from, to].
-  const { start: padStart, end: padEnd } = payrollQueryWindow(from, to, tz);
+  const { start: padStart, end: padEnd } = payrollQueryWindow(from, to, tz, payRules.workweekStartDay);
   const { data: punchRows, error: punchErr, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
@@ -173,6 +181,7 @@ export async function GET(request: Request) {
       note: p.note,
     })),
     callouts: (calloutRows ?? []).map((c) => ({ date: c.date, reason: c.reason })),
+    roundingMinutes: payRules.roundingMinutes,
   });
 
   if (format === "csv") {
@@ -199,6 +208,13 @@ export async function GET(request: Request) {
     });
   }
 
+  const { ids: exemptIds, error: exemptErr } = await loadExemptEmployeeIds(supabase, orgId, employeeId);
+  if (exemptErr) {
+    console.error("[api/timecard] exempt", exemptErr);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  const exempt = exemptIds.has(employeeId);
+
   const [payroll] = computePayroll(
     (punchRows ?? []).map((p): PunchRow => ({
       id: p.id,
@@ -209,6 +225,7 @@ export async function GET(request: Request) {
     })),
     tz,
     { from, to },
+    { rules: payRules, exemptEmployeeIds: exemptIds },
   );
 
   const payPeriodSettings = parsePayPeriodSettings(settingsMap);
@@ -227,6 +244,16 @@ export async function GET(request: Request) {
     }));
   }
 
-  const body: TimecardResponse = { ...timecard, weeks: payroll?.weeks ?? [], payPeriods };
+  const body: TimecardResponse = {
+    ...timecard,
+    weeks: payroll?.weeks ?? [],
+    exempt,
+    payPeriods,
+    payRules: {
+      overtimeRule: payRules.overtimeRule,
+      workweekStartDay: payRules.workweekStartDay,
+      roundingMinutes: payRules.roundingMinutes,
+    },
+  };
   return NextResponse.json(body);
 }

@@ -5,6 +5,7 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrgAll } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { parsePunchPolicy, punchPolicyRows } from "@/lib/punch-policy";
+import { parsePayRules, payRulesRows } from "@/lib/pay-rules";
 import { applySchedulingRulesPatch, parseSchedulingRules } from "@/lib/scheduling-rules";
 import { isValidTimezone, resolveTimezone } from "@/lib/dates";
 import { isValidLatitude, isValidLongitude } from "@/lib/geo-validation";
@@ -49,6 +50,7 @@ export async function GET(request?: Request) {
     geofenceRadius:       parseInt(map.geofence_radius ?? "100"),
     geofenceAddress:      map.geofence_address || null,
     punchPolicy:          parsePunchPolicy(map),
+    payRules:             parsePayRules(map),
     schedulingRules:      parseSchedulingRules(map),
     payPeriod:            parsePayPeriodSettings(map),
   });
@@ -144,6 +146,17 @@ export async function PUT(request: Request) {
     rows.push(...policyRows);
   }
 
+  // Pay rules (overtime rule, payroll workweek start, punch rounding) — a
+  // nested object, validated and converted by payRulesRows. The database
+  // checks the same values (migration 0060).
+  if (body.payRules !== undefined) {
+    if (typeof body.payRules !== "object" || body.payRules === null || Array.isArray(body.payRules))
+      return NextResponse.json({ error: "payRules must be an object" }, { status: 400 });
+    const { rows: payRows, error: payError } = payRulesRows(body.payRules);
+    if (payError) return NextResponse.json({ error: payError }, { status: 400 });
+    rows.push(...payRows);
+  }
+
   // Auto-scheduler rules — a nested object, validated against the stored rules
   // so a patch that sets one end of a min/max range can't invert it.
   if (body.schedulingRules !== undefined) {
@@ -188,10 +201,12 @@ export async function PUT(request: Request) {
     .upsert(withOrgAll(orgId!, rows));
 
   // The database only stores zones it knows (migration 0047), so the clock
-  // triggers read the same store day as the app.
+  // triggers read the same store day as the app, and only pay rule values
+  // payroll understands (migration 0060).
   if (error?.code === "22023")
     return NextResponse.json(
-      { error: /pay_period/.test(error.message ?? "") ? error.message : "timezone is not a valid IANA timezone identifier" },
+      { error: /pay_period/.test(error.message ?? "") ? error.message
+          : body.timezone !== undefined ? "timezone is not a valid IANA timezone identifier" : "Invalid setting value" },
       { status: 422 },
     );
   if (error) {

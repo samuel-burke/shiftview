@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
+import type { PayrollWeek } from "@/lib/payroll";
 import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
 import type { TimecardPayPeriod } from "@/app/api/timecard/route";
 import { PAY_PERIOD_STATUS_LABELS } from "@/lib/pay-periods";
@@ -44,6 +45,11 @@ const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string
   ncns:        { label: "No Call No Show", className: "bg-danger-solid/20 text-danger-fg-strong border border-danger/40" },
 };
 
+// What /api/timecard returns: the time card plus its workweeks split by the
+// org's pay rules. The extra fields are optional so a bare Timecard (the home
+// page's demo) still renders.
+export type TimeCardData = Timecard & { weeks?: PayrollWeek[]; exempt?: boolean; payPeriods?: TimecardPayPeriod[] };
+
 const todayKey = todayKeyInTz;
 const addDays = addDaysToKey;
 
@@ -58,7 +64,7 @@ function formatPunchTime(iso: string, tz: string): string {
 export default function TimeCardDrawer({ open, employee, timezone, onClose }: Props) {
   const [from, setFrom] = useState(() => addDays(todayKey(timezone), -13));
   const [to, setTo] = useState(() => todayKey(timezone));
-  const [data, setData] = useState<(Timecard & { payPeriods?: TimecardPayPeriod[] }) | null>(null);
+  const [data, setData] = useState<TimeCardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +82,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
           setData(null);
           return;
         }
-        setData(json as Timecard);
+        setData(json as TimeCardData);
       } catch {
         setError("Network error — please try again");
         setData(null);
@@ -178,7 +184,7 @@ export function TimeCardPanel({
   onApply: () => void;
   onClose: () => void;
   onExport: () => void;
-  data: (Timecard & { payPeriods?: TimecardPayPeriod[] }) | null;
+  data: TimeCardData | null;
   loading: boolean;
   error: string | null;
 }) {
@@ -325,6 +331,30 @@ export function TimeCardPanel({
               </ul>
             )}
 
+            {/* Workweeks as payroll pays them: regular, overtime, double time */}
+            {data.weeks && data.weeks.length > 0 && (
+              <div className="bg-card rounded-2xl border border-line/60 px-4 py-3 mb-4" data-testid="timecard-pay-weeks">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="text-[10px] text-fg-muted font-semibold uppercase tracking-wide">Paid hours by workweek</div>
+                  {data.exempt && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-fill-strong text-fg-secondary">Exempt · no overtime</span>
+                  )}
+                </div>
+                {data.weeks.map((w) => (
+                  <div key={w.weekStart} className="flex items-center justify-between gap-2 py-1 text-[11px] tabular-nums">
+                    <span className="text-fg-muted">Week of {formatDayHeader(w.weekStart)}</span>
+                    <span className="text-fg-body">
+                      {w.regularHours.toFixed(2)} reg
+                      <span className={w.overtimeHours > 0 ? "text-warning-fg font-semibold" : "text-fg-subtle"}> · {w.overtimeHours.toFixed(2)} OT</span>
+                      {w.doubleTimeHours > 0 && (
+                        <span className="text-danger-fg font-semibold"> · {w.doubleTimeHours.toFixed(2)} DT</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Per-day cards */}
             {data.days.length === 0 ? (
               <div className="bg-card rounded-2xl border border-line/60 px-4 py-10 text-center">
@@ -374,6 +404,11 @@ export function TimeCardPanel({
                             <span className="text-fg-body font-semibold tabular-nums">
                               {formatPunchTime(p.punchedAt, data.timezone)}
                             </span>
+                            {p.roundedAt && (
+                              <span className="text-fg-subtle tabular-nums" title="Rounded time payroll pays">
+                                → {formatPunchTime(p.roundedAt, data.timezone)}
+                              </span>
+                            )}
                             {p.isManual && (
                               <PunchHistoryToggle
                                 punchId={p.id}
@@ -394,6 +429,9 @@ export function TimeCardPanel({
                     {(day.workedHours > 0 || day.breakHours > 0 || day.hasIncomplete) && (
                       <div className="mt-2 pt-2 border-t border-line/60 flex items-center gap-3 text-[11px] text-fg-muted">
                         <span className="font-semibold text-fg-secondary tabular-nums">{day.workedHours.toFixed(2)}h worked</span>
+                        {day.roundedWorkedHours != null && day.roundedWorkedHours !== day.workedHours && (
+                          <span className="tabular-nums" title="From the rounded punch times">{day.roundedWorkedHours.toFixed(2)}h rounded</span>
+                        )}
                         {day.breakHours > 0 && <span className="tabular-nums">{day.breakHours.toFixed(2)}h break</span>}
                         {day.hasIncomplete && (
                           <span className="text-warning-fg" title="Missing a clock-out or break-end">⚠ incomplete</span>

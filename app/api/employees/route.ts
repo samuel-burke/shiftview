@@ -31,6 +31,8 @@ const UNDEFINED_COLUMN = "42703";
 // Postgres foreign_key_violation.
 const FOREIGN_KEY_VIOLATION = "23503";
 const SCHEDULING_FIELDS = ["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
+// Exempt (salaried, no overtime) flag (migration 0060). Managers only.
+const PAY_COLUMNS = "exempt";
 
 // numeric columns can arrive as strings; hours are plain numbers in the API.
 function normalizeHours<T extends Record<string, unknown>>(row: T): T {
@@ -61,14 +63,20 @@ export async function GET(request: Request) {
     return includeArchived ? q : q.is("archived_at", null);
   };
 
-  const full = await roster(`${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}`);
-  let data = full.data as ({ name: string } & Record<string, unknown>)[] | null;
-  let dbError = full.error;
-  // Keep the roster working if this deploy lands before its migration does.
-  if (dbError?.code === UNDEFINED_COLUMN) {
-    const base = await roster(BASE_COLUMNS);
-    data = base.data as ({ name: string } & Record<string, unknown>)[] | null;
-    dbError = base.error;
+  // Keep the roster working if this deploy lands before its migrations do:
+  // drop the newest columns first.
+  const attempts = [
+    ...(ctx!.isManager ? [`${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}, ${PAY_COLUMNS}`] : []),
+    `${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}`,
+    BASE_COLUMNS,
+  ];
+  let data: ({ name: string } & Record<string, unknown>)[] | null = null;
+  let dbError: { code?: string } | null = null;
+  for (const columns of attempts) {
+    const result = await roster(columns);
+    data = result.data as ({ name: string } & Record<string, unknown>)[] | null;
+    dbError = result.error;
+    if (dbError?.code !== UNDEFINED_COLUMN) break;
   }
   if (dbError) {
     console.error("[api/employees]", dbError);
@@ -88,7 +96,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, userId, name, payRate, archived } = body;
+  const { id, userId, name, payRate, archived, exempt } = body;
 
   if (id == null)
     return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -116,6 +124,9 @@ export async function PATCH(request: Request) {
       { error: "payRate must be a non-negative number or null to clear" },
       { status: 400 }
     );
+
+  if (exempt !== undefined && typeof exempt !== "boolean")
+    return NextResponse.json({ error: "exempt must be a boolean" }, { status: 400 });
 
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
@@ -147,6 +158,8 @@ export async function PATCH(request: Request) {
   if (userId !== undefined) updates.user_id = userId;
   if (name !== undefined) updates.name = name.trim();
   if (payRate !== undefined) updates.pay_rate = payRate;
+  // Exempt employees get no overtime in payroll (lib/payroll.ts).
+  if (exempt !== undefined) updates.exempt = exempt;
 
   // Employment type and weekly limits. A one-sided min/max change is checked
   // against the stored other end, so the range can't invert.

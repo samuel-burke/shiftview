@@ -28,6 +28,7 @@
 \ir ../migrations/0052_employee_delete_cascade.sql
 \ir ../migrations/0053_punch_history.sql
 \ir ../migrations/0054_archive_employees.sql
+\ir ../migrations/0060_pay_rules.sql
 \ir ../migrations/0062_pay_periods.sql
 \unset ON_ERROR_STOP
 

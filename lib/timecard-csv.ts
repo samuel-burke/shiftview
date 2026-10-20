@@ -4,6 +4,8 @@
 // punch triggered (late-in on the clock-in, long-break on the break-end, …).
 // Call-outs and no-call-no-shows have no punch, so they appear as a synthetic
 // row of that type stamped with the scheduled shift start (e.g. "NCNS … 9:00 AM").
+// With punch rounding on, a "Rounded Time" column follows the real time: the
+// time payroll pays the punch at (blank when rounding leaves it unchanged).
 
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard } from "@/lib/timecard";
@@ -23,9 +25,14 @@ function fmtTime(iso: string, tz: string): string {
 }
 
 export function timecardToCsv(tc: Timecard): string {
-  const headers = ["Date", "Day", "Type", "Time", "Flag", "Detail", "Manual", "Note"];
+  const rounded = !!tc.roundingMinutes;
+  const headers = ["Date", "Day", "Type", "Time", ...(rounded ? ["Rounded Time"] : []), "Flag", "Detail", "Manual", "Note"];
   const lines = [headers.join(",")];
-  const push = (cells: unknown[]) => lines.push(cells.map(csvCell).join(","));
+  // Cells after Time; the rounded column (when on) is inserted after Time.
+  const push = (cells: unknown[], roundedTime = "") => {
+    const row = rounded ? [...cells.slice(0, 4), roundedTime, ...cells.slice(4)] : cells;
+    lines.push(row.map(csvCell).join(","));
+  };
 
   for (const day of tc.days) {
     const startTime = day.schedule ? fmtMinutes(day.schedule.startMinutes) : "";
@@ -53,7 +60,7 @@ export function timecardToCsv(tc: Timecard): string {
         v?.detail ?? "",
         p.isManual ? "yes" : "no",
         p.note ?? "",
-      ]);
+      ], p.roundedAt ? fmtTime(p.roundedAt, tc.timezone) : "");
     }
   }
 

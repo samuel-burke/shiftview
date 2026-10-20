@@ -26,6 +26,7 @@ function week(weekStart: string, worked: number): PayrollWeek {
     priorHours: 0,
     regularHours: Math.min(worked, 40),
     overtimeHours: Math.max(0, worked - 40),
+    doubleTimeHours: 0,
     breakHours: 1,
     totalWorkedHours: worked,
     hasIncomplete: false,
@@ -111,5 +112,30 @@ describe("formatHours", () => {
     expect(formatHours(7.5)).toBe("7h 30m");
     expect(formatHours(41.99)).toBe("41h 59m");
     expect(formatHours(39.999)).toBe("40h");
+  });
+});
+
+describe("myHoursRange — payroll workweek start", () => {
+  it("uses the org's workweek start", () => {
+    // Sunday workweek: Sun Oct 18 starts a new week.
+    expect(myHoursRange("2026-10-18", 0)).toEqual({
+      thisWeekStart: "2026-10-18", lastWeekStart: "2026-10-11", from: "2026-10-11", to: "2026-10-24",
+    });
+    expect(myHoursRange("2026-10-17", 6).thisWeekStart).toBe("2026-10-17");
+  });
+});
+
+describe("summarizeWeek — pay rules", () => {
+  it("passes double time through", () => {
+    const w = { ...week("2026-10-12", 50), regularHours: 40, overtimeHours: 8, doubleTimeHours: 2 };
+    expect(summarizeWeek([], [w], "2026-10-12", "2026-10-14")).toMatchObject({ overtimeHours: 8, doubleTimeHours: 2 });
+  });
+
+  it("never counts down to overtime for an exempt employee", () => {
+    const w = { ...week("2026-10-12", 38), regularHours: 38, overtimeHours: 0 };
+    const s = summarizeWeek([], [w], "2026-10-12", "2026-10-14", true);
+    expect(s.hoursToOvertime).toBe(0);
+    expect(s.approachingOvertime).toBe(false);
+    expect(summarizeWeek([], [w], "2026-10-12", "2026-10-14").approachingOvertime).toBe(true);
   });
 });
