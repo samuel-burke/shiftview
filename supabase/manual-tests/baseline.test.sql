@@ -29,6 +29,7 @@
 \ir ../migrations/0054_archive_employees.sql
 \ir ../migrations/0060_pay_rules.sql
 \ir ../migrations/0062_pay_periods.sql
+\ir ../migrations/0070_shift_notes.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''

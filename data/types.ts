@@ -29,6 +29,8 @@ export type Schedule = {
   date: string;
   startMinutes: number;
   endMinutes: number;
+  // A short note for the employee ("truck at 7").
+  note?: string | null;
   // Drafts only: the Auto-schedule run that created it, if any.
   generationRunId?: number | null;
 };

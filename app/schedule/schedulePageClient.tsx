@@ -1051,6 +1051,11 @@ export default function SchedulePageClient() {
             <div className="text-sm text-fg-muted mt-0.5">
               {shiftHours === 1 ? `${shiftHours} hr` : `${shiftHours} hrs`}
             </div>
+            {selectedSchedule.note && (
+              <div data-testid="my-shift-note" className="mt-2 text-sm text-fg-secondary whitespace-pre-wrap break-words">
+                <span className="text-fg-muted">Note: </span>{selectedSchedule.note}
+              </div>
+            )}
           </>
         ) : (
           <div className="text-2xl font-bold text-fg-muted mt-1">Day Off</div>
