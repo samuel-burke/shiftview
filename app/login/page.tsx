@@ -2,13 +2,14 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import TryDemoButton from "@/components/TryDemoButton";
 import Logo from "@/components/Logo";
 import FormError from "@/components/FormError";
+import { TURNSTILE_SITE_KEY, loadTurnstile, turnstileTheme } from "@/lib/turnstile-client";
 
 type Step = "email" | "code";
 
@@ -23,9 +24,39 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const widgetContainerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const siteKey = TURNSTILE_SITE_KEY;
+    if (!siteKey || step !== "email") return;
+    const container = widgetContainerRef.current;
+    if (!container) return;
+    let cancelled = false;
+    loadTurnstile()
+      .then((turnstile) => {
+        if (cancelled || container.childElementCount > 0) return;
+        widgetIdRef.current = turnstile.render(container, {
+          sitekey: siteKey,
+          appearance: "always",
+          theme: turnstileTheme(),
+          size: "flexible",
+          callback: (token) => setCaptchaToken(token),
+          "expired-callback": () => setCaptchaToken(null),
+          "error-callback": (errorCode) => {
+            setCaptchaToken(null);
+            setError(`Verification failed${errorCode ? ` (${errorCode})` : ""} — please reload and try again`);
+          },
+        });
+      })
+      .catch(() => setError("Could not load the verification widget"));
+    return () => { cancelled = true; widgetIdRef.current = null; };
+  }, [step]);
 
   async function handleSendCode() {
     if (!email.trim()) { setError("Email is required."); return; }
+    if (TURNSTILE_SITE_KEY && !captchaToken) { setError("Please complete the verification first."); return; }
     setLoading(true);
     setError(null);
     const supabase = getSupabase();
@@ -33,8 +64,14 @@ export default function LoginPage() {
       email: email.trim(),
       options: {
         shouldCreateUser: false,
+        captchaToken: captchaToken ?? undefined,
       },
     });
+    // Auth consumes the token even when the OTP request fails.
+    setCaptchaToken(null);
+    if (widgetIdRef.current) {
+      try { window.turnstile?.reset(widgetIdRef.current); } catch {}
+    }
     if (error) {
       setError(error.message);
     } else {
@@ -101,9 +138,10 @@ export default function LoginPage() {
                 className="w-full bg-bg border border-field rounded-[10px] px-[14px] py-3 text-fg text-sm focus:outline-none focus:border-accent transition-colors"
               />
               <FormError id="login-error" message={error} className="text-center" />
+              <div ref={widgetContainerRef} className="flex justify-center empty:hidden" />
               <button
                 onClick={handleSendCode}
-                disabled={loading}
+                disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
                 className={`w-full bg-gradient-to-r from-brand-from to-brand-to border border-transparent rounded-[10px] px-[14px] py-3 text-on-accent text-sm font-bold cursor-pointer mt-1 transition-opacity hover:brightness-110 disabled:opacity-70 ${loading ? "opacity-70" : "opacity-100"}`}
               >
                 {loading ? "Sending…" : "Send Code"}

@@ -207,7 +207,7 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_SITE_URL` | The app's public URL (e.g. `https://shiftview.app`). Invite emails link back to `<site>/auth/callback`, so set it before inviting anyone |
 | `RESEND_API_KEY` | Contact form and low-coverage alert emails (via Resend). Invite emails come from Supabase Auth |
 | `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until this and `RESEND_API_KEY` are set |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither; required in production, where those routes refuse requests without the secret (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile for demo start, signup, login and contact. Both required in production; also enable Supabase Auth CAPTCHA with the same widget secret to protect direct Auth requests (see [deployment runbook](docs/DEMO_ORG.md#deployment-runbook)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
 | `NTFY_TOPIC_URL` | [ntfy](https://ntfy.sh) push alerts to the operator for new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Use a long random topic name (e.g. `https://ntfy.sh/<openssl rand -hex 16>`): anyone who knows it can subscribe |
@@ -223,6 +223,7 @@ A Vercel production build (`VERCEL_ENV=production`) fails unless every variable 
 **New Supabase project**
 
 1. Enable **Authentication → Sign In / Up → Allow anonymous sign-ins**. The demo needs it.
+   In production, also enable **Authentication → Bot and Abuse Protection → CAPTCHA protection**, select Cloudflare Turnstile, and enter the widget secret. Deploy the app's token support first on existing projects; see the [deployment runbook](docs/DEMO_ORG.md#deployment-runbook).
 2. In the SQL editor, run `supabase/baseline.sql`. It creates the whole schema as of migration `0037` (tables, functions, triggers, RLS policies, Realtime) and the default and demo organizations.
 3. Run every migration numbered after `0037` (`0038_*` onward), in filename order.
 
