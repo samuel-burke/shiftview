@@ -221,11 +221,16 @@ export async function POST(request: Request) {
     }
   }
 
-  // Server-side geofence enforcement for clock_in
-  if (punchType === "clock_in") {
-    const gpsRequired    = settingsMap.gps_required === "true";
+  // GPS is required independently of the optional geofence for live clock-ins.
+  if (punchType === "clock_in" && settingsMap.gps_required === "true") {
+    if (lat === null || lng === null) {
+      return NextResponse.json(
+        { error: "GPS location required to clock in" },
+        { status: 422 }
+      );
+    }
     const geofenceEnabled = settingsMap.geofence_enabled === "true";
-    if (gpsRequired && geofenceEnabled) {
+    if (geofenceEnabled) {
       const geofence = parseGeofenceConfig(
         settingsMap.geofence_lat,
         settingsMap.geofence_lng,
@@ -242,12 +247,6 @@ export async function POST(request: Request) {
       }
       if (geofence.status === "ok") {
         const { lat: geofenceLat, lng: geofenceLng, radius: geofenceRadius } = geofence;
-        if (lat === null || lng === null) {
-          return NextResponse.json(
-            { error: "GPS location required — geofence enforcement is active" },
-            { status: 422 }
-          );
-        }
         const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
         if (!(dist <= geofenceRadius)) {
           writeAuditLog({
