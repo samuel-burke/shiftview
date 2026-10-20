@@ -340,10 +340,22 @@ export async function DELETE(request: Request) {
 
     const { data: emp } = await supabase
       .from("employees")
-      .select("name")
+      .select("name, user_id")
       .eq("org_id", orgId)
       .eq("id", existing.employee_id)
       .maybeSingle();
+
+    // Tell the employee, so nobody comes in for a shift that's gone.
+    if (emp?.user_id) {
+      notify({
+        orgId: orgId!,
+        userId: emp.user_id,
+        type: "shift_change",
+        title: "Shift Removed",
+        body: `Your shift on ${existing.date} (${fmtMinutes(existing.start_minutes)} – ${fmtMinutes(existing.end_minutes)}) was removed from the schedule`,
+        data: { scheduleId: id, date: existing.date, removed: true },
+      }).catch(() => {});
+    }
 
     writeAuditLog({
       action:       "schedule.delete",
