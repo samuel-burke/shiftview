@@ -29,6 +29,7 @@ export type MyHoursWeek = {
   workedHours: number;
   regularHours: number;
   overtimeHours: number;
+  doubleTimeHours: number;
   breakHours: number;
   days: MyHoursDay[];
   // Hours left before overtime starts (0 once in overtime).
@@ -41,8 +42,12 @@ export type MyHoursWeek = {
 
 // The two workweeks the view covers, as one /api/timecard range. Starting on
 // the workweek's first day means no earlier hours count toward its overtime.
-export function myHoursRange(todayKey: string): { thisWeekStart: string; lastWeekStart: string; from: string; to: string } {
-  const thisWeekStart = weekStartForKey(todayKey, WORKWEEK_START_DAY);
+// `workweekStartDay`: the org's payroll workweek start (Settings → Pay Rules).
+export function myHoursRange(
+  todayKey: string,
+  workweekStartDay: number = WORKWEEK_START_DAY,
+): { thisWeekStart: string; lastWeekStart: string; from: string; to: string } {
+  const thisWeekStart = weekStartForKey(todayKey, workweekStartDay);
   const lastWeekStart = addDaysToKey(thisWeekStart, -7);
   return { thisWeekStart, lastWeekStart, from: lastWeekStart, to: addDaysToKey(thisWeekStart, 6) };
 }
@@ -76,11 +81,13 @@ function dayFlags(day: TimecardDay, todayKey: string): MyHoursFlag[] {
   return flags;
 }
 
+// `exempt`: the employee gets no overtime, so there's nothing to count down to.
 export function summarizeWeek(
   days: TimecardDay[],
   weeks: PayrollWeek[],
   weekStart: string,
   todayKey: string,
+  exempt = false,
 ): MyHoursWeek {
   const weekEnd = addDaysToKey(weekStart, 6);
   const payroll = weeks.find((w) => w.weekStart === weekStart);
@@ -95,17 +102,18 @@ export function summarizeWeek(
       breakHours: d.breakHours,
       flags: dayFlags(d, todayKey),
     }));
-  const hoursToOvertime = Math.max(0, Math.round((WEEKLY_OVERTIME_THRESHOLD_HOURS - workedHours) * 100) / 100);
+  const hoursToOvertime = exempt ? 0 : Math.max(0, Math.round((WEEKLY_OVERTIME_THRESHOLD_HOURS - workedHours) * 100) / 100);
   return {
     weekStart,
     weekEnd,
     workedHours,
     regularHours: payroll?.regularHours ?? 0,
     overtimeHours: payroll?.overtimeHours ?? 0,
+    doubleTimeHours: payroll?.doubleTimeHours ?? 0,
     breakHours: payroll?.breakHours ?? 0,
     days: weekDays,
     hoursToOvertime,
-    approachingOvertime: workedHours >= APPROACHING_OVERTIME_HOURS && hoursToOvertime > 0,
+    approachingOvertime: !exempt && workedHours >= APPROACHING_OVERTIME_HOURS && hoursToOvertime > 0,
     shiftInProgress: days.some((d) => d.date === todayKey && d.date >= weekStart && d.date <= weekEnd && d.hasIncomplete),
   };
 }

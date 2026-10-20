@@ -27,18 +27,33 @@ const PUNCHES = ["12", "13", "14", "15", "16"].flatMap((d, i) => [
 
 // The client from makeSupabaseClient, with punch_records answering page by
 // page (fetchAllRows reads until an empty page) and every other table empty.
-function client(opts: Parameters<typeof makeSupabaseClient>[0]) {
+// `settings`: app_settings rows. `exemptIds`: what the exempt-employee lookup
+// (employees, paged) returns. `punches` replaces PUNCHES.
+function client(
+  opts: Parameters<typeof makeSupabaseClient>[0],
+  { settings = [] as { key: string; value: string }[], exemptIds = [] as number[], punches = PUNCHES as any[] } = {},
+) {
   const base = makeSupabaseClient({ queryData: [], ...opts });
   const baseFrom = base.from.getMockImplementation()!;
   const punchQueries: Array<Record<string, any>> = [];
+  const exemptQueries: Array<Record<string, any>> = [];
   base.from.mockImplementation((table: string) => {
+    if (table === "app_settings") return makeQueryBuilder({ data: settings, error: null });
+    if (table === "employees") {
+      const b = baseFrom(table);
+      b.range = vi.fn((first: number) => {
+        exemptQueries.push(b);
+        return makeQueryBuilder({ data: first === 0 ? exemptIds.map((id) => ({ id })) : [], error: null });
+      });
+      return b;
+    }
     if (table !== "punch_records") return baseFrom(table);
-    const b = makeQueryBuilder({ data: PUNCHES, error: null });
+    const b = makeQueryBuilder({ data: punches, error: null });
     punchQueries.push(b);
-    b.range = vi.fn((first: number) => makeQueryBuilder({ data: first === 0 ? PUNCHES : [], error: null }));
+    b.range = vi.fn((first: number) => makeQueryBuilder({ data: first === 0 ? punches : [], error: null }));
     return b;
   });
-  return { supabase: base, punchQueries };
+  return { supabase: base, punchQueries, exemptQueries };
 }
 
 const req = (qs: string) => new Request(`http://localhost/api/timecard?${qs}`);
@@ -69,6 +84,9 @@ describe("GET /api/timecard", () => {
       expect(punchQueries[0].eq).toHaveBeenCalledWith("employee_id", 5);
       // No pay data in the response.
       expect(JSON.stringify(body)).not.toMatch(/pay_?rate/i);
+      // Default rules: federal, Monday workweek, exact time.
+      expect(body.exempt).toBe(false);
+      expect(body.payRules).toEqual({ overtimeRule: "federal", workweekStartDay: 1, roundingMinutes: 0 });
     });
 
     it("gets their own time card when they name themselves", async () => {
@@ -85,6 +103,15 @@ describe("GET /api/timecard", () => {
       const res = await GET(req(`employeeId=6&${WEEK}`));
       expect(res.status).toBe(403);
       expect(punchQueries).toHaveLength(0);
+    });
+
+    it("sees their own exempt flag, looked up for them only", async () => {
+      const { supabase, exemptQueries } = client({ user: MOCK_USER, linkedEmployee: alex }, { exemptIds: [5] });
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const body = await (await GET(req(WEEK))).json();
+      expect(body.exempt).toBe(true);
+      expect(body.weeks[0].overtimeHours).toBe(0);
+      expect(exemptQueries[0].eq).toHaveBeenCalledWith("id", 5);
     });
 
     it("is refused another employee's CSV too", async () => {
@@ -117,6 +144,58 @@ describe("GET /api/timecard", () => {
       mockCreateClient.mockResolvedValue(supabase as any);
       const res = await GET(req(WEEK));
       expect(res.status).toBe(400);
+    });
+
+    it("gets the org's pay rules applied: exempt employees get no overtime", async () => {
+      const { supabase, exemptQueries } = client(
+        { user: MOCK_USER, isManager: true, linkedEmployee: { id: 6, name: "Bo Diaz" } },
+        { exemptIds: [6] },
+      );
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const body = await (await GET(req(`employeeId=6&${WEEK}`))).json();
+      expect(body.exempt).toBe(true);
+      expect(body.weeks[0]).toMatchObject({ regularHours: 45, overtimeHours: 0, doubleTimeHours: 0 });
+      // Only this employee is looked up, in this org.
+      expect(exemptQueries[0].eq).toHaveBeenCalledWith("id", 6);
+      expect(exemptQueries[0].eq).toHaveBeenCalledWith("org_id", expect.any(String));
+    });
+
+    it("splits by the org's overtime rule and workweek start", async () => {
+      // 9h a day under California: 1h daily overtime each day, no weekly OT.
+      const { supabase, punchQueries } = client(
+        { user: MOCK_USER, isManager: true, linkedEmployee: { id: 6, name: "Bo Diaz" } },
+        { settings: [{ key: "overtime_rule", value: "california" }, { key: "payroll_week_start", value: "0" }] },
+      );
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const body = await (await GET(req(`employeeId=6&${WEEK}`))).json();
+      expect(body.exempt).toBe(false);
+      expect(body.payRules).toEqual({ overtimeRule: "california", workweekStartDay: 0, roundingMinutes: 0 });
+      // Sunday workweek: Oct 11 is the week start; the query starts the day before (EDT).
+      expect(punchQueries[0].gte).toHaveBeenCalledWith("punched_at", "2026-10-10T04:00:00.000Z");
+      expect(body.weeks).toEqual([
+        expect.objectContaining({ weekStart: "2026-10-11", regularHours: 40, overtimeHours: 5, doubleTimeHours: 0 }),
+      ]);
+      expect(body.weeks[0].days.map((d: any) => d.overtimeHours)).toEqual([1, 1, 1, 1, 1]);
+    });
+
+    it("shows raw and rounded punch times with rounding on", async () => {
+      const punches = [
+        { id: 1, punch_type: "clock_in", punched_at: "2026-10-12T13:07:00Z", is_manual: false, note: null },
+        { id: 2, punch_type: "clock_out", punched_at: "2026-10-12T21:08:00Z", is_manual: false, note: null },
+      ];
+      const { supabase } = client(
+        { user: MOCK_USER, isManager: true, linkedEmployee: { id: 6, name: "Bo Diaz" } },
+        { settings: [{ key: "punch_rounding_minutes", value: "15" }], punches },
+      );
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const body = await (await GET(req(`employeeId=6&${WEEK}`))).json();
+      expect(body.days[0].punches.map((p: any) => [p.punchedAt, p.roundedAt])).toEqual([
+        ["2026-10-12T13:07:00Z", "2026-10-12T13:00:00.000Z"],
+        ["2026-10-12T21:08:00Z", "2026-10-12T21:15:00.000Z"],
+      ]);
+      expect(body.days[0].workedHours).toBe(8.02);
+      expect(body.days[0].roundedWorkedHours).toBe(8.25);
+      expect(body.weeks[0].totalWorkedHours).toBe(8.25); // payroll pays the rounded time
     });
 
     it("gets 404 for an employee outside the org", async () => {

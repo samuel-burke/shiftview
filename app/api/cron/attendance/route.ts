@@ -6,6 +6,7 @@ import { notify, notifyManagers, type NotificationType } from "@/lib/notify";
 import { sendNtfy } from "@/lib/ntfy";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, resolveTimezone, todayKeyInTz } from "@/lib/dates";
+import { PAY_RULE_KEYS, parsePayRules } from "@/lib/pay-rules";
 import { parsePunchPolicy } from "@/lib/punch-policy";
 import {
   findMissedClockOuts,
@@ -21,7 +22,7 @@ const ALERT_TYPES: NotificationType[] = ["no_show", "missed_clock_out", "overtim
 const DAY_MS = 86_400_000;
 
 // Settings the checks read: the store timezone and the no-call-no-show policy.
-const SETTING_KEYS = ["timezone", "punch_ncns_enabled", "punch_ncns_minutes"];
+const SETTING_KEYS = ["timezone", "punch_ncns_enabled", "punch_ncns_minutes", PAY_RULE_KEYS.workweekStartDay];
 
 // GET /api/cron/attendance — run every 15 minutes. For each organization, in
 // its store timezone, alerts:
@@ -109,9 +110,16 @@ export async function GET(request: Request) {
         .order("id")
         .range(a, b)
     ),
-    fetchAllRows<{ id: number; org_id: string; name: string; user_id: string | null }>((a, b) =>
-      supabase.from("employees").select("id, org_id, name, user_id").order("id").range(a, b)
-    ),
+    // exempt (migration 0060): salaried staff get no overtime, so no overtime
+    // alert. Before that migration the column is missing: nobody is exempt.
+    (async () => {
+      type Emp = { id: number; org_id: string; name: string; user_id: string | null; exempt?: boolean };
+      const read = (columns: string) =>
+        fetchAllRows<Emp>((a, b) => supabase.from("employees").select(columns).order("id").range(a, b) as never);
+      const withExempt = await read("id, org_id, name, user_id, exempt");
+      if ((withExempt.error as { code?: string } | null)?.code !== "42703") return withExempt;
+      return read("id, org_id, name, user_id");
+    })(),
     // Alerts already sent. An alert is due at most ALERT_LOOKBACK_MS after
     // its event and an overtime alert is once per workweek, so 8 days back
     // holds every key that could repeat.
@@ -234,7 +242,10 @@ export async function GET(request: Request) {
       if (ok) missedClockOuts++;
     }
 
-    const projection = projectWeeklyHours({ timezone: tz, nowMs, ...data });
+    if (employee.exempt === true) continue; // no overtime to warn about
+    const projection = projectWeeklyHours({
+      timezone: tz, nowMs, workweekStartDay: parsePayRules(settings).workweekStartDay, ...data,
+    });
     if (isApproachingOvertime(projection)) {
       const body =
         projection.remainingScheduledHours > 0

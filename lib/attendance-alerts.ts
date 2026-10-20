@@ -145,13 +145,16 @@ export type WeeklyHoursProjection = {
 export function projectWeeklyHours(input: {
   timezone: string;
   nowMs: number;
+  // The org's payroll workweek start (app_settings.payroll_week_start).
+  workweekStartDay?: number;
   schedules: TimecardScheduleInput[];
   punches: TimecardPunchInput[];
   callouts: TimecardCalloutInput[];
 }): WeeklyHoursProjection {
   const { timezone: tz, nowMs } = input;
   const today = todayKeyInTz(tz, nowMs);
-  const weekStart = weekStartForKey(today, WORKWEEK_START_DAY);
+  const workweekStartDay = input.workweekStartDay ?? WORKWEEK_START_DAY;
+  const weekStart = weekStartForKey(today, workweekStartDay);
   const weekEnd = addDaysToKey(weekStart, 6);
 
   // Payroll pays only completed time; the shift under way counts up to now
@@ -164,7 +167,7 @@ export function projectWeeklyHours(input: {
     punched_at: p.punchedAt,
     employees: null,
   }));
-  let workedMs = (computePayroll(rows, tz, { from: weekStart, to: today })[0]?.totalWorkedHours ?? 0) * HOUR_MS;
+  let workedMs = (computePayroll(rows, tz, { from: weekStart, to: today }, { rules: { workweekStartDay } })[0]?.totalWorkedHours ?? 0) * HOUR_MS;
 
   const { shifts, sessions } = matchSessionsToShifts(input);
   const current = sessions[sessions.length - 1];

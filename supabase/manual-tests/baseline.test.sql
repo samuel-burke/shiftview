@@ -27,6 +27,7 @@
 \ir ../migrations/0052_employee_delete_cascade.sql
 \ir ../migrations/0053_punch_history.sql
 \ir ../migrations/0054_archive_employees.sql
+\ir ../migrations/0060_pay_rules.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''

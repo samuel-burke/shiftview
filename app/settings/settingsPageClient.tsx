@@ -16,6 +16,8 @@ import AvailabilitySection from "../../components/AvailabilitySection";
 import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
 import SettingsSectionLabel from "../../components/SettingsSectionLabel";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
+import EmployeeExemptToggle from "../../components/EmployeeExemptToggle";
+import PayRulesSection from "../../components/PayRulesSection";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
 import GeofenceMap from "../../components/GeofenceMap";
@@ -24,6 +26,7 @@ import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
+import { DEFAULT_PAY_RULES, type PayRules } from "../../lib/pay-rules";
 import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
 import StableLabel from "@/components/StableLabel";
@@ -78,7 +81,7 @@ const FIRST_DAY_OPTIONS = [
   { label: "Saturday", value: 6 },
 ];
 
-type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null; archived_at?: string | null };
+type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null; archived_at?: string | null; exempt?: boolean | null };
 
 // Top-level grouping divider — sits above a cluster of related settings
 // sections to give the page a clear two-tier hierarchy (group → section → card).
@@ -447,6 +450,7 @@ export default function SettingsPageClient({
 
   // ── Punch Violations ─────────────────────────────────────────────────────────
   const [punchPolicy, setPunchPolicy] = useState<PunchPolicy>(DEFAULT_PUNCH_POLICY);
+  const [payRules, setPayRules] = useState<PayRules>(DEFAULT_PAY_RULES);
   const [schedulingRules, setSchedulingRules] = useState<SchedulingRules>(DEFAULT_SCHEDULING_RULES);
   const [punchPolicyStatus, setPunchPolicyStatus] = useState<SaveStatus>("idle");
 
@@ -687,6 +691,7 @@ export default function SettingsPageClient({
           setAddressInput(s.geofenceAddress);
         }
         if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
+        if (s.payRules) setPayRules({ ...DEFAULT_PAY_RULES, ...s.payRules });
         if (s.schedulingRules) setSchedulingRules({ ...DEFAULT_SCHEDULING_RULES, ...s.schedulingRules });
       })
       .catch(() => {});
@@ -1472,6 +1477,9 @@ export default function SettingsPageClient({
           </div>
         </section>}
 
+        {/* Pay rules — manager only */}
+        {isManager && <PayRulesSection rules={payRules} onSaved={setPayRules} />}
+
         {/* Timezone — manager only */}
         {isManager && <section>
           <SettingsSectionLabel label="Timezone">
@@ -1607,6 +1615,12 @@ export default function SettingsPageClient({
                   </div>
                   {isManager && (
                     <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
+                  )}
+                  {isManager && (
+                    <EmployeeExemptToggle
+                      employee={emp}
+                      onSaved={(exempt) => setEmployees((prev) => prev.map((e) => (e.id === emp.id ? { ...e, exempt } : e)))}
+                    />
                   )}
                   {isManager && (
                     <EmployeeSchedulingRow

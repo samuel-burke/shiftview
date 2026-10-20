@@ -4,7 +4,7 @@ import { requireManager } from "@/lib/require-manager";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { computePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
 import { daysBetweenKeys } from "@/lib/dates";
-import { getOrgTimezone } from "@/lib/org-timezone";
+import { getOrgPayrollSettings, loadExemptEmployeeIds } from "@/lib/pay-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +31,14 @@ export async function GET(request: Request) {
   if (daysDiff > 366)
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
-  const tz = await getOrgTimezone(supabase, orgId!);
+  const { tz, rules } = await getOrgPayrollSettings(supabase, orgId!);
+  const { ids: exemptEmployeeIds, error: exemptError } = await loadExemptEmployeeIds(supabase, orgId!);
+  if (exemptError) {
+    console.error("[api/reports/payroll] exempt", exemptError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
-  const span = payrollQueryWindow(from, to, tz);
+  const span = payrollQueryWindow(from, to, tz, rules.workweekStartDay);
   const { data, error, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
@@ -55,6 +60,7 @@ export async function GET(request: Request) {
   if (truncated)
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const rows = computePayroll(data as unknown as PunchRow[], tz, { from, to });
-  return NextResponse.json({ rows, from, to });
+  const rows = computePayroll(data as unknown as PunchRow[], tz, { from, to }, { rules, exemptEmployeeIds });
+  // The rules the hours were split by, so the report can say so.
+  return NextResponse.json({ rows, from, to, rules });
 }
