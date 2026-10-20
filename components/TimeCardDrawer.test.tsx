@@ -106,3 +106,89 @@ describe("TimeCardPanel — split shifts", () => {
     expect(screen.getByText("8:00 AM – 12:00 PM, 5:00 PM – 9:00 PM")).toBeInTheDocument();
   });
 });
+
+describe("TimeCardPanel — pay period sign-off", () => {
+  function withPeriods(payPeriods: unknown[]) {
+    render(
+      <TimeCardPanel
+        employee={{ id: 3, name: "Alex Rivera" }} from={card.from} to={card.to}
+        onFromChange={() => {}} onToChange={() => {}} onApply={() => {}} onClose={() => {}} onExport={vi.fn()}
+        data={{ ...card, payPeriods } as any} loading={false} error={null}
+      />
+    );
+  }
+
+  it("shows nothing when the store doesn't use pay periods", () => {
+    withPeriods([]);
+    expect(screen.queryByTestId("timecard-pay-period")).toBeNull();
+  });
+
+  it("shows each period's status and the employee's sign-off, in store time", () => {
+    withPeriods([
+      { start: "2026-09-28", end: "2026-10-04", status: "locked",
+        signoff: { employeeId: 3, status: "signed", note: null, signedAt: "2026-10-05T01:30:00Z" } },
+      { start: "2026-10-05", end: "2026-10-11", status: "open",
+        signoff: { employeeId: 3, status: "disputed", note: "Missing Thursday", signedAt: "2026-10-12T01:30:00Z" } },
+      { start: "2026-10-12", end: "2026-10-18", status: "approved", signoff: null },
+    ]);
+    const rows = screen.getAllByTestId("timecard-pay-period");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Pay period Mon, Sep 28 – Sun, Oct 4");
+    expect(rows[0]).toHaveTextContent("Locked");
+    // 01:30 UTC on Oct 5 is 9:30 PM on Oct 4 in New York.
+    expect(rows[0]).toHaveTextContent("Signed Oct 4 9:30 PM");
+    expect(rows[1]).toHaveTextContent("Open");
+    expect(rows[1]).toHaveTextContent("Disputed");
+    expect(rows[1]).toHaveTextContent("Missing Thursday");
+    expect(rows[2]).toHaveTextContent("Approved");
+    expect(rows[2]).toHaveTextContent("Not signed");
+  });
+});
+
+describe("TimeCardPanel — pay rules", () => {
+  function renderWith(data: Parameters<typeof TimeCardPanel>[0]["data"]) {
+    render(
+      <TimeCardPanel
+        employee={{ id: 3, name: "Alex Rivera" }} from={card.from} to={card.to}
+        onFromChange={() => {}} onToChange={() => {}} onApply={() => {}} onClose={() => {}} onExport={() => {}}
+        data={data} loading={false} error={null}
+      />
+    );
+  }
+  const week = {
+    weekStart: "2026-10-05", priorHours: 0, regularHours: 8, overtimeHours: 4, doubleTimeHours: 1.5,
+    breakHours: 0, totalWorkedHours: 13.5, hasIncomplete: false, days: [],
+  };
+
+  it("shows each workweek's regular, overtime and double time", () => {
+    renderWith({ ...card, weeks: [week] });
+    const weeks = screen.getByTestId("timecard-pay-weeks");
+    expect(weeks).toHaveTextContent("8.00 reg");
+    expect(weeks).toHaveTextContent("4.00 OT");
+    expect(weeks).toHaveTextContent("1.50 DT");
+  });
+
+  it("leaves double time out when there is none, and marks exempt employees", () => {
+    renderWith({ ...card, weeks: [{ ...week, overtimeHours: 0, doubleTimeHours: 0, regularHours: 13.5 }], exempt: true });
+    const weeks = screen.getByTestId("timecard-pay-weeks");
+    expect(weeks).not.toHaveTextContent("DT");
+    expect(weeks).toHaveTextContent("Exempt · no overtime");
+  });
+
+  it("shows the raw and the rounded punch time with rounding on", () => {
+    const rounded = computeTimecard({
+      employeeId: 3, employeeName: "Alex Rivera", from: "2026-10-06", to: "2026-10-06", timezone: TZ,
+      policy: DEFAULT_PUNCH_POLICY, schedules: [], callouts: [], roundingMinutes: 15,
+      punches: [
+        { id: 1, punchType: "clock_in", punchedAt: "2026-10-06T13:07:00Z" },
+        { id: 2, punchType: "clock_out", punchedAt: "2026-10-06T21:08:00Z" },
+      ],
+      nowMs: Date.parse("2026-10-08T02:00:00Z"),
+    });
+    renderWith(rounded);
+    expect(screen.getByText("9:07 AM")).toBeInTheDocument();
+    expect(screen.getByText("→ 9:00 AM")).toBeInTheDocument();
+    expect(screen.getByText("→ 5:15 PM")).toBeInTheDocument();
+    expect(screen.getByText("8.25h rounded")).toBeInTheDocument();
+  });
+});

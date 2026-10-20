@@ -7,6 +7,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { checkManualPunchAgainstHistory, type PunchKind } from "@/lib/manual-punch-rules";
 import { dateKeyInTz, formatDateKey, formatTimeInTz } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { isPayPeriodLockedError } from "@/lib/pay-periods-server";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,10 @@ export async function PUT(
     .eq("status", "pending")
     .select("id")
     .maybeSingle();
+  // The punch's time is in a locked pay period (migration 0062): a manager
+  // must reopen the period before approving.
+  if (isPayPeriodLockedError(claimError))
+    return NextResponse.json({ error: claimError!.message }, { status: 409 });
   if (claimError) {
     console.error("[api/punch-corrections/[id]]", claimError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -96,8 +101,10 @@ export async function PUT(
       .select("id")
       .single();
     if (insertError || !punch) {
-      console.error("[api/punch-corrections/[id]]", insertError);
       await reopen();
+      if (isPayPeriodLockedError(insertError))
+        return NextResponse.json({ error: insertError!.message }, { status: 409 });
+      console.error("[api/punch-corrections/[id]]", insertError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
     punchId = punch.id;
@@ -105,18 +112,19 @@ export async function PUT(
     // Manual inserts take no lock, so another correction for this employee
     // approved at the same moment can pass the check above too (two clock-outs
     // for one clock-in). Re-check the new punch against its neighbours now
-    // that it's in; if the sequence broke, take it back out (managers may
-    // delete punches) and let the manager retry against the current punches.
+    // that it's in; if the sequence broke, take it back out and let the
+    // manager retry against the current punches. Punches are deleted only
+    // through delete_punch (0053), which records the delete and its reason in
+    // the punch's history.
     const raceError = await checkManualPunchAgainstHistory(
       supabase, orgId!, correction.employee_id, correction.punch_type as PunchKind, correction.punched_at,
       { tz, excludePunchId: punch.id }
     );
     if (raceError) {
-      const { error: deleteError } = await supabase
-        .from("punch_records")
-        .delete()
-        .eq("org_id", orgId!)
-        .eq("id", punch.id);
+      const { error: deleteError } = await supabase.rpc("delete_punch", {
+        p_id:     punch.id,
+        p_reason: `Approval of correction ${id} undone: another correction changed this shift at the same time`,
+      });
       if (deleteError) {
         // The punch stays, so keep the request approved and linked to it.
         console.error("[api/punch-corrections/[id]]", deleteError);

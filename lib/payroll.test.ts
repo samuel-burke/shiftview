@@ -104,7 +104,7 @@ describe("payrollQueryWindow", () => {
 
 describe("computePayroll — pay-period boundaries", () => {
   // Sun Jan 18 18:00 → Mon Jan 19 02:00 EST, break 23:30–00:30: 7h worked,
-  // belonging to Sunday (the day it started).
+  // 5.5h on Sunday and 1.5h after the Monday workweek starts.
   const overnight = () => [
     row(1, "clock_in", "2026-01-18T23:00:00Z"),
     row(1, "break_start", "2026-01-19T04:30:00Z"),
@@ -112,13 +112,15 @@ describe("computePayroll — pay-period boundaries", () => {
     row(1, "clock_out", "2026-01-19T07:00:00Z"),
   ];
 
-  it("pays a shift that crosses into the next period once, in the period it started", () => {
+  it("pays a shift that crosses into the next workweek once, each hour in the week it was worked", () => {
     const all = overnight();
     const week1 = report(all, "2026-01-12", "2026-01-18");
     const week2 = report(all, "2026-01-19", "2026-01-25");
-    expect(worked(week1)).toBe(7);
-    // Before the fix the post-break 1.5h were paid again in week 2.
-    expect(worked(week2)).toBe(0);
+    // Before the audit fix the post-break 1.5h were paid twice; until the
+    // workweek split they were all paid in week 1.
+    expect(worked(week1)).toBe(5.5);
+    expect(worked(week2)).toBe(1.5);
+    expect(week2[0].weeks[0].days.map((d) => [d.date, d.workedHours])).toEqual([["2026-01-19", 1.5]]);
   });
 
   it("never pays an hour twice, wherever a range is split", () => {

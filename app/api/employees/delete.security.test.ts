@@ -4,11 +4,15 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { MOCK_ORG_ID, MOCK_USER } from "../__tests__/helpers";
 
-// Regression: deleting an employee who had ever called out or claimed an open
-// shift failed with a foreign key error (500) after their shifts had already
-// been deleted, leaving them on the roster with no schedule. Migration 0052
-// makes the history cascade; the route now deletes the employee row first and
-// never removes shifts when the delete can't finish.
+// Regressions:
+//  * Deleting an employee who had ever called out or claimed an open shift
+//    failed (500) after their shifts had already been deleted, leaving them on
+//    the roster with no schedule (fixed by 0052: one atomic delete).
+//  * Deleting an employee erased their punches, punch corrections and time
+//    off: time cards the FLSA requires us to keep (fixed by 0054: removing
+//    someone archives them).
+// The route now writes nothing itself: employee_remove archives or deletes in
+// one transaction, and the database refuses to delete anyone with time records.
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
@@ -20,43 +24,17 @@ vi.mock("next/server", () => ({
   },
 }));
 
-const FK = { code: "23503", message: "violates foreign key constraint" };
-
-// A fake database that records each write. `migrated` says whether 0052 has
-// run; `history` lists the rows that block an employee delete before it.
-function fakeDb({
-  migrated = false,
-  history = [] as ("callouts" | "open_shift_claims" | "open_shifts")[],
-  employeeDeleteError = null as { code?: string; message: string } | null,
-}) {
+// A fake database that records every write the route makes.
+function fakeDb(rpc: { data: unknown; error: { code?: string; message: string } | null }) {
   const writes: string[] = [];
-  let schedulesLeft = true;
   const from = vi.fn((table: string) => {
-    let op = "select";
-    let head = false;
     const b: any = {};
-    for (const m of ["eq", "order", "limit"]) b[m] = vi.fn(() => b);
-    b.select = vi.fn((_cols?: string, opts?: { head?: boolean }) => {
-      if (opts?.head) head = true;
-      return b;
-    });
-    b.delete = vi.fn(() => { op = "delete"; return b; });
+    for (const m of ["select", "eq", "order", "limit", "is", "in"]) b[m] = vi.fn(() => b);
+    for (const m of ["delete", "update", "insert", "upsert"])
+      b[m] = vi.fn(() => { writes.push(`${m} ${table}`); return b; });
     const result = () => {
       if (table === "managers") return { data: { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID, is_owner: false }, error: null };
-      if (op === "select" && table === "employees") return { data: { id: 7, user_id: null, name: "Dana", email: null }, error: null };
-      if (op === "select" && head) return { data: null, count: history.includes(table as never) ? 1 : 0, error: null };
-      if (op === "delete" && table === "schedules") {
-        writes.push("delete schedules");
-        schedulesLeft = false;
-        return { data: null, error: null };
-      }
-      if (op === "delete" && table === "employees") {
-        if (employeeDeleteError) return { data: null, error: employeeDeleteError };
-        const blocked = !migrated && (schedulesLeft || history.length > 0);
-        if (blocked) return { data: null, error: FK };
-        writes.push("delete employee");
-        return { data: [{ id: 7 }], error: null };
-      }
+      if (table === "employees") return { data: { id: 7, user_id: null, name: "Dana", email: null }, error: null };
       return { data: null, error: null };
     };
     b.maybeSingle = vi.fn(async () => result());
@@ -65,7 +43,11 @@ function fakeDb({
   });
   return {
     writes,
-    client: { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER } }) }, from },
+    client: {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER } }) },
+      from,
+      rpc: vi.fn().mockResolvedValue(rpc),
+    },
   };
 }
 
@@ -77,39 +59,40 @@ function deleteReq() {
   });
 }
 
-describe("DELETE /api/employees keeps a failed delete from losing shifts", () => {
+describe("DELETE /api/employees keeps time records", () => {
   beforeEach(() => {
     vi.mocked(createAdminClient).mockReturnValue({} as never);
   });
 
-  it("after 0052: one delete of the employee row, shifts cascade with it", async () => {
-    const db = fakeDb({ migrated: true, history: ["callouts", "open_shift_claims", "open_shifts"] });
+  it("archives through employee_remove and deletes nothing itself", async () => {
+    const db = fakeDb({ data: "archived", error: null });
     vi.mocked(createClient).mockResolvedValue(db.client as never);
     const res = await DELETE(deleteReq());
     expect(res.status).toBe(200);
-    expect(db.writes).toEqual(["delete employee"]);
+    expect(await res.json()).toEqual({ ok: true, archived: true });
+    expect(db.client.rpc).toHaveBeenCalledWith("employee_remove", { p_org: MOCK_ORG_ID, p_employee: 7 });
+    expect(db.writes).toEqual([]);
   });
 
-  it("before 0052, no other history: removes shifts, then the employee", async () => {
-    const db = fakeDb({ migrated: false });
+  it("a mistaken add with no history is deleted by the same one call", async () => {
+    const db = fakeDb({ data: "deleted", error: null });
     vi.mocked(createClient).mockResolvedValue(db.client as never);
     const res = await DELETE(deleteReq());
     expect(res.status).toBe(200);
-    expect(db.writes).toEqual(["delete schedules", "delete employee"]);
+    expect(await res.json()).toEqual({ ok: true, archived: false });
+    expect(db.writes).toEqual([]);
   });
 
-  for (const table of ["callouts", "open_shift_claims", "open_shifts"] as const) {
-    it(`before 0052, with ${table} history: 409 and the shifts are kept`, async () => {
-      const db = fakeDb({ migrated: false, history: [table] });
-      vi.mocked(createClient).mockResolvedValue(db.client as never);
-      const res = await DELETE(deleteReq());
-      expect(res.status).toBe(409);
-      expect(db.writes).toEqual([]);
-    });
-  }
+  it("a punch arriving mid-delete (foreign key refusal): 409 and nothing changed", async () => {
+    const db = fakeDb({ data: null, error: { code: "23503", message: "violates foreign key constraint" } });
+    vi.mocked(createClient).mockResolvedValue(db.client as never);
+    const res = await DELETE(deleteReq());
+    expect(res.status).toBe(409);
+    expect(db.writes).toEqual([]);
+  });
 
-  it("any other database error: 500 and nothing deleted", async () => {
-    const db = fakeDb({ migrated: true, employeeDeleteError: { message: "db error" } });
+  it("any other database error: 500 and nothing changed", async () => {
+    const db = fakeDb({ data: null, error: { message: "db error" } });
     vi.mocked(createClient).mockResolvedValue(db.client as never);
     const res = await DELETE(deleteReq());
     expect(res.status).toBe(500);
