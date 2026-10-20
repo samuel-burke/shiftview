@@ -431,7 +431,7 @@ Times are stored as minutes since midnight (e.g. `480` = 8:00 AM); an overnight 
 
 ## Row Level Security
 
-RLS is enabled on every tenant table. Policies apply to signed-in users (`authenticated`, which includes anonymous demo sessions) and compare each row with three sets looked up once per query: `my_org_ids()` (orgs where you have a `managers` or `employees` row), `my_managed_org_ids()` (orgs you manage) and `my_employees()` (the `(org_id, employee_id)` rows linked to your account), as in `org_id in (select my_org_ids())`. Calling a function per row instead (the older `is_org_member(org)` style) was 12–35× slower in a benchmark on 50,000 shifts. With migrations through `0042` applied:
+RLS is enabled on every tenant table. Policies apply to signed-in users (`authenticated`, which includes anonymous demo sessions) and compare each row with three sets looked up once per query: `my_org_ids()` (orgs where you have a `managers` or `employees` row), `my_managed_org_ids()` (orgs you manage) and `my_employees()` (the `(org_id, employee_id)` rows linked to your account), as in `org_id in (select my_org_ids())`. Calling a function per row instead (the older `is_org_member(org)` style) was 12–35× slower in a benchmark on 50,000 shifts. With migrations through `0052` applied:
 
 | Table | Read | Write |
 |---|---|---|
@@ -440,7 +440,8 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 | `managers` | Members | No direct writes: `manager_promote` / `manager_demote` (the owner, when the org has one; members only), sign-up and the service role |
 | `schedules`, `store_hours`, `app_settings`, `schedule_templates`, `schedule_template_rows`, `positions`, `announcements`, `open_shifts`, coverage tables | Members | Managers |
 | `draft_schedules` | Managers | Managers |
-| `availability`, `callouts` | Members | Your own rows, or managers |
+| `availability` | Members | Your own rows, or managers |
+| `callouts` | Members read status; `callouts_for_org(org)` includes reasons only for the employee and managers | Your own rows, or managers; atomic re-filing uses `save_callout` |
 | `time_off_requests` | Members | Employees file their own as pending; managers decide, edit and delete |
 | `shift_swaps` | Members | The requester files a pending swap of their own shift for the coworker's; the asked coworker can only accept or decline it; managers decide and delete. `approve_shift_swap` refuses (`stale`) if either shift changed hands since |
 | `open_shift_claims` | Members | Your own claims, as pending; managers decide |
@@ -459,6 +460,7 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 
 - The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`, `employee_pay_rates`; `presence_set` only writes the caller's own device; `my_*` only return the caller's own memberships) or can only be called with the service role (`notify_*`, `link_employee_account`, `org_signup_create`, `org_delete`, `reset_demo_org`). Trigger functions and the old `is_org_*` helpers can't be called through the API at all.
 - API roles can't select `employees.pay_rate` (`0042` grants the other columns one by one). A column added to `employees` later isn't readable through the API until it's added to that grant.
+- API roles can't select `callouts.reason` (`0052`); Realtime omits it from new and old records. `callouts_for_org` checks membership and redacts coworkers' reasons in the database; `save_callout` checks own-or-manager access and preserves the existing call-out rules. Deploy `0052` together with its API changes.
 - `punch_records` coordinates must be both null or both in range (`0050`), and a signed-in user's live `clock_in` must be inside the org's geofence when GPS and the geofence are on, so writing the table directly can't skip the check in `POST /api/punches`.
 - `anon` can't write any table, and only the service role can `TRUNCATE` (which skips RLS).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.

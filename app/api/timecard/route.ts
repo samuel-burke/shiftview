@@ -105,9 +105,8 @@ export async function GET(request: Request) {
 
   // Call-outs in range.
   const { data: calloutRows, error: calloutErr } = await supabase
-    .from("callouts")
+    .rpc("callouts_for_org", { p_org: orgId! })
     .select("date, reason")
-    .eq("org_id", orgId!)
     .eq("employee_id", employeeId)
     .gte("date", from)
     .lte("date", to);
@@ -135,7 +134,7 @@ export async function GET(request: Request) {
       isManual: p.is_manual,
       note: p.note,
     })),
-    callouts: (calloutRows ?? []).map((c) => ({ date: c.date, reason: c.reason })),
+    callouts: (Array.isArray(calloutRows) ? calloutRows : []).map((c) => ({ date: c.date, reason: c.reason })),
   });
 
   if (format === "csv") {

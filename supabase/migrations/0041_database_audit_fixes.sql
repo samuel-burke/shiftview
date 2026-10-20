@@ -161,6 +161,7 @@ create policy mt_select on public.managers for select to authenticated
 
 -- availability, callouts: members read; your own rows or a manager write.
 -- (callouts are narrowed further by the callouts_rules trigger.)
+-- 0052 additionally protects the private callouts.reason column.
 do $$
 declare
   t text;

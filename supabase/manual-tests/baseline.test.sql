@@ -24,6 +24,7 @@
 \ir ../migrations/0047_store_timezone.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \ir ../migrations/0051_punch_session_limits.sql
+\ir ../migrations/0052_callout_reason_privacy.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
