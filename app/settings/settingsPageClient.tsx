@@ -1890,7 +1890,7 @@ export default function SettingsPageClient({
               <div>
                 <div id="confirm-delete-heading" className="text-base font-bold text-fg">Delete {confirmDeleteEmployee.name}?</div>
                 <div className="text-sm text-fg-muted mt-1">
-                  This will permanently delete their account and all of their shifts. This cannot be undone.
+                  This will permanently remove them from this organization and delete all of their shifts here. Their login account will be kept. This cannot be undone.
                 </div>
               </div>
             </div>

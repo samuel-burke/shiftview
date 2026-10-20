@@ -466,7 +466,7 @@ describe("DELETE /api/employees", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  it("deletes the auth account when the employee has a linked user", async () => {
+  it("preserves the auth account when removing the user's final membership", async () => {
     const adminClient = makeAdminClient();
     mockCreateAdminClient.mockReturnValue(adminClient as any);
     mockCreateClient.mockResolvedValue(
@@ -478,7 +478,12 @@ describe("DELETE /api/employees", () => {
     );
     const res = await DELETE(deleteReq({ id: 1 }));
     expect(res.status).toBe(200);
-    expect(adminClient.auth.admin.deleteUser).toHaveBeenCalledWith("other-user-456");
+    expect(adminClient.auth.admin.deleteUser).not.toHaveBeenCalled();
+    expect(adminClient.from).toHaveBeenCalledWith("managers");
+    const managerQuery = adminClient.from.mock.results[0].value;
+    expect(managerQuery.delete).toHaveBeenCalledOnce();
+    expect(managerQuery.eq).toHaveBeenCalledWith("org_id", MOCK_ORG_ID);
+    expect(managerQuery.eq).toHaveBeenCalledWith("user_id", "other-user-456");
   });
 
   it("keeps the account when the user still belongs to another organization", async () => {

@@ -207,8 +207,8 @@ export async function DELETE(request: Request) {
   if (employee.user_id && employee.user_id === user?.id)
     return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
 
-  // Deleting a linked employee also removes their manager role and auth
-  // account below, so it follows the owner policy: the owner can never be
+  // Deleting a linked employee also removes their manager role below,
+  // so it follows the owner policy: the owner can never be
   // removed, and in owned orgs only the owner may remove another manager.
   if (employee.user_id) {
     const { data: ownerRow } = await supabase
@@ -259,21 +259,13 @@ export async function DELETE(request: Request) {
   if (!deleted || deleted.length === 0)
     return NextResponse.json({ error: "Employee not found or permission denied" }, { status: 404 });
 
-  // A linked user loses their manager role here too. Their account is shared
-  // by every organization they belong to, so it is deleted only when this was
-  // their last membership. In the demo org the linked user is another
-  // visitor in the middle of a session: leave them be; the nightly reset
-  // removes demo accounts.
+  // Remove only this organization's manager role. Tenant managers cannot
+  // delete a global auth account, even when its last membership is removed;
+  // users can delete their own account through /api/account. Demo visitors
+  // keep their roles until the nightly reset.
   if (employee.user_id && !isDemoOrgId(orgId!)) {
     const admin = createAdminClient();
     await admin.from("managers").delete().eq("org_id", orgId!).eq("user_id", employee.user_id);
-    const [managerRows, employeeRows] = await Promise.all([
-      admin.from("managers").select("org_id", { count: "exact", head: true }).eq("user_id", employee.user_id),
-      admin.from("employees").select("id", { count: "exact", head: true }).eq("user_id", employee.user_id),
-    ]);
-    const lastMembership =
-      !managerRows.error && !employeeRows.error && managerRows.count === 0 && employeeRows.count === 0;
-    if (lastMembership) await admin.auth.admin.deleteUser(employee.user_id);
   }
 
   writeAuditLog({
