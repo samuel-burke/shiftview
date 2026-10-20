@@ -84,11 +84,11 @@ export function dateForWeekday(weekStartKey: string, dayOfWeek: number): string 
   return addDaysToKey(weekStartKey, (dayOfWeek - dayOfWeekForKey(weekStartKey) + 7) % 7);
 }
 
-// The Monday–Sunday week before the one containing `todayKey` — the default
-// payroll period.
-export function previousPayWeek(todayKey: string): { from: string; to: string } {
-  const thisMonday = weekStartForKey(todayKey, 1);
-  return { from: addDaysToKey(thisMonday, -7), to: addDaysToKey(thisMonday, -1) };
+// The payroll workweek before the one containing `todayKey` — the default
+// payroll period. Workweeks start on `weekStartDay` (default Monday).
+export function previousPayWeek(todayKey: string, weekStartDay = 1): { from: string; to: string } {
+  const thisStart = weekStartForKey(todayKey, weekStartDay);
+  return { from: addDaysToKey(thisStart, -7), to: addDaysToKey(thisStart, -1) };
 }
 
 // Inclusive list of date keys from `from` to `to`.

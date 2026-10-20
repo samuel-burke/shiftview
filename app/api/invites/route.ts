@@ -6,15 +6,13 @@ import { writeAuditLog } from "@/lib/audit";
 import { withOrg } from "@/lib/org-scope";
 import { isDemoOrgId } from "@/lib/demo-org";
 import { notify } from "@/lib/notify";
-import { escapeHtml, sendEmail } from "@/lib/email";
+import { escapeHtml, isValidEmail, sendEmail } from "@/lib/email";
 
 // Demo visitors hold manager access, and invites send real emails through
 // Supabase Auth — an open spam vector if left enabled for the demo org.
 const DEMO_BLOCKED = "Inviting employees is disabled in the demo organization";
 
 export const dynamic = "force-dynamic";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function formatName(raw: string): string {
   return raw.trim().replace(/\S+/g, (word) =>
@@ -29,7 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "name required" }, { status: 400 });
   if (!email || typeof email !== "string")
     return NextResponse.json({ error: "email required" }, { status: 400 });
-  if (!EMAIL_RE.test(email))
+  if (!isValidEmail(email))
     return NextResponse.json({ error: "email format is invalid" }, { status: 400 });
 
   const supabase = await createClient();
@@ -48,10 +46,17 @@ export async function POST(request: Request) {
   // Someone already on this team isn't added a second time.
   const { data: sameEmail } = await admin
     .from("employees")
-    .select("id")
+    .select("id, archived_at")
     .eq("org_id", orgId!)
     .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
     .limit(1);
+  // A former employee coming back is restored, not added again, so their
+  // history stays one person's.
+  if (Array.isArray(sameEmail) && sameEmail.some((e) => e.archived_at))
+    return NextResponse.json(
+      { error: "That person is archived. Restore them from Archived employees in Settings." },
+      { status: 409 }
+    );
   if (Array.isArray(sameEmail) && sameEmail.length > 0)
     return NextResponse.json({ error: "Someone with that email is already on your team" }, { status: 409 });
 
@@ -153,7 +158,7 @@ async function tellExistingAccount(
 export async function PUT(request: Request) {
   const { email } = await request.json();
 
-  if (!email || !EMAIL_RE.test(email))
+  if (!email || typeof email !== "string" || !isValidEmail(email))
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
 
   const supabase = await createClient();
@@ -172,13 +177,15 @@ export async function PUT(request: Request) {
   // addresses.
   const { data: pending } = await supabase
     .from("employees")
-    .select("id, user_id")
+    .select("id, user_id, archived_at")
     .eq("org_id", orgId!)
     .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
     .limit(1)
     .maybeSingle();
   if (!pending)
     return NextResponse.json({ error: "No one on your team has that email" }, { status: 404 });
+  if (pending.archived_at)
+    return NextResponse.json({ error: "That person is archived. Restore them before inviting them again." }, { status: 409 });
   if (pending.user_id)
     return NextResponse.json({ error: "That person has already joined your team" }, { status: 409 });
 

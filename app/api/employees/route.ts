@@ -22,14 +22,17 @@ function sortByName<T extends { name: string }>(rows: T[]): T[] {
   });
 }
 
-const BASE_COLUMNS = "id, name, email, user_id";
+// archived_at: null for active employees (migration 0054).
+const BASE_COLUMNS = "id, name, email, user_id, archived_at";
 // Employment type and weekly limits (migration 0034).
 const SCHEDULING_COLUMNS = "employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week";
 // Postgres "undefined column": the database predates migration 0034.
 const UNDEFINED_COLUMN = "42703";
 // Postgres foreign_key_violation.
 const FOREIGN_KEY_VIOLATION = "23503";
-const SCHEDULING_FIELDS =["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
+const SCHEDULING_FIELDS = ["employmentType", "minWeeklyHours", "maxWeeklyHours", "maxDaysPerWeek"];
+// Exempt (salaried, no overtime) flag (migration 0060). Managers only.
+const PAY_COLUMNS = "exempt";
 
 // numeric columns can arrive as strings; hours are plain numbers in the API.
 function normalizeHours<T extends Record<string, unknown>>(row: T): T {
@@ -51,17 +54,29 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No organization membership" }, { status: 403 });
   }
 
-  const full = await supabase
-    .from("employees")
-    .select(`${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}`)
-    .eq("org_id", ctx!.orgId);
-  let data: ({ name: string } & Record<string, unknown>)[] | null = full.data;
-  let dbError = full.error;
-  // Keep the roster working if this deploy lands before its migration does.
-  if (dbError?.code === UNDEFINED_COLUMN) {
-    const base = await supabase.from("employees").select(BASE_COLUMNS).eq("org_id", ctx!.orgId);
-    data = base.data;
-    dbError = base.error;
+  // The roster is active employees: everything that schedules, clocks or
+  // counts people uses it. Managers ask for archived ones too
+  // (?include=archived) for reports over past periods and to restore someone.
+  const includeArchived = ctx!.isManager && new URL(request.url).searchParams.get("include") === "archived";
+  const roster = (columns: string) => {
+    const q = supabase.from("employees").select(columns).eq("org_id", ctx!.orgId);
+    return includeArchived ? q : q.is("archived_at", null);
+  };
+
+  // Keep the roster working if this deploy lands before its migrations do:
+  // drop the newest columns first.
+  const attempts = [
+    ...(ctx!.isManager ? [`${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}, ${PAY_COLUMNS}`] : []),
+    `${BASE_COLUMNS}, ${SCHEDULING_COLUMNS}`,
+    BASE_COLUMNS,
+  ];
+  let data: ({ name: string } & Record<string, unknown>)[] | null = null;
+  let dbError: { code?: string } | null = null;
+  for (const columns of attempts) {
+    const result = await roster(columns);
+    data = result.data as ({ name: string } & Record<string, unknown>)[] | null;
+    dbError = result.error;
+    if (dbError?.code !== UNDEFINED_COLUMN) break;
   }
   if (dbError) {
     console.error("[api/employees]", dbError);
@@ -81,7 +96,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, userId, name, payRate } = body;
+  const { id, userId, name, payRate, archived, exempt } = body;
 
   if (id == null)
     return NextResponse.json({ error: "id required" }, { status: 400 });
@@ -90,6 +105,12 @@ export async function PATCH(request: Request) {
   if (userId !== undefined && userId !== null && typeof userId !== "string")
     return NextResponse.json(
       { error: "userId must be a string (UUID) or null to unlink" },
+      { status: 400 }
+    );
+  // Archiving goes through DELETE, which also clears their future shifts.
+  if (archived !== undefined && archived !== false)
+    return NextResponse.json(
+      { error: "archived can only be false (to restore); use DELETE to archive" },
       { status: 400 }
     );
   if (name !== undefined && (typeof name !== "string" || !name.trim()))
@@ -103,6 +124,9 @@ export async function PATCH(request: Request) {
       { error: "payRate must be a non-negative number or null to clear" },
       { status: 400 }
     );
+
+  if (exempt !== undefined && typeof exempt !== "boolean")
+    return NextResponse.json({ error: "exempt must be a boolean" }, { status: 400 });
 
   const supabase = await createClient();
   const { user, orgId, error: authError } = await requireManager(supabase, request);
@@ -123,15 +147,19 @@ export async function PATCH(request: Request) {
 
   const { data: before } = await supabase
     .from("employees")
-    .select("id, name, email, user_id")
+    .select("id, name, email, user_id, archived_at")
     .eq("org_id", orgId!)
     .eq("id", id)
     .maybeSingle();
 
   const updates: Record<string, unknown> = {};
+  // Restore: they are a member again, with the account and history they had.
+  if (archived === false) updates.archived_at = null;
   if (userId !== undefined) updates.user_id = userId;
   if (name !== undefined) updates.name = name.trim();
   if (payRate !== undefined) updates.pay_rate = payRate;
+  // Exempt employees get no overtime in payroll (lib/payroll.ts).
+  if (exempt !== undefined) updates.exempt = exempt;
 
   // Employment type and weekly limits. A one-sided min/max change is checked
   // against the stored other end, so the range can't invert.
@@ -165,8 +193,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  const restored = archived === false && before?.archived_at != null;
   writeAuditLog({
-    action:       "employee.update",
+    action:       restored ? "employee.restore" : "employee.update",
     orgId:        orgId!,
     actorId:      user?.id,
     resourceType: "employee",
@@ -207,11 +236,11 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
   if (employee.user_id && employee.user_id === user?.id)
-    return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
+    return NextResponse.json({ error: "You cannot remove yourself" }, { status: 403 });
 
-  // Deleting a linked employee also removes their manager role and auth
-  // account below, so it follows the owner policy: the owner can never be
-  // removed, and in owned orgs only the owner may remove another manager.
+  // Removing a linked employee also removes their manager role, so it follows
+  // the owner policy: the owner can never be removed, and in owned orgs only
+  // the owner may remove another manager. employee_remove checks the same.
   if (employee.user_id) {
     const { data: ownerRow } = await supabase
       .from("managers")
@@ -220,7 +249,7 @@ export async function DELETE(request: Request) {
       .eq("is_owner", true)
       .maybeSingle();
     if (ownerRow?.user_id === employee.user_id)
-      return NextResponse.json({ error: "The organization owner cannot be deleted" }, { status: 403 });
+      return NextResponse.json({ error: "The organization owner cannot be removed" }, { status: 403 });
     if (ownerRow && ownerRow.user_id !== user?.id) {
       const { data: targetManager } = await supabase
         .from("managers")
@@ -236,60 +265,49 @@ export async function DELETE(request: Request) {
     }
   }
 
-  // One statement: the employee's shifts, call-outs, claims and other history
-  // cascade with the row (migration 0052), so a failure leaves nothing half
-  // deleted.
-  const deleteEmployee = () =>
-    supabase.from("employees").delete().eq("org_id", orgId!).eq("id", id).select("id");
-  let { data: deleted, error } = await deleteEmployee();
+  // Removing someone archives them (migration 0054): their punches, time off
+  // and past shifts are time records we must keep, so the row stays, with
+  // archived_at set, and their shifts that haven't started are removed. Only
+  // an employee with no history at all (a mistaken add) is deleted outright.
+  // employee_remove does either in one transaction and also removes their
+  // manager role.
+  const { data: outcome, error } = await supabase.rpc("employee_remove", { p_org: orgId!, p_employee: id });
 
-  // Before 0052 their schedules block the delete (ON DELETE RESTRICT): remove
-  // those first, as this route used to — but only when nothing else would
-  // still block it, or the shifts would be gone and the employee kept.
-  let historyBlocksDelete = false;
-  if (error?.code === FOREIGN_KEY_VIOLATION) {
-    const blockers = await Promise.all([
-      supabase.from("callouts").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("employee_id", id),
-      supabase.from("open_shift_claims").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("employee_id", id),
-      supabase.from("open_shifts").select("id", { count: "exact", head: true }).eq("org_id", orgId!).eq("filled_by", id),
-    ]);
-    historyBlocksDelete = blockers.some((b) => b.error || (b.count ?? 0) > 0);
-  }
-  if (error?.code === FOREIGN_KEY_VIOLATION && !historyBlocksDelete) {
-    const { error: scheduleError } = await supabase
-      .from("schedules")
-      .delete()
-      .eq("org_id", orgId!)
-      .eq("employee_id", id);
-    if (scheduleError) {
-      console.error("[api/employees]", scheduleError);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-    ({ data: deleted, error } = await deleteEmployee());
-  }
-
-  if (error?.code === FOREIGN_KEY_VIOLATION) {
-    console.error("[api/employees]", error);
-    return NextResponse.json(
-      { error: "This employee can't be deleted until database migration 0052 has run (they have call-out or open-shift history)." },
-      { status: 409 }
-    );
-  }
+  if (error?.code === "P0002")
+    return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+  if (error?.code === "42501")
+    return NextResponse.json({ error: error.message || "Permission denied" }, { status: 403 });
+  // A punch landed between the history check and the delete.
+  if (error?.code === FOREIGN_KEY_VIOLATION)
+    return NextResponse.json({ error: "This employee just got a time record. Try again to archive them." }, { status: 409 });
   if (error) {
     console.error("[api/employees]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-  if (!deleted || deleted.length === 0)
-    return NextResponse.json({ error: "Employee not found or permission denied" }, { status: 404 });
 
-  // A linked user loses their manager role here too. Their account is shared
-  // by every organization they belong to, so it is deleted only when this was
-  // their last membership. In the demo org the linked user is another
-  // visitor in the middle of a session: leave them be; the nightly reset
-  // removes demo accounts.
+  if (outcome !== "deleted") {
+    if (outcome === "archived")
+      writeAuditLog({
+        action:       "employee.archive",
+        orgId:        orgId!,
+        actorId:      user?.id,
+        resourceType: "employee",
+        resourceId:   String(id),
+        before:       { name: employee.name, email: employee.email, userId: employee.user_id },
+        metadata:     { employeeId: id, employeeName: employee.name, email: employee.email },
+      }).catch(() => {});
+    // Their account stays: it is linked to the archived row so a restore gives
+    // the same person their history back, and it has no access meanwhile.
+    return NextResponse.json({ ok: true, archived: true });
+  }
+
+  // Deleted outright (no history); their manager role went with the row.
+  // Their account is shared by every organization they belong to, so it is
+  // deleted only when this was their last membership. In the demo org the
+  // linked user is another visitor in the middle of a session: leave them be;
+  // the nightly reset removes demo accounts.
   if (employee.user_id && !isDemoOrgId(orgId!)) {
     const admin = createAdminClient();
-    await admin.from("managers").delete().eq("org_id", orgId!).eq("user_id", employee.user_id);
     const [managerRows, employeeRows] = await Promise.all([
       admin.from("managers").select("org_id", { count: "exact", head: true }).eq("user_id", employee.user_id),
       admin.from("employees").select("id", { count: "exact", head: true }).eq("user_id", employee.user_id),
@@ -317,5 +335,5 @@ export async function DELETE(request: Request) {
     },
   }).catch(() => {});
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, archived: false });
 }
