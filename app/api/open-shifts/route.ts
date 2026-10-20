@@ -5,8 +5,8 @@ import { requireManager } from "@/lib/require-manager";
 import { withOrg } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
-import { validateOpenShift, isEmployeeEligible } from "@/lib/open-shifts";
-import { addDaysToKey, todayKeyInTz } from "@/lib/dates";
+import { validateOpenShift, isEmployeeEligible, getOpenShiftEligibilityDates } from "@/lib/open-shifts";
+import { todayKeyInTz } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
 
 export const dynamic = "force-dynamic";
@@ -119,10 +119,7 @@ export async function GET(request?: Request) {
   // they've already filed.
   // Include each shift's neighbouring days: an overnight shift reaches into the
   // next day, and yesterday's overnight shift can reach into this one.
-  const dates = [...new Set(shifts.flatMap((s) => {
-    const d = String(s.date).slice(0, 10);
-    return [addDaysToKey(d, -1), d, addDaysToKey(d, 1)];
-  }))];
+  const dates = [...new Set(shifts.flatMap((s) => getOpenShiftEligibilityDates(String(s.date))))];
   const [{ data: schedules }, { data: timeOff }, { data: callouts }, { data: myClaims }] =
     await Promise.all([
       supabase
