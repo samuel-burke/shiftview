@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -68,6 +68,10 @@ beforeEach(() => {
   mockCreateClient.mockResolvedValue(makeServerClient() as any);
   mockCreateAdminClient.mockReturnValue(makeAdminClient() as any);
   mockWriteAuditLog.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -332,11 +336,43 @@ describe("DELETE /api/organizations — confirmation and deletion", () => {
   });
 
   it("returns 500 when the RPC fails", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } });
     mockCreateAdminClient.mockReturnValue({ rpc } as any);
 
     const res = await DELETE(deleteReq());
 
     expect(res.status).toBe(500);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("keeps an owner-controlled name inside a single deletion log record", async () => {
+    const name = 'Acme\r\n[api/organizations] forged event\t"\\\u001b[2J';
+    const rpc = vi.fn().mockResolvedValue({ data: OWNED_ORG_ID, error: null });
+    mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
+
+    const created = await POST(postReq({ name: `  ${name}  `, ownerName: "Alice Smith" }));
+    expect(created.status).toBe(201);
+    const storedName = rpc.mock.calls[0][1].p_name;
+    expect(storedName).toBe(name);
+
+    mockCreateClient.mockResolvedValue(
+      makeOrgServerClient({ orgRow: { id: OWNED_ORG_ID, name: storedName } }) as any
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const deleted = await DELETE(deleteReq({ confirmName: storedName }));
+
+    expect(deleted.status).toBe(200);
+    expect(rpc).toHaveBeenLastCalledWith("org_delete", { p_org: OWNED_ORG_ID });
+    expect(log).toHaveBeenCalledExactlyOnceWith(expect.any(String));
+    const record = log.mock.calls[0][0];
+    expect([...record].every((char) => char.charCodeAt(0) >= 0x20)).toBe(true);
+    expect(JSON.parse(record)).toEqual({
+      action: "organization.delete",
+      orgId: OWNED_ORG_ID,
+      orgName: name,
+      actorId: MOCK_USER.id,
+    });
   });
 });
