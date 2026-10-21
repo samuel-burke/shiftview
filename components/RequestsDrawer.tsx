@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
-import { getMonogram } from "../data/types";
+import { fmtMinutes, getMonogram } from "../data/types";
 import { TimeOffPendingIcon } from "./ShiftIcons";
 import { Toast, ToastStack } from "./Toast";
 import { useScrollLock } from "@/lib/scroll-lock";
@@ -24,6 +24,10 @@ type TimeOffItem = {
   id: number;
   employeeName: string;
   date: string;
+  // A multi-day request's last day; a part-day request's hours.
+  endDate?: string;
+  startMinutes?: number | null;
+  endMinutes?: number | null;
   note?: string;
 };
 
@@ -277,6 +281,10 @@ function TimeOffCard({
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-fg-muted">
             <TimeOffPendingIcon size={11} color="var(--status-caution)" />
             {formatShortDate(request.date)}
+            {request.endDate && request.endDate !== request.date && <> – {formatShortDate(request.endDate)}</>}
+            {request.startMinutes != null && request.endMinutes != null && (
+              <>, {fmtMinutes(request.startMinutes)} – {fmtMinutes(request.endMinutes)}</>
+            )}
             {request.note && (
               <span className="text-fg-subtle truncate">· &ldquo;{request.note}&rdquo;</span>
             )}

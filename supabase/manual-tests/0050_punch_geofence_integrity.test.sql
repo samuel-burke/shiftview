@@ -1,4 +1,4 @@
--- Tests for 0050 and 0052: punch coordinates must be in range, GPS-required
+-- Tests for 0050 and 0074: punch coordinates must be in range, GPS-required
 -- live clock-ins need location independently of the optional geofence,
 -- even when written straight to punch_records instead of through the API.
 -- A configured geofence still restricts the clock-in's location.
@@ -20,8 +20,8 @@
 \ir ../migrations/0042_pay_rate_managers_only.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
-\ir ../migrations/0052_punch_gps_required.sql
-\ir ../migrations/0052_punch_gps_required.sql
+\ir ../migrations/0074_punch_gps_required.sql
+\ir ../migrations/0074_punch_gps_required.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''

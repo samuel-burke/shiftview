@@ -110,6 +110,10 @@ export function hardRuleViolations(inp: SchedulerInput, result: ScheduleResult):
     ]);
     for (const part of shiftParts(s)) {
       if (offDates.has(part.date)) problems.push(`${label}: works on a day off (${part.date})`);
+      for (const p of e.partialTimeOff ?? []) {
+        if (p.date === part.date && part.start < p.endMinutes && p.startMinutes < part.end)
+          problems.push(`${label}: works during part-day time off on ${part.date}`);
+      }
       if (!fitsAvailability(e.availability[dayOfWeekForKey(part.date)], part.start, part.end))
         problems.push(`${label}: outside availability on ${part.date}`);
     }
