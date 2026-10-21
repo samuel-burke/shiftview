@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
   const { data, error: dbError } = await supabase
     .from("schedules")
-    .select("id, employee_id, date, start_minutes, end_minutes")
+    .select("id, employee_id, date, start_minutes, end_minutes, note")
     .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("date", from)
@@ -73,6 +73,7 @@ type ScheduleRow = {
   date: string;
   start_minutes: number;
   end_minutes: number;
+  note?: string | null;
 };
 
 function mapSchedules(data: ScheduleRow[]) {
@@ -82,5 +83,6 @@ function mapSchedules(data: ScheduleRow[]) {
     date: s.date,
     startMinutes: s.start_minutes,
     endMinutes: s.end_minutes,
+    ...(s.note ? { note: s.note } : {}),
   }));
 }

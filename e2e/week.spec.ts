@@ -45,7 +45,7 @@ test.describe("Week page", () => {
     await expect(drawer).toBeHidden();
 
     expect(state.calls).toEqual([
-      { method: "PUT", path: "/api/schedules", body: { id: 1, startMinutes: 540, endMinutes: 1080, override: false } },
+      { method: "PUT", path: "/api/schedules", body: { id: 1, startMinutes: 540, endMinutes: 1080, override: false, note: null } },
     ]);
   });
 
@@ -66,7 +66,7 @@ test.describe("Week page", () => {
     await drawer.getByRole("button", { name: "Save Draft" }).click();
     await expect(drawer).toBeHidden();
     expect(state.calls).toEqual([
-      { method: "POST", path: "/api/drafts", body: { employeeId: 2, date: NEXT_TUE, startMinutes: 600, endMinutes: 960, override: false } },
+      { method: "POST", path: "/api/drafts", body: { employeeId: 2, date: NEXT_TUE, startMinutes: 600, endMinutes: 960, override: false, note: null } },
     ]);
     await expect(page.getByRole("button", { name: "Publish (3)" })).toBeEnabled();
 

@@ -6,7 +6,7 @@ import { notifyManagers } from "@/lib/notify";
 import { MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
-vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(true) }));
 vi.mock("@/lib/notify", () => ({ notifyManagers: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   NextResponse: {
@@ -30,7 +30,10 @@ function makeClient({
   isManager = false,
   timezone = "America/New_York",
   history = [] as Punch[],
-}: { isManager?: boolean; timezone?: string; history?: Punch[] } = {}) {
+  // What the database answers a punch or correction write (e.g. a locked pay
+  // period's refusal, migration 0062).
+  writeError = null as { code: string; message: string } | null,
+}: { isManager?: boolean; timezone?: string; history?: Punch[]; writeError?: { code: string; message: string } | null } = {}) {
   const inserted: Record<string, unknown>[] = [];
   const updated: Record<string, unknown>[] = [];
   const requested: Record<string, unknown>[] = [];
@@ -62,7 +65,7 @@ function makeClient({
         const b: any = {};
         b.insert = vi.fn().mockImplementation((row: Record<string, unknown>) => { requested.push(row); return b; });
         b.select = vi.fn().mockReturnValue(b);
-        b.single = vi.fn().mockResolvedValue({ data: { id: 99 }, error: null });
+        b.single = vi.fn().mockResolvedValue(writeError ? { data: null, error: writeError } : { data: { id: 99 }, error: null });
         return b;
       }
       if (table === "punch_records") {
@@ -82,7 +85,8 @@ function makeClient({
           else data = sorted[sorted.length - 1] ?? null; // lookup by id (edit)
           return Promise.resolve({ data, error: null });
         });
-        b.then = (res: any, rej: any) => Promise.resolve({ data: null, error: null }).then(res, rej);
+        b.then = (res: any, rej: any) =>
+          Promise.resolve({ data: null, error: inserted.length + updated.length > 0 ? writeError : null }).then(res, rej);
         return b;
       }
       return simple({ data: null, error: null });
@@ -229,6 +233,51 @@ describe("PUT /api/punches — manager edits keep the original in the audit trai
   });
 });
 
+describe("PUT /api/punches — managers give a reason too", () => {
+  const history = [{ punch_type: "clock_in", punched_at: "2026-11-01T14:30:00Z", note: null, is_manual: false }];
+
+  it("refuses a manager's edit with no reason", async () => {
+    for (const note of [undefined, "", "   "]) {
+      const client = makeClient({ isManager: true, history });
+      mockCreateClient.mockResolvedValue(client as any);
+      const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note });
+      expect(res.status).toBe(400);
+      expect(client.updated).toHaveLength(0);
+    }
+  });
+
+  it("refuses a manager's new punch with no reason", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-01", localTime: "09:45" });
+    expect(res.status).toBe(400);
+    expect(client.inserted).toHaveLength(0);
+  });
+
+  it("stores the trimmed reason as the punch's note, which 0053 copies into its history", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    const edit = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "  Badge reader down " });
+    expect(edit.status).toBe(200);
+    expect(client.updated[0]).toMatchObject({ note: "Badge reader down" });
+    const add = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-01", localTime: "09:45", note: "Left early, sick" });
+    expect(add.status).toBe(200);
+    expect(client.inserted[0]).toMatchObject({ note: "Left early, sick", is_manual: true });
+  });
+
+  it("still saves the edit when the audit log write fails, and says so in the log", async () => {
+    const client = makeClient({ isManager: true, history });
+    mockCreateClient.mockResolvedValue(client as any);
+    mockAudit.mockResolvedValueOnce(false);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "Badge reader down" });
+    expect(res.status).toBe(200);
+    expect(client.updated).toHaveLength(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("audit log NOT written for edit of punch 7"));
+    errorSpy.mockRestore();
+  });
+});
+
 describe("PUT /api/punches — overnight missed clock-out", () => {
   // Clocked in Oct 31 at 10 PM EDT (02:00Z Nov 1), never clocked out. It is
   // now Nov 1, 10 AM EST. The clock screen pre-fills Oct 31, the clock-in day.
@@ -256,5 +305,64 @@ describe("PUT /api/punches — overnight missed clock-out", () => {
     const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "23:30", note: "Forgot" });
     expect(res.status).toBe(202);
     expect(client.requested[0].punched_at).toBe("2026-11-01T03:30:00.000Z");
+  });
+});
+
+describe("PUT /api/punches — a locked pay period (migration 0062)", () => {
+  const locked = {
+    code: "PP001",
+    message: "That time is in a locked pay period (2026-10-26 to 2026-11-01). A manager must reopen it first.",
+  };
+  const history = [{ punch_type: "clock_in", punched_at: "2026-11-01T14:30:00Z", note: null, is_manual: false }];
+
+  it("a manager's edit is refused with the database's reason", async () => {
+    const client = makeClient({ isManager: true, history, writeError: locked });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(locked.message);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  it("a manager's new punch is refused", async () => {
+    const client = makeClient({ isManager: true, history, writeError: locked });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-01", localTime: "09:45", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/locked pay period/);
+  });
+
+  it("an employee's correction request is refused", async () => {
+    const client = makeClient({ history: [{ punch_type: "clock_in", punched_at: "2026-10-31T13:00:00Z" }], writeError: locked });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ punchType: "clock_out", localDate: "2026-10-31", localTime: "17:00", note: "Forgot" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/locked pay period/);
+  });
+
+  it("an overnight shift's Monday clock-out is refused when its Sunday clock-in is in a locked week", async () => {
+    const session = {
+      code: "PP001",
+      message: "That punch belongs to a shift that began in a locked pay period (2026-10-26 to 2026-11-01). A manager must reopen it first.",
+    };
+    // Clocked in Sunday 10:00 PM (Nov 1, EST); the manager moves Monday's clock-out.
+    const client = makeClient({
+      isManager: true,
+      history: [{ punch_type: "clock_in", punched_at: "2026-11-02T03:00:00Z", note: null, is_manual: false }],
+      writeError: session,
+    });
+    mockCreateClient.mockResolvedValue(client as any);
+    vi.setSystemTime(new Date("2026-11-02T15:00:00Z"));
+    const res = await put({ employeeId: 5, punchType: "clock_out", localDate: "2026-11-02", localTime: "06:00", note: "Fix" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(session.message);
+  });
+
+  it("any other database error is still a 500", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const client = makeClient({ isManager: true, history, writeError: { code: "XX000", message: "boom" } });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await put({ id: 7, employeeId: 5, punchType: "clock_in", localDate: "2026-11-01", localTime: "09:00", note: "Fix" });
+    expect(res.status).toBe(500);
   });
 });

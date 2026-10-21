@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,15 @@ export async function POST(request: Request) {
   if (user.is_anonymous)
     return NextResponse.json({ error: "Push notifications are not available in demo mode" }, { status: 403 });
 
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const { endpoint, keys } = body;
 
-  if (!endpoint || !keys?.p256dh || !keys?.auth)
+  if (!endpoint || typeof keys?.p256dh !== "string" || typeof keys?.auth !== "string")
     return NextResponse.json({ error: "endpoint and keys (p256dh, auth) required" }, { status: 400 });
+  // The server POSTs every notification to this URL: only a browser push
+  // service, never an arbitrary host (lib/push-endpoint.ts).
+  if (!isAllowedPushEndpoint(endpoint))
+    return NextResponse.json({ error: "endpoint must be a browser push service URL" }, { status: 400 });
 
   const { error } = await supabase.from("push_subscriptions").upsert(
     { user_id: user.id, endpoint, p256dh: keys.p256dh, auth_key: keys.auth },

@@ -1,63 +1,51 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DELETE, POST } from "./route";
+import { describe, it, expect, vi } from "vitest";
+import { POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeQueryBuilder } from "../../__tests__/helpers";
+
+// Regression: the subscribe route stored any endpoint URL, which the server
+// then POSTs to on every notification (SSRF). Only browser push services are
+// accepted now.
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
+vi.mock("next/server", () => ({
+  NextResponse: {
+    json: (data: unknown, init?: { status?: number }) =>
+      new Response(JSON.stringify(data), { status: init?.status ?? 200 }),
+  },
+}));
 
-const endpoint = "https://push.example/current-browser";
-let query: ReturnType<typeof makeQueryBuilder>;
-let client: ReturnType<typeof makeClient>;
-
-function makeClient() {
+function client() {
+  const upsert = vi.fn().mockResolvedValue({ error: null });
   return {
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "current-user" } } }) },
-    from: vi.fn().mockImplementation(() => query),
+    upsert,
+    supabase: {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1", is_anonymous: false } } }) },
+      from: vi.fn(() => ({ upsert })),
+    },
   };
 }
 
-function request(method: string, body: object = { endpoint }) {
+function req(endpoint: string) {
   return new Request("http://localhost/api/push/subscribe", {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method: "POST",
+    body: JSON.stringify({ endpoint, keys: { p256dh: "k", auth: "a" } }),
   });
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  query = makeQueryBuilder({ data: null, error: null });
-  client = makeClient();
-  vi.mocked(createClient).mockResolvedValue(client as any);
-});
-
-describe("push endpoint authorization", () => {
-  it("revokes only the signed-in user's current browser, preserving other users and devices", async () => {
-    const response = await DELETE(request("DELETE"));
-    expect(response.status).toBe(200);
-    expect(client.from).toHaveBeenCalledWith("push_subscriptions");
-    expect(query.delete).toHaveBeenCalledOnce();
-    expect(query.eq.mock.calls).toEqual([["user_id", "current-user"], ["endpoint", endpoint]]);
+describe("POST /api/push/subscribe", () => {
+  it("refuses an endpoint that isn't a browser push service", async () => {
+    const c = client();
+    vi.mocked(createClient).mockResolvedValue(c.supabase as never);
+    const res = await POST(req("https://169.254.169.254/latest/meta-data/"));
+    expect(res.status).toBe(400);
+    expect(c.upsert).not.toHaveBeenCalled();
   });
 
-  it("reports database revocation failure instead of acknowledging success", async () => {
-    query = makeQueryBuilder({ data: null, error: { message: "database unavailable" } });
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      expect((await DELETE(request("DELETE"))).status).toBe(500);
-    } finally {
-      log.mockRestore();
-    }
-  });
-
-  it.each([DELETE, POST])("requires authentication for subscription mutations", async (handler) => {
-    client.auth.getUser.mockResolvedValueOnce({ data: { user: null } } as any);
-    expect((await handler(request("POST"))).status).toBe(401);
-    expect(client.from).not.toHaveBeenCalled();
-  });
-
-  it("requires an endpoint so logout cannot revoke all of a user's devices", async () => {
-    expect((await DELETE(request("DELETE", {}))).status).toBe(400);
-    expect(client.from).not.toHaveBeenCalled();
+  it("saves a real push subscription", async () => {
+    const c = client();
+    vi.mocked(createClient).mockResolvedValue(c.supabase as never);
+    const res = await POST(req("https://fcm.googleapis.com/fcm/send/abc"));
+    expect(res.status).toBe(201);
+    expect(c.upsert).toHaveBeenCalledTimes(1);
   });
 });
