@@ -29,6 +29,7 @@ import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
 import { Toast, ToastStack } from "../components/Toast";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
@@ -274,7 +275,7 @@ export default function Page() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    if (!await signOut(supabase)) return;
     window.location.href = "/login";
   }
 
