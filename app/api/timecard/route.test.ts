@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { GET } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeQueryBuilder, makeSupabaseClient, MOCK_USER } from "../__tests__/helpers";
+import { makeQueryBuilder, makeSupabaseClient, MOCK_ORG_ID, MOCK_USER } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
@@ -28,12 +28,17 @@ const PUNCHES = ["12", "13", "14", "15", "16"].flatMap((d, i) => [
 // The client from makeSupabaseClient, with punch_records answering page by
 // page (fetchAllRows reads until an empty page) and every other table empty.
 // `settings`: app_settings rows. `exemptIds`: what the exempt-employee lookup
-// (employees, paged) returns. `punches` replaces PUNCHES.
+// (employees, paged) returns. `punches` replaces PUNCHES. `callouts`: what the
+// callouts_for_org RPC returns (null data with `calloutError` to fail it).
 function client(
   opts: Parameters<typeof makeSupabaseClient>[0],
-  { settings = [] as { key: string; value: string }[], exemptIds = [] as number[], punches = PUNCHES as any[] } = {},
+  {
+    settings = [] as { key: string; value: string }[], exemptIds = [] as number[], punches = PUNCHES as any[],
+    callouts = [] as { date: string; reason: string | null }[], calloutError = null as any,
+  } = {},
 ) {
   const base = makeSupabaseClient({ queryData: [], ...opts });
+  base.rpc.mockImplementation(() => makeQueryBuilder({ data: calloutError ? null : callouts, error: calloutError }));
   const baseFrom = base.from.getMockImplementation()!;
   const punchQueries: Array<Record<string, any>> = [];
   const exemptQueries: Array<Record<string, any>> = [];
@@ -258,6 +263,44 @@ describe("GET /api/timecard", () => {
       mockCreateClient.mockResolvedValue(supabase as any);
       const body = await (await GET(req(WEEK))).json();
       expect(body.payPeriods).toEqual([{ start: "2026-10-12", end: "2026-10-18", status: "open", signoff: null }]);
+    });
+  });
+  // Reasons are private to the employee and managers (migration 0076): read
+  // through callouts_for_org, never the callouts table directly.
+  describe("private callout reasons", () => {
+    const manager = { user: MOCK_USER, isManager: true, linkedEmployee: { id: 6, name: "Bo Diaz" } };
+    const flu = { callouts: [{ date: "2026-10-12", reason: "Flu" }] };
+
+    it("keeps reasons in the manager's time card using the scoped RPC", async () => {
+      const { supabase } = client(manager, flu);
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const res = await GET(req(`employeeId=6&${WEEK}`));
+      expect(res.status).toBe(200);
+      expect((await res.json()).days[0].callout).toEqual({ reason: "Flu" });
+      expect(supabase.rpc).toHaveBeenCalledWith("callouts_for_org", { p_org: MOCK_ORG_ID });
+      expect(supabase.from).not.toHaveBeenCalledWith("callouts");
+    });
+
+    it("keeps the employee's own reason on their time card", async () => {
+      const { supabase } = client({ user: MOCK_USER, linkedEmployee: { id: 5, name: "Alex Kim" } }, flu);
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const res = await GET(req(WEEK));
+      expect(res.status).toBe(200);
+      expect((await res.json()).days[0].callout).toEqual({ reason: "Flu" });
+    });
+
+    it("preserves reasons in CSV exports", async () => {
+      const { supabase } = client(manager, flu);
+      mockCreateClient.mockResolvedValue(supabase as any);
+      const res = await GET(req(`employeeId=6&${WEEK}&format=csv`));
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("Flu");
+    });
+
+    it("fails the request when the private read fails", async () => {
+      const { supabase } = client(manager, { calloutError: { message: "read failed" } });
+      mockCreateClient.mockResolvedValue(supabase as any);
+      expect((await GET(req(`employeeId=6&${WEEK}`))).status).toBe(500);
     });
   });
 });
