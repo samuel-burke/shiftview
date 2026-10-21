@@ -41,6 +41,18 @@ describe("LoginPage — OTP input", () => {
     await screen.findByPlaceholderText("000000");
   }
 
+  it("sends email links to the explicit PKCE callback", async () => {
+    await advanceToCodeStep();
+
+    expect(mockSignInWithOtp).toHaveBeenCalledWith({
+      email: "user@example.com",
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  });
+
   it("renders the OTP input with caret-transparent class to hide the cursor", async () => {
     await advanceToCodeStep();
     const otpInput = screen.getByPlaceholderText("000000");
@@ -96,7 +108,7 @@ describe("LoginPage — OTP input", () => {
     act(() => widget.callback("fresh-token"));
     await userEvent.click(screen.getByRole("button", { name: /send code/i }));
     expect(mockSignInWithOtp).toHaveBeenCalledWith({
-      email: "user@example.com", options: { shouldCreateUser: false, captchaToken: "fresh-token" },
+      email: "user@example.com", options: { shouldCreateUser: false, captchaToken: "fresh-token", emailRedirectTo: "http://localhost:3000/auth/callback" },
     });
     expect(captcha.reset).toHaveBeenCalledWith("widget-1");
     await userEvent.type(await screen.findByPlaceholderText("000000"), "123456");

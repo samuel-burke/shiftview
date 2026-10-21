@@ -2,36 +2,39 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AuthCallback() {
   const router = useRouter();
+  const handled = useRef(false);
 
   useEffect(() => {
-    // All Supabase work runs client-side only, after mount
-    import("@/lib/supabase-browser").then(({ createClient }) => {
-      const supabase = createClient();
-      const { searchParams } = new URL(window.location.href);
-      const code = searchParams.get("code");
+    // A PKCE code can only be exchanged once, including in Strict Mode.
+    if (handled.current) return;
+    handled.current = true;
 
-      const hash = new URLSearchParams(window.location.hash.slice(1));
-      const access_token = hash.get("access_token");
-      const refresh_token = hash.get("refresh_token");
-
-      async function handle() {
-        if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
-        } else if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token });
-        }
-        router.push("/");
-        router.refresh();
+    async function handle() {
+      const code = new URL(window.location.href).searchParams.get("code");
+      if (!code) {
+        // Fragment credentials (including invites) are not browser-bound.
+        // Require the existing email-code login instead of adopting an account.
+        router.replace("/login");
+        return;
       }
 
-      handle();
-    });
-  }, []);
+      try {
+        const { createClient } = await import("@/lib/supabase-browser");
+        const { error } = await createClient().auth.exchangeCodeForSession(code);
+        router.replace(error ? "/login" : "/");
+        router.refresh();
+      } catch {
+        router.replace("/login");
+      }
+    }
+
+    void handle();
+  }, [router]);
 
   return (
     <main className="min-h-dvh bg-bg flex items-center justify-center">

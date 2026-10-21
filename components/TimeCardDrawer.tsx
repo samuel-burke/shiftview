@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import type { Timecard, ViolationType } from "@/lib/timecard";
-import { addDaysToKey, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import type { PayrollWeek } from "@/lib/payroll";
+import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, todayKeyInTz } from "@/lib/dates";
+import type { TimecardPayPeriod } from "@/app/api/timecard/route";
+import { PAY_PERIOD_STATUS_LABELS } from "@/lib/pay-periods";
 import { useScrollLock } from "@/lib/scroll-lock";
 import StableLabel from "./StableLabel";
+import PunchHistoryToggle from "./PunchHistoryToggle";
 
 type Props = {
   open: boolean;
@@ -41,6 +45,11 @@ const VIOLATION_STYLES: Record<ViolationType, { label: string; className: string
   ncns:        { label: "No Call No Show", className: "bg-danger-solid/20 text-danger-fg-strong border border-danger/40" },
 };
 
+// What /api/timecard returns: the time card plus its workweeks split by the
+// org's pay rules. The extra fields are optional so a bare Timecard (the home
+// page's demo) still renders.
+export type TimeCardData = Timecard & { weeks?: PayrollWeek[]; exempt?: boolean; payPeriods?: TimecardPayPeriod[] };
+
 const todayKey = todayKeyInTz;
 const addDays = addDaysToKey;
 
@@ -55,7 +64,7 @@ function formatPunchTime(iso: string, tz: string): string {
 export default function TimeCardDrawer({ open, employee, timezone, onClose }: Props) {
   const [from, setFrom] = useState(() => addDays(todayKey(timezone), -13));
   const [to, setTo] = useState(() => todayKey(timezone));
-  const [data, setData] = useState<Timecard | null>(null);
+  const [data, setData] = useState<TimeCardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +82,7 @@ export default function TimeCardDrawer({ open, employee, timezone, onClose }: Pr
           setData(null);
           return;
         }
-        setData(json as Timecard);
+        setData(json as TimeCardData);
       } catch {
         setError("Network error — please try again");
         setData(null);
@@ -175,7 +184,7 @@ export function TimeCardPanel({
   onApply: () => void;
   onClose: () => void;
   onExport: () => void;
-  data: Timecard | null;
+  data: TimeCardData | null;
   loading: boolean;
   error: string | null;
 }) {
@@ -293,6 +302,59 @@ export function TimeCardPanel({
               </div>
             )}
 
+            {/* Pay periods and this employee's sign-off (migration 0062).
+                Part of the same response as the days, so it never pops in. */}
+            {(data.payPeriods ?? []).length > 0 && (
+              <ul className="flex flex-col gap-1.5 mb-4" aria-label="Pay period sign-off">
+                {data.payPeriods!.map((p) => (
+                  <li
+                    key={p.start}
+                    data-testid="timecard-pay-period"
+                    className="flex items-start justify-between gap-3 bg-card rounded-xl border border-line-subtle px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-fg-body">
+                        Pay period {formatDayHeader(p.start)} – {formatDayHeader(p.end)}
+                      </div>
+                      <div className="text-[11px] text-fg-muted">{PAY_PERIOD_STATUS_LABELS[p.status]}</div>
+                    </div>
+                    <div
+                      className={`text-right shrink-0 ${p.signoff?.status === "signed" ? "text-success-fg" : p.signoff?.status === "disputed" ? "text-warning-fg-strong" : "text-fg-subtle"}`}
+                    >
+                      {!p.signoff ? "Not signed"
+                        : p.signoff.status === "signed"
+                        ? `Signed ${formatDateKey(dateKeyInTz(p.signoff.signedAt, data.timezone), { month: "short", day: "numeric" })} ${formatTimeInTz(p.signoff.signedAt, data.timezone)}`
+                        : <>Disputed<div className="text-[11px] max-w-[12rem] break-words">{p.signoff.note}</div></>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Workweeks as payroll pays them: regular, overtime, double time */}
+            {data.weeks && data.weeks.length > 0 && (
+              <div className="bg-card rounded-2xl border border-line/60 px-4 py-3 mb-4" data-testid="timecard-pay-weeks">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="text-[10px] text-fg-muted font-semibold uppercase tracking-wide">Paid hours by workweek</div>
+                  {data.exempt && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-fill-strong text-fg-secondary">Exempt · no overtime</span>
+                  )}
+                </div>
+                {data.weeks.map((w) => (
+                  <div key={w.weekStart} className="flex items-center justify-between gap-2 py-1 text-[11px] tabular-nums">
+                    <span className="text-fg-muted">Week of {formatDayHeader(w.weekStart)}</span>
+                    <span className="text-fg-body">
+                      {w.regularHours.toFixed(2)} reg
+                      <span className={w.overtimeHours > 0 ? "text-warning-fg font-semibold" : "text-fg-subtle"}> · {w.overtimeHours.toFixed(2)} OT</span>
+                      {w.doubleTimeHours > 0 && (
+                        <span className="text-danger-fg font-semibold"> · {w.doubleTimeHours.toFixed(2)} DT</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Per-day cards */}
             {data.days.length === 0 ? (
               <div className="bg-card rounded-2xl border border-line/60 px-4 py-10 text-center">
@@ -342,8 +404,19 @@ export function TimeCardPanel({
                             <span className="text-fg-body font-semibold tabular-nums">
                               {formatPunchTime(p.punchedAt, data.timezone)}
                             </span>
+                            {p.roundedAt && (
+                              <span className="text-fg-subtle tabular-nums" title="Rounded time payroll pays">
+                                → {formatPunchTime(p.roundedAt, data.timezone)}
+                              </span>
+                            )}
                             {p.isManual && (
-                              <span className="text-[9px] text-warning-fg uppercase" title="Manual correction">✎</span>
+                              <PunchHistoryToggle
+                                punchId={p.id}
+                                timezone={data.timezone}
+                                label="✎"
+                                title="Manual correction"
+                                className="text-[9px] text-warning-fg uppercase cursor-pointer"
+                              />
                             )}
                           </div>
                         ))}
@@ -356,6 +429,9 @@ export function TimeCardPanel({
                     {(day.workedHours > 0 || day.breakHours > 0 || day.hasIncomplete) && (
                       <div className="mt-2 pt-2 border-t border-line/60 flex items-center gap-3 text-[11px] text-fg-muted">
                         <span className="font-semibold text-fg-secondary tabular-nums">{day.workedHours.toFixed(2)}h worked</span>
+                        {day.roundedWorkedHours != null && day.roundedWorkedHours !== day.workedHours && (
+                          <span className="tabular-nums" title="From the rounded punch times">{day.roundedWorkedHours.toFixed(2)}h rounded</span>
+                        )}
                         {day.breakHours > 0 && <span className="tabular-nums">{day.breakHours.toFixed(2)}h break</span>}
                         {day.hasIncomplete && (
                           <span className="text-warning-fg" title="Missing a clock-out or break-end">⚠ incomplete</span>

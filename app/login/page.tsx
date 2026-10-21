@@ -65,6 +65,7 @@ export default function LoginPage() {
       options: {
         shouldCreateUser: false,
         captchaToken: captchaToken ?? undefined,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     // Auth consumes the token even when the OTP request fails.

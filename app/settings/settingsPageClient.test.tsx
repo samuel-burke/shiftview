@@ -370,10 +370,50 @@ describe("EmployeeAvailabilityRow in SettingsPageClient", () => {
     setupManagerFetch();
     render(<SettingsPageClient />);
     await screen.findByTestId("store-hours-section");
-    const remove = await screen.findByRole("button", { name: "Remove Alice Smith" });
+    const remove = await screen.findByRole("button", { name: "Archive Alice Smith" });
     expect(remove).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Cannot remove yourself" })).not.toBeInTheDocument();
   });
+
+  it("says removing archives the employee and keeps their time records", async () => {
+    setupManagerFetch();
+    render(<SettingsPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Archive Alice Smith" }));
+    expect(screen.getByText("Archive Alice Smith?")).toBeInTheDocument();
+    expect(screen.getByText(/punches, time off\s+and past shifts are kept/)).toBeInTheDocument();
+    expect(screen.queryByText(/permanently delete/)).not.toBeInTheDocument();
+  }, 20_000); // The whole settings page renders; slow under jsdom.
+
+  it("lists archived employees and restores one", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
+      const url = input.toString();
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET") {
+        if (url.includes("/api/store-hours")) return { ok: true, json: async () => DEFAULT_HOURS } as Response;
+        if (url.includes("/api/settings"))   return { ok: true, json: async () => DEFAULT_SETTINGS } as Response;
+        if (url.includes("/api/employees?include=archived"))
+          return { ok: true, json: async () => [
+            { id: 5, name: "Alice Smith", email: null, user_id: null, archived_at: null },
+            { id: 9, name: "Bob Former", email: null, user_id: null, archived_at: "2026-09-30T15:00:00Z" },
+          ] } as Response;
+        if (url.includes("/api/employees"))  return { ok: true, json: async () => [{ id: 5, name: "Alice Smith", email: null, user_id: null }] } as Response;
+        if (url.includes("/api/me"))         return { ok: true, json: async () => ({ isManager: true }) } as Response;
+        if (url.includes("/api/templates"))  return { ok: true, json: async () => ({ templates: [] }) } as Response;
+        if (url.includes("/api/availability")) return { ok: true, json: async () => [] } as Response;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+    render(<SettingsPageClient />);
+    fireEvent.click(await screen.findByRole("button", { name: "Show archived employees" }));
+    const restore = await screen.findByRole("button", { name: "Restore Bob Former" });
+    expect(screen.queryByRole("button", { name: "Restore Alice Smith" })).not.toBeInTheDocument();
+    fireEvent.click(restore);
+    await waitFor(() => {
+      const patch = fetchSpy.mock.calls.find(([, init]) => init?.method === "PATCH");
+      expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ id: 9, archived: false });
+    });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Restore Bob Former" })).not.toBeInTheDocument());
+  }, 20_000);
 
   it("renders 'Typical Week' toggle for each employee when manager", async () => {
     setupManagerFetch();

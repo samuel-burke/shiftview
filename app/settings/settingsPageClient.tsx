@@ -15,15 +15,21 @@ import { getMonogram, fmtMinutes, AvailabilityRecord } from "../../data/types";
 import AvailabilitySection from "../../components/AvailabilitySection";
 import SaveStatusText, { type SaveStatus } from "../../components/SaveStatusText";
 import SettingsSectionLabel from "../../components/SettingsSectionLabel";
+import CalendarSyncSection from "../../components/CalendarSyncSection";
 import EmployeeSchedulingRow from "../../components/EmployeeSchedulingRow";
+import EmployeeExemptToggle from "../../components/EmployeeExemptToggle";
+import PayRulesSection from "../../components/PayRulesSection";
 import SchedulingRulesSection from "../../components/SchedulingRulesSection";
 import ShiftPreferencesSection from "../../components/ShiftPreferencesSection";
+import PayPeriodSection from "../../components/PayPeriodSection";
+import type { PayPeriodSettings } from "../../lib/pay-periods";
 import GeofenceMap from "../../components/GeofenceMap";
 import { SkeletonSettingsBody } from "../../components/Skeleton";
 import { useTheme, type ThemeMode } from "../../components/ThemeProvider";
 import { useAppData } from "../../lib/AppDataContext";
 import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from "../../lib/sound-preference";
 import { DEFAULT_PUNCH_POLICY, type PunchPolicy } from "../../lib/punch-policy";
+import { DEFAULT_PAY_RULES, type PayRules } from "../../lib/pay-rules";
 import { DEFAULT_SCHEDULING_RULES, type EmployeeLimitColumns, type SchedulingRules } from "../../lib/scheduling-rules";
 import { addDaysToKey, allTimezones, dayOfWeekForKey, DEFAULT_TIMEZONE, todayKeyInTz } from "../../lib/dates";
 import StableLabel from "@/components/StableLabel";
@@ -78,7 +84,7 @@ const FIRST_DAY_OPTIONS = [
   { label: "Saturday", value: 6 },
 ];
 
-type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null };
+type Employee = EmployeeLimitColumns & { id: number; name: string; email: string | null; user_id: string | null; archived_at?: string | null; exempt?: boolean | null };
 
 // Top-level grouping divider — sits above a cluster of related settings
 // sections to give the page a clear two-tier hierarchy (group → section → card).
@@ -280,6 +286,9 @@ export default function SettingsPageClient({
     }
   }
 
+  // ── Pay period ──────────────────────────────────────────────────────────────
+  const [payPeriod, setPayPeriod] = useState<PayPeriodSettings>({ frequency: "none", anchor: null });
+
   // ── Timezone ────────────────────────────────────────────────────────────────
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [timezoneStatus, setTimezoneStatus] = useState<SaveStatus>("idle");
@@ -447,6 +456,7 @@ export default function SettingsPageClient({
 
   // ── Punch Violations ─────────────────────────────────────────────────────────
   const [punchPolicy, setPunchPolicy] = useState<PunchPolicy>(DEFAULT_PUNCH_POLICY);
+  const [payRules, setPayRules] = useState<PayRules>(DEFAULT_PAY_RULES);
   const [schedulingRules, setSchedulingRules] = useState<SchedulingRules>(DEFAULT_SCHEDULING_RULES);
   const [punchPolicyStatus, setPunchPolicyStatus] = useState<SaveStatus>("idle");
 
@@ -478,6 +488,11 @@ export default function SettingsPageClient({
   const [confirmDeleteEmployee, setConfirmDeleteEmployee] = useState<Employee | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteErrorId, setDeleteErrorId] = useState<number | null>(null);
+  // Archived employees: loaded when the manager opens the list.
+  const [archivedEmployees, setArchivedEmployees] = useState<Employee[] | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editSaving, setEditSaving] = useState(false);
@@ -682,6 +697,8 @@ export default function SettingsPageClient({
           setAddressInput(s.geofenceAddress);
         }
         if (s.punchPolicy) setPunchPolicy(s.punchPolicy);
+        if (s.payPeriod) setPayPeriod(s.payPeriod);
+        if (s.payRules) setPayRules({ ...DEFAULT_PAY_RULES, ...s.payRules });
         if (s.schedulingRules) setSchedulingRules({ ...DEFAULT_SCHEDULING_RULES, ...s.schedulingRules });
       })
       .catch(() => {});
@@ -749,10 +766,44 @@ export default function SettingsPageClient({
     setDeletingId(null);
     if (res.ok) {
       setEmployees((prev) => prev.filter((e) => e.id !== id));
+      if (showArchived) loadArchivedEmployees();
     } else {
       setDeleteErrorId(id);
       setTimeout(() => setDeleteErrorId(null), 3000);
     }
+  }
+
+  function loadArchivedEmployees() {
+    fetch("/api/employees?include=archived")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((emps: Employee[]) => setArchivedEmployees(emps.filter((e) => e.archived_at)))
+      .catch(() => setArchivedEmployees([]));
+  }
+
+  function toggleArchived() {
+    if (!showArchived) loadArchivedEmployees();
+    setShowArchived((v) => !v);
+  }
+
+  async function restoreEmployee(id: number) {
+    setRestoringId(id);
+    setRestoreError(null);
+    const res = await fetch("/api/employees", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, archived: false }),
+    }).catch(() => null);
+    setRestoringId(null);
+    if (!res?.ok) {
+      const json = await res?.json().catch(() => ({}));
+      setRestoreError(json?.error ?? "Couldn't restore. Try again.");
+      return;
+    }
+    setArchivedEmployees((prev) => (prev ?? []).filter((e) => e.id !== id));
+    fetch("/api/employees")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((emps: Employee[]) => setEmployees(emps))
+      .catch(() => {});
   }
 
   // ── Danger Zone actions ─────────────────────────────────────────────────────
@@ -873,6 +924,9 @@ export default function SettingsPageClient({
         {employeeId !== null && (
           <ShiftPreferencesSection employeeId={employeeId} firstDayOfWeek={firstDayOfWeek} />
         )}
+
+        {/* Calendar subscription — anyone with a schedule */}
+        {employeeId !== null && <CalendarSyncSection />}
 
         {/* Appearance — all users */}
         <section>
@@ -1433,6 +1487,9 @@ export default function SettingsPageClient({
           </div>
         </section>}
 
+        {/* Pay rules — manager only */}
+        {isManager && <PayRulesSection rules={payRules} onSaved={setPayRules} />}
+
         {/* Timezone — manager only */}
         {isManager && <section>
           <SettingsSectionLabel label="Timezone">
@@ -1464,6 +1521,11 @@ export default function SettingsPageClient({
             </select>
           </div>
         </section>}
+
+        {/* Pay period — manager only */}
+        {isManager && (
+          <PayPeriodSection value={payPeriod} todayKey={todayKeyInTz(timezone)} onChange={setPayPeriod} />
+        )}
 
         {/* ── Team (people & access, manager only) ── */}
         {isManager && <SettingsGroupHeader label="Team" />}
@@ -1551,7 +1613,7 @@ export default function SettingsPageClient({
                           <button
                             onClick={() => setConfirmDeleteEmployee(emp)}
                             disabled={deletingId === emp.id}
-                            aria-label={`Remove ${emp.name}`}
+                            aria-label={`Archive ${emp.name}`}
                             className={`size-10 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                               deleteErrorId === emp.id
                                 ? "bg-danger/20 text-danger-fg-strong border-danger/40"
@@ -1570,6 +1632,12 @@ export default function SettingsPageClient({
                     <EmployeeAvailabilityRow employeeId={emp.id} storeHours={weeklyHours} />
                   )}
                   {isManager && (
+                    <EmployeeExemptToggle
+                      employee={emp}
+                      onSaved={(exempt) => setEmployees((prev) => prev.map((e) => (e.id === emp.id ? { ...e, exempt } : e)))}
+                    />
+                  )}
+                  {isManager && (
                     <EmployeeSchedulingRow
                       employee={emp}
                       rules={schedulingRules}
@@ -1581,6 +1649,43 @@ export default function SettingsPageClient({
               ))
             )}
           </motion.div>
+          <button
+            onClick={toggleArchived}
+            aria-expanded={showArchived}
+            className="mt-2 px-1 text-xs font-semibold text-fg-muted hover:text-fg-secondary cursor-pointer transition-colors"
+          >
+            {showArchived ? "Hide archived employees" : "Show archived employees"}
+          </button>
+          {showArchived && (
+            <div className="mt-2 bg-card rounded-2xl border border-line/60 overflow-hidden divide-y divide-line/60">
+              {archivedEmployees === null ? (
+                <div role="status" className="px-4 py-4 text-center text-sm text-fg-subtle">Loading…</div>
+              ) : archivedEmployees.length === 0 ? (
+                <div className="px-4 py-4 text-center text-sm text-fg-subtle">No archived employees</div>
+              ) : (
+                archivedEmployees.map((emp) => (
+                  <div key={emp.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-fg-body truncate" title={emp.name}>{emp.name}</div>
+                      <div className="text-xs text-fg-subtle truncate">
+                        Archived {emp.archived_at ? new Date(emp.archived_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                        {" · time records kept"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => restoreEmployee(emp.id)}
+                      disabled={restoringId === emp.id}
+                      aria-label={`Restore ${emp.name}`}
+                      className="h-10 text-xs font-semibold px-3 rounded-lg bg-accent/20 text-accent-fg border border-accent/30 hover:bg-accent/30 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <StableLabel labels={["Restore", "…"]} active={restoringId === emp.id ? 1 : 0} />
+                    </button>
+                  </div>
+                ))
+              )}
+              {restoreError && <div className="px-4 py-2"><FormError message={restoreError} /></div>}
+            </div>
+          )}
         </section>}
 
         {/* Templates — manager only */}
@@ -1888,9 +1993,11 @@ export default function SettingsPageClient({
                 ⚠️
               </div>
               <div>
-                <div id="confirm-delete-heading" className="text-base font-bold text-fg">Delete {confirmDeleteEmployee.name}?</div>
+                <div id="confirm-delete-heading" className="text-base font-bold text-fg">Archive {confirmDeleteEmployee.name}?</div>
                 <div className="text-sm text-fg-muted mt-1">
-                  This will permanently delete their account and all of their shifts. This cannot be undone.
+                  They&apos;ll leave the schedule and won&apos;t be able to sign in or clock in. Their punches, time off
+                  and past shifts are kept for payroll and records; shifts they haven&apos;t worked yet are removed.
+                  You can restore them from Archived employees.
                 </div>
               </div>
             </div>
@@ -1906,7 +2013,7 @@ export default function SettingsPageClient({
                 onClick={() => deleteEmployee(confirmDeleteEmployee.id)}
                 className="flex-1 py-3.5 text-sm font-semibold text-danger-fg hover:bg-danger/10 transition-colors cursor-pointer"
               >
-                Delete
+                Archive
               </button>
             </div>
           </div>

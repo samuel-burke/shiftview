@@ -23,8 +23,8 @@ const mockCreateClient = vi.mocked(createClient);
  *
  *  1. supabase.from("draft_schedules").select(...).gte(...).lte(...)  → drafts
  *  2. supabase.from("schedules").select(...).gte(...).lte(...)        → existing
- *  3. supabase.from("schedules").insert(...)                          → insert result
- *  4. supabase.from("draft_schedules").delete().in(...)               → delete result
+ *  3. supabase.from("draft_schedules").delete().in(...).select(...)   → the drafts it deleted
+ *  4. supabase.from("schedules").insert(...)                          → insert result
  *  5. supabase.from("employees").select(...).in(...)                  → employees
  *
  * The mock counts calls per-table to distinguish select vs. mutating calls.
@@ -71,7 +71,16 @@ function makePublishClient({
 
       if (table === "draft_schedules") {
         if (n === 1) return makeBuilder({ data: drafts, error: draftsError }); // select
-        return makeBuilder({ data: null, error: deleteError }); // delete
+        // delete … in("id", ids) returns the rows it removed.
+        const b = makeBuilder({ data: null, error: deleteError });
+        let ids: number[] = [];
+        b.in = vi.fn((_col: string, v: number[]) => { ids = v; return b; });
+        b.then = (resolve: any, reject: any) =>
+          Promise.resolve({
+            data: deleteError ? null : drafts.filter((d) => ids.includes(d.id)),
+            error: deleteError,
+          }).then(resolve, reject);
+        return b;
       }
 
       if (table === "schedules") {
@@ -307,17 +316,16 @@ describe("POST /api/drafts/publish — error paths", () => {
     expect(res.status).toBe(500);
   });
 
-  it("still returns 200 when the delete cleanup step fails (shifts already live)", async () => {
-    // The route logs cleanup failure but doesn't fail the publish
-    mockCreateClient.mockResolvedValue(
-      makePublishClient({
-        drafts: [DRAFT_1],
-        existingSchedules: [],
-        deleteError: { message: "cleanup failed" },
-      }) as any
-    );
+  it("returns 500 and publishes nothing when taking the drafts fails", async () => {
+    const client = makePublishClient({
+      drafts: [DRAFT_1],
+      existingSchedules: [],
+      deleteError: { message: "delete failed" },
+    });
+    mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ published: 1 });
+    expect(res.status).toBe(500);
+    const tables = (client.from as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
+    expect(tables.filter((t: string) => t === "schedules")).toHaveLength(1); // the read only
   });
 });
