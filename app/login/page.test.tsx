@@ -30,6 +30,18 @@ describe("LoginPage — OTP input", () => {
     await screen.findByPlaceholderText("000000");
   }
 
+  it("sends email links to the explicit PKCE callback", async () => {
+    await advanceToCodeStep();
+
+    expect(mockSignInWithOtp).toHaveBeenCalledWith({
+      email: "user@example.com",
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  });
+
   it("renders the OTP input with caret-transparent class to hide the cursor", async () => {
     await advanceToCodeStep();
     const otpInput = screen.getByPlaceholderText("000000");

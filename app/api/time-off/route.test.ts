@@ -240,7 +240,7 @@ describe("POST /api/time-off", () => {
     client.from = vi.fn().mockImplementation((table: string) => {
       const b = from(table);
       if (table === "time_off_requests")
-        b.single = vi.fn().mockResolvedValue({ data: null, error: { code: "23505", message: "duplicate key" } });
+        b.then = (resolve: any) => Promise.resolve({ data: [{ date: futureDate }], error: null }).then(resolve);
       return b;
     });
     mockCreateClient.mockResolvedValue(client);

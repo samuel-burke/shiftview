@@ -23,7 +23,16 @@ function makeParams(id: string) {
 describe("PUT /api/time-off/[id]", () => {
   beforeEach(() => {
     mockCreateClient.mockResolvedValue(
-      makeSupabaseClient({ user: MOCK_USER, isManager: true }) as any
+      makeSupabaseClient({
+        user: MOCK_USER,
+        isManager: true,
+        tableOverrides: {
+          time_off_requests: {
+            data: { id: 1, employee_id: 5, date: "2026-06-15", status: "pending", start_minutes: null, end_minutes: null, group_id: null },
+            error: null,
+          },
+        },
+      }) as any
     );
   });
 
@@ -73,7 +82,7 @@ describe("PUT /api/time-off/[id]", () => {
       makeParams("1")
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, ids: [1], removedShifts: [], keptShifts: [] });
   });
 
   it("returns 200 and ok:true when manager denies a request", async () => {
@@ -85,7 +94,7 @@ describe("PUT /api/time-off/[id]", () => {
       makeParams("1")
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, ids: [1], removedShifts: [], keptShifts: [] });
   });
 });
 

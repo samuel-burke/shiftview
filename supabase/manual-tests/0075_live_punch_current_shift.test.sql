@@ -1,6 +1,6 @@
 -- Direct authenticated inserts must obey the same current-shift window as
 -- lib/punch-sessions.ts and lib/current-shift-server.ts. Disposable database:
---   scripts/test-sql.sh 0052
+--   scripts/test-sql.sh 0075
 -- Every attempted live punch is rolled back; PASS/FAIL includes SQLSTATE.
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
@@ -16,8 +16,13 @@
 \ir ../migrations/0047_store_timezone.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \ir ../migrations/0051_punch_session_limits.sql
-\ir ../migrations/0052_live_punch_current_shift.sql
-\ir ../migrations/0052_live_punch_current_shift.sql
+\ir ../migrations/0052_employee_delete_cascade.sql
+\ir ../migrations/0053_punch_history.sql
+\ir ../migrations/0054_archive_employees.sql
+\ir ../migrations/0060_pay_rules.sql
+\ir ../migrations/0062_pay_periods.sql
+\ir ../migrations/0075_live_punch_current_shift.sql
+\ir ../migrations/0075_live_punch_current_shift.sql
 
 begin;
 insert into auth.users (id, email, email_confirmed_at) values

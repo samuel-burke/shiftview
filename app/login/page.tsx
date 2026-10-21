@@ -33,6 +33,7 @@ export default function LoginPage() {
       email: email.trim(),
       options: {
         shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (error) {

@@ -8,7 +8,7 @@
 // directly and reused by both API routes and the UI. Times are minutes since
 // midnight, matching the rest of the domain (see data/types.ts).
 
-import { isDateKey } from "@/lib/dates";
+import { addDaysToKey, isDateKey } from "@/lib/dates";
 import { MAX_SHIFT_MINUTES as MAX, MIN_SHIFT_MINUTES as MIN, shiftParts, shiftsOverlap, validateShiftTimes } from "@/lib/shift-times";
 
 // Mirrors the schedule duration bounds (BR-3): at least 1 hour, at most 16.
@@ -57,6 +57,13 @@ export type EligibilityContext = {
 };
 
 export type EligibilityResult = { eligible: boolean; reason?: string };
+
+// Load neighboring dates as well: yesterday's overnight shift can overlap
+// today, and today's overnight shift can reach tomorrow's commitments.
+export function getOpenShiftEligibilityDates(date: string): string[] {
+  const day = date.slice(0, 10);
+  return [addDaysToKey(day, -1), day, addDaysToKey(day, 1)];
+}
 
 // Whether an employee may claim a given open shift. A claim is blocked when, on
 // any day the shift touches, the employee has called out or is on approved time

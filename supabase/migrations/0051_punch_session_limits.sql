@@ -14,10 +14,13 @@
 --
 -- Now, for live punches by signed-in users, the open shift is judged from its
 -- clock-in, as the clock does:
---   * a live punch may only continue today's shift, or yesterday's shift
---     before 4:00 AM store time or within two hours of its scheduled overnight
---     end, and within 16 hours of clock-in (18 with scheduled overnight grace);
---   * a clock-in over an open shift is allowed only after that window closes;
+--   * a clock-in over an open shift is allowed when that shift began on an
+--     earlier store day and it is past 4:00 AM store time or the shift began
+--     over 16 hours ago (the clock allows less while a scheduled overnight
+--     shift runs; the API holds that line);
+--   * a break or clock-out must continue a shift that began today, or one
+--     that began on an earlier store day less than 18 hours ago (the 16-hour
+--     shift cap plus the 2-hour late clock-out grace);
 --   * a break_start beyond the org's punch_max_breaks_per_shift is refused.
 -- Managers' manual punches and the service role are unchanged.
 --
@@ -44,12 +47,6 @@ declare
   v_in_at timestamptz;
   v_now timestamptz;
   v_continues boolean;
-  v_today date;
-  v_in_day date;
-  v_end_local timestamp;
-  v_end_at timestamptz;
-  v_first_end timestamptz;
-  v_scheduled_overnight boolean := false;
   v_max_breaks int;
   v_breaks int;
 begin
@@ -113,41 +110,20 @@ begin
        order by punched_at desc, id desc
        limit 1;
     end if;
-    -- Match currentShift/loadCurrentShift, including the store's calendar
-    -- day and the employee's latest scheduled overnight end. schedule_id on
-    -- the incoming punch is only a label and cannot extend this window.
-    v_today := (v_now at time zone v_tz)::date;
-    v_in_day := (v_in_at at time zone v_tz)::date;
-    if v_in_day = v_today - 1 then
-      select s.date::timestamp + make_interval(mins => s.end_minutes) into v_end_local
-        from public.schedules s
-       where s.org_id = new.org_id and s.employee_id = new.employee_id
-         and s.date = v_today - 1 and s.end_minutes > 1440
-       order by s.end_minutes desc
-       limit 1;
-      if v_end_local is not null then
-        v_end_at := v_end_local at time zone v_tz;
-        -- Like zonedTimeToUtc: use the first occurrence of an ambiguous
-        -- fall-back time. PostgreSQL otherwise picks the second occurrence.
-        -- For a spring-forward gap, AT TIME ZONE already shifts forward.
-        v_first_end := ((v_end_local - interval '1 day') at time zone v_tz) + interval '24 hours';
-        if (v_first_end at time zone v_tz) = v_end_local then
-          v_end_at := least(v_end_at, v_first_end);
-        end if;
-        v_scheduled_overnight := v_now <= v_end_at + interval '2 hours';
-      end if;
-    end if;
+    -- Whether a break or clock-out may continue the open shift.
     v_continues := v_in_at is not null
-      and (v_in_day = v_today
-           or (v_in_day = v_today - 1
-               and ((v_now at time zone v_tz)::time < time '04:00' or v_scheduled_overnight)
-               and v_in_at >= v_now - case when v_scheduled_overnight then interval '18 hours'
-                                          else interval '16 hours' end));
+      and ((v_in_at at time zone v_tz)::date = (v_now at time zone v_tz)::date
+           or v_in_at > v_now - interval '18 hours');
 
     v_valid := case new.punch_type
+      -- A clock-in over an open punch is only a new shift when the open shift
+      -- was left from an earlier store day, as in lib/punch-sessions.ts.
       when 'clock_in'    then v_last_type is null or v_last_type = 'clock_out'
                               or v_in_at is null
-                              or (v_last_at < v_now - interval '1 minute' and not v_continues)
+                              or (v_last_at < v_now - interval '1 minute'
+                                  and (v_in_at at time zone v_tz)::date < (v_now at time zone v_tz)::date
+                                  and ((v_now at time zone v_tz)::time >= time '04:00'
+                                       or v_in_at < v_now - interval '16 hours'))
       when 'break_start' then v_continues and v_last_type in ('clock_in', 'break_end')
       when 'break_end'   then v_continues and v_last_type = 'break_start'
       when 'clock_out'   then v_continues and v_last_type in ('clock_in', 'break_end')

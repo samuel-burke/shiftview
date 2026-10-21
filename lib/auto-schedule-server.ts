@@ -62,9 +62,10 @@ export async function loadWeek(
   const results = await Promise.all([
     supabase.from("employees")
       .select("id, name, employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week")
-      .eq("org_id", orgId),
+      .eq("org_id", orgId)
+      .is("archived_at", null),
     supabase.from("availability").select("employee_id, day_of_week, start_minutes, end_minutes").eq("org_id", orgId),
-    supabase.from("time_off_requests").select("employee_id, date, status")
+    supabase.from("time_off_requests").select("employee_id, date, status, start_minutes, end_minutes")
       .eq("org_id", orgId).gte("date", dates[0]).lte("date", dates[6]).in("status", ["approved", "pending"]),
     supabase.from("callouts").select("employee_id, date").eq("org_id", orgId).gte("date", dates[0]).lte("date", dates[6]),
     supabase.from("employee_preferences")
@@ -132,10 +133,16 @@ export async function loadWeek(
           .filter((a) => Number(a.employee_id) === id)
           .map((a) => [Number(a.day_of_week), { startMinutes: num(a.start_minutes), endMinutes: num(a.end_minutes) }])
       ),
+      // Whole-day approved time off blocks the day; part-day only its hours.
       unavailableDates: [
-        ...timeOff.filter((t) => Number(t.employee_id) === id && t.status === "approved").map((t) => dateKey(t.date)),
+        ...timeOff
+          .filter((t) => Number(t.employee_id) === id && t.status === "approved" && t.start_minutes == null)
+          .map((t) => dateKey(t.date)),
         ...callouts.filter((c) => Number(c.employee_id) === id).map((c) => dateKey(c.date)),
       ],
+      partialTimeOff: timeOff
+        .filter((t) => Number(t.employee_id) === id && t.status === "approved" && t.start_minutes != null && t.end_minutes != null)
+        .map((t) => ({ date: dateKey(t.date), startMinutes: Number(t.start_minutes), endMinutes: Number(t.end_minutes) })),
       pendingTimeOffDates: timeOff
         .filter((t) => Number(t.employee_id) === id && t.status === "pending")
         .map((t) => dateKey(t.date)),
