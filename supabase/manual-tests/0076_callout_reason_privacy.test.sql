@@ -1,6 +1,6 @@
 -- Reproduce the direct-table reason disclosure, then check database privacy,
--- authorized reads/writes, Realtime privileges and repeat application of 0052.
--- Run with scripts/test-sql.sh 0052 against disposable PostgreSQL databases.
+-- authorized reads/writes, Realtime privileges and repeat application of 0076.
+-- Run with scripts/test-sql.sh 0076 against disposable PostgreSQL databases.
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
@@ -16,6 +16,14 @@
 \ir ../migrations/0047_store_timezone.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \ir ../migrations/0051_punch_session_limits.sql
+\ir ../migrations/0052_employee_delete_cascade.sql
+\ir ../migrations/0053_punch_history.sql
+\ir ../migrations/0054_archive_employees.sql
+\ir ../migrations/0060_pay_rules.sql
+\ir ../migrations/0062_pay_periods.sql
+\ir ../migrations/0070_shift_notes.sql
+\ir ../migrations/0072_time_off_ranges.sql
+\ir ../migrations/0073_calendar_feeds.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -90,12 +98,12 @@ insert into callouts (org_id, employee_id, date, reason)
          (:alder, :dan_id, :tomorrow, 'Dan private'),
          (:birch, :eve_id, :tomorrow, 'Eve private');
 
-select pg_temp.check('before 0052 an employee reads a coworker''s private reason directly',
+select pg_temp.check('before 0076 an employee reads a coworker''s private reason directly',
   pg_temp.try(:dan, $$select reason from callouts where reason = 'Cara private'$$) = 'ok:1');
 
 \set ON_ERROR_STOP on
-\ir ../migrations/0052_callout_reason_privacy.sql
-\ir ../migrations/0052_callout_reason_privacy.sql
+\ir ../migrations/0076_callout_reason_privacy.sql
+\ir ../migrations/0076_callout_reason_privacy.sql
 \unset ON_ERROR_STOP
 
 -- Column permissions protect projections, wildcards, predicates and RETURNING.

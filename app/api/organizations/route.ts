@@ -205,9 +205,15 @@ export async function DELETE(request: Request) {
   }
 
   // The org's audit_logs rows are deleted with it (and the FK forbids new
-  // ones), so the deletion itself is recorded in server logs only.
+  // ones), so the deletion itself is recorded in server logs only. JSON
+  // encoding keeps control characters in the tenant's name inside one record.
   console.log(
-    `[api/organizations] organization deleted: "${org.name}" (${ctx.orgId}) by user ${ctx.user.id}`
+    JSON.stringify({
+      action: "organization.delete",
+      orgId: ctx.orgId,
+      orgName: org.name,
+      actorId: ctx.user.id,
+    })
   );
 
   return NextResponse.json({ ok: true });

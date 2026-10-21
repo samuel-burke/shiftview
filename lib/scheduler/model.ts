@@ -227,13 +227,21 @@ export function buildModel(input: SchedulerInput): Model {
     const unavailable = dates.map((d) => offDates.has(d));
     const pending = dates.map((d) => pendingDates.has(d));
 
+    // Approved part-day time off by day of the planned week.
+    const partOff = new Map<number, { startMinutes: number; endMinutes: number }[]>();
+    for (const p of e.partialTimeOff ?? []) {
+      const day = dates.indexOf(p.date.slice(0, 10));
+      if (day < 0) continue;
+      partOff.set(day, [...(partOff.get(day) ?? []), p]);
+    }
+
     // Availability window for a day as [lo, hi], or null when unavailable.
     const availWindow = (day: number): [number, number] | null => {
       if (unavailable[day]) return null;
       const rule = e.availability[dows[day]];
-      if (!rule) return [0, DAY];
-      if (isUnavailableAllDay(rule)) return null;
-      return [rule.startMinutes!, rule.endMinutes!];
+      if (rule && isUnavailableAllDay(rule)) return null;
+      const base: [number, number] = rule ? [rule.startMinutes!, rule.endMinutes!] : [0, DAY];
+      return withoutTimeOff(base, partOff.get(day) ?? []);
     };
 
     const empWindows: (DayWindow | null)[] = dates.map((_, day) => {
@@ -315,4 +323,23 @@ export function buildModel(input: SchedulerInput): Model {
     paid,
     classify,
   };
+}
+
+// A day's window with part-day time off taken out. One window per day is what
+// the generator plans with, so when the time off falls in the middle the
+// longer side is kept.
+export function withoutTimeOff(
+  window: [number, number],
+  off: { startMinutes: number; endMinutes: number }[]
+): [number, number] | null {
+  let [lo, hi] = window;
+  for (const o of [...off].sort((a, b) => a.startMinutes - b.startMinutes)) {
+    if (o.endMinutes <= lo || o.startMinutes >= hi) continue;
+    const before = o.startMinutes - lo;
+    const after = hi - o.endMinutes;
+    if (before <= 0 && after <= 0) return null;
+    if (before >= after) hi = o.startMinutes;
+    else lo = o.endMinutes;
+  }
+  return hi > lo ? [lo, hi] : null;
 }
