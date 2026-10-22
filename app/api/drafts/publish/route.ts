@@ -10,6 +10,16 @@ export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+type DraftRow = {
+  id: number;
+  employee_id: number;
+  date: string;
+  start_minutes: number;
+  end_minutes: number;
+  generation_run_id: number | null;
+  note?: string | null;
+};
+
 export async function POST(request: Request) {
   const { weekStart } = await request.json();
 
@@ -26,7 +36,7 @@ export async function POST(request: Request) {
 
   const { data: drafts, error: draftsError } = await supabase
     .from("draft_schedules")
-    .select("id, employee_id, date, start_minutes, end_minutes")
+    .select("id, employee_id, date, start_minutes, end_minutes, note")
     .eq("org_id", orgId)
     .gte("date", dates[0])
     .lte("date", dates[6]);
@@ -59,31 +69,52 @@ export async function POST(request: Request) {
   const toPublish = drafts.filter((d) => !taken.has(`${d.employee_id}|${dateKey(d.date)}`));
   const skipped = drafts.filter((d) => taken.has(`${d.employee_id}|${dateKey(d.date)}`));
 
+  // Take the drafts off the board before they go live, keeping only the rows
+  // this request actually deleted: a second publish running at the same time
+  // (a double click, two managers) gets none of them, so no shift is created
+  // twice.
+  let published: DraftRow[] = [];
   if (toPublish.length > 0) {
+    const { data: claimed, error: claimError } = await supabase
+      .from("draft_schedules")
+      .delete()
+      .eq("org_id", orgId)
+      .in("id", toPublish.map((d) => d.id))
+      .select("id, employee_id, date, start_minutes, end_minutes, generation_run_id, note");
+
+    if (claimError) {
+      console.error("[api/drafts/publish]", claimError);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+    published = (claimed ?? []) as DraftRow[];
+  }
+
+  if (published.length > 0) {
     const { error: insertError } = await supabase
       .from("schedules")
-      .insert(withOrgAll(orgId!, toPublish.map((d) => ({
+      .insert(withOrgAll(orgId!, published.map((d) => ({
         employee_id:   d.employee_id,
         date:          dateKey(d.date),
         start_minutes: d.start_minutes,
         end_minutes:   d.end_minutes,
+        note:          d.note ?? null,
       }))));
 
     if (insertError) {
       console.error("[api/drafts/publish]", insertError);
+      // Nothing went live: put the drafts back so the week can be published again.
+      const { error: restoreError } = await supabase
+        .from("draft_schedules")
+        .insert(withOrgAll(orgId!, published.map((d) => ({
+          employee_id:       d.employee_id,
+          date:              dateKey(d.date),
+          start_minutes:     d.start_minutes,
+          end_minutes:       d.end_minutes,
+          generation_run_id: d.generation_run_id,
+          note:              d.note ?? null,
+        }))));
+      if (restoreError) console.error("[api/drafts/publish] restoring drafts failed", restoreError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-  }
-
-  if (toPublish.length > 0) {
-    const { error: deleteError } = await supabase
-      .from("draft_schedules")
-      .delete()
-      .eq("org_id", orgId)
-      .in("id", toPublish.map((d) => d.id));
-
-    if (deleteError) {
-      console.error("[api/drafts/publish] cleanup failed", deleteError);
     }
 
     // Auto-schedule runs for the week can't be undone once their drafts are live.
@@ -98,7 +129,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const publishedEmployeeIds = [...new Set(toPublish.map((d) => d.employee_id))];
+  const publishedEmployeeIds = [...new Set(published.map((d) => d.employee_id))];
   if (publishedEmployeeIds.length > 0) {
     const { data: emps } = await supabase
       .from("employees")
@@ -124,12 +155,12 @@ export async function POST(request: Request) {
     actorId:      user?.id,
     resourceType: "draft_schedule",
     resourceId:   weekStart,
-    after: { published: toPublish.length, skipped: skipped.length },
+    after: { published: published.length, skipped: skipped.length },
     metadata: { weekStart: dates[0], weekEnd: dates[6] },
   }).catch(() => {});
 
   return NextResponse.json({
-    published: toPublish.length,
+    published: published.length,
     skipped: skipped.length,
     // Still drafts: these people already have a live shift that day.
     skippedDrafts: skipped.map((d) => ({ id: d.id, employeeId: d.employee_id, date: dateKey(d.date) })),

@@ -5,6 +5,8 @@ import { withOrg } from "@/lib/org-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { addDaysToKey, isDateKey, todayKeyInTz } from "@/lib/dates";
 import { getOrgTimezone } from "@/lib/org-timezone";
+import { collapseTimeOffGroups, describeTimeOff, parseTimeOffRequest, requestDates, timeOffWindow } from "@/lib/time-off";
+import { randomUUID } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export async function GET(request?: Request) {
     // Every pending request for this org, or a range's pending and approved ones.
     const base = supabase
       .from("time_off_requests")
-      .select("id, employee_id, date, status, note")
+      .select("id, employee_id, date, status, note, start_minutes, end_minutes, group_id")
       .eq("org_id", orgId);
     const filtered = range
       ? base.in("status", ["pending", "approved"]).gte("date", range.from).lte("date", range.to)
@@ -65,9 +67,11 @@ export async function GET(request?: Request) {
       date: r.date,
       status: r.status,
       note: r.note ?? undefined,
+      ...timeOffFields(r),
     }));
 
-    return NextResponse.json({ requests: result });
+    // The week board works per day; the queue lists each request once.
+    return NextResponse.json({ requests: range ? result : collapseTimeOffGroups(result) });
   }
 
   // Employee: fetch own requests for next 90 days
@@ -88,7 +92,7 @@ export async function GET(request?: Request) {
 
   const { data: requests, error: fetchError } = await supabase
     .from("time_off_requests")
-    .select("id, employee_id, date, status, note")
+    .select("id, employee_id, date, status, note, start_minutes, end_minutes, group_id")
     .eq("org_id", orgId)
     .eq("employee_id", emp.id)
     .gte("date", today)
@@ -107,17 +111,19 @@ export async function GET(request?: Request) {
     date: r.date,
     status: r.status,
     note: r.note ?? undefined,
+    ...timeOffFields(r),
   }));
 
-  return NextResponse.json({ requests: result });
+  return NextResponse.json({ requests: collapseTimeOffGroups(result) });
 }
 
 export async function POST(request: Request) {
-  const { employeeId, date, note } = await request.json();
+  const body = await request.json().catch(() => ({}));
+  const { employeeId, note } = body;
 
   if (!employeeId || !Number.isInteger(employeeId))
     return NextResponse.json({ error: "employeeId must be an integer" }, { status: 400 });
-  if (!date || !DATE_RE.test(date) || !isDateKey(date))
+  if (!body.date || !DATE_RE.test(body.date) || !isDateKey(body.date))
     return NextResponse.json({ error: "date must be YYYY-MM-DD" }, { status: 400 });
 
   const supabase = await createClient();
@@ -132,8 +138,9 @@ export async function POST(request: Request) {
 
   // "Today" is the store's calendar day, not UTC's.
   const today = todayKeyInTz(await getOrgTimezone(supabase, orgId));
-  if (date < today)
-    return NextResponse.json({ error: "date must be today or in the future" }, { status: 400 });
+  const parsed = parseTimeOffRequest(body, today);
+  if (parsed.error !== null) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const req = parsed.request;
 
   // Verify the employee belongs to the current user and is in the same org
   // (Only allow submitting for your own employee record)
@@ -157,16 +164,47 @@ export async function POST(request: Request) {
       { status: 403 }
     );
 
-  const insertRow: Record<string, unknown> = { employee_id: employeeId, date };
-  if (note && typeof note === "string" && note.trim()) insertRow.note = note.trim();
+  const dates = requestDates(req);
+  // One request per person per day (a unique key): name the days already asked for.
+  const { data: existing } = await supabase
+    .from("time_off_requests")
+    .select("date")
+    .eq("org_id", orgId)
+    .eq("employee_id", employeeId)
+    .gte("date", dates[0])
+    .lte("date", dates[dates.length - 1]);
+  const taken = ((existing ?? []) as { date: string }[]).map((r) => String(r.date).slice(0, 10)).sort();
+  if (taken.length > 0) {
+    return NextResponse.json(
+      {
+        error: dates.length === 1
+          ? "You already requested this day off"
+          : `You already have a request for ${taken.length === 1 ? describeTimeOff(taken, null) : `${taken.length} of these days`}`,
+        dates: taken,
+      },
+      { status: 409 }
+    );
+  }
+
+  const trimmedNote = typeof note === "string" && note.trim() ? note.trim().slice(0, 500) : null;
+  const groupId = dates.length > 1 ? randomUUID() : null;
+  const rows = dates.map((date) => {
+    const row: Record<string, unknown> = { employee_id: employeeId, date };
+    if (trimmedNote) row.note = trimmedNote;
+    if (groupId) row.group_id = groupId;
+    if (req.window) {
+      row.start_minutes = req.window.startMinutes;
+      row.end_minutes = req.window.endMinutes;
+    }
+    return withOrg(orgId, row);
+  });
 
   const { data, error: insertError } = await supabase
     .from("time_off_requests")
-    .insert(withOrg(orgId, insertRow))
-    .select("id")
-    .single();
+    .insert(rows)
+    .select("id");
 
-  // One request per person per day (a unique key): a denied day can't be re-requested.
+  // Another request for one of these days landed in between.
   if (insertError?.code === "23505")
     return NextResponse.json({ error: "You already requested this day off" }, { status: 409 });
   if (insertError) {
@@ -174,19 +212,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
+  const ids = ((data ?? []) as { id: number }[]).map((r) => r.id);
   writeAuditLog({
     action:       "time_off.request",
     orgId,
     actorId:      user.id,
     resourceType: "time_off_request",
-    resourceId:   String(data.id),
-    after: { employeeId, date, note: insertRow.note ?? null },
+    resourceId:   String(ids[0] ?? ""),
+    after: { employeeId, date: req.date, endDate: req.endDate, window: req.window, note: trimmedNote },
     metadata: {
       employeeId,
       employeeName: emp.name,
-      date,
+      date: req.date,
+      endDate: req.endDate,
+      days: dates.length,
     },
   }).catch(() => {});
 
-  return NextResponse.json({ id: data.id, ok: true }, { status: 201 });
+  return NextResponse.json({ id: ids[0] ?? null, ids, groupId, ok: true }, { status: 201 });
+}
+
+// The API shape of a request's part-day window and group.
+function timeOffFields(r: { start_minutes?: number | null; end_minutes?: number | null; group_id?: string | null }) {
+  const window = timeOffWindow(r);
+  return {
+    startMinutes: window?.startMinutes ?? null,
+    endMinutes:   window?.endMinutes ?? null,
+    groupId:      r.group_id ?? null,
+  };
 }

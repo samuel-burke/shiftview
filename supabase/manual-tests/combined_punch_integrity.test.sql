@@ -25,6 +25,12 @@
 \ir ../migrations/0047_store_timezone.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \ir ../migrations/0051_punch_session_limits.sql
+\ir ../migrations/0052_employee_delete_cascade.sql
+\ir ../migrations/0053_punch_history.sql
+\ir ../migrations/0054_archive_employees.sql
+\ir ../migrations/0060_pay_rules.sql
+\ir ../migrations/0062_pay_periods.sql
+\ir ../migrations/0075_live_punch_current_shift.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { isProductionDeployment, verifyTurnstileToken } from "@/lib/turnstile";
 import { sendNtfy } from "@/lib/ntfy";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
   }
 
   const { turnstileToken = null } = await request.json().catch(() => ({}));
+  const captchaToken = typeof turnstileToken === "string" ? turnstileToken : undefined;
 
   const supabase = await createClient();
 
@@ -54,18 +55,10 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   let userId = existing?.id ?? null;
 
-  // Bot gate. Anonymous users can be minted straight from Supabase Auth with
-  // the public anon key, bypassing this route, so the gate keys on demo
-  // membership rather than on whether a session exists: only a visitor who
-  // already holds the demo manager role (the self-heal path re-linking their
-  // employee row) skips it. Anyone else, with or without an anonymous
-  // session, must pass Turnstile before getting manager access to the demo.
-  // Login and signup rely on Supabase's email rate limits plus the gate in
-  // /api/auth/signup-otp.
-  //
-  // Verification is route-level (lib/turnstile.ts): off without
-  // TURNSTILE_SECRET_KEY in local dev, e2e and previews, required in
-  // production.
+  // Supabase Auth verifies the token when creating an anonymous user. An
+  // existing anonymous session without demo membership still needs a fresh
+  // route-level check before receiving manager access. Only existing demo
+  // managers skip the challenge. Never verify a single-use token twice.
   let alreadyMember = false;
   if (userId) {
     const { data: membership } = await admin
@@ -78,7 +71,11 @@ export async function POST(request: Request) {
   }
   // A returning demo manager re-provisioning their session isn't a new visit.
   const isNewSession = !alreadyMember;
-  if (!alreadyMember && !(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
+  if (!alreadyMember && (
+    (isProductionDeployment() && !process.env.TURNSTILE_SECRET_KEY) ||
+    (process.env.TURNSTILE_SECRET_KEY && !captchaToken?.trim()) ||
+    (userId && !(await verifyTurnstileToken(captchaToken ?? null, ip === "unknown" ? null : ip)))
+  )) {
     return NextResponse.json(
       { error: "Verification failed — please try again" },
       { status: 403 }
@@ -86,7 +83,7 @@ export async function POST(request: Request) {
   }
 
   if (!userId) {
-    const { data, error } = await supabase.auth.signInAnonymously();
+    const { data, error } = await supabase.auth.signInAnonymously({ options: { captchaToken } });
     if (error || !data.user) {
       console.error("[api/demo/start] anonymous sign-in failed:", error);
       const captchaRejected = error?.code === "captcha_failed";

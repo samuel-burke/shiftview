@@ -108,3 +108,30 @@ describe("timecardToCsv — split shifts (time card audit)", () => {
     expect(ncns[1]).toContain(",5:00 PM,");
   });
 });
+
+describe("timecardToCsv — punch rounding", () => {
+  function roundedBuild(roundingMinutes: 0 | 15) {
+    return computeTimecard({
+      employeeId: 1, employeeName: "Test Employee", from: DATE, to: DATE, timezone: TZ,
+      policy: DEFAULT_PUNCH_POLICY, schedules: [schedule],
+      punches: [punch("clock_in", 9, 7), punch("clock_out", 17, 8)],
+      callouts: [], nowMs: new Date(est(23, 0)).getTime(), roundingMinutes,
+    });
+  }
+
+  it("adds a Rounded Time column after the real time when rounding is on", () => {
+    const r = rows(timecardToCsv(roundedBuild(15)));
+    expect(r[0]).toBe("Date,Day,Type,Time,Rounded Time,Flag,Detail,Manual,Note");
+    // 9:07 is still late (judged on the real time); payroll pays from 9:00.
+    expect(r[1].startsWith("2026-01-15,Thu,Clock In,9:07 AM,9:00 AM,Late In,")).toBe(true);
+    expect(r[1].endsWith(",no,")).toBe(true);
+    expect(r[2]).toBe("2026-01-15,Thu,Clock Out,5:08 PM,5:15 PM,,,no,");
+  });
+
+  it("keeps the export unchanged when rounding is off", () => {
+    const r = rows(timecardToCsv(roundedBuild(0)));
+    expect(r[0]).toBe("Date,Day,Type,Time,Flag,Detail,Manual,Note");
+    expect(r[1].startsWith("2026-01-15,Thu,Clock In,9:07 AM,Late In,")).toBe(true);
+    expect(r[2]).toBe("2026-01-15,Thu,Clock Out,5:08 PM,,,no,");
+  });
+});

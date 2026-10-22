@@ -20,8 +20,8 @@ vi.mock("@/lib/supabase-browser", () => ({
   }),
 }));
 
-// Signup sends the OTP through the gated server route (/api/auth/signup-otp)
-// so the Turnstile check runs before any email goes out; org creation hits
+// Signup forwards its token through /api/auth/signup-otp to Supabase Auth,
+// which verifies it before sending an OTP; org creation hits
 // /api/organizations. Route by URL so each test controls the org-create
 // response independently of the always-ok send-code call.
 function mockFetch(org: { ok: boolean; body?: object }) {

@@ -4,9 +4,10 @@ import { requireManager } from "@/lib/require-manager";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { computePayroll, EmployeePayroll, payrollQueryWindow, PunchRow } from "@/lib/payroll";
 import { daysBetweenKeys } from "@/lib/dates";
-import { getOrgTimezone } from "@/lib/org-timezone";
+import { getOrgPayrollSettings, loadExemptEmployeeIds, overtimeThresholds } from "@/lib/pay-rules";
 import { writeAuditLog } from "@/lib/audit";
 import { csvRow } from "@/lib/csv";
+import { loadPayrollPeriodInfo, payrollPeriodFileSuffix, payrollPeriodLabel } from "@/lib/pay-periods-server";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,19 @@ function mmddyyyy(dateStr: string): string {
 
 // ─── Format generators ────────────────────────────────────────────────────────
 
-function summaryCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Week Of", "Regular Hrs", "OT Hrs", "Break Hrs", "Total Hrs", "Incomplete"])];
+// Columns that only appear when they apply, so a store on the default rules
+// gets exactly the files it always has:
+//   * doubleTime: the org's rule can pay double time (California), or this
+//     payroll has some: a "DT Hrs" column after "OT Hrs".
+//   * exempt: the org has exempt employees: an "Exempt" column at the end.
+type ExportColumns = { doubleTime: boolean; exempt: boolean };
+
+function summaryCSV(rows: EmployeePayroll[], cols: ExportColumns): string {
+  const lines = [csvRow([
+    "Employee", "Week Of", "Regular Hrs", "OT Hrs", ...(cols.doubleTime ? ["DT Hrs"] : []),
+    "Break Hrs", "Total Hrs", "Incomplete", ...(cols.exempt ? ["Exempt"] : []),
+  ])];
+  const exemptCell = (emp: EmployeePayroll) => (cols.exempt ? [emp.exempt ? "Yes" : ""] : []);
   for (const emp of rows) {
     for (const week of emp.weeks) {
       lines.push(csvRow([
@@ -37,9 +49,11 @@ function summaryCSV(rows: EmployeePayroll[]): string {
         week.weekStart,
         week.regularHours.toFixed(2),
         week.overtimeHours.toFixed(2),
+        ...(cols.doubleTime ? [week.doubleTimeHours.toFixed(2)] : []),
         week.breakHours.toFixed(2),
         week.totalWorkedHours.toFixed(2),
         week.hasIncomplete ? "Yes" : "",
+        ...exemptCell(emp),
       ]));
     }
     if (emp.weeks.length > 1) {
@@ -48,9 +62,11 @@ function summaryCSV(rows: EmployeePayroll[]): string {
         "",
         emp.totalRegularHours.toFixed(2),
         emp.totalOvertimeHours.toFixed(2),
+        ...(cols.doubleTime ? [emp.totalDoubleTimeHours.toFixed(2)] : []),
         emp.totalBreakHours.toFixed(2),
         emp.totalWorkedHours.toFixed(2),
         "",
+        ...exemptCell(emp),
       ]));
     }
   }
@@ -58,8 +74,8 @@ function summaryCSV(rows: EmployeePayroll[]): string {
 }
 
 // Daily detail — works with QuickBooks Online time import, Gusto, ADP, and most modern payroll platforms
-function dailyCSV(rows: EmployeePayroll[]): string {
-  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete"])];
+function dailyCSV(rows: EmployeePayroll[], cols: ExportColumns): string {
+  const lines = [csvRow(["Employee", "Date", "Day", "Hours Worked", "Break Hours", "Incomplete", ...(cols.exempt ? ["Exempt"] : [])])];
   for (const emp of rows) {
     for (const week of emp.weeks) {
       for (const day of week.days) {
@@ -71,6 +87,7 @@ function dailyCSV(rows: EmployeePayroll[]): string {
           day.workedHours.toFixed(2),
           day.breakHours.toFixed(2),
           day.hasIncomplete ? "Yes" : "",
+          ...(cols.exempt ? [emp.exempt ? "Yes" : ""] : []),
         ]));
       }
     }
@@ -78,25 +95,30 @@ function dailyCSV(rows: EmployeePayroll[]): string {
   return lines.join("\n");
 }
 
-// Calculation breakdown — shows how each worked day accumulates toward the
-// weekly 40h regular cap (hours beyond it become overtime), alongside that
-// day's break hours. Hours worked earlier in a workweek the range starts
+// Calculation breakdown — how each worked day splits under the org's overtime
+// rule (daily limits, then the weekly 40 on what's still regular), alongside
+// that day's break hours. Hours worked earlier in a workweek the range starts
 // part-way through open the week as a "worked before this period" row: they
 // were paid in the previous period but count toward this week's overtime. The
 // per-week subtotal rows are exactly the figures the Summary sheet reports.
 // The day-level split is computePayroll's, so the QuickBooks export matches.
-function detailedCSV(rows: EmployeePayroll[]): string {
+// With double time, a "7th Day" column marks California's 7th consecutive
+// workday.
+function detailedCSV(rows: EmployeePayroll[], cols: ExportColumns): string {
+  const dt = (v: string) => (cols.doubleTime ? [v] : []);
   const lines = [csvRow([
     "Employee", "Week Of", "Date", "Day",
-    "Worked Hrs", "Cumulative Wk Hrs", "Regular Hrs", "OT Hrs", "Break Hrs", "Incomplete",
+    "Worked Hrs", "Cumulative Wk Hrs", "Regular Hrs", "OT Hrs", ...dt("DT Hrs"), "Break Hrs", "Incomplete",
+    ...dt("7th Day"), ...(cols.exempt ? ["Exempt"] : []),
   ])];
   for (const emp of rows) {
+    const exemptCell = cols.exempt ? [emp.exempt ? "Yes" : ""] : [];
     for (const week of emp.weeks) {
       let weekAccum = week.priorHours;
       if (week.priorHours > 0) {
         lines.push(csvRow([
           emp.employeeName, week.weekStart, "", "Worked before this period",
-          week.priorHours.toFixed(2), weekAccum.toFixed(2), "", "", "", "",
+          week.priorHours.toFixed(2), weekAccum.toFixed(2), "", "", ...dt(""), "", "", ...dt(""), ...exemptCell,
         ]));
       }
       for (const day of week.days) {
@@ -111,8 +133,11 @@ function detailedCSV(rows: EmployeePayroll[]): string {
           weekAccum.toFixed(2),
           day.regularHours.toFixed(2),
           day.overtimeHours.toFixed(2),
+          ...dt(day.doubleTimeHours.toFixed(2)),
           day.breakHours.toFixed(2),
           day.hasIncomplete ? "Yes" : "",
+          ...dt(day.seventhConsecutiveDay ? "Yes" : ""),
+          ...exemptCell,
         ]));
       }
       lines.push(csvRow([
@@ -123,8 +148,11 @@ function detailedCSV(rows: EmployeePayroll[]): string {
         "",
         week.regularHours.toFixed(2),
         week.overtimeHours.toFixed(2),
+        ...dt(week.doubleTimeHours.toFixed(2)),
         week.breakHours.toFixed(2),
         week.hasIncomplete ? "Yes" : "",
+        ...dt(""),
+        ...exemptCell,
       ]));
     }
     lines.push(""); // blank separator between employees
@@ -133,20 +161,29 @@ function detailedCSV(rows: EmployeePayroll[]): string {
 }
 
 // QuickBooks Desktop IIF — one TIMEACT row per employee per worked day and
-// pay type, using computePayroll's day-level regular/overtime split.
+// pay type, using computePayroll's day-level regular/overtime/double-time
+// split. The Double Time type is only declared when some row uses it. An
+// exempt employee's rows say "Exempt" in the note.
 function quickbooksIIF(rows: EmployeePayroll[]): string {
+  const anyDouble = rows.some((e) => e.totalDoubleTimeHours > 0);
   const lines = [
     "!TIMETYPE\tNAME",
     "TIMETYPE\tRegular Time",
     "TIMETYPE\tOvertime",
+    ...(anyDouble ? ["TIMETYPE\tDouble Time"] : []),
     "!TIMEACT\tDATE\tJOB\tEMP\tSERVICE\tDURATION\tNOTE\tBILLINGSTATUS\tPITEM\tCLASS",
   ];
 
   for (const emp of rows) {
     for (const week of emp.weeks) {
       for (const day of week.days) {
-        const note = day.hasIncomplete ? "Incomplete punch — verify hours" : "";
-        for (const [service, hrs] of [["Regular Time", day.regularHours], ["Overtime", day.overtimeHours]] as const) {
+        const note = [emp.exempt ? "Exempt" : "", day.hasIncomplete ? "Incomplete punch — verify hours" : ""]
+          .filter(Boolean).join("; ");
+        for (const [service, hrs] of [
+          ["Regular Time", day.regularHours],
+          ["Overtime", day.overtimeHours],
+          ["Double Time", day.doubleTimeHours],
+        ] as const) {
           if (hrs <= 0) continue;
           lines.push(
             ["TIMEACT", mmddyyyy(day.date), "", iifField(emp.employeeName), service,
@@ -184,9 +221,14 @@ export async function GET(request: Request) {
   if (daysDiff > 366)
     return NextResponse.json({ error: "Date range must not exceed 366 days" }, { status: 400 });
 
-  const tz = await getOrgTimezone(supabase, orgId!);
+  const { tz, rules } = await getOrgPayrollSettings(supabase, orgId!);
+  const { ids: exemptEmployeeIds, error: exemptError } = await loadExemptEmployeeIds(supabase, orgId!);
+  if (exemptError) {
+    console.error("[api/reports/payroll/export] exempt", exemptError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
-  const span = payrollQueryWindow(from, to, tz);
+  const span = payrollQueryWindow(from, to, tz, rules.workweekStartDay);
   const { data, error, truncated } = await fetchAllRows((first, last) =>
     supabase
       .from("punch_records")
@@ -208,14 +250,28 @@ export async function GET(request: Request) {
   if (truncated)
     return NextResponse.json({ error: "Too many punches in this range — choose a shorter range" }, { status: 422 });
 
-  const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to });
+  const payroll = computePayroll(data as unknown as PunchRow[], tz, { from, to }, { rules, exemptEmployeeIds });
+  const cols: ExportColumns = {
+    doubleTime: overtimeThresholds(rules).dailyDoubleTime !== null || payroll.some((e) => e.totalDoubleTimeHours > 0),
+    exempt: exemptEmployeeIds.size > 0,
+  };
+
+  const { info: periodInfo, error: periodError } = await loadPayrollPeriodInfo(supabase, orgId!, from, to);
+  if (periodError) {
+    console.error("[api/reports/payroll/export] pay periods", periodError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   writeAuditLog({
     action:       "payroll.export",
     orgId:        orgId!,
     actorId:      user!.id,
     resourceType: "punch_record",
-    metadata:     { from, to, format, employeeCount: payroll.length },
+    metadata:     {
+      from, to, format, employeeCount: payroll.length,
+      overtimeRule: rules.overtimeRule, roundingMinutes: rules.roundingMinutes,
+      ...(periodInfo ? { payPeriodStatus: periodInfo.period?.status ?? "not_a_period" } : {}),
+    },
   }).catch(() => {});
 
   let content: string;
@@ -229,25 +285,32 @@ export async function GET(request: Request) {
       filename    = `payroll_${from}_to_${to}.iif`;
       break;
     case "daily":
-      content     = dailyCSV(payroll);
+      content     = dailyCSV(payroll, cols);
       contentType = "text/csv";
       filename    = `payroll_daily_${from}_to_${to}.csv`;
       break;
     case "detailed":
-      content     = detailedCSV(payroll);
+      content     = detailedCSV(payroll, cols);
       contentType = "text/csv";
       filename    = `payroll_breakdown_${from}_to_${to}.csv`;
       break;
     default:
-      content     = summaryCSV(payroll);
+      content     = summaryCSV(payroll, cols);
       contentType = "text/csv";
       filename    = `payroll_${from}_to_${to}.csv`;
   }
 
-  return new Response(content, {
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+  const headers: Record<string, string> = { "Content-Type": contentType };
+  if (periodInfo) {
+    // The report formats say which period they cover, and its status, on
+    // their last line. The import formats (daily, IIF) stay exactly as payroll
+    // systems read them and say it in the file name and headers instead.
+    if (format !== "qb-iif" && format !== "daily")
+      content += "\n\n" + csvRow([payrollPeriodLabel(periodInfo)]);
+    filename = filename.replace(/(\.\w+)$/, `${payrollPeriodFileSuffix(periodInfo)}$1`);
+    headers["X-Pay-Period-Status"] = periodInfo.period?.status ?? "not_a_period";
+    if (periodInfo.period) headers["X-Pay-Period"] = `${periodInfo.period.start}/${periodInfo.period.end}`;
+  }
+  headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+  return new Response(content, { headers });
 }

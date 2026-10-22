@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   // Fetch schedules from fromDate
   const { data: fromSchedules, error: fromError } = await supabase
     .from("schedules")
-    .select("employee_id, start_minutes, end_minutes")
+    .select("employee_id, start_minutes, end_minutes, note")
     .eq("org_id", orgId)
     .eq("date", fromDate);
   if (fromError) {
@@ -57,11 +57,12 @@ export async function POST(request: Request) {
   if (toInsert.length === 0)
     return NextResponse.json({ copied: 0, skipped });
 
-  const rows = toInsert.map((s: { employee_id: number; start_minutes: number; end_minutes: number }) => ({
+  const rows = toInsert.map((s: { employee_id: number; start_minutes: number; end_minutes: number; note?: string | null }) => ({
     employee_id: s.employee_id,
     date: toDate,
     start_minutes: s.start_minutes,
     end_minutes: s.end_minutes,
+    note: s.note ?? null,
   }));
 
   const { error: insertError } = await supabase

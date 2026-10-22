@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getOrgContext } from "@/lib/org-context";
-import { withOrg } from "@/lib/org-scope";
 import { notifyManagers } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
 import { addDaysToKey, isDateKey, localDayBoundsUtc, todayKeyInTz } from "@/lib/dates";
@@ -52,10 +51,9 @@ export async function GET(request?: Request) {
       .maybeSingle();
     if (!emp) return NextResponse.json({ callouts: [] });
 
-    const { data: rows, error: fetchError } = await supabase
-      .from("callouts")
+    const { data, error: fetchError } = await supabase
+      .rpc("callouts_for_org", { p_org: orgId })
       .select("id, employee_id, date, reason")
-      .eq("org_id", orgId)
       .eq("employee_id", emp.id)
       .gte("date", today)
       .lte("date", ninetyDaysOut)
@@ -65,9 +63,10 @@ export async function GET(request?: Request) {
       console.error("[api/callouts]", fetchError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
+    const rows = Array.isArray(data) ? data : [];
 
     return NextResponse.json({
-      callouts: (rows ?? []).map((r) => ({
+      callouts: rows.map((r) => ({
         id: r.id,
         employeeId: r.employee_id,
         employeeName: emp.name,
@@ -79,20 +78,20 @@ export async function GET(request?: Request) {
 
   // Org-wide: a specific day (dashboard) or everything upcoming.
   let query = supabase
-    .from("callouts")
+    .rpc("callouts_for_org", { p_org: orgId })
     .select("id, employee_id, date, reason")
-    .eq("org_id", orgId)
     .order("date", { ascending: true });
   query = date ? query.eq("date", date) : query.gte("date", await storeToday());
 
-  const { data: rows, error: fetchError } = await query;
+  const { data, error: fetchError } = await query;
   if (fetchError) {
     console.error("[api/callouts]", fetchError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  const rows = Array.isArray(data) ? data : [];
 
   // Resolve employee names in one batch.
-  const employeeIds = [...new Set((rows ?? []).map((r) => r.employee_id))];
+  const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
   const employeeMap: Record<number, string> = {};
   if (employeeIds.length > 0) {
     const { data: employees } = await supabase
@@ -106,7 +105,7 @@ export async function GET(request?: Request) {
   // Everyone sees who called out; the reason (often medical) is for managers
   // and the person who called out.
   return NextResponse.json({
-    callouts: (rows ?? []).map((r) => ({
+    callouts: rows.map((r) => ({
       id: r.id,
       employeeId: r.employee_id,
       employeeName: employeeMap[r.employee_id] ?? "Unknown",
@@ -190,19 +189,12 @@ export async function POST(request: Request) {
     reason && typeof reason === "string" && reason.trim() ? reason.trim() : null;
 
   // Upsert so re-filing the same day just updates the reason (idempotent).
-  const { data, error: upsertError } = await supabase
-    .from("callouts")
-    .upsert(
-      withOrg(orgId, {
-        employee_id: employeeId,
-        date,
-        reason: trimmedReason,
-        created_by: user.id,
-      }),
-      { onConflict: "org_id,employee_id,date" }
-    )
-    .select("id")
-    .single();
+  const { data: calloutId, error: upsertError } = await supabase.rpc("save_callout", {
+    p_org: orgId,
+    p_employee_id: employeeId,
+    p_date: date,
+    p_reason: trimmedReason,
+  });
 
   if (upsertError) {
     console.error("[api/callouts]", upsertError);
@@ -217,7 +209,7 @@ export async function POST(request: Request) {
     trimmedReason
       ? `${emp.name} called out for ${date}: ${trimmedReason}`
       : `${emp.name} called out for ${date}.`,
-    { calloutId: data.id, employeeId, date }
+    { calloutId, employeeId, date }
   ).catch(() => {});
 
   writeAuditLog({
@@ -225,10 +217,10 @@ export async function POST(request: Request) {
     orgId,
     actorId:      user.id,
     resourceType: "callout",
-    resourceId:   String(data.id),
+    resourceId:   String(calloutId),
     after:        { employeeId, date, reason: trimmedReason },
     metadata:     { employeeId, employeeName: emp.name, date },
   }).catch(() => {});
 
-  return NextResponse.json({ id: data.id, ok: true }, { status: 201 });
+  return NextResponse.json({ id: calloutId, ok: true }, { status: 201 });
 }

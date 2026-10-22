@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, POST } from "./route";
 import { createClient } from "@/lib/supabase-server";
-import { makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
+import { makeQueryBuilder, makeSupabaseClient, MOCK_USER, MOCK_ORG_ID } from "../__tests__/helpers";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("next/server", () => ({
@@ -26,6 +26,7 @@ function makeEmployeeClient(
     shiftDates = [] as string[],   // dates the employee is scheduled
     clockInRows = [] as any[],     // clock-ins returned for "today"
     timezone = "America/New_York",
+    isManager = false,
   } = {}
 ) {
   const empWithOrg = emp ? { ...emp, org_id: MOCK_ORG_ID } : null;
@@ -33,13 +34,19 @@ function makeEmployeeClient(
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
     },
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    rpc: vi.fn().mockImplementation((fn: string) =>
+      fn === "callouts_for_org"
+        ? makeQueryBuilder({ data: calloutRows, error: null })
+        : Promise.resolve({ data: fn === "save_callout" ? 99 : null, error: null })),
     from: vi.fn().mockImplementation((table: string) => {
       const b: any = {};
       for (const m of ["select", "eq", "order", "gte", "lte", "in", "insert", "upsert", "limit"])
         b[m] = vi.fn().mockReturnValue(b);
       if (table === "managers") {
-        b.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+        b.maybeSingle = vi.fn().mockResolvedValue({
+          data: isManager ? { user_id: MOCK_USER.id, org_id: MOCK_ORG_ID } : null,
+          error: null,
+        });
         b.then = (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve);
         return b;
       }
@@ -86,12 +93,15 @@ describe("GET /api/callouts", () => {
   });
 
   it("returns the caller's own call-outs with ?mine=true", async () => {
-    mockCreateClient.mockResolvedValue(makeEmployeeClient(undefined, MOCK_CALLOUTS) as any);
+    const client = makeEmployeeClient(undefined, MOCK_CALLOUTS);
+    mockCreateClient.mockResolvedValue(client as any);
     const res = await GET(new Request("http://localhost/api/callouts?mine=true"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.callouts)).toBe(true);
-    expect(body.callouts[0]).toMatchObject({ employeeId: 5, date: "2099-06-15", employeeName: "Alice Smith" });
+    expect(body.callouts[0]).toMatchObject({ employeeId: 5, date: "2099-06-15", employeeName: "Alice Smith", reason: "Sick" });
+    expect(client.rpc).toHaveBeenCalledWith("callouts_for_org", { p_org: MOCK_ORG_ID });
+    expect(client.from).not.toHaveBeenCalledWith("callouts");
   });
 
   it("returns org-wide call-outs for a given ?date", async () => {
@@ -109,6 +119,24 @@ describe("GET /api/callouts", () => {
     const { callouts } = await res.json();
     expect(callouts.find((c: any) => c.employeeId === 5)).toMatchObject({ reason: "Sick" });
     expect(callouts.find((c: any) => c.employeeId === 6)).not.toHaveProperty("reason");
+  });
+
+  it("preserves manager access to coworkers' reasons through the checked RPC", async () => {
+    const rows = [{ id: 2, employee_id: 6, date: "2099-06-15", reason: "Doctor" }];
+    const client = makeEmployeeClient(undefined, rows, { isManager: true });
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/callouts?date=2099-06-15"));
+    expect((await res.json()).callouts[0]).toMatchObject({ employeeId: 6, reason: "Doctor" });
+    expect(client.rpc).toHaveBeenCalledWith("callouts_for_org", { p_org: MOCK_ORG_ID });
+    expect(client.from).not.toHaveBeenCalledWith("callouts");
+  });
+
+  it("returns 500 when the checked read fails", async () => {
+    const client = makeEmployeeClient();
+    client.rpc.mockReturnValue(makeQueryBuilder({ data: null, error: { message: "read failed" } }));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await GET(new Request("http://localhost/api/callouts?date=2099-06-15"));
+    expect(res.status).toBe(500);
   });
 
   it("returns 400 for a malformed date param", async () => {
@@ -170,6 +198,13 @@ describe("POST /api/callouts", () => {
     expect(await res.json()).toMatchObject({ id: 99, ok: true });
   });
 
+  it("returns 500 when saving fails", async () => {
+    const supabase = makeEmployeeClient(undefined, [], { shiftDates: [TODAY] });
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: "save failed" } });
+    mockCreateClient.mockResolvedValue(supabase as any);
+    expect((await post({ employeeId: 5, date: TODAY, reason: "Flu" })).status).toBe(500);
+  });
+
   it("allows calling out for tomorrow's shift, even after clocking in today", async () => {
     client({ shiftDates: [TOMORROW], clockInRows: [{ id: 1 }] });
     expect((await post({ employeeId: 5, date: TOMORROW })).status).toBe(201);
@@ -214,21 +249,16 @@ describe("POST /api/callouts", () => {
 // ── Org scoping ───────────────────────────────────────────────────────────────
 
 describe("org scoping — callouts routes", () => {
-  it("POST stamps org_id onto the inserted row (withOrg)", async () => {
-    let upsertedRow: any = null;
+  it("POST saves the trimmed reason with the server-resolved organization", async () => {
     const client: any = {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER }, error: null }),
       },
-      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+      rpc: vi.fn().mockResolvedValue({ data: 7, error: null }),
       from: vi.fn().mockImplementation((table: string) => {
         const b: any = {};
         for (const m of ["select", "eq", "order", "gte", "lte", "in", "limit"])
           b[m] = vi.fn().mockReturnValue(b);
-        b.upsert = vi.fn().mockImplementation((row: any) => {
-          if (table === "callouts") upsertedRow = row;
-          return b;
-        });
         b.maybeSingle = vi.fn().mockResolvedValue({
           data:
             table === "employees"
@@ -245,13 +275,18 @@ describe("org scoping — callouts routes", () => {
     mockCreateClient.mockResolvedValue(client as any);
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-01T15:00:00Z"));
-    await POST(
+    const res = await POST(
       new Request("http://localhost/api/callouts", {
         method: "POST",
-        body: JSON.stringify({ employeeId: 5, date: "2026-11-02" }),
+        body: JSON.stringify({ employeeId: 5, date: "2026-11-02", reason: "  Flu  ", orgId: "untrusted" }),
       })
     );
     vi.useRealTimers();
-    expect(upsertedRow).toMatchObject({ org_id: MOCK_ORG_ID, employee_id: 5, date: "2026-11-02" });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ id: 7, ok: true });
+    expect(client.rpc).toHaveBeenCalledWith("save_callout", {
+      p_org: MOCK_ORG_ID, p_employee_id: 5, p_date: "2026-11-02", p_reason: "Flu",
+    });
+    expect(client.from).not.toHaveBeenCalledWith("callouts");
   });
 });

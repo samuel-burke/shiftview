@@ -95,7 +95,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockCreateClient.mockResolvedValue(makeServerClient() as any);
   mockCreateAdminClient.mockReturnValue(makeAdminClient() as any);
-  mockWriteAuditLog.mockResolvedValue(undefined);
+  mockWriteAuditLog.mockResolvedValue(true);
 });
 
 describe("DELETE /api/account — auth", () => {
