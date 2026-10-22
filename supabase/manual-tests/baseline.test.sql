@@ -33,6 +33,7 @@
 \ir ../migrations/0072_time_off_ranges.sql
 \ir ../migrations/0073_calendar_feeds.sql
 \ir ../migrations/0074_punch_gps_required.sql
+\ir ../migrations/0075_live_punch_current_shift.sql
 \ir ../migrations/0076_callout_reason_privacy.sql
 \unset ON_ERROR_STOP
 

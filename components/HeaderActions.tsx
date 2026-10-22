@@ -4,6 +4,7 @@ import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
 import { useAppData } from "@/lib/AppDataContext";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 
 /*
  * The bell and the user menu, for the right end of a page's own header row.
@@ -15,7 +16,7 @@ export default function HeaderActions({ className = "" }: { className?: string }
   const { me } = useAppData();
 
   async function handleSignOut() {
-    await createClient().auth.signOut();
+    if (!await signOut(createClient())) return;
     window.location.href = "/login";
   }
 
