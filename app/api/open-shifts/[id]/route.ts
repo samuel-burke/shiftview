@@ -118,6 +118,23 @@ export async function PUT(
   );
   if (overlap) return NextResponse.json({ error: overlap }, { status: 409 });
 
+  // Take the shift first, and only while it is still open: two managers (or a
+  // double tap) approving at once would otherwise both pass the status check
+  // above and book it twice. Exactly one request flips it to filled.
+  const { data: taken, error: fillError } = await supabase
+    .from("open_shifts")
+    .update({ status: "filled", filled_by: employeeId, filled_at: new Date().toISOString() })
+    .eq("org_id", orgId!)
+    .eq("id", openShiftId)
+    .eq("status", "open")
+    .select("id");
+  if (fillError) {
+    console.error("[api/open-shifts/[id]]", fillError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+  if (!taken || taken.length === 0)
+    return NextResponse.json({ error: "Open shift is already resolved" }, { status: 409 });
+
   // Create the real schedule row for the claimant.
   const { error: scheduleError } = await supabase.from("schedules").insert(
     withOrg(orgId!, {
@@ -129,17 +146,13 @@ export async function PUT(
   );
   if (scheduleError) {
     console.error("[api/open-shifts/[id]]", scheduleError);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-
-  // Mark the open shift filled.
-  const { error: fillError } = await supabase
-    .from("open_shifts")
-    .update({ status: "filled", filled_by: employeeId, filled_at: new Date().toISOString() })
-    .eq("org_id", orgId!)
-    .eq("id", openShiftId);
-  if (fillError) {
-    console.error("[api/open-shifts/[id]]", fillError);
+    // Put the shift back up for grabs rather than leave it filled with no one
+    // scheduled.
+    await supabase
+      .from("open_shifts")
+      .update({ status: "open", filled_by: null, filled_at: null })
+      .eq("org_id", orgId!)
+      .eq("id", openShiftId);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 

@@ -4,7 +4,7 @@ import { getOrgContext } from "@/lib/org-context";
 import { withOrg } from "@/lib/org-scope";
 import { notifyManagers } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
-import { isEmployeeEligible } from "@/lib/open-shifts";
+import { getOpenShiftEligibilityDates, isEmployeeEligible } from "@/lib/open-shifts";
 
 export const dynamic = "force-dynamic";
 
@@ -49,26 +49,32 @@ export async function POST(
     return NextResponse.json({ error: "This shift is no longer open" }, { status: 409 });
 
   // Eligibility — not already scheduled, on approved time off, or called out.
-  const [{ data: schedules }, { data: timeOff }, { data: callouts }, { data: emp }] =
+  const dates = getOpenShiftEligibilityDates(String(shift.date));
+  const [
+    { data: schedules, error: schedulesError },
+    { data: timeOff, error: timeOffError },
+    { data: callouts, error: calloutsError },
+    { data: emp },
+  ] =
     await Promise.all([
       supabase
         .from("schedules")
         .select("date, start_minutes, end_minutes")
         .eq("org_id", orgId)
         .eq("employee_id", employeeId)
-        .eq("date", shift.date),
+        .in("date", dates),
       supabase
         .from("time_off_requests")
         .select("date, status")
         .eq("org_id", orgId)
         .eq("employee_id", employeeId)
-        .eq("date", shift.date),
+        .in("date", dates),
       supabase
         .from("callouts")
         .select("date")
         .eq("org_id", orgId)
         .eq("employee_id", employeeId)
-        .eq("date", shift.date),
+        .in("date", dates),
       supabase
         .from("employees")
         .select("id, name")
@@ -76,6 +82,12 @@ export async function POST(
         .eq("id", employeeId)
         .maybeSingle(),
     ]);
+
+  const eligibilityError = schedulesError ?? timeOffError ?? calloutsError;
+  if (eligibilityError) {
+    console.error("[api/open-shifts/[id]/claim]", eligibilityError);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   const eligibility = isEmployeeEligible(
     { date: shift.date, startMinutes: shift.start_minutes, endMinutes: shift.end_minutes },

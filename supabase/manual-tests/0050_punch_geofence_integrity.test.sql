@@ -1,6 +1,7 @@
--- Tests for 0050_punch_geofence_integrity.sql: punch coordinates must be in
--- range, and an end user's live clock_in must be inside the org's geofence,
+-- Tests for 0050 and 0074: punch coordinates must be in range, GPS-required
+-- live clock-ins need location independently of the optional geofence,
 -- even when written straight to punch_records instead of through the API.
+-- A configured geofence still restricts the clock-in's location.
 -- Run against a throwaway Postgres database (15 or later):
 --
 --   createdb geofence_test
@@ -19,6 +20,8 @@
 \ir ../migrations/0042_pay_rate_managers_only.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
 \ir ../migrations/0050_punch_geofence_integrity.sql
+\ir ../migrations/0074_punch_gps_required.sql
+\ir ../migrations/0074_punch_gps_required.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -165,6 +168,13 @@ select pg_temp.expect('manager manual clock_in without location is accepted',
     'insert into public.punch_records (org_id, employee_id, punch_type, punched_at, is_manual, note) '
     'values (%L, %s, ''clock_in'', now() - interval ''1 day'', true, ''forgot'')',
     (select v from fx where k = 'alder'), (select v from fx where k = 'cara'))), 'ok:1');
+select pg_temp.expect('employee cannot claim the manual exception',
+  pg_temp.try(:cara, format(
+    'insert into public.punch_records (org_id, employee_id, punch_type, punched_at, is_manual) '
+    'values (%L, %s, ''clock_in'', now() - interval ''1 day'', true)',
+    (select v from fx where k = 'alder'), (select v from fx where k = 'cara'))), 'err:42501');
+select pg_temp.expect('manager live clock_in still requires GPS',
+  pg_temp.try(:mia, pg_temp.cara_in('null', 'null')), 'err:GF002');
 select pg_temp.expect('manager can''t set an out-of-range latitude on an existing punch',
   pg_temp.try(:mia, format(
     'update public.punch_records set lat = 200, lng = 0 where org_id = %L',
@@ -208,14 +218,18 @@ select pg_temp.set_alder('geofence_radius', '100');
 
 select pg_temp.set_alder('geofence_lat', '');
 select pg_temp.set_alder('geofence_lng', '');
-select pg_temp.expect('no centre saved: clock_in without location is accepted',
-  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
+select pg_temp.expect('no centre saved: clock_in without location is rejected',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'err:GF002');
+select pg_temp.expect('no centre saved: valid location needs no distance check',
+  pg_temp.try(:cara, pg_temp.cara_in('0', '0')), 'ok:1');
 select pg_temp.set_alder('geofence_lat', '40.7128');
 select pg_temp.set_alder('geofence_lng', '-74.006');
 
 select pg_temp.set_alder('geofence_enabled', 'false');
-select pg_temp.expect('geofence off: clock_in without location is accepted',
-  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
+select pg_temp.expect('geofence off: clock_in without location is rejected',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'err:GF002');
+select pg_temp.expect('geofence off: valid location needs no distance check',
+  pg_temp.try(:cara, pg_temp.cara_in('0', '0')), 'ok:1');
 select pg_temp.expect('geofence off: malformed coordinates are still rejected',
   pg_temp.try(:cara, pg_temp.cara_in('''NaN''::float8', '0')), 'err:23514');
 select pg_temp.expect('geofence off: half a pair is still rejected',
@@ -223,6 +237,8 @@ select pg_temp.expect('geofence off: half a pair is still rejected',
 select pg_temp.set_alder('geofence_enabled', 'true');
 
 select pg_temp.set_alder('gps_required', 'false');
+select pg_temp.expect('GPS not required: clock_in without location is accepted',
+  pg_temp.try(:cara, pg_temp.cara_in('null', 'null')), 'ok:1');
 select pg_temp.expect('GPS not required: clock_in outside the fence is accepted',
   pg_temp.try(:cara, pg_temp.cara_in('40.73', '-74.006')), 'ok:1');
 select pg_temp.set_alder('gps_required', 'true');

@@ -24,6 +24,7 @@ import NotificationBell from "../../components/NotificationBell";
 import UserMenu from "../../components/UserMenu";
 import { MegaphoneIcon } from "../../components/ShiftIcons";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 import { getPunchWarning, type PunchWarning } from "@/lib/punch-warning";
 import { isOvernight } from "@/lib/shift-times";
 import { pickClockInShift } from "@/lib/punch-schedule";
@@ -39,6 +40,8 @@ import { calloutBlockReason } from "@/lib/callout-rules";
 import { useStoreTodayKey } from "@/hooks/useStoreTodayKey";
 import FormError from "../../components/FormError";
 import DemoBanner from "@/components/DemoBanner";
+import PunchHistoryToggle from "@/components/PunchHistoryToggle";
+import MyHours from "./MyHours";
 import { tint } from "../../lib/theme-colors";
 
 const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } };
@@ -73,7 +76,7 @@ export default function ClockPageClient() {
   const supabase = createClient();
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    if (!await signOut(supabase)) return;
     window.location.href = "/login";
   }
 
@@ -582,6 +585,13 @@ export default function ClockPageClient() {
     [punches],
   );
 
+  // Saved punches only (optimistic ones have negative ids), so My Hours
+  // reloads once a punch is recorded rather than on the tap.
+  const savedPunchKey = useMemo(
+    () => punches.filter((p) => p.id > 0).map((p) => p.id).join(","),
+    [punches],
+  );
+
   // While clocked in, the shift is the one the clock-in was for.
   const openClockInScheduleId = useMemo(() => {
     if (status !== "clocked_in" && status !== "on_break") return null;
@@ -999,11 +1009,7 @@ export default function ClockPageClient() {
                       <span className="text-sm font-medium text-fg-body">
                         {PUNCH_TYPE_LABELS[p.punchType as PunchType]}
                       </span>
-                      {p.isManual && (
-                        <span className="text-[10px] font-semibold text-accent-fg bg-accent/10 px-2 py-px rounded-full">
-                          Manual
-                        </span>
-                      )}
+                      {p.isManual && <PunchHistoryToggle punchId={p.id} timezone={timezone} />}
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-fg-secondary tabular-nums">{formatPunchTime(p.punchedAt, timezone)}</div>
@@ -1187,6 +1193,11 @@ export default function ClockPageClient() {
             </div>
           )}
         </div>
+
+        {/* This workweek's and last week's hours, as payroll counts them. Last on
+            the page: it fills in after the rest has loaded, and growing here moves
+            nothing else. */}
+        {employeeId && <MyHours employeeId={employeeId} todayKey={todayKey} refreshKey={savedPunchKey} timezone={timezone} />}
       </div>
       </div>
 

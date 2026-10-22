@@ -108,6 +108,8 @@ async function findMembership(
     .eq("user_id", userId);
   if (orgId) managerQuery = managerQuery.eq("org_id", orgId);
   const employeeQuery = (org: string | null) => {
+    // An archived employee's own row is hidden from them by RLS (my_org_ids,
+    // migration 0054), so it never resolves as a membership.
     let q = supabase.from("employees").select("id, org_id").eq("user_id", userId);
     if (org) q = q.eq("org_id", org);
     return q.order("org_id").limit(1).maybeSingle();

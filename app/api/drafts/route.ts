@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { validateShiftMinutes } from "@/app/api/schedules/validation";
+import { parseShiftNote, validateShiftMinutes } from "@/app/api/schedules/validation";
 import { requireManager } from "@/lib/require-manager";
 import { withOrg } from "@/lib/org-scope";
 import { weekDates } from "@/lib/draft-metrics";
-import { findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
+import { findRuleConflict, findShiftConflict, findShiftOverlap } from "@/lib/shift-conflicts-server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +40,12 @@ async function findConflict(
   supabase: SupabaseClient,
   orgId: string,
   employeeId: number,
-  date: string,
-  startMinutes: number,
-  endMinutes: number
+  shift: { id?: number; date: string; startMinutes: number; endMinutes: number }
 ): Promise<NextResponse | null> {
-  const conflict = await findShiftConflict(supabase, orgId, employeeId, date, startMinutes, endMinutes);
-  return conflict ? NextResponse.json(conflict, { status: 409 }) : null;
+  const conflict = await findShiftConflict(supabase, orgId, employeeId, shift.date, shift.startMinutes, shift.endMinutes);
+  if (conflict) return NextResponse.json(conflict, { status: 409 });
+  const rules = await findRuleConflict(supabase, orgId, "draft_schedules", employeeId, shift);
+  return rules ? NextResponse.json(rules, { status: 409 }) : null;
 }
 
 export async function GET(request: Request) {
@@ -79,6 +79,7 @@ export async function GET(request: Request) {
     date:         typeof s.date === "string" ? s.date.slice(0, 10) : s.date,
     startMinutes: s.start_minutes,
     endMinutes:   s.end_minutes,
+    ...(s.note ? { note: s.note } : {}),
     // The Auto-schedule run that created it (null if made by hand).
     generationRunId: s.generation_run_id ?? null,
   }));
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { employeeId, date, startMinutes, endMinutes, override = false } = await request.json();
+  const { employeeId, date, startMinutes, endMinutes, override = false, note: rawNote } = await request.json();
 
   if (employeeId == null || !date || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "employeeId, date, startMinutes, endMinutes required" }, { status: 400 });
@@ -96,6 +97,8 @@ export async function POST(request: Request) {
 
   const validationError = validateShiftMinutes(startMinutes, endMinutes);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
+  const { note, error: noteError } = parseShiftNote(rawNote);
+  if (noteError) return NextResponse.json({ error: noteError }, { status: 422 });
 
   const supabase = await createClient();
   const { orgId, error: authError } = await requireManager(supabase, request);
@@ -119,13 +122,13 @@ export async function POST(request: Request) {
   if (liveClash) return liveClash;
 
   if (!override) {
-    const conflict = await findConflict(supabase, orgId!, employeeId, date, startMinutes, endMinutes);
+    const conflict = await findConflict(supabase, orgId!, employeeId, { date, startMinutes, endMinutes });
     if (conflict) return conflict;
   }
 
   const { error } = await supabase
     .from("draft_schedules")
-    .insert(withOrg(orgId!, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes }));
+    .insert(withOrg(orgId!, { employee_id: employeeId, date, start_minutes: startMinutes, end_minutes: endMinutes, ...(note ? { note } : {}) }));
 
   if (error) {
     console.error("[api/drafts]", error);
@@ -136,13 +139,15 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const { id, startMinutes, endMinutes, override = false } = await request.json();
+  const { id, startMinutes, endMinutes, override = false, note: rawNote } = await request.json();
 
   if (id == null || startMinutes == null || endMinutes == null)
     return NextResponse.json({ error: "id, startMinutes, endMinutes required" }, { status: 400 });
 
   const validationError = validateShiftMinutes(startMinutes, endMinutes);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
+  const { note, error: noteError } = parseShiftNote(rawNote);
+  if (noteError) return NextResponse.json({ error: noteError }, { status: 422 });
 
   const supabase = await createClient();
   const { orgId, error: authError } = await requireManager(supabase, request);
@@ -168,13 +173,14 @@ export async function PUT(request: Request) {
   if (liveClash) return liveClash;
 
   if (!override) {
-    const conflict = await findConflict(supabase, orgId!, existing.employee_id, dateStr, startMinutes, endMinutes);
+    const conflict = await findConflict(supabase, orgId!, existing.employee_id, { id, date: dateStr, startMinutes, endMinutes });
     if (conflict) return conflict;
   }
 
   // An Auto-schedule draft the manager edits becomes their own: another
   // version or an undo of that run leaves it alone.
-  const changes: Record<string, number | null> = { start_minutes: startMinutes, end_minutes: endMinutes };
+  const changes: Record<string, number | string | null> = { start_minutes: startMinutes, end_minutes: endMinutes };
+  if (note !== undefined) changes.note = note;
   if (existing.generation_run_id != null) changes.generation_run_id = null;
 
   const { error } = await supabase

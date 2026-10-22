@@ -4,6 +4,7 @@ import AppShell, { type NavItem } from "./AppShell";
 import BottomNav from "./BottomNav";
 import { useAppData } from "@/lib/AppDataContext";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 
 type Props = {
   active: NavItem;
@@ -26,7 +27,7 @@ export default function PageShellFallback({ active, isManager, topBar = false, b
   const { me } = useAppData();
 
   async function handleSignOut() {
-    await createClient().auth.signOut();
+    if (!await signOut(createClient())) return;
     window.location.href = "/login";
   }
 

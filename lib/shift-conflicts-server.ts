@@ -2,6 +2,9 @@ import { fmtMinutes } from "@/data/types";
 import { addDaysToKey, dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 import { shiftParts, shiftsOverlap } from "@/lib/shift-times";
 import { fitsAvailability, isUnavailableAllDay } from "@/lib/availability-rules";
+import { timeOffOverlaps, timeOffWindow } from "@/lib/time-off";
+import { limitsFromColumns, parseSchedulingRules } from "@/lib/scheduling-rules";
+import { checkShiftRules, type RuleWarning } from "@/lib/shift-rules";
 
 type QueryClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -25,14 +28,20 @@ export async function findShiftConflict(
   for (const part of shiftParts({ date, startMinutes, endMinutes })) {
     const { data: timeOff } = await supabase
       .from("time_off_requests")
-      .select("id, status")
+      .select("id, status, start_minutes, end_minutes")
       .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .eq("date", part.date)
       .eq("status", "approved")
       .maybeSingle();
-    if (timeOff) {
-      return { conflict: "time_off", message: `Employee has approved time off on ${part.date}` };
+    if (timeOff && timeOffOverlaps(timeOffWindow(timeOff), part.start, part.end)) {
+      const w = timeOffWindow(timeOff);
+      return {
+        conflict: "time_off",
+        message: w
+          ? `Employee has approved time off on ${part.date} from ${fmtMinutes(w.startMinutes)} to ${fmtMinutes(w.endMinutes)}`
+          : `Employee has approved time off on ${part.date}`,
+      };
     }
 
     const { data: avail } = await supabase
@@ -91,4 +100,74 @@ export async function findShiftOverlap(
     }
   }
   return null;
+}
+
+// Scheduling rules (rest, consecutive days, days and hours per week) a manual
+// shift would break, as an overridable conflict. Live shifts are checked
+// against the live schedule; a draft against the week as it will be after
+// publishing (live shifts plus drafts).
+export async function findRuleConflict(
+  supabase: QueryClient,
+  orgId: string,
+  table: "schedules" | "draft_schedules",
+  employeeId: number,
+  shift: { id?: number; date: string; startMinutes: number; endMinutes: number },
+): Promise<{ conflict: "rules"; message: string; warnings: RuleWarning[] } | null> {
+  // Two weeks either side covers the store week and any consecutive-day run
+  // the rules care about (at most 7).
+  const from = addDaysToKey(shift.date, -14);
+  const to = addDaysToKey(shift.date, 14);
+  const load = (t: "schedules" | "draft_schedules") =>
+    supabase
+      .from(t)
+      .select("id, date, start_minutes, end_minutes")
+      .eq("org_id", orgId)
+      .eq("employee_id", employeeId)
+      .gte("date", from)
+      .lte("date", to);
+
+  const [settingsRes, empRes, liveRes, draftRes] = await Promise.all([
+    supabase.from("app_settings").select("key, value").eq("org_id", orgId),
+    supabase
+      .from("employees")
+      .select("employment_type, min_weekly_hours, max_weekly_hours, max_days_per_week")
+      .eq("org_id", orgId)
+      .eq("id", employeeId)
+      .maybeSingle(),
+    load("schedules"),
+    table === "draft_schedules" ? load("draft_schedules") : Promise.resolve({ data: [] }),
+  ]);
+
+  const list = <T,>(res: { data?: unknown } | null | undefined): T[] =>
+    Array.isArray(res?.data) ? (res.data as T[]) : [];
+  const settings = Object.fromEntries(
+    (list<{ key: string; value: string }>(settingsRes) as { key: string; value: string }[]).map((r) => [r.key, r.value])
+  );
+  const rules = parseSchedulingRules(settings);
+  const firstDay = Number.parseInt(settings.first_day_of_week ?? "6", 10);
+  const empRow = empRes?.data && !Array.isArray(empRes.data) ? empRes.data : {};
+  const limits = limitsFromColumns(empRow, rules);
+
+  type Row = { id: number; date: string; start_minutes: number; end_minutes: number };
+  const toShift = (source: string) => (r: Row) => ({
+    id: r.id,
+    source,
+    date: String(r.date).slice(0, 10),
+    startMinutes: r.start_minutes,
+    endMinutes: r.end_minutes,
+  });
+  const live = list<Row>(liveRes).map(toShift("schedules"));
+  const drafts = list<Row>(draftRes).map(toShift("draft_schedules"));
+  // The shift being edited is ignored by id, and only within its own table.
+  const others = [...live, ...drafts].filter((s) => !(shift.id !== undefined && s.source === table && s.id === shift.id));
+
+  const warnings = checkShiftRules({
+    shift: { date: shift.date, startMinutes: shift.startMinutes, endMinutes: shift.endMinutes },
+    others: others.map(({ date, startMinutes, endMinutes }) => ({ date, startMinutes, endMinutes })),
+    rules,
+    limits,
+    firstDayOfWeek: Number.isInteger(firstDay) && firstDay >= 0 && firstDay <= 6 ? firstDay : 6,
+  });
+  if (warnings.length === 0) return null;
+  return { conflict: "rules", message: warnings.map((w) => w.message).join(" "), warnings };
 }

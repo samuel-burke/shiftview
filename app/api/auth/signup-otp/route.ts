@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { isProductionDeployment } from "@/lib/turnstile";
 
 export const dynamic = "force-dynamic";
 
@@ -15,22 +15,19 @@ function trustedOrigin(request: Request): string | null {
   return allowed.has(origin) ? origin : null;
 }
 
-// Sends the signup OTP from the server so the Turnstile bot gate is enforced
-// before any verification email goes out. Signup is gated (it mints fresh
-// auth users and emails arbitrary addresses); login is not (existing users
-// only). Verification is route-level via TURNSTILE_SECRET_KEY — the same
-// scheme the demo route uses — so Supabase Auth's CAPTCHA protection can stay
-// off across every auth endpoint. With no secret key set the gate is off in
-// local dev, e2e and previews, and fails closed in production.
+// Supabase Auth must have CAPTCHA protection enabled: checking only this
+// route leaves direct public Auth requests unprotected. Forward the token
+// without calling siteverify here, since Turnstile tokens are single-use.
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const { email = null, turnstileToken = null } = await request.json().catch(() => ({}));
+  const captchaToken = typeof turnstileToken === "string" ? turnstileToken : undefined;
 
   if (typeof email !== "string" || !email.trim()) {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });
   }
 
-  if (!(await verifyTurnstileToken(turnstileToken, ip === "unknown" ? null : ip))) {
+  if ((isProductionDeployment() && !process.env.TURNSTILE_SECRET_KEY) ||
+      (process.env.TURNSTILE_SECRET_KEY && !captchaToken?.trim())) {
     return NextResponse.json(
       { error: "Verification failed — please try again" },
       { status: 403 }
@@ -49,6 +46,7 @@ export async function POST(request: Request) {
     email: email.trim(),
     options: {
       shouldCreateUser: true,
+      captchaToken,
       // New-user verification emails may contain a link instead of a code
       // (depending on the Supabase email template); make sure it lands back
       // in this app, where the signed-in flow finishes the sign-up.
@@ -56,7 +54,7 @@ export async function POST(request: Request) {
     },
   });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: error.message }, { status: error.code === "captcha_failed" ? 403 : 400 });
   }
   return NextResponse.json({ ok: true });
 }

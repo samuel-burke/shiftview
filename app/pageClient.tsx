@@ -29,6 +29,7 @@ import BottomNav from "../components/BottomNav";
 import AppShell from "../components/AppShell";
 import { Toast, ToastStack } from "../components/Toast";
 import { createClient } from "@/lib/supabase-browser";
+import { signOut } from "@/lib/sign-out";
 import { createApiFetch } from "@/lib/api-fetch";
 import { useScrollAnchor } from "@/lib/scroll-anchor";
 import { CoverageBlock, CoverageProfile, curveForDate, liveCoverageStatus, targetAt } from "@/lib/coverage";
@@ -274,7 +275,7 @@ export default function Page() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    if (!await signOut(supabase)) return;
     window.location.href = "/login";
   }
 
@@ -303,11 +304,11 @@ export default function Page() {
       });
   }
 
-  async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false) {
+  async function handleSaveShift(scheduleId: number, startMinutes: number, endMinutes: number, override = false, note?: string | null) {
     const res = await apiFetch("/api/schedules", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: scheduleId, startMinutes, endMinutes, override }),
+      body: JSON.stringify({ id: scheduleId, startMinutes, endMinutes, override, note }),
     });
     if (!res.ok) {
       const body = await res.json();
@@ -323,17 +324,18 @@ export default function Page() {
     // Saved: show it now and re-read the days in the background, rather than
     // holding the drawer open for another round trip. The edited shift may be
     // last night's overnight one, hence both lists.
-    const edit = (list: Schedule[]) => list.map((s) => (s.id === scheduleId ? { ...s, startMinutes, endMinutes } : s));
+    const edit = (list: Schedule[]) =>
+      list.map((s) => (s.id === scheduleId ? { ...s, startMinutes, endMinutes, ...(note !== undefined ? { note } : {}) } : s));
     setSchedules(edit);
     setPrevSchedules(edit);
     loadScheduleDays(dateKey).catch(() => {});
   }
 
-  async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false) {
+  async function handleCreateShift(employeeId: number, startMinutes: number, endMinutes: number, override = false, note?: string | null) {
     const res = await apiFetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes, override }),
+      body: JSON.stringify({ employeeId, date: dateKey, startMinutes, endMinutes, override, note }),
     });
     if (!res.ok) {
       const body = await res.json();
@@ -351,7 +353,7 @@ export default function Page() {
     const { id } = await res.json().catch(() => ({ id: null }));
     const refresh = loadScheduleDays(dateKey).catch(() => {});
     if (typeof id === "number") {
-      setSchedules((prev) => [...prev, { id, employeeId, date: dateKey, startMinutes, endMinutes }]);
+      setSchedules((prev) => [...prev, { id, employeeId, date: dateKey, startMinutes, endMinutes, note: note ?? null }]);
     } else {
       await refresh;
     }

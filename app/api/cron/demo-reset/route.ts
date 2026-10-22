@@ -46,6 +46,14 @@ export async function GET(request: Request) {
     await alertCronFailed("reset_demo_org failed");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  // Pay periods a demo visitor approved or locked (migration 0062) would
+  // otherwise outlive the reset and lock tomorrow's sample punches.
+  const { error: periodsError } = await admin.rpc("pay_periods_reset_demo", { p_org: DEMO_ORG_ID });
+  if (periodsError) {
+    console.error("[cron/demo-reset] pay_periods_reset_demo failed:", periodsError);
+    await alertCronFailed("pay_periods_reset_demo failed");
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   let seeded;
   try {

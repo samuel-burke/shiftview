@@ -23,6 +23,8 @@ export type SchedulerEmployee = {
   unavailableDates: string[];
   // Pending time-off requests.
   pendingTimeOffDates: string[];
+  // Approved part-day time off: not scheduled during these hours that day.
+  partialTimeOff?: { date: string; startMinutes: number; endMinutes: number }[];
   preferences: {
     shiftTypes: ShiftType[];
     preferredDays: number[];

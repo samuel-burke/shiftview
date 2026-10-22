@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { isAllowedPushEndpoint } from "./push-endpoint";
 
 const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY ?? "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
@@ -30,6 +31,13 @@ export async function sendPush(
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     console.warn("[webpush] VAPID keys not configured — skipping push");
     return "ok";
+  }
+  // A subscription that doesn't point at a browser push service (for example
+  // one written straight into push_subscriptions) is never contacted, and is
+  // reported gone so the caller removes it.
+  if (!isAllowedPushEndpoint(sub.endpoint)) {
+    console.warn("[webpush] refusing push to a non push-service endpoint");
+    return "gone";
   }
   try {
     await webpush.sendNotification(

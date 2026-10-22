@@ -1,7 +1,7 @@
-// Server-side Cloudflare Turnstile verification for the bot-gated auth entry
-// points: POST /api/demo/start (mints anonymous users) and POST
-// /api/auth/signup-otp (mints users + emails them), plus the public contact
-// form. With no TURNSTILE_SECRET_KEY set the gate is off (local dev, e2e,
+// Server-side Cloudflare Turnstile verification for demo membership grants
+// to existing anonymous users and the public contact form. New auth users
+// and OTP emails are protected by Supabase Auth's CAPTCHA verification.
+// With no TURNSTILE_SECRET_KEY set the route-level gate is off (local dev, e2e,
 // preview without keys), except in the production deployment, where a
 // missing key fails closed: a dropped env var must not silently open the
 // demo and sign-up to bots.
