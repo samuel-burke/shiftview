@@ -235,30 +235,43 @@ The plan in §6 is implemented. Map of the moving parts:
    Sign In / Up → "Allow anonymous sign-ins". Without this,
    `POST /api/demo/start` returns 503 and the "View Demo" button surfaces
    "Demo is unavailable right now".
-1a. **(Recommended) Bot gate**: create a Cloudflare Turnstile widget
+1a. **Required production bot protection**: create a Cloudflare Turnstile widget
    (Cloudflare dashboard → Turnstile → Add widget, hostname = the app's
    domain — the apex covers subdomains — "Managed" mode). The gate protects
    the two abusable auth paths that mint new `auth.users` rows: the demo
    entry point (`signInAnonymously`, throwaway anonymous users with no email
    step) and signup (`signInWithOtp` with `shouldCreateUser: true`, which
-   also fires a verification email to an arbitrary address). The login flow
-   is left ungated — it only emails existing users (`shouldCreateUser:
-   false`), so Supabase's built-in email rate limits are friction enough.
+   also fires a verification email to an arbitrary address). Login also
+   supplies a token, while keeping `shouldCreateUser: false`.
 
-   Verification is **route-level**: set both
-   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel.
-   `/api/demo/start` and `/api/auth/signup-otp` each verify the token against
-   siteverify themselves (the signup OTP is sent from the server so the gate
-   runs before any email goes out). Leave Supabase's Auth CAPTCHA protection
-   **off** — enabling it would force a token on *every* auth endpoint (login
-   included), which is the all-or-nothing behavior this setup intentionally
-   avoids. With no keys set the gate is off in local dev, e2e and previews,
-   which need no configuration; the production deployment
-   (`VERCEL_ENV=production`) fails closed instead, so a missing secret blocks
-   demo starts, signups and the contact form rather than silently opening
-   them. Only a visitor who is already a demo manager (the self-heal path)
-   skips the challenge: an anonymous session alone is not enough, because
-   anyone with the public anon key can mint one directly from Supabase Auth.
+   Set both `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in
+   Vercel. **Enable CAPTCHA protection in Supabase Authentication → Bot and
+   Abuse Protection**, select **Cloudflare Turnstile**, and enter the same
+   widget's secret key. Deploy the app's token support before enabling this
+   setting on an existing project. App environment variables alone do not
+   enable provider protection: direct public Auth requests bypass app routes.
+   Keep Supabase's email and anonymous sign-in rate limits enabled as well.
+
+   `/api/auth/signup-otp`, login, and new anonymous demo sign-ins pass the
+   token to Supabase Auth, which verifies it before creating a user or
+   sending an OTP email. Tokens are single-use, so these requests must not
+   first verify the same token in the app. An existing anonymous user who
+   is not a demo manager still passes the route-level check before receiving
+   demo membership; only an existing demo manager skips that check. Contact
+   submissions also use route-level verification with `TURNSTILE_SECRET_KEY`.
+
+   Local dev, e2e and previews can omit the keys only when using a separate
+   Supabase project with CAPTCHA disabled (or mocked Auth). A preview using
+   the production project needs the widget keys and an allowed hostname.
+   The production deployment (`VERCEL_ENV=production`) rejects demo starts,
+   signups and contact submissions when the app secret is missing.
+
+   After deployment, confirm login, signup and demo start work with a fresh
+   challenge. Using the public anon key against `/auth/v1/otp` with
+   `create_user: true` and no `gotrue_meta_security.captcha_token` must return
+   `captcha_failed`, with no user created or verification email sent. Check
+   `/auth/v1/signup` without a token is rejected too. See Supabase's
+   [CAPTCHA setup guide](https://supabase.com/docs/guides/auth/auth-captcha).
 2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
    (after 0001–0005) in the SQL editor or via the Supabase CLI.
 3. **Seeding is automatic**: the first `POST /api/demo/start` against an

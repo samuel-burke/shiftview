@@ -14,13 +14,14 @@ below.
    (`lib/email.ts`), so until the domain shows **Verified**, every send fails
    with a Resend 403 and the form shows "We couldn't send your message".
 
-## 2. Cloudflare Turnstile (optional, recommended)
+## 2. Cloudflare Turnstile (required in production)
 
 At **Cloudflare → Turnstile → Add widget**, add the hostnames
 `shiftview.app` and `localhost`, plus your Vercel preview domain if you want
 it to work on previews. This gives you a site key and a secret key.
 
-Set **both or neither**:
+Set **both keys in production**. In local dev and previews, the combinations
+below apply to the contact form:
 
 | Set | Result |
 |---|---|
@@ -29,7 +30,9 @@ Set **both or neither**:
 | Secret only | Widget never renders, so **every message is rejected** ("Verification failed") |
 | Site key only | Widget shown but never verified |
 
-The same keys also protect demo start and signup.
+The same widget also protects demo start, signup and login. Supabase Auth
+must have CAPTCHA protection enabled with this widget's secret to protect
+direct Auth requests; see the [deployment runbook](DEMO_ORG.md#deployment-runbook).
 
 ## 3. Vercel environment variables
 

@@ -45,9 +45,8 @@ export default function SignupPage() {
   }, []);
 
   // Signup mints fresh auth users and emails them, so it's bot-gated. The
-  // Turnstile token is verified server-side at /api/auth/signup-otp (which
-  // also sends the OTP), mirroring the demo route's route-level check rather
-  // than Supabase Auth's CAPTCHA — that lets login stay ungated. Tokens are
+  // Turnstile token is forwarded by /api/auth/signup-otp to Supabase Auth,
+  // which verifies it before creating a user or sending email. Tokens are
   // single-use, so the widget is reset after every send attempt.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const widgetContainerRef = useRef<HTMLDivElement>(null);

@@ -7,7 +7,10 @@ import { sendNtfy } from "@/lib/ntfy";
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
-vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: vi.fn() }));
+vi.mock("@/lib/turnstile", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/turnstile")>(),
+  verifyTurnstileToken: vi.fn(),
+}));
 vi.mock("@/lib/demo-seed", () => ({ seedDemoOrg: vi.fn().mockResolvedValue({}) }));
 vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
@@ -45,27 +48,47 @@ function setup({ session = null as any, demoMember = false } = {}) {
   return { signInAnonymously, managers };
 }
 
+let requestNumber = 0;
 const req = (body: object = {}) =>
-  new Request("http://localhost/api/demo/start", { method: "POST", body: JSON.stringify(body) });
+  new Request("http://localhost/api/demo/start", {
+    method: "POST", body: JSON.stringify(body), headers: { "x-forwarded-for": `192.0.2.${++requestNumber}` },
+  });
 
 beforeEach(() => {
   mockVerify.mockReset();
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("TURNSTILE_SECRET_KEY", "");
   vi.mocked(sendNtfy).mockClear();
 });
 
 describe("POST /api/demo/start — bot gate", () => {
-  it("rejects a new visitor who fails verification without creating a user", async () => {
-    mockVerify.mockResolvedValue(false);
+  it("rejects a new visitor when Auth rejects the CAPTCHA", async () => {
     const { signInAnonymously, managers } = setup();
+    signInAnonymously.mockResolvedValue({ data: { user: null }, error: { code: "captcha_failed" } } as any);
     const res = await POST(req({ turnstileToken: "bad" }));
     expect(res.status).toBe(403);
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(managers.upsert).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "", "   ", 123, {}])("rejects a missing or malformed token (%j) when configured", async (turnstileToken) => {
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+    const { signInAnonymously, managers } = setup();
+    expect((await POST(req({ turnstileToken }))).status).toBe(403);
+    expect(signInAnonymously).not.toHaveBeenCalled();
+    expect(managers.upsert).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the production app secret is missing", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    const { signInAnonymously, managers } = setup();
+    expect((await POST(req({ turnstileToken: "good" }))).status).toBe(403);
     expect(signInAnonymously).not.toHaveBeenCalled();
     expect(managers.upsert).not.toHaveBeenCalled();
   });
 
   it("gates an anonymous session minted outside this route", async () => {
-    // Supabase Auth hands out anonymous sessions to anyone with the anon key;
-    // that must not be a way around the challenge.
+    // A pre-existing anonymous session must not bypass the membership gate.
     mockVerify.mockResolvedValue(false);
     const { managers } = setup({ session: { id: "anon-direct", is_anonymous: true } });
     const res = await POST(req());
@@ -84,16 +107,27 @@ describe("POST /api/demo/start — bot gate", () => {
   });
 
   it("starts a session for a verified new visitor", async () => {
-    mockVerify.mockResolvedValue(true);
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
     const { signInAnonymously, managers } = setup();
     const res = await POST(req({ turnstileToken: "good" }));
     expect(res.status).toBe(200);
-    expect(signInAnonymously).toHaveBeenCalled();
+    expect(signInAnonymously).toHaveBeenCalledWith({ options: { captchaToken: "good" } });
+    expect(mockVerify).not.toHaveBeenCalled();
     expect(managers.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: "anon-new" }),
       expect.anything()
     );
     expect(sendNtfy).toHaveBeenCalledWith(expect.objectContaining({ title: "Demo started on ShiftView" }));
+  });
+
+  it("verifies a fresh token locally when granting membership to an existing anonymous user", async () => {
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+    mockVerify.mockResolvedValue(true);
+    const { signInAnonymously, managers } = setup({ session: { id: "anon-direct", is_anonymous: true } });
+    expect((await POST(req({ turnstileToken: "fresh" }))).status).toBe(200);
+    expect(mockVerify).toHaveBeenCalledWith("fresh", expect.any(String));
+    expect(signInAnonymously).not.toHaveBeenCalled();
+    expect(managers.upsert).toHaveBeenCalled();
   });
 
   it("includes the visitor's coarse location in the alert", async () => {
