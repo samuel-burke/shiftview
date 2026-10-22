@@ -219,7 +219,7 @@ export function DayList({
   const hours = storeHours[dayOfWeek(date)];
 
   const rows = employees
-    .map((emp) => ({ emp, cell: cells.get(cellKey(emp.id, date)) ?? ({ live: null, draft: null, shown: null } as WeekCell) }))
+    .map((emp) => ({ emp, cell: cells.get(cellKey(emp.id, date)) ?? ({ live: null, draft: null, change: null, shown: null } as WeekCell) }))
     .sort((a, b) => {
       if (!a.cell.shown !== !b.cell.shown) return a.cell.shown ? -1 : 1;
       return (a.cell.shown?.startMinutes ?? 0) - (b.cell.shown?.startMinutes ?? 0);
@@ -258,8 +258,9 @@ export function DayList({
         {notice}
         {rows.map(({ emp, cell }) => {
           const s = cell.shown;
-          const isLiveContext = isDraftMode && cell.live !== null;
-          const clash = isDraftMode && cell.live !== null && cell.draft !== null;
+          const isLiveContext = isDraftMode && cell.live !== null && cell.change === null;
+          const clash = isLiveContext && cell.draft !== null;
+          const removed = isDraftMode && cell.change === "remove";
           const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
           const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
           const week = weekHours(emp);
@@ -303,6 +304,16 @@ export function DayList({
                   {/* The week's hours wrap as one piece, never "56/40 h" | "week". */}
                   {" "}<span className={`whitespace-nowrap ${week.over ? "text-danger-fg" : "text-fg-subtle"}`}>· {week.text}</span>
                 </div>
+                {removed && cell.live && (
+                  <div className="text-xs text-warning-fg mt-0.5">
+                    <span className="sr-only">, </span>Live {fmtMinutes(cell.live.startMinutes)} – {fmtMinutes(cell.live.endMinutes)} removed when published
+                  </div>
+                )}
+                {cell.change === "edit" && cell.live && (
+                  <div className="text-xs text-fg-subtle mt-0.5">
+                    <span className="sr-only">, </span>Was {fmtMinutes(cell.live.startMinutes)} – {fmtMinutes(cell.live.endMinutes)}
+                  </div>
+                )}
                 {clash && cell.draft && (
                   <div className="text-xs text-warning-fg mt-0.5">
                     <span className="sr-only">, </span>Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
@@ -316,14 +327,20 @@ export function DayList({
                   <>
                     <span className="sr-only">, </span>
                     <Pill tone="live">Live</Pill>
-                    <span className="sr-only">{clash ? " shift. Open the draft" : " shift, change it in Live mode"}</span>
+                    <span className="sr-only">{clash ? " shift. Open the draft" : " shift. Change it as a draft"}</span>
                   </>
                 ) : isDraftMode ? (
                   <>
                     <span className="sr-only">, </span>
-                    {s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>}
+                    {cell.change === "edit" ? <Pill tone="draft">Changed</Pill> : s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>}
                   </>
                 ) : null
+              ) : removed ? (
+                <>
+                  <span className="sr-only">, </span>
+                  <Pill tone="draft">Removed</Pill>
+                  <span className="sr-only">. Open the draft</span>
+                </>
               ) : (
                 <>
                   <span aria-hidden="true" className="text-[11px] font-semibold text-accent-fg shrink-0">+ Add</span>

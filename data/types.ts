@@ -33,6 +33,9 @@ export type Schedule = {
   note?: string | null;
   // Drafts only: the Auto-schedule run that created it, if any.
   generationRunId?: number | null;
+  // Drafts only: the live shift this draft changes, and whether it removes it.
+  replacesScheduleId?: number | null;
+  removes?: boolean;
 };
 
 // Derived — computed from clock-in/out times and store hours

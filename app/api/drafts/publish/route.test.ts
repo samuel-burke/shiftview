@@ -186,7 +186,7 @@ describe("POST /api/drafts/publish — success", () => {
     );
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 2, skipped: 0, skippedDrafts: [] });
+    expect(await res.json()).toEqual({ published: 2, changed: 0, removed: 0, skipped: 0, skippedDrafts: [] });
   });
 
   it("publishes the free drafts and keeps the one whose employee is already scheduled", async () => {
@@ -198,6 +198,8 @@ describe("POST /api/drafts/publish — success", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       published: 1,
+      changed: 0,
+      removed: 0,
       skipped: 1,
       skippedDrafts: [{ id: 1, employeeId: 10, date: "2026-06-01" }],
     });
@@ -286,7 +288,7 @@ describe("POST /api/drafts/publish — auto-schedule runs", () => {
     );
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 1, skipped: 0, skippedDrafts: [] });
+    expect(await res.json()).toEqual({ published: 1, changed: 0, removed: 0, skipped: 0, skippedDrafts: [] });
   });
 });
 

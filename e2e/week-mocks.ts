@@ -125,7 +125,10 @@ export async function mockWeek(page: Page) {
       return route.fulfill({ json: state.drafts.filter((d) => inWeek(d.date, from, addDays(from, 6))) });
     }
     state.calls.push({ method: req.method(), path: url.pathname, body });
-    if (req.method() === "POST") {
+    if (req.method() === "POST" && body!.replacesScheduleId != null) {
+      const live = state.live.find((s) => s.id === body!.replacesScheduleId)!;
+      state.drafts.push({ id: state.nextId++, employeeId: live.employeeId, date: live.date, startMinutes: Number(body!.startMinutes), endMinutes: Number(body!.endMinutes), generationRunId: null, replacesScheduleId: live.id } as Shift);
+    } else if (req.method() === "POST") {
       state.drafts.push({ id: state.nextId++, employeeId: Number(body!.employeeId), date: String(body!.date), startMinutes: Number(body!.startMinutes), endMinutes: Number(body!.endMinutes), generationRunId: null });
     }
     return route.fulfill({ json: { ok: true } });

@@ -112,8 +112,28 @@ describe("WeekGrid", () => {
       renderGrid({ mode: "draft", schedules: [...LIVE, ...DRAFTS] });
       expect(screen.getByRole("button", { name: /^9a–5p.*Auto · Mid.*Bob Jones, Tuesday, October 6$/ })).toHaveTextContent("Auto · Mid");
       expect(screen.getByRole("button", { name: /^6a–2p.*Draft · Opener.*Bob Jones, Wednesday, October 7$/ })).toHaveTextContent("Draft · Opener");
-      expect(screen.getByRole("button", { name: /^9a–5p.*Live.*Bob Jones, Monday, October 5, live shift \(change it in Live mode\)$/ })).toHaveTextContent("Live");
+      expect(screen.getByRole("button", { name: /^9a–5p.*Live.*Bob Jones, Monday, October 5, live shift. Change it as a draft$/ })).toHaveTextContent("Live");
       expect(screen.getByRole("button", { name: /Bob Jones, Thursday, October 8: off\. Add a draft shift/ })).toBeInTheDocument();
+    });
+
+    it("shows a drafted change to a live shift, and opens the change", async () => {
+      const change = { id: 60, employeeId: 2, date: "2026-10-05", startMinutes: 600, endMinutes: 1080, source: "draft" as const, replacesScheduleId: 12 };
+      const { onSelect } = renderGrid({ mode: "draft", schedules: [...LIVE, change] });
+      const cell = screen.getByRole("button", { name: /^10a–6p.*Changed.*Bob Jones, Monday, October 5, changes the live 9a–5p shift when published$/ });
+      await userEvent.click(cell);
+      expect(onSelect).toHaveBeenCalledWith(EMPLOYEES[1], "2026-10-05", change);
+    });
+
+    it("shows a drafted removal struck through, and opens it", async () => {
+      const removal = { id: 61, employeeId: 2, date: "2026-10-05", startMinutes: 540, endMinutes: 1020, source: "draft" as const, replacesScheduleId: 12, removes: true };
+      const { onSelect } = renderGrid({ mode: "draft", schedules: [...LIVE, removal] });
+      const cell = screen.getByRole("button", { name: /Bob Jones, Monday, October 5: the live shift is removed when published/ });
+      expect(cell).toHaveTextContent("Removed");
+      expect(within(cell).getByText("9a–5p")).toHaveClass("line-through");
+      await userEvent.click(cell);
+      expect(onSelect).toHaveBeenCalledWith(EMPLOYEES[1], "2026-10-05", removal);
+      // Bob's week no longer counts it.
+      expect(within(screen.getByRole("rowheader", { name: /Bob J\./ })).getByText("0 hrs")).toBeInTheDocument();
     });
 
     it("keeps the live shift where an older draft clashes, and opens the draft", async () => {
