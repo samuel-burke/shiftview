@@ -130,6 +130,11 @@ export function useWeekShifts({ enabled, dates, apiFetch }: { enabled: boolean; 
       send(source, { method: "PUT", body: JSON.stringify({ id, startMinutes, endMinutes, override, note }) }, "Failed to save shift"),
     create: (source: ShiftSource, employeeId: number, date: string, startMinutes: number, endMinutes: number, override = false, note?: string | null) =>
       send(source, { method: "POST", body: JSON.stringify({ employeeId, date, startMinutes, endMinutes, override, note }) }, "Failed to add shift"),
+    // Draft changes to a live shift: published with the week's other drafts.
+    changeLive: (scheduleId: number, startMinutes: number, endMinutes: number, override = false, note?: string | null) =>
+      send("draft", { method: "POST", body: JSON.stringify({ replacesScheduleId: scheduleId, startMinutes, endMinutes, override, note }) }, "Failed to draft the change"),
+    removeLive: (scheduleId: number) =>
+      send("draft", { method: "POST", body: JSON.stringify({ replacesScheduleId: scheduleId, remove: true }) }, "Failed to draft the removal"),
     remove: (source: ShiftSource, id: number) =>
       send(source, { method: "DELETE", body: JSON.stringify({ id }) }, source === "draft" ? "Failed to remove draft" : "Failed to mark as off"),
   };

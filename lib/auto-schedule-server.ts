@@ -77,8 +77,9 @@ export async function loadWeek(
     supabase.from("coverage_date_overrides").select("date, profile_id").eq("org_id", orgId).gte("date", dates[0]).lte("date", dates[6]),
     supabase.from("store_hours").select("day_of_week, open_minutes, close_minutes").eq("org_id", orgId),
     supabase.from("app_settings").select("key, value").eq("org_id", orgId),
-    supabase.from("schedules").select("employee_id, date, start_minutes, end_minutes").eq("org_id", orgId).gte("date", from).lte("date", to),
-    supabase.from("draft_schedules").select("id, employee_id, date, start_minutes, end_minutes, generation_run_id")
+    supabase.from("schedules").select("id, employee_id, date, start_minutes, end_minutes").eq("org_id", orgId).gte("date", from).lte("date", to),
+    // "*": replaces_schedule_id / removes come with migration 0071.
+    supabase.from("draft_schedules").select("*")
       .eq("org_id", orgId).gte("date", from).lte("date", to),
     payRatesQuery(supabase, orgId),
   ]);
@@ -93,6 +94,8 @@ export async function loadWeek(
     profiles, blocks, dayDefaults, overrides, storeHours, settings, schedules, drafts,
   ] = results.map((r) => (r.data ?? []) as Row[]);
   const payRates = toPayRateMap(results[results.length - 1].data);
+
+  const superseded = new Set(drafts.filter((d) => d.replaces_schedule_id != null).map((d) => Number(d.replaces_schedule_id)));
 
   const settingsMap = Object.fromEntries(settings.map((r) => [String(r.key), String(r.value)]));
 
@@ -167,8 +170,13 @@ export async function loadWeek(
         storeHours.map((h) => [Number(h.day_of_week), { open: Number(h.open_minutes), close: Number(h.close_minutes) }])
       ),
       employees: roster,
-      published: schedules.map(toShift),
-      drafts: drafts.map((d) => ({
+      // Drafts that change or remove a live shift count as if published, so
+      // Auto-schedule plans around the week the manager is building.
+      published: [
+        ...schedules.filter((s) => !superseded.has(Number(s.id))).map(toShift),
+        ...drafts.filter((d) => d.replaces_schedule_id != null && d.removes !== true).map(toShift),
+      ],
+      drafts: drafts.filter((d) => d.replaces_schedule_id == null).map((d) => ({
         ...toShift(d),
         id: Number(d.id),
         generationRunId: d.generation_run_id == null ? null : Number(d.generation_run_id),

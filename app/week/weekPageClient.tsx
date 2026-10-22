@@ -29,10 +29,11 @@ import { fmtMinutes, formatDisplayName } from "@/data/types";
 
 // The Week page: the team's week, in one of two modes (kept in the URL).
 // Live shows and edits the published schedule. Draft shows the week as it will
-// be after publishing (live shifts, read-only, plus drafts) and edits drafts,
-// with Auto-schedule and Publish. The coverage tools follow the mode.
+// be after publishing (live shifts as drafts change them, plus new drafts) and
+// edits drafts, including changes to live shifts, with Auto-schedule and
+// Publish, which tells each person once what changed for them. The coverage tools follow the mode.
 
-type PublishResult = { weekStart: string; published: number; skipped: { employeeId: number; date: string }[] };
+type PublishResult = { weekStart: string; published: number; changed: number; removed: number; skipped: { employeeId: number; date: string }[] };
 
 /** True when a key press is meant for a control rather than the page. */
 function typingInField(target: EventTarget | null): boolean {
@@ -136,6 +137,8 @@ export default function WeekPageClient() {
   // Drafts whose person already has a live shift that day: publishing skips them.
   const clashes = useMemo(() => clashingDrafts(live, drafts), [live, drafts]);
   const publishCount = drafts.length - clashes.length;
+  const liveIds = useMemo(() => new Set(live.map((s) => s.id)), [live]);
+  const changeCount = drafts.filter((d) => d.replacesScheduleId != null && liveIds.has(d.replacesScheduleId)).length;
   // What the grid and day list show: live shifts, plus drafts in Draft mode.
   const gridShifts = useMemo(() => (isDraftMode ? [...live, ...drafts] : live), [isDraftMode, live, drafts]);
   // What the numbers count: the live week, or the week after publishing.
@@ -189,22 +192,39 @@ export default function WeekPageClient() {
 
   // ---- The editor ----
   // Live: the live shift. Draft: the draft (a clash opens the draft, so it can
-  // be removed); a live shift is view only, with a way back to Live.
+  // be removed). A live shift with no draft is edited as a draft change to it:
+  // saving or marking off drafts the change, which publishes with the week.
   const pickedEmp = pickedCell ? employees.find((e) => e.id === pickedCell.employeeId) ?? null : null;
   const cell = pickedCell ? cells.get(cellKey(pickedCell.employeeId, pickedCell.date)) : undefined;
-  const editor: { source: WeekMode; shift: SourcedShift | null; readOnly: boolean; notice?: string } = !isDraftMode
+  const liveTimes = cell?.live ? `${fmtMinutes(cell.live.startMinutes)} – ${fmtMinutes(cell.live.endMinutes)}` : "";
+  const editor: { source: WeekMode; shift: SourcedShift | null; readOnly: boolean; notice?: string; changesLiveId?: number } = !isDraftMode
     ? { source: "live", shift: cell?.live ?? null, readOnly: false }
+    : cell?.draft && cell.change === "remove"
+    ? {
+        source: "draft",
+        shift: cell.draft,
+        readOnly: false,
+        notice: `Publishing removes the live shift (${liveTimes}) and tells them. Remove this draft to keep it, or edit it to change the times instead.`,
+      }
+    : cell?.draft && cell.change === "edit"
+    ? { source: "draft", shift: cell.draft, readOnly: false, notice: `Publishing changes the live shift (${liveTimes}) to this and tells them.` }
     : cell?.draft
     ? {
         source: "draft",
         shift: cell.draft,
         readOnly: false,
         notice: cell.live
-          ? `This draft won't publish: there's already a live shift that day (${fmtMinutes(cell.live.startMinutes)} – ${fmtMinutes(cell.live.endMinutes)}). Remove the draft, or change the live shift in Live mode.`
+          ? `This draft won't publish: there's already a live shift that day (${liveTimes}). Remove the draft, or change the live shift.`
           : undefined,
       }
     : cell?.live
-    ? { source: "live", shift: cell.live, readOnly: true }
+    ? {
+        source: "live",
+        shift: cell.live,
+        readOnly: false,
+        changesLiveId: cell.live.id,
+        notice: "This shift is live. Changes you make here are drafts: nobody is told until you publish the week.",
+      }
     : { source: "draft", shift: null, readOnly: false };
 
   function openCell(employeeId: number, date: string) {
@@ -261,6 +281,8 @@ export default function WeekPageClient() {
       setPublishResult({
         weekStart,
         published: Number(result.published) || 0,
+        changed: Number(result.changed) || 0,
+        removed: Number(result.removed) || 0,
         skipped: Array.isArray(result.skippedDrafts) ? result.skippedDrafts : [],
       });
       week.reloadAll().catch(() => setActionError("Published. Refresh to see the week's shifts."));
@@ -361,7 +383,13 @@ export default function WeekPageClient() {
           {banner && (
             <Toast tone="success" data-testid="publish-result" onDismiss={() => setPublishResult(null)}>
               <div className="font-semibold">
-                Published {banner.published} shift{banner.published === 1 ? "" : "s"}. The team can see {banner.published === 1 ? "it" : "them"} now.
+                {banner.changed + banner.removed === 0
+                  ? `Published ${banner.published} shift${banner.published === 1 ? "" : "s"}. The team can see ${banner.published === 1 ? "it" : "them"} now.`
+                  : `Published: ${[
+                      banner.published > 0 && `${banner.published} new`,
+                      banner.changed > 0 && `${banner.changed} changed`,
+                      banner.removed > 0 && `${banner.removed} removed`,
+                    ].filter(Boolean).join(", ")}. Everyone affected has been told.`}
               </div>
               {skippedText && <div className="text-xs text-warning-fg mt-1">{skippedText}</div>}
             </Toast>
@@ -500,10 +528,13 @@ export default function WeekPageClient() {
           notice={editor.notice}
           onSwitchToLive={() => go("live", weekStart)}
           onClose={() => setPicked(null)}
-          onSave={(id, startMinutes, endMinutes, override = false, note) => week.save(editor.source, id, startMinutes, endMinutes, override, note)}
+          onSave={(id, startMinutes, endMinutes, override = false, note) =>
+            editor.changesLiveId != null
+              ? week.changeLive(editor.changesLiveId, startMinutes, endMinutes, override, note)
+              : week.save(editor.source, id, startMinutes, endMinutes, override, note)}
           onCreate={(employeeId, startMinutes, endMinutes, override = false, note) =>
             week.create(editor.source, employeeId, pickedCell!.date, startMinutes, endMinutes, override, note)}
-          onMarkOff={(id) => week.remove(editor.source, id)}
+          onMarkOff={(id) => (editor.changesLiveId != null ? week.removeLive(editor.changesLiveId) : week.remove(editor.source, id))}
         />
 
         {isDraftMode && (
@@ -530,6 +561,7 @@ export default function WeekPageClient() {
           weekLabel={weekLabel}
           publishCount={publishCount}
           clashCount={clashes.length}
+          changeCount={changeCount}
           onCancel={() => setConfirmPublish(false)}
           onConfirm={handlePublish}
         />
