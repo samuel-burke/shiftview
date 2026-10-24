@@ -32,7 +32,7 @@ reviews:
     - path: "app/api/**/route.ts"
       instructions: |
         API routes are the security boundary for a multi-tenant app.
-        - Every handler must authenticate the caller and resolve their organization before touching data; flag any query not scoped to the caller's org (org isolation), including lookups by id that skip an org filter.
+        - Every user-facing handler that reads or changes existing organization data must authenticate the caller and resolve their organization first; flag any query not scoped to the caller's org (org isolation), including lookups by id that skip an org filter. Exceptions: cron routes (secret-authenticated, below) and org creation, where an authenticated user without an org creates their first one.
         - Check role checks (manager vs employee) on every mutating route, not just in the UI.
         - Validate and bound all input (body, query, params): types, lengths, enums, dates/timezones, and numeric ranges. Reject unknown fields where it matters.
         - Flag use of the service-role/admin Supabase client (lib/supabase-admin.ts) where the user-scoped client would do, and any place it runs with caller-controlled filters.
