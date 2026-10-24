@@ -26,23 +26,32 @@ async function main() {
   };
 
   for (const number of linkedIssues(PR_BODY, GITHUB_REPOSITORY)) {
-    const issue = await fetch(`${api}/issues/${number}`, { headers }).then((r) => r.json());
-    // A pull request number, a missing issue, or one already closed.
+    const res = await fetch(`${api}/issues/${number}`, { headers });
+    if (res.status === 404) {
+      console.log(`#${number}: skipped`);
+      continue;
+    }
+    // Anything else (a permissions error, a rate limit) must fail the job.
+    if (!res.ok) throw new Error(`#${number}: ${res.status} ${await res.text()}`);
+    const issue = await res.json();
+    // A pull request number, or an issue already closed.
     if (!issue.number || issue.pull_request || issue.state !== "open") {
       console.log(`#${number}: skipped`);
       continue;
     }
-    await fetch(`${api}/issues/${number}/comments`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ body: `Closed by #${PR_NUMBER}, merged into dev.` }),
-    });
+    // Close first, so a failed close never leaves a "Closed by" comment on an open issue.
     const closed = await fetch(`${api}/issues/${number}`, {
       method: "PATCH",
       headers,
       body: JSON.stringify({ state: "closed", state_reason: "completed" }),
     });
     if (!closed.ok) throw new Error(`#${number}: ${closed.status} ${await closed.text()}`);
+    const commented = await fetch(`${api}/issues/${number}/comments`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ body: `Closed by #${PR_NUMBER}, merged into dev.` }),
+    });
+    if (!commented.ok) throw new Error(`#${number}: closed, but the comment failed: ${commented.status} ${await commented.text()}`);
     console.log(`#${number}: closed`);
   }
 }

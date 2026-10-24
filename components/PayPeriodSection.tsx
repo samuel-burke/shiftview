@@ -63,6 +63,8 @@ export default function PayPeriodSection({
       setTimeout(() => setStatus("idle"), 2000);
     } else {
       const json = await res?.json().catch(() => null);
+      // Show the stored frequency again, not the one that failed to save.
+      setDraft(value);
       setError(json?.error ?? null);
       setStatus("error");
       setTimeout(() => setStatus("idle"), 4000);
