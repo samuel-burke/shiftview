@@ -26,15 +26,20 @@ export async function findShiftConflict(
   endMinutes: number,
 ): Promise<ShiftConflict | null> {
   for (const part of shiftParts({ date, startMinutes, endMinutes })) {
-    const { data: timeOff } = await supabase
+    // A day can hold several approved part-day requests, so check each one.
+    const { data: timeOffRows, error: timeOffError } = await supabase
       .from("time_off_requests")
       .select("id, status, start_minutes, end_minutes")
       .eq("org_id", orgId)
       .eq("employee_id", employeeId)
       .eq("date", part.date)
-      .eq("status", "approved")
-      .maybeSingle();
-    if (timeOff && timeOffOverlaps(timeOffWindow(timeOff), part.start, part.end)) {
+      .eq("status", "approved");
+    // A soft check a manager can override anyway, so a failed lookup is
+    // logged rather than failing the save.
+    if (timeOffError) console.error("[shift-conflicts] time off lookup failed", timeOffError);
+    const timeOff = ((timeOffRows ?? []) as { start_minutes: number | null; end_minutes: number | null }[])
+      .find((row) => timeOffOverlaps(timeOffWindow(row), part.start, part.end));
+    if (timeOff) {
       const w = timeOffWindow(timeOff);
       return {
         conflict: "time_off",

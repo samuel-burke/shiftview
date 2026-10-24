@@ -36,6 +36,8 @@
 \ir ../migrations/0074_punch_gps_required.sql
 \ir ../migrations/0075_live_punch_current_shift.sql
 \ir ../migrations/0076_callout_reason_privacy.sql
+\ir ../migrations/0077_pay_period_session_touch.sql
+\ir ../migrations/0078_draft_change_same_shift.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''

@@ -42,6 +42,8 @@ export default function TimeOffRequestForm({
       return onSubmit({ date, endDate });
     }
     if (mode === "part") {
+      // Empty inputs read as midnight, which would turn into a whole day off.
+      if (!from || !to) return setError("Pick both times.");
       const { startMinutes, endMinutes } = minutesFromTimeInputs(from, to);
       if (endMinutes > 1440 || endMinutes - startMinutes < 15) return setError("The end time must be after the start time, the same day.");
       return onSubmit({ date, startMinutes, endMinutes });
