@@ -112,7 +112,8 @@ export async function findRuleConflict(
   orgId: string,
   table: "schedules" | "draft_schedules",
   employeeId: number,
-  shift: { id?: number; date: string; startMinutes: number; endMinutes: number },
+  // replacesScheduleId: the live shift a new change draft will replace.
+  shift: { id?: number; date: string; startMinutes: number; endMinutes: number; replacesScheduleId?: number },
 ): Promise<{ conflict: "rules"; message: string; warnings: RuleWarning[] } | null> {
   // Two weeks either side covers the store week and any consecutive-day run
   // the rules care about (at most 7).
@@ -161,6 +162,7 @@ export async function findRuleConflict(
   const draftRows = list<Row>(draftRes);
   // A live shift a draft changes or removes counts as the draft says.
   const superseded = new Set(draftRows.map((r) => r.replaces_schedule_id).filter((id): id is number => id != null));
+  if (shift.replacesScheduleId != null) superseded.add(shift.replacesScheduleId);
   const live = list<Row>(liveRes).filter((r) => !superseded.has(r.id)).map(toShift("schedules"));
   const drafts = draftRows.filter((r) => !r.removes).map(toShift("draft_schedules"));
   // The shift being edited is ignored by id, and only within its own table.

@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFakeDb, type FakeDb } from "./fake-db";
+import { publishDrafts } from "./fake-publish";
 import { MOCK_ORG_ID } from "./helpers";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -71,6 +72,7 @@ let db: FakeDb;
 function signIn(user: { id: string; email?: string } | null) {
   db = createFakeDb(db ? db.tables : seed(), {
     user,
+    rpc: { publish_drafts: publishDrafts },
     unique: {
       schedules: [["org_id", "employee_id", "date"]],
       time_off_requests: [["org_id", "employee_id", "date"]],

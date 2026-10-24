@@ -146,4 +146,62 @@ delete from schedules where date = '2026-10-19';
 select pg_temp.check('a change goes with its deleted live shift',
   (select count(*) = 1 from draft_schedules where replaces_schedule_id is not null));
 
+-- Publishing applies the week's drafts in one transaction.
+insert into schedules (org_id, employee_id, date, start_minutes, end_minutes)
+  select org, e2, date '2026-10-23', 540, 1020 from ids;
+insert into draft_schedules (org_id, employee_id, date, start_minutes, end_minutes, replaces_schedule_id)
+  select org, e2, date '2026-10-23', 600, 1080,
+         (select id from schedules where employee_id = e2 and date = '2026-10-23') from ids;
+insert into draft_schedules (org_id, employee_id, date, start_minutes, end_minutes)
+  select org, e2, date '2026-10-24', 540, 1020 from ids;
+create temp table pub as select org, (select array_agg(id) from draft_schedules) as draft_ids from ids;
+grant select on pub to authenticated;
+truncate result;
+
+select set_config('request.jwt.claim.sub', 'eeeeeeee-0000-0000-0000-000000000001', false);
+set role authenticated;
+insert into result select publish_drafts(org, draft_ids) from pub;
+reset role;
+select pg_temp.check('only a manager can publish', (select r->>'status' = 'forbidden' from result));
+select pg_temp.check('...and a refused publish keeps the drafts', (select count(*) = 4 from draft_schedules));
+truncate result;
+
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000001', false);
+set role authenticated;
+insert into result select publish_drafts(org, draft_ids) from pub;
+reset role;
+select pg_temp.check('publishing applies every draft it takes',
+  (select r->>'status' = 'ok' and jsonb_array_length(r->'claimed') = 4 from result));
+select pg_temp.check('...removes the removed shift', (select not exists (select 1 from schedules where date = '2026-10-20')));
+select pg_temp.check('...changes the changed shift',
+  (select start_minutes = 600 and end_minutes = 1080 from schedules where date = '2026-10-23'));
+select pg_temp.check('...adds the new shifts',
+  (select count(*) = 2 from schedules s, ids where s.employee_id = ids.e2 and s.date in ('2026-10-21', '2026-10-24')));
+select pg_temp.check('...and leaves no drafts', (select count(*) = 0 from draft_schedules));
+truncate result;
+
+set role authenticated;
+insert into result select publish_drafts(org, draft_ids) from pub;
+reset role;
+select pg_temp.check('a second publish of the same drafts applies nothing',
+  (select r->>'status' = 'ok' and jsonb_array_length(r->'claimed') = 0 from result));
+truncate result;
+
+-- A failed write keeps every draft and changes no live shift.
+insert into draft_schedules (org_id, employee_id, date, start_minutes, end_minutes, replaces_schedule_id)
+  select org, e2, date '2026-10-23', 660, 1140,
+         (select id from schedules where employee_id = e2 and date = '2026-10-23') from ids;
+insert into draft_schedules (org_id, employee_id, date, start_minutes, end_minutes)
+  select org, e1, date '2026-10-25', 540, 1020 from ids;
+create function pg_temp.fail_insert() returns trigger language plpgsql as $$
+begin raise exception 'insert failed'; end $$;
+create trigger fail_insert before insert on schedules for each row execute function pg_temp.fail_insert();
+update pub set draft_ids = (select array_agg(id) from draft_schedules);
+select pg_temp.run('a failed write fails the whole publish', 'aaaaaaaa-0000-0000-0000-000000000001',
+  'select publish_drafts(org, draft_ids) from pub', true);
+select set_config('request.jwt.claim.sub', '', false);
+drop trigger fail_insert on schedules;
+select pg_temp.check('...keeping both drafts', (select count(*) = 2 from draft_schedules));
+select pg_temp.check('...and the change unapplied', (select start_minutes = 600 from schedules where date = '2026-10-23'));
+
 rollback;

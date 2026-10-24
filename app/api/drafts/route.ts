@@ -56,7 +56,7 @@ async function findConflict(
   supabase: SupabaseClient,
   orgId: string,
   employeeId: number,
-  shift: { id?: number; date: string; startMinutes: number; endMinutes: number }
+  shift: { id?: number; date: string; startMinutes: number; endMinutes: number; replacesScheduleId?: number }
 ): Promise<NextResponse | null> {
   const conflict = await findShiftConflict(supabase, orgId, employeeId, shift.date, shift.startMinutes, shift.endMinutes);
   if (conflict) return NextResponse.json(conflict, { status: 409 });
@@ -216,7 +216,7 @@ async function draftChange(request: Request, body: Record<string, unknown>) {
     const liveClash = await findLiveClash(supabase, orgId!, live.employee_id, date, startMinutes, endMinutes, live.id);
     if (liveClash) return liveClash;
     if (!override) {
-      const conflict = await findConflict(supabase, orgId!, live.employee_id, { date, startMinutes, endMinutes });
+      const conflict = await findConflict(supabase, orgId!, live.employee_id, { date, startMinutes, endMinutes, replacesScheduleId: live.id });
       if (conflict) return conflict;
     }
     row = {

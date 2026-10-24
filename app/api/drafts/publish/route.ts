@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { requireManager } from "@/lib/require-manager";
-import { withOrgAll } from "@/lib/org-scope";
 import { notify } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit";
 import { weekDates } from "@/lib/draft-metrics";
@@ -78,93 +77,43 @@ export async function POST(request: Request) {
   const planned = newDrafts.filter((d) => !taken.has(`${d.employee_id}|${dateKey(d.date)}`));
   const skipped = newDrafts.filter((d) => taken.has(`${d.employee_id}|${dateKey(d.date)}`));
 
-  // Take those drafts off the board before acting on them, keeping only the
-  // rows this request actually deleted: a second publish running at the same
-  // time (a double click, two managers) gets none of them, so nothing is
-  // applied twice.
+  // Take those drafts off the board and apply them in one transaction
+  // (publish_drafts, migration 0071). It applies only the drafts it deleted:
+  // a second publish running at the same time (a double click, two
+  // managers) gets none of them, so nothing is applied twice. If any write
+  // fails, every draft is kept and no live shift has changed.
   let claimed: DraftRow[] = [];
   const claimIds = [...changeDrafts, ...planned].map((d) => d.id);
   if (claimIds.length > 0) {
-    const { data, error: claimError } = await supabase
-      .from("draft_schedules")
-      .delete()
-      .eq("org_id", orgId)
-      .in("id", claimIds)
-      .select("*");
-    if (claimError) {
-      console.error("[api/drafts/publish]", claimError);
+    const { data, error: publishError } = await supabase.rpc("publish_drafts", { p_org: orgId, p_draft_ids: claimIds });
+    const result = data as { status?: string; claimed?: DraftRow[] } | null;
+    if (publishError || result?.status !== "ok") {
+      console.error("[api/drafts/publish]", publishError ?? result);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
-    claimed = (data ?? []) as DraftRow[];
+    claimed = result.claimed ?? [];
   }
 
-  // 1. Changes and removals of live shifts. A change whose live shift is gone
-  // (deleted in Live mode meanwhile) has nothing left to change.
-  const removedIds: number[] = [];
+  // What changed for whom. A change whose live shift is gone (deleted in
+  // Live mode meanwhile) had nothing left to change.
   let changed = 0;
+  let removed = 0;
   for (const d of claimed.filter((c) => c.replaces_schedule_id != null)) {
     const live = liveById.get(d.replaces_schedule_id!);
     if (!live) continue;
     if (d.removes) {
-      removedIds.push(live.id);
+      removed++;
       record(live.employee_id, { kind: "removed", shift: times(live) });
       continue;
     }
     const before = times(live);
     const after = times(d);
     if (!isRealChange(before, after)) continue;
-    const { error: updateError } = await supabase
-      .from("schedules")
-      .update({ start_minutes: d.start_minutes, end_minutes: d.end_minutes, note: d.note ?? null })
-      .eq("org_id", orgId)
-      .eq("id", live.id);
-    if (updateError) {
-      console.error("[api/drafts/publish] change", updateError);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
     changed++;
     record(live.employee_id, { kind: "changed", before, after });
   }
-  if (removedIds.length > 0) {
-    const { error: removeError } = await supabase.from("schedules").delete().eq("org_id", orgId).in("id", removedIds);
-    if (removeError) {
-      console.error("[api/drafts/publish] remove", removeError);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-  }
-
-  // 2. New shifts.
   const toPublish = claimed.filter((c) => c.replaces_schedule_id == null);
-  if (toPublish.length > 0) {
-    const { error: insertError } = await supabase
-      .from("schedules")
-      .insert(withOrgAll(orgId!, toPublish.map((d) => ({
-        employee_id:   d.employee_id,
-        date:          dateKey(d.date),
-        start_minutes: d.start_minutes,
-        end_minutes:   d.end_minutes,
-        note:          d.note ?? null,
-      }))));
-
-    if (insertError) {
-      console.error("[api/drafts/publish]", insertError);
-      // The new shifts didn't go live: put their drafts back so the week can
-      // be published again. (Changes to live shifts above already applied.)
-      const { error: restoreError } = await supabase
-        .from("draft_schedules")
-        .insert(withOrgAll(orgId!, toPublish.map((d) => ({
-          employee_id:       d.employee_id,
-          date:              dateKey(d.date),
-          start_minutes:     d.start_minutes,
-          end_minutes:       d.end_minutes,
-          generation_run_id: d.generation_run_id ?? null,
-          note:              d.note ?? null,
-        }))));
-      if (restoreError) console.error("[api/drafts/publish] restoring drafts failed", restoreError);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-    for (const d of toPublish) record(d.employee_id, { kind: "added", shift: times(d) });
-  }
+  for (const d of toPublish) record(d.employee_id, { kind: "added", shift: times(d) });
 
   if (toPublish.length > 0) {
     // Auto-schedule runs for the week can't be undone once their drafts are live.
@@ -208,14 +157,14 @@ export async function POST(request: Request) {
     actorId:      user?.id,
     resourceType: "draft_schedule",
     resourceId:   weekStart,
-    after: { published: toPublish.length, changed, removed: removedIds.length, skipped: skipped.length },
+    after: { published: toPublish.length, changed, removed, skipped: skipped.length },
     metadata: { weekStart: dates[0], weekEnd: dates[6] },
   }).catch(() => {});
 
   return NextResponse.json({
     published: toPublish.length,
     changed,
-    removed: removedIds.length,
+    removed,
     skipped: skipped.length,
     // Still drafts: these people already have a live shift that day.
     skippedDrafts: skipped.map((d) => ({ id: d.id, employeeId: d.employee_id, date: dateKey(d.date) })),

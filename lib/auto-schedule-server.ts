@@ -142,6 +142,8 @@ export async function loadWeek(
           .filter((t) => Number(t.employee_id) === id && t.status === "approved" && t.start_minutes == null)
           .map((t) => dateKey(t.date)),
         ...callouts.filter((c) => Number(c.employee_id) === id).map((c) => dateKey(c.date)),
+        // A drafted removal still holds the person's draft slot that day.
+        ...drafts.filter((d) => Number(d.employee_id) === id && d.removes === true).map((d) => dateKey(d.date)),
       ],
       partialTimeOff: timeOff
         .filter((t) => Number(t.employee_id) === id && t.status === "approved" && t.start_minutes != null && t.end_minutes != null)

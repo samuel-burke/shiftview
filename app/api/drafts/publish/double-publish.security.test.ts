@@ -7,7 +7,7 @@ import { MOCK_USER, MOCK_ORG_ID } from "../../__tests__/helpers";
 // then deleted the drafts. Two publishes at once (a double click on Publish,
 // or two managers) both read the same drafts and every shift went live twice.
 // Now each publish first deletes the drafts it will publish and only publishes
-// the rows it actually removed.
+// the rows it actually removed, all in one transaction (publish_drafts).
 
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/notify", () => ({ notify: vi.fn().mockResolvedValue(undefined) }));
@@ -77,6 +77,15 @@ function fakeDb({ failInsert = false } = {}) {
     client: {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: MOCK_USER } }) },
       from: vi.fn(from),
+      // publish_drafts: one transaction, so a failed insert keeps the drafts.
+      rpc: vi.fn(async (_fn: string, { p_draft_ids }: { p_draft_ids: number[] }) => {
+        await new Promise((r) => setTimeout(r, 0));
+        if (failInsert) return { data: null, error: { message: "insert failed" } };
+        const claimed = drafts.filter((d) => p_draft_ids.includes(d.id));
+        drafts = drafts.filter((d) => !p_draft_ids.includes(d.id));
+        schedules.push(...claimed.map((d) => ({ employee_id: d.employee_id, date: d.date })));
+        return { data: { status: "ok", claimed }, error: null };
+      }),
     },
   };
 }
@@ -99,7 +108,7 @@ describe("POST /api/drafts/publish twice at once", () => {
     expect(db.drafts).toHaveLength(0);
   });
 
-  it("puts the drafts back when the shifts can't be created", async () => {
+  it("keeps the drafts when the shifts can't be created", async () => {
     const db = fakeDb({ failInsert: true });
     vi.mocked(createClient).mockResolvedValue(db.client as never);
     const res = await publish();

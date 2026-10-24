@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFakeDb, type FakeDb } from "./fake-db";
+import { publishDrafts } from "./fake-publish";
 import { MOCK_ORG_ID } from "./helpers";
 import { createClient } from "@/lib/supabase-server";
 import { notify } from "@/lib/notify";
@@ -58,6 +59,7 @@ beforeEach(() => {
     },
     {
       user: MANAGER,
+      rpc: { publish_drafts: publishDrafts },
       unique: {
         schedules: [["org_id", "employee_id", "date"]],
         draft_schedules: [["org_id", "employee_id", "date"], ["replaces_schedule_id"]],
