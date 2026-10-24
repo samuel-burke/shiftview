@@ -94,6 +94,21 @@ describe("AppDataProvider startup", () => {
     fetchMock.mockImplementation(answer);
   });
 
+  it("scrubs the employee's id and name from an older cache entry on read", async () => {
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify({ ...ME, employeeId: 7, employeeName: "Sam Kim" }));
+    const answer = fetchMock.getMockImplementation()!;
+    // /api/me never answers: the scrub can't come from rewriting its result.
+    fetchMock.mockImplementation((url: string) => (url === "/api/me" ? new Promise(() => {}) : answer(url)));
+    try {
+      renderProvider();
+      await waitFor(() =>
+        expect(JSON.parse(localStorage.getItem(ME_CACHE_KEY) ?? "{}")).toEqual({ isManager: true, isDemo: false, orgId: "org-1", organizations: [] })
+      );
+    } finally {
+      fetchMock.mockImplementation(answer);
+    }
+  });
+
   it("keeps the employee's id and name out of the identity cache", async () => {
     renderProvider();
     await waitFor(() => expect(screen.getByTestId("probe").textContent).toContain("Sam Kim"));

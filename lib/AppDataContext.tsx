@@ -145,8 +145,14 @@ function readMeCache(): MeData | null {
     const raw = localStorage.getItem(ME_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<MeCacheData>;
-    if (typeof parsed.isManager !== "boolean") return null;
-    return {
+    // Older versions also cached the employee's id and name: scrub them now
+    // rather than waiting for /api/me to rewrite the entry.
+    const legacy = "employeeId" in parsed || "employeeName" in parsed;
+    if (typeof parsed.isManager !== "boolean") {
+      if (legacy) localStorage.removeItem(ME_CACHE_KEY);
+      return null;
+    }
+    const me: MeData = {
       isManager: parsed.isManager,
       employeeId: null,
       employeeName: null,
@@ -154,6 +160,8 @@ function readMeCache(): MeData | null {
       orgId: parsed.orgId ?? null,
       organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
     };
+    if (legacy) writeMeCache(me);
+    return me;
   } catch {
     return null;
   }
