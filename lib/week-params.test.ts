@@ -43,7 +43,7 @@ describe("week cells", () => {
 
   it("lets the live shift win a cell in Draft mode and ignores drafts in Live mode", () => {
     const draftMode = weekCells([...live, ...drafts], "draft");
-    expect(draftMode.get("1|2026-10-05")).toEqual({ live: live[0], draft: drafts[0], shown: live[0] });
+    expect(draftMode.get("1|2026-10-05")).toEqual({ live: live[0], draft: drafts[0], change: null, shown: live[0] });
     expect(draftMode.get("2|2026-10-05")?.shown).toBe(drafts[1]);
     const liveMode = weekCells([...live, ...drafts], "live");
     expect(liveMode.get("2|2026-10-05")).toBeUndefined();

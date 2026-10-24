@@ -23,9 +23,8 @@ const mockCreateClient = vi.mocked(createClient);
  *
  *  1. supabase.from("draft_schedules").select(...).gte(...).lte(...)  → drafts
  *  2. supabase.from("schedules").select(...).gte(...).lte(...)        → existing
- *  3. supabase.from("draft_schedules").delete().in(...).select(...)   → the drafts it deleted
- *  4. supabase.from("schedules").insert(...)                          → insert result
- *  5. supabase.from("employees").select(...).in(...)                  → employees
+ *  3. supabase.rpc("publish_drafts", { p_draft_ids })                → the drafts it applied
+ *  4. supabase.from("employees").select(...).in(...)                  → employees
  *
  * The mock counts calls per-table to distinguish select vs. mutating calls.
  */
@@ -36,8 +35,7 @@ function makePublishClient({
   draftsError = null as any,
   existingSchedules = [] as any[],
   existingError = null as any,
-  insertError = null as any,
-  deleteError = null as any,
+  publishError = null as any,
   employees = [] as any[],
   runsError = null as any,
 } = {}) {
@@ -70,22 +68,11 @@ function makePublishClient({
       const n = callCount[table];
 
       if (table === "draft_schedules") {
-        if (n === 1) return makeBuilder({ data: drafts, error: draftsError }); // select
-        // delete … in("id", ids) returns the rows it removed.
-        const b = makeBuilder({ data: null, error: deleteError });
-        let ids: number[] = [];
-        b.in = vi.fn((_col: string, v: number[]) => { ids = v; return b; });
-        b.then = (resolve: any, reject: any) =>
-          Promise.resolve({
-            data: deleteError ? null : drafts.filter((d) => ids.includes(d.id)),
-            error: deleteError,
-          }).then(resolve, reject);
-        return b;
+        return makeBuilder({ data: drafts, error: draftsError }); // select
       }
 
       if (table === "schedules") {
-        if (n === 1) return makeBuilder({ data: existingSchedules, error: existingError }); // select
-        return makeBuilder({ data: null, error: insertError }); // insert
+        return makeBuilder({ data: n === 1 ? existingSchedules : null, error: n === 1 ? existingError : null });
       }
 
       if (table === "employees") {
@@ -98,7 +85,12 @@ function makePublishClient({
 
       return makeBuilder({ data: null, error: null });
     }),
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    // publish_drafts returns the drafts it took and applied.
+    rpc: vi.fn().mockImplementation(async (_fn: string, args: { p_draft_ids: number[] }) =>
+      publishError
+        ? { data: null, error: publishError }
+        : { data: { status: "ok", claimed: drafts.filter((d) => args.p_draft_ids.includes(d.id)) }, error: null }
+    ),
   };
 }
 
@@ -186,7 +178,7 @@ describe("POST /api/drafts/publish — success", () => {
     );
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 2, skipped: 0, skippedDrafts: [] });
+    expect(await res.json()).toEqual({ published: 2, changed: 0, removed: 0, skipped: 0, skippedDrafts: [] });
   });
 
   it("publishes the free drafts and keeps the one whose employee is already scheduled", async () => {
@@ -198,16 +190,13 @@ describe("POST /api/drafts/publish — success", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       published: 1,
+      changed: 0,
+      removed: 0,
       skipped: 1,
       skippedDrafts: [{ id: 1, employeeId: 10, date: "2026-06-01" }],
     });
-    // Only the published draft is deleted; the skipped one stays a draft.
-    const calls = (client.from as ReturnType<typeof vi.fn>).mock.calls;
-    const draftCalls = calls.map((c: string[], i: number) => (c[0] === "draft_schedules" ? i : -1)).filter((i: number) => i >= 0);
-    const deleteIdx = draftCalls[1]; // the first is the read
-    const deleteBuilder = (client.from as ReturnType<typeof vi.fn>).mock.results[deleteIdx].value;
-    expect(deleteBuilder.delete).toHaveBeenCalled();
-    expect(deleteBuilder.in).toHaveBeenCalledWith("id", [2]);
+    // Only the published draft is taken; the skipped one stays a draft.
+    expect(client.rpc).toHaveBeenCalledWith("publish_drafts", { p_org: expect.any(String), p_draft_ids: [2] });
   });
 
   it("returns { published: 0, skipped: N } when all employees are already scheduled", async () => {
@@ -224,7 +213,7 @@ describe("POST /api/drafts/publish — success", () => {
     expect(json).toMatchObject({ published: 0, skipped: 2 });
     expect(json.skippedDrafts).toHaveLength(2);
     const tables = (client.from as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
-    expect(tables.filter((t: string) => t === "draft_schedules")).toHaveLength(1); // the read only
+    expect(client.rpc).not.toHaveBeenCalled();
     expect(tables).not.toContain("schedule_generation_runs");
   });
 
@@ -286,7 +275,7 @@ describe("POST /api/drafts/publish — auto-schedule runs", () => {
     );
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ published: 1, skipped: 0, skippedDrafts: [] });
+    expect(await res.json()).toEqual({ published: 1, changed: 0, removed: 0, skipped: 0, skippedDrafts: [] });
   });
 });
 
@@ -304,28 +293,22 @@ describe("POST /api/drafts/publish — error paths", () => {
     expect(res.status).toBe(500);
   });
 
-  it("returns 500 when inserting schedules fails", async () => {
-    mockCreateClient.mockResolvedValue(
-      makePublishClient({
-        drafts: [DRAFT_1],
-        existingSchedules: [],
-        insertError: { message: "insert failed" },
-      }) as any
-    );
-    const res = await POST(postReq({ weekStart: "2026-06-01" }));
-    expect(res.status).toBe(500);
-  });
-
-  it("returns 500 and publishes nothing when taking the drafts fails", async () => {
+  it("returns 500 and tells no one when the publish transaction fails", async () => {
+    const { notify } = await import("@/lib/notify");
+    vi.mocked(notify).mockClear();
     const client = makePublishClient({
       drafts: [DRAFT_1],
       existingSchedules: [],
-      deleteError: { message: "delete failed" },
+      employees: [{ id: 10, user_id: "user-abc" }],
+      publishError: { message: "insert failed" },
     });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(postReq({ weekStart: "2026-06-01" }));
     expect(res.status).toBe(500);
+    // The rollback kept every draft; nothing else is written.
     const tables = (client.from as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
     expect(tables.filter((t: string) => t === "schedules")).toHaveLength(1); // the read only
+    expect(tables).not.toContain("schedule_generation_runs");
+    expect(notify).not.toHaveBeenCalled();
   });
 });

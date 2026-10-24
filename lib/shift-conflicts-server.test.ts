@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findShiftConflict, findShiftOverlap } from "./shift-conflicts-server";
+import { findRuleConflict, findShiftConflict, findShiftOverlap } from "./shift-conflicts-server";
 
 // Minimal query-builder mock that honours eq/gte/lte filters over in-memory tables.
 function makeClient(tables: Record<string, Record<string, unknown>[]>) {
@@ -73,5 +73,24 @@ describe("findShiftConflict", () => {
       time_off_requests: [],
     });
     expect(await findShiftConflict(client, ORG, 5, "2026-03-07", 1320, 1800)).toBeNull();
+  });
+});
+
+describe("findRuleConflict", () => {
+  // Capped at 8 hours a week, with one 8-hour live shift on Monday.
+  const client = makeClient({
+    app_settings: [],
+    employees: [{ id: 5, org_id: ORG, employment_type: "part_time", min_weekly_hours: null, max_weekly_hours: 8, max_days_per_week: null }],
+    schedules: [{ id: 3, org_id: ORG, employee_id: 5, date: "2026-03-09", start_minutes: 540, end_minutes: 1020 }],
+    draft_schedules: [],
+  });
+  const moved = { date: "2026-03-09", startMinutes: 570, endMinutes: 1050 };
+
+  it("counts the live shift when the draft is another shift", async () => {
+    expect(await findRuleConflict(client, ORG, "draft_schedules", 5, moved)).toMatchObject({ conflict: "rules" });
+  });
+
+  it("leaves out the live shift a new change draft replaces", async () => {
+    expect(await findRuleConflict(client, ORG, "draft_schedules", 5, { ...moved, replacesScheduleId: 3 })).toBeNull();
   });
 });

@@ -30,6 +30,7 @@
 \ir ../migrations/0060_pay_rules.sql
 \ir ../migrations/0062_pay_periods.sql
 \ir ../migrations/0070_shift_notes.sql
+\ir ../migrations/0071_draft_changes.sql
 \ir ../migrations/0072_time_off_ranges.sql
 \ir ../migrations/0073_calendar_feeds.sql
 \ir ../migrations/0074_punch_gps_required.sql
