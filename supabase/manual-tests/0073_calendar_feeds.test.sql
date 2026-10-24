@@ -9,21 +9,10 @@
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
-\ir ../baseline.sql
-\ir ../migrations/0038_notify_service_role_only.sql
-\ir ../migrations/0039_link_existing_accounts.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
-\ir ../migrations/0041_database_audit_fixes.sql
-\ir ../migrations/0042_pay_rate_managers_only.sql
-\ir ../migrations/0043_punch_schedule_ownership.sql
-\ir ../migrations/0044_org_isolation.sql
-\ir ../migrations/0046_live_clock_in_same_day.sql
-\ir ../migrations/0047_store_timezone.sql
-\ir ../migrations/0050_punch_geofence_integrity.sql
-\ir ../migrations/0051_punch_session_limits.sql
-\ir ../migrations/0052_employee_delete_cascade.sql
-\ir ../migrations/0070_shift_notes.sql
-\ir ../migrations/0072_time_off_ranges.sql
+\ir ../migrations/20261018000000_baseline.sql
+\ir ../migrations/20261024000052_employee_delete_cascade.sql
+\ir ../migrations/20261024000070_shift_notes.sql
+\ir ../migrations/20261024000072_time_off_ranges.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -72,8 +61,8 @@ insert into employees (org_id, name, email, user_id) values (:alder, 'e1', 'e1@a
 
 
 \set ON_ERROR_STOP on
-\ir ../migrations/0073_calendar_feeds.sql
-\ir ../migrations/0073_calendar_feeds.sql
+\ir ../migrations/20261024000073_calendar_feeds.sql
+\ir ../migrations/20261024000073_calendar_feeds.sql
 \unset ON_ERROR_STOP
 
 -- Calendar feeds: service role only, one per person, hashed tokens.

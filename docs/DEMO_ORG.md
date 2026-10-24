@@ -218,7 +218,7 @@ The plan in §6 is implemented. Map of the moving parts:
 
 | Piece | Where |
 | --- | --- |
-| Migration (is_demo flag, demo org row, `reset_demo_org()`) | `supabase/migrations/0006_demo_org.sql` |
+| Migration (is_demo flag, demo org row, `reset_demo_org()`) | `supabase/archive/0006_demo_org.sql` |
 | Demo org constants + side-effect guard helper | `lib/demo-org.ts` (`DEMO_ORG_ID`, `isDemoOrgId`, `DEMO_MANAGER_EMAIL`) |
 | Seed (rolling window, all features) | `lib/demo-seed.ts`, sourcing `data/demo-fixtures.ts` |
 | Session entry (anonymous sign-in + membership) | `POST /api/demo/start`, called by `components/TryDemoButton.tsx` |
@@ -272,7 +272,7 @@ The plan in §6 is implemented. Map of the moving parts:
    `captcha_failed`, with no user created or verification email sent. Check
    `/auth/v1/signup` without a token is rejected too. See Supabase's
    [CAPTCHA setup guide](https://supabase.com/docs/guides/auth/auth-captcha).
-2. **Apply the migration**: run `supabase/migrations/0006_demo_org.sql`
+2. **Apply the migration**: run `supabase/archive/0006_demo_org.sql`
    (after 0001–0005) in the SQL editor or via the Supabase CLI.
 3. **Seeding is automatic**: the first `POST /api/demo/start` against an
    empty demo org seeds it (guarded by an `app_settings` mutex row so

@@ -2,7 +2,7 @@
 // and become managers of this organization; all data lives in real tables,
 // scoped and isolated exactly like any customer org. See docs/DEMO_ORG.md.
 
-// Must match the org seeded by supabase/migrations/0006_demo_org.sql.
+// Must match the org seeded by supabase/archive/0006_demo_org.sql.
 export const DEMO_ORG_ID = "00000000-0000-0000-0000-000000000002";
 
 // Side-effect guard: routes and libs use this to suppress anything that

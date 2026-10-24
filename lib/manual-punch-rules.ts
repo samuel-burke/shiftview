@@ -3,7 +3,7 @@
 // all; these rules keep corrections from being used to rewrite real history.
 // They're checked when the request is filed and again when a manager approves
 // it. In the database, employees can't insert manual punches at all
-// (supabase/migrations/0031_punch_correction_requests.sql) — only an approving
+// (supabase/archive/0031_punch_correction_requests.sql) — only an approving
 // manager can.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -24,7 +24,7 @@ const NEXT_ALLOWED: Record<string, PunchKind[]> = {
 type PunchRef = { punchType: string; punchedAt?: string };
 
 // Mirrors the live clock (enforce_punch_integrity in
-// supabase/migrations/0047_store_timezone.sql): a clock-in over a punch that
+// supabase/archive/0047_store_timezone.sql): a clock-in over a punch that
 // left the shift open counts as a new shift when that punch is more than a
 // minute older and from an earlier store day — the forgotten clock-out case.
 // Without both times and the store timezone we can't tell, so it doesn't apply.

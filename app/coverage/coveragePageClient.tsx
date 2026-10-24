@@ -202,7 +202,7 @@ export default function CoveragePageClient() {
         <ToastStack>
           {migrationRequired && (
             <Toast tone="warning" role="alert" className="text-xs">
-              Coverage tables are missing. Run <code className="font-mono">db/migrations/2026-06-10-coverage-profiles.sql</code> in the Supabase SQL editor.
+              Coverage tables are missing. Apply the database migrations (<code className="font-mono">supabase db push</code>).
             </Toast>
           )}
           {error && <Toast className="text-center" onDismiss={() => setError(null)}>{error}</Toast>}

@@ -134,7 +134,7 @@ The engine minimizes a penalty score. These are the weights (`WEIGHTS` in `lib/s
 
 **Why not an LLM.** A language model can't guarantee hard rules: it can schedule someone on approved time off or past their hours, and it can't prove a gap was unavoidable. Training one would need large datasets and GPUs. A constraint optimizer is the standard tool for rostering: it is exact about rules, fast, explainable and cheap to run. `generateSchedule` keeps a narrow interface, so an exact solver (MILP or CP-SAT) could replace the heuristic later without touching the API or UI.
 
-## Data model: `supabase/migrations/0034_auto_scheduler.sql`
+## Data model: `supabase/archive/0034_auto_scheduler.sql`
 
 - **`employees`** gets `employment_type` (`full_time` / `part_time`), `min_weekly_hours`, `max_weekly_hours` and `max_days_per_week`.
   - All are nullable; null means the default for their type.
@@ -211,7 +211,7 @@ npx playwright test e2e/auto-schedule.spec.ts e2e/week.spec.ts   # Draft mode an
 
 ## Deploying
 
-Apply `supabase/migrations/0034_auto_scheduler.sql` in the Supabase SQL editor before deploying, as with earlier migrations:
+Apply `supabase/archive/0034_auto_scheduler.sql` in the Supabase SQL editor before deploying, as with earlier migrations:
 
 - It needs 0031 applied first (for `is_own_employee`); overnight shifts also need 0033.
 - Paste the whole file into a new snippet and run it with nothing selected.

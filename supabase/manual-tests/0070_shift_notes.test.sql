@@ -10,23 +10,12 @@
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
-\ir ../baseline.sql
-\ir ../migrations/0038_notify_service_role_only.sql
-\ir ../migrations/0039_link_existing_accounts.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
-\ir ../migrations/0041_database_audit_fixes.sql
-\ir ../migrations/0042_pay_rate_managers_only.sql
-\ir ../migrations/0043_punch_schedule_ownership.sql
-\ir ../migrations/0044_org_isolation.sql
-\ir ../migrations/0046_live_clock_in_same_day.sql
-\ir ../migrations/0047_store_timezone.sql
-\ir ../migrations/0050_punch_geofence_integrity.sql
-\ir ../migrations/0051_punch_session_limits.sql
-\ir ../migrations/0052_employee_delete_cascade.sql
-\ir ../migrations/0053_punch_history.sql
-\ir ../migrations/0054_archive_employees.sql
-\ir ../migrations/0060_pay_rules.sql
-\ir ../migrations/0062_pay_periods.sql
+\ir ../migrations/20261018000000_baseline.sql
+\ir ../migrations/20261024000052_employee_delete_cascade.sql
+\ir ../migrations/20261024000053_punch_history.sql
+\ir ../migrations/20261024000054_archive_employees.sql
+\ir ../migrations/20261024000060_pay_rules.sql
+\ir ../migrations/20261024000062_pay_periods.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -78,8 +67,8 @@ insert into open_shifts (org_id, date, start_minutes, end_minutes, note)
   values (:alder, '2026-11-02', 540, 1020, repeat('x', 400));
 
 \set ON_ERROR_STOP on
-\ir ../migrations/0070_shift_notes.sql
-\ir ../migrations/0070_shift_notes.sql
+\ir ../migrations/20261024000070_shift_notes.sql
+\ir ../migrations/20261024000070_shift_notes.sql
 \unset ON_ERROR_STOP
 
 -- Shift notes: 280 characters at most, everywhere a shift is written.

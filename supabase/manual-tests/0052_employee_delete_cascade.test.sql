@@ -11,18 +11,7 @@
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
-\ir ../baseline.sql
-\ir ../migrations/0038_notify_service_role_only.sql
-\ir ../migrations/0039_link_existing_accounts.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
-\ir ../migrations/0041_database_audit_fixes.sql
-\ir ../migrations/0042_pay_rate_managers_only.sql
-\ir ../migrations/0043_punch_schedule_ownership.sql
-\ir ../migrations/0044_org_isolation.sql
-\ir ../migrations/0046_live_clock_in_same_day.sql
-\ir ../migrations/0047_store_timezone.sql
-\ir ../migrations/0050_punch_geofence_integrity.sql
-\ir ../migrations/0051_punch_session_limits.sql
+\ir ../migrations/20261018000000_baseline.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -124,8 +113,8 @@ select pg_temp.expect('before 0052: the row alone is blocked by the person''s sh
 -- Part 2: apply 0052 (twice: it must be safe to repeat).
 -- ---------------------------------------------------------------------------
 \set ON_ERROR_STOP on
-\ir ../migrations/0052_employee_delete_cascade.sql
-\ir ../migrations/0052_employee_delete_cascade.sql
+\ir ../migrations/20261024000052_employee_delete_cascade.sql
+\ir ../migrations/20261024000052_employee_delete_cascade.sql
 \unset ON_ERROR_STOP
 
 select pg_temp.expect('an employee with punches can be deleted', pg_temp.delete_row('emp1'), 'ok:1');

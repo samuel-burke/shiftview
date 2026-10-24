@@ -220,20 +220,32 @@ A Vercel production build (`VERCEL_ENV=production`) fails unless every variable 
 
 ### 3. Set up the database
 
-**New Supabase project**
+Migrations are managed with the [Supabase CLI](https://supabase.com/docs/guides/local-development) (`npx supabase ...`; no install needed). `supabase/migrations` starts with `20261018000000_baseline.sql`, the whole schema as production had it after the original migrations `0001`–`0051`, followed by everything since, in timestamp order.
+
+**Local database (needs Docker)**
+
+```bash
+npx supabase start      # local Postgres, Auth, Realtime and Studio
+npx supabase db reset   # builds the schema from supabase/migrations
+```
+
+`supabase start` prints the local API URL and keys for `.env.local`. Anonymous sign-ins are on in `supabase/config.toml`, so the live demo works locally.
+
+**Hosted Supabase project**
 
 1. Enable **Authentication → Sign In / Up → Allow anonymous sign-ins**. The demo needs it.
    In production, also enable **Authentication → Bot and Abuse Protection → CAPTCHA protection**, select Cloudflare Turnstile, and enter the widget secret. Deploy the app's token support first on existing projects; see the [deployment runbook](docs/DEMO_ORG.md#deployment-runbook).
-2. In the SQL editor, run `supabase/baseline.sql`. It creates the whole schema as of migration `0037` (tables, functions, triggers, RLS policies, Realtime) and the default and demo organizations.
-3. Run every migration numbered after `0037` (`0038_*` onward), in filename order.
+2. `npx supabase link --project-ref <your-project-ref>`, then `npx supabase db push`. It applies every migration the project hasn't run yet, in order, and records each one in the project's migration history.
 
-**Existing database**
+**Adding a migration**
 
-Apply the numbered migrations you haven't run yet, in filename order. Don't run the baseline. The full order is `supabase/migrations/0001` to `0004`, then `db/migrations/2026-06-10-draft-schedules.sql` and `db/migrations/2026-06-10-coverage-profiles.sql`, then `supabase/migrations/0005` onward. Both `0009_*` files are needed; `0017`, `0018` and `0021`–`0025` don't exist.
+Run `npx supabase migration new <short_name>` and write the SQL in the file it creates. Timestamped names mean parallel branches never collide on a number. Add the file to the `\ir` list in `supabase/manual-tests/baseline.test.sql` (`npm run test:sql` fails until you do) and give it a behavioural test there. If a migration needs new app code live first, say **DEPLOY THE APP FIRST** in its header; production migrations run after the deploy (see below), and new migrations should keep working with the previous app version where they can.
 
-A migration whose header says **DEPLOY THE APP FIRST** (`0038`, `0042`, `0043`, `0050`) needs the app code from its branch live before it runs; the others work with the code from before them.
+**Production**
 
-The numbered migrations upgrade ShiftView's original single-tenant schema, which predates this repository and was never checked in, so on their own they can't build a database from nothing. `baseline.sql` was generated from production and is checked against it: applied to an empty database, its tables, constraints, indexes, functions, function privileges, triggers, policies and Realtime tables match production's catalog. `supabase/manual-tests/baseline.test.sql` builds a database the way the steps above do and runs sign-up, invites, cross-organization isolation, the time clock and the RPC lockdown against it. `supabase db push` can't apply the folder as-is: two files share version `0009`. Migrations are applied in the SQL editor, so Supabase keeps no migration history; to check that production matches the repository, run `supabase/schema-fingerprint.sql` (read-only) in production and in a database built from the baseline, and compare the rows.
+The `Migrate database` workflow runs `supabase db push` against production after a push to `main`, once the Vercel production deployment has succeeded. It needs the `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` and `SUPABASE_PROJECT_REF` repository secrets, and can also be started by hand from the Actions tab (with a dry run option).
+
+To check that production matches the repository, run `supabase/schema-fingerprint.sql` (read-only) in production and in a database built from `supabase/migrations`, and compare the rows. `supabase/archive/` holds the original numbered migrations and the old `baseline.sql`. Nothing runs them any more; the older SQL suites still build on them, and `npm run test:sql` checks that the baseline migration matches them object for object.
 
 ### 4. Run the dev server
 
@@ -259,7 +271,7 @@ npm run test:e2e    # Playwright e2e (APIs intercepted client-side, no backend n
 npm run build       # production build
 ```
 
-API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration after `0037`. CI runs lint, typecheck, the unit suite (also under two far-off timezones), a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration or the baseline migration stops matching the archived chain. CI runs lint, typecheck, the unit suite (also under two far-off timezones), a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
 
 ## Project Structure
 
@@ -286,11 +298,11 @@ data/
 lib/                # Supabase clients, org scoping, encryption, audit log, web push, payroll
   scheduler/        # Auto-schedule engine (pure TypeScript, no I/O)
 supabase/
-  baseline.sql      # whole schema as of 0037, for new projects (see Set up the database)
-  migrations/       # SQL migrations
+  config.toml       # Supabase CLI settings for the local stack
+  migrations/       # SQL migrations, applied by the Supabase CLI (baseline first)
+  archive/          # the original 0001-0051 migrations, kept for the older SQL tests
   manual-tests/     # behavioural SQL tests for the baseline, triggers and policies (npm run test:sql)
   schema-fingerprint.sql  # read-only catalog summary, to compare production with the repo
-db/migrations/      # two earlier migrations, run between 0004 and 0005
 e2e/                # Playwright specs
 scripts/test-sql.sh # runs every SQL test suite in a fresh database
 docs/               # requirements spec and design notes: multi-tenancy, demo org, auto-scheduler, contact form

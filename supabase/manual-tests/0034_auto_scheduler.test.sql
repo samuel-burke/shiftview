@@ -102,7 +102,7 @@ insert into managers values
   ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-00000000000a'),
   ('44444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-00000000000b');
 
-\ir ../migrations/0034_auto_scheduler.sql
+\ir ../archive/0034_auto_scheduler.sql
 
 -- An app-like role: RLS applies to it (superusers bypass RLS).
 do $$ begin

@@ -32,8 +32,8 @@ language sql security definer set search_path = public as $$
   union all select true, true, true, true, true, true, true limit 1;
 $$;
 
-\ir ../migrations/0037_realtime_swaps_and_chess_prefs.sql
-\ir ../migrations/0037_realtime_swaps_and_chess_prefs.sql
+\ir ../archive/0037_realtime_swaps_and_chess_prefs.sql
+\ir ../archive/0037_realtime_swaps_and_chess_prefs.sql
 
 insert into user_notification_preferences (user_id, chess_alerts, swap_alerts)
 values ('11111111-1111-1111-1111-111111111111', false, false);

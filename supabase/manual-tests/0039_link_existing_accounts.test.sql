@@ -25,7 +25,7 @@ create table public.employees (
 );
 create unique index employees_org_user_unique on public.employees (org_id, user_id) where user_id is not null;
 
-\ir ../migrations/0039_link_existing_accounts.sql
+\ir ../archive/0039_link_existing_accounts.sql
 
 \set store '''00000000-0000-0000-0000-00000000000a'''
 \set other '''00000000-0000-0000-0000-00000000000b'''

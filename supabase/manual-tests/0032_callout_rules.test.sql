@@ -37,7 +37,7 @@ insert into app_settings values
   ('00000000-0000-0000-0000-00000000000a', 'timezone', 'America/New_York'),
   ('00000000-0000-0000-0000-00000000000b', 'timezone', 'Pacific/Kiritimati');
 
-\ir ../migrations/0032_callout_rules.sql
+\ir ../archive/0032_callout_rules.sql
 
 create or replace function pg_temp.run(label text, uid text, stmt text, expect_error boolean) returns void language plpgsql as $$
 begin

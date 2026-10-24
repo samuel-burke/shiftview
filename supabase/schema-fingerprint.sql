@@ -2,7 +2,7 @@
 -- functions and their privileges, columns, column grants, constraints,
 -- triggers, RLS flags, Realtime tables) with a count and an md5 of them all.
 -- Read-only. Run it against production (Supabase SQL editor) and against a
--- database built from baseline.sql plus the later migrations, and compare:
+-- database built from supabase/migrations, and compare:
 -- matching rows mean the repository builds what production runs.
 --
 -- Function bodies are compared with whitespace collapsed and -- comments
