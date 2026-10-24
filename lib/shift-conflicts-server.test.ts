@@ -67,6 +67,21 @@ describe("findShiftConflict", () => {
     expect(await findShiftConflict(client, ORG, 5, "2026-03-07", 1320, 1800)).toMatchObject({ conflict: "time_off" });
   });
 
+  it("checks every approved part-day request on the day, not just the first", async () => {
+    const client = makeClient({
+      availability: [],
+      time_off_requests: [
+        { id: 1, org_id: ORG, employee_id: 5, date: "2026-03-07", status: "approved", start_minutes: 480, end_minutes: 600 },
+        { id: 2, org_id: ORG, employee_id: 5, date: "2026-03-07", status: "approved", start_minutes: 900, end_minutes: 1020 },
+      ],
+    });
+    expect(await findShiftConflict(client, ORG, 5, "2026-03-07", 840, 960)).toMatchObject({
+      conflict: "time_off",
+      message: expect.stringContaining("from 3:00"),
+    });
+    expect(await findShiftConflict(client, ORG, 5, "2026-03-07", 660, 840)).toBeNull();
+  });
+
   it("passes when both days are available", async () => {
     const client = makeClient({
       availability: [availability[0], { ...availability[1], start_minutes: 0 }],

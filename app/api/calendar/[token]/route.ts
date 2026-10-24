@@ -27,7 +27,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   if (!feed) return notFound();
 
   const [{ data: emp }, { data: tzRows }] = await Promise.all([
-    admin.from("employees").select("id, name").eq("org_id", feed.org_id).eq("id", feed.employee_id).maybeSingle(),
+    // An archived employee's feed stops working, though the row is kept.
+    admin
+      .from("employees")
+      .select("id, name")
+      .eq("org_id", feed.org_id)
+      .eq("id", feed.employee_id)
+      .is("archived_at", null)
+      .maybeSingle(),
     admin.from("app_settings").select("key, value").eq("org_id", feed.org_id).eq("key", "timezone"),
   ]);
   if (!emp) return notFound();
