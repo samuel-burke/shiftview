@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { notify } from "@/lib/notify";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 import { fmtMinutes } from "@/data/types";
 import { addDaysToKey, DEFAULT_TIMEZONE, formatDateKey, resolveTimezone, todayKeyInTz } from "@/lib/dates";
 
@@ -10,11 +10,10 @@ export const dynamic = "force-dynamic";
 
 // Nobody gets tomorrow's shift reminders when this fails, so tell the operator.
 function alertCronFailed(reason: string) {
-  return sendNtfy({
+  return sendSlackAlert({
     title: "Shift reminder cron failed",
     message: `${reason}, so no shift reminders went out. Check the server logs.`,
-    tags: ["warning"],
-    priority: 4,
+    emoji: "warning",
   });
 }
 

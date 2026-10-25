@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { escapeHtml, isValidEmail, sendEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { CONTACT_LIMITS as LIMITS, TOPIC_LABELS, isContactTopic } from "@/lib/contact";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
 
@@ -110,14 +110,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "We couldn't send your message — please try again" }, { status: 502 });
   }
 
-  // The full message is in the email; the push is a heads-up with a preview.
-  const preview = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+  // The message is in the email; the Slack alert is only a heads-up, with no
+  // sender details or message text.
   after(() =>
-    sendNtfy({
+    sendSlackAlert({
       title: `Contact form: ${TOPIC_LABELS[topic]}`,
-      message: `${name} (${email})\n${preview}`,
-      tags: ["envelope"],
-      priority: 4,
+      message: "New message in the contact inbox.",
+      emoji: "envelope",
     })
   );
 

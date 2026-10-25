@@ -24,7 +24,7 @@ describe("isAllowedPushEndpoint", () => {
     "https://evilpush.apple.com.example/x",
     "https://fcm.googleapis.com:8443/fcm/send/abc",
     "https://user:pass@fcm.googleapis.com/fcm/send/abc",
-    "https://ntfy.sh/some-topic",
+    "https://hooks.slack.com/services/T000/B000/xxxx",
     "not a url",
     "",
     `https://fcm.googleapis.com/${"a".repeat(3000)}`,

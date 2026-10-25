@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { writeAuditLog } from "@/lib/audit";
 import { getOrgContext, DEFAULT_ORG_ID } from "@/lib/org-context";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +41,10 @@ function randomSuffix(): string {
 
 // Someone tried to sign up and hit a server error: worth knowing right away.
 function alertSignupFailed(orgName: string, reason: string) {
-  return sendNtfy({
+  return sendSlackAlert({
     title: "Organization sign-up failed",
     message: `"${orgName}" could not be created (${reason}). Check the server logs.`,
-    tags: ["warning"],
-    priority: 4,
+    emoji: "warning",
   });
 }
 
@@ -115,15 +114,14 @@ export async function POST(request: Request) {
         metadata: { ownerUserId: user.id },
       }).catch(() => {});
 
-      // Runs after the response is sent, so a slow or failing ntfy server
-      // never delays or breaks sign-up.
-      const creator = ownerName.trim();
-      const creatorEmail = user.email;
+      // Runs after the response is sent, so a slow or failing Slack webhook
+      // never delays or breaks sign-up. The owner's name and email stay out of
+      // Slack; the org name is enough to find it.
       after(() =>
-        sendNtfy({
+        sendSlackAlert({
           title: "New organization on ShiftView",
-          message: `${orgName}\nCreated by ${creator} (${creatorEmail})`,
-          tags: ["tada"],
+          message: orgName,
+          emoji: "tada",
         })
       );
 
