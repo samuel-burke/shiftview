@@ -210,8 +210,7 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile for demo start, signup, login and contact. Both required in production; also enable Supabase Auth CAPTCHA with the same widget secret to protect direct Auth requests (see [deployment runbook](docs/DEMO_ORG.md#deployment-runbook)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
-| `NTFY_TOPIC_URL` | [ntfy](https://ntfy.sh) push alerts to the operator for new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Use a long random topic name (e.g. `https://ntfy.sh/<openssl rand -hex 16>`): anyone who knows it can subscribe |
-| `NTFY_TOKEN` | Access token for a protected ntfy topic; sent as a Bearer token. Leave unset for public topics |
+| `SLACK_WEBHOOK_URL` | Optional. Slack [incoming webhook](https://api.slack.com/messaging/webhooks) for operator alerts: new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Alerts carry no names, emails or message text. Server-only: never prefix it with `NEXT_PUBLIC_`, since anyone with the URL can post to the channel |
 | `CRON_SECRET` | The two cron endpoints (shift reminders and the demo reset); they return 401 until it's set |
 
 `NEXT_PUBLIC_*` values are inlined at build time, so rebuild or redeploy after changing them.

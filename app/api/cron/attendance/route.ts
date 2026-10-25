@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { notify, notifyManagers, type NotificationType } from "@/lib/notify";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 import { fmtMinutes, type PunchType } from "@/data/types";
 import { addDaysToKey, dateKeyInTz, formatDateKey, formatTimeInTz, resolveTimezone, todayKeyInTz } from "@/lib/dates";
 import { PAY_RULE_KEYS, parsePayRules } from "@/lib/pay-rules";
@@ -42,11 +42,10 @@ export async function GET(request: Request) {
 
   const fail = async (what: string, err: unknown) => {
     console.error(`[cron/attendance] ${what} failed:`, err);
-    await sendNtfy({
+    await sendSlackAlert({
       title: "Attendance alert cron failed",
       message: `${what} failed, so no no-show, missed clock-out or overtime alerts went out. Check the server logs.`,
-      tags: ["warning"],
-      priority: 4,
+      emoji: "warning",
     });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   };
