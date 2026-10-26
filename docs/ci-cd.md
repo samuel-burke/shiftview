@@ -32,10 +32,10 @@ How code gets from a task branch to shiftview.app, and what is verified versus s
 | `security` | `npm run test:sql` on Postgres 17, `npm run test:security` | Yes |
 | `e2e` | `npm run build`, Playwright on five device projects | Yes |
 | `dependency-audit` | `npm audit --omit=dev --audit-level=high` | Yes |
-| `Validate branch flow` | `.github/scripts/branch-flow.mjs` from the base branch | Yes |
+| `Validate branch flow` | `.github/workflows/branch-flow.yml` and `.github/scripts/branch-flow.mjs`, both from the base branch (`pull_request_target`) | Yes |
 | `Vercel` (deployment status, from the Vercel app) | Preview deployment | Optional; useful once previews are isolated |
 
-All jobs use `permissions: contents: read`, `npm ci` from the committed lockfile, and Node 22. No job receives deployment or database secrets, and nothing uses `pull_request_target`. A newer push to a PR cancels its older run; pushes to `dev` and `main` are never cancelled.
+All jobs use `permissions: contents: read`, `npm ci` from the committed lockfile, and Node 22. No job receives deployment or database secrets. Only `branch-flow.yml` uses `pull_request_target`, so that a PR can't edit its own branch check; it checks out the base branch only, never PR code, with a read-only token. Because the workflow is read from the base branch, `Validate branch flow` first runs on PRs into `dev` after it merges there, and on PRs into `main` after the next release reaches `main`. A newer push to a PR cancels its older run; pushes to `dev` and `main` are never cancelled.
 
 The check names above are the job names GitHub reports. Confirm them on the first PR run before adding them as required checks; a matrix job reports one check per matrix value.
 
