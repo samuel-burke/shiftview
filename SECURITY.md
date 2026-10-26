@@ -4,6 +4,10 @@ Thank you for helping keep ShiftView secure.
 
 If you believe you have found a security vulnerability in ShiftView, please report it privately and responsibly. Please do not open a public GitHub issue for security reports.
 
+## Supported versions
+
+ShiftView is a hosted service with no released versions. Security fixes go to the current production deployment at https://shiftview.app (the `main` branch) through the normal release process, or through an emergency hotfix when needed. Older commits are not patched.
+
 ## Reporting a vulnerability
 
 The preferred method is GitHub private vulnerability reporting.
