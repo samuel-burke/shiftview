@@ -61,6 +61,10 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
         run: supabase db push --yes
 
+      - name: Applied migrations
+        if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+        run: supabase migration list
+
       - name: Dry run
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         run: supabase db push --dry-run

@@ -241,7 +241,7 @@ npx supabase db reset   # builds the schema from supabase/migrations
 
 A database built from the old numbered files or pasted SQL has the schema but an empty migration history, so a plain `db push` would try to run the baseline again. Before the first push:
 
-1. Run `supabase/schema-fingerprint.sql` (read-only) in the project and in a local database built from `supabase/migrations` up to the baseline; every row must match.
+1. Build a local database from `supabase/migrations` through every migration the project already has (the baseline plus each newer one already applied there), then run `supabase/schema-fingerprint.sql` (read-only) in both. Every row must match before you mark anything applied in step 2.
 2. `npx supabase link --project-ref <ref>`, then `npx supabase migration repair --status applied 20261018000000` plus the version of every newer migration the project already has. This only writes migration-history rows.
 3. `npx supabase db push` (add `--include-all` if a missing migration is older than one you marked applied), then run the fingerprint again.
 
