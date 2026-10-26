@@ -8,6 +8,7 @@ import { REQUIRED_PRODUCTION_ENV } from "./production-env";
 const example = readFileSync(path.join(__dirname, "..", ".env.example"), "utf8");
 const assignments = example
   .split("\n")
+  .map((line) => line.trimStart())
   .filter((line) => /^[A-Z0-9_]+=/.test(line))
   .map((line) => {
     const i = line.indexOf("=");

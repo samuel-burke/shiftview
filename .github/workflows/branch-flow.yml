@@ -27,10 +27,19 @@ jobs:
           sparse-checkout: .github/scripts
           persist-credentials: false
 
-      # Until the pull request that adds this check merges, the base branch
-      # has no script to run.
+      # Until this check reaches a base branch, that branch has no script to
+      # run. main gets it only with the next release, so until then apply
+      # main's rule here: only this repository's dev may merge into main.
       - run: |
           if [[ ! -f .github/scripts/branch-flow.mjs ]]; then
+            if [[ "$BASE_REF" == "main" ]]; then
+              if [[ "$HEAD_REF" == "dev" && "${HEAD_REPO,,}" == "${BASE_REPO,,}" ]]; then
+                echo "Release PR: dev -> main."
+                exit 0
+              fi
+              echo "::error::PRs into main must come from this repository's dev until branch-flow.mjs reaches main."
+              exit 1
+            fi
             echo "::notice::The base branch has no branch-flow.mjs yet; skipping."
             exit 0
           fi

@@ -19,7 +19,8 @@ export default defineConfig({
       reporter: ["text-summary", "json-summary", "lcov"],
       include: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "hooks/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}", "proxy.ts"],
       exclude: ["**/*.test.{ts,tsx}", "**/*.d.ts"],
-      // Just under the measured baseline (2026-10-26) so coverage can't drop.
+      // Just under the measured baseline (2026-10-26), so coverage can't drop
+      // by more than run-to-run noise.
       // The 0.1-point margin absorbs run-to-run noise: identical code has
       // measured 1 function and 1 statement apart between runs.
       // Raise these as coverage improves; the target is 85% lines / 80%

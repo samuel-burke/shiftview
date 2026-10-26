@@ -39,7 +39,7 @@ Baseline, 2026-10-26, on `dev` at `c4d5027` plus this setup:
 
 By area (lines / branches): `app/api` 87.2% / 79.5%, `lib` 85.8% / 85.3%, `lib/scheduler` 98.5% / 92.7%, `components` 68.6% / 67.5%. The low areas are page clients with no component tests: `app/schedule` 2.9%, `app/reports` 0%, `app/week` 0%, `app/requests` 0%, `app/coverage` 0%, `components/marketing` 19.1%, `hooks` 45.5% / 20.4%, `proxy.ts` 0%.
 
-The floor sits 0.1 point under the baseline, because identical code measured one function and one statement apart between runs. It stops coverage from dropping. It must only go up. CI uploads the `coverage/` report as an artifact on every run; there is no coverage badge because no coverage service is configured.
+The floor sits 0.1 point under the baseline, because identical code measured one function and one statement apart between runs. It fails CI on any drop larger than that margin. Raise it as coverage improves; never lower it. CI uploads the `coverage/` report as an artifact on every run; there is no coverage badge because no coverage service is configured.
 
 ### Improvement plan
 
@@ -59,7 +59,7 @@ The floor sits 0.1 point under the baseline, because identical code measured one
 | --- | --- |
 | PRs into `main` from anything but `dev` (or a labeled `hotfix/*`) fail | `.github/scripts/branch-flow.test.ts`, plus the `Validate branch flow` check on a real PR |
 | Task branches with approved prefixes pass; unprefixed and agent-named branches fail | `.github/scripts/branch-flow.test.ts` |
-| Coverage can't drop below the baseline | `npm run test:coverage` exits non-zero below the floor; `unit` job |
+| Coverage can't drop more than 0.1 point below the baseline | `npm run test:coverage` exits non-zero below the floor; `unit` job |
 | Production dependencies have no high/critical advisories | `dependency-audit` job |
 | `.env.example` names every required production variable and holds no values | `lib/env-example.test.ts` |
 | Existing CI gates still pass | `static-checks`, `unit`, `unit-timezones`, `security`, `e2e` on the PR |
