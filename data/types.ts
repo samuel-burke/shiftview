@@ -29,8 +29,13 @@ export type Schedule = {
   date: string;
   startMinutes: number;
   endMinutes: number;
+  // A short note for the employee ("truck at 7").
+  note?: string | null;
   // Drafts only: the Auto-schedule run that created it, if any.
   generationRunId?: number | null;
+  // Drafts only: the live shift this draft changes, and whether it removes it.
+  replacesScheduleId?: number | null;
+  removes?: boolean;
 };
 
 // Derived — computed from clock-in/out times and store hours
@@ -91,6 +96,11 @@ export type TimeOffRequest = {
   date: string;       // YYYY-MM-DD
   status: "pending" | "approved" | "denied";
   note?: string;
+  // A part-day request; both null (or absent) = the whole day.
+  startMinutes?: number | null;
+  endMinutes?: number | null;
+  // The days of one multi-day request share it.
+  groupId?: string | null;
 };
 
 // An employee calling out — they can't make it to work on `date`. Unlike a

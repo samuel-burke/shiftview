@@ -13,11 +13,14 @@ type Props = {
   publishCount: number;
   /** Drafts that won't: their person already has a live shift that day. */
   clashCount: number;
+  /** Of publishCount, the drafts that change or remove a live shift. */
+  changeCount?: number;
   onCancel: () => void;
   onConfirm: () => void;
 };
 
-export default function PublishDialog({ open, publishing, weekLabel, publishCount, clashCount, onCancel, onConfirm }: Props) {
+export default function PublishDialog({ open, publishing, weekLabel, publishCount, clashCount, changeCount = 0, onCancel, onConfirm }: Props) {
+  const newCount = publishCount - changeCount;
   return (
     <AnimatePresence>
       {open && (
@@ -50,7 +53,9 @@ export default function PublishDialog({ open, publishing, weekLabel, publishCoun
               <div>
                 <div id="publish-modal-title" className="text-base font-bold text-fg">Publish Week?</div>
                 <div className="text-sm text-fg-muted mt-1.5">
-                  {publishCount} draft shift{publishCount === 1 ? "" : "s"} for {weekLabel} will go live and employees will be notified.
+                  {changeCount === 0
+                    ? `${publishCount} draft shift${publishCount === 1 ? "" : "s"} for ${weekLabel} will go live and employees will be notified.`
+                    : `${newCount > 0 ? `${newCount} new shift${newCount === 1 ? "" : "s"} and ` : ""}${changeCount} change${changeCount === 1 ? "" : "s"} to live shifts for ${weekLabel} will go live. Each person is told once what changed for them.`}
                 </div>
                 {clashCount > 0 && (
                   <div className="text-xs text-warning-fg mt-2">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { mapSwap, type RawSwap, type Swap } from "@/lib/swaps";
 import type { PunchCorrection } from "@/app/api/punch-corrections/route";
+import { decideTimeOffRequest } from "@/lib/time-off-client";
 
 /** A pending time-off request as the manager's GET /api/time-off returns it. */
 export type ManagerTimeOff = {
@@ -11,6 +12,12 @@ export type ManagerTimeOff = {
   employeeId: number;
   employeeName: string;
   date: string;
+  // The last day of a multi-day request (the same as date for one day).
+  endDate?: string;
+  days?: number;
+  startMinutes?: number | null;
+  endMinutes?: number | null;
+  groupId?: string | null;
   note?: string;
   status: string;
 };
@@ -111,10 +118,13 @@ export function useManagerRequests(enabled: boolean, beforeRefresh?: () => void)
   // Decisions are optimistic: the request leaves its list at the tap (so the
   // list changes then, not a round trip later under the manager's finger)
   // and goes back where it was if the server refuses.
-  const decideTimeOff = useCallback(async (id: number, status: "approved" | "denied") => {
+  // Approving time off that overlaps the person's shifts throws a
+  // TimeOffClashError (and puts the request back) until `resolve` says what
+  // to do with them.
+  const decideTimeOff = useCallback(async (id: number, status: "approved" | "denied", resolve?: "remove" | "keep") => {
     const restore = removeOptimistically(setTimeOff, id);
     try {
-      await putStatus(`/api/time-off/${id}`, status, `Couldn't ${status === "approved" ? "approve" : "deny"} the time off request.`);
+      await decideTimeOffRequest(id, status, resolve);
     } catch (e) {
       restore();
       throw e;

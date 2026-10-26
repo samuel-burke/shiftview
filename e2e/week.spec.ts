@@ -45,11 +45,11 @@ test.describe("Week page", () => {
     await expect(drawer).toBeHidden();
 
     expect(state.calls).toEqual([
-      { method: "PUT", path: "/api/schedules", body: { id: 1, startMinutes: 540, endMinutes: 1080, override: false } },
+      { method: "PUT", path: "/api/schedules", body: { id: 1, startMinutes: 540, endMinutes: 1080, override: false, note: null } },
     ]);
   });
 
-  test("Draft keeps live shifts read-only and edits drafts", async ({ page }) => {
+  test("Draft edits drafts and drafts changes to live shifts", async ({ page }) => {
     const state = await mockWeek(page);
     await page.goto(`/week?mode=draft&week=${NEXT_WEEK}`);
 
@@ -66,17 +66,23 @@ test.describe("Week page", () => {
     await drawer.getByRole("button", { name: "Save Draft" }).click();
     await expect(drawer).toBeHidden();
     expect(state.calls).toEqual([
-      { method: "POST", path: "/api/drafts", body: { employeeId: 2, date: NEXT_TUE, startMinutes: 600, endMinutes: 960, override: false } },
+      { method: "POST", path: "/api/drafts", body: { employeeId: 2, date: NEXT_TUE, startMinutes: 600, endMinutes: 960, override: false, note: null } },
     ]);
     await expect(page.getByRole("button", { name: "Publish (3)" })).toBeEnabled();
 
-    // A live shift is view only, with a way to Live mode.
+    // Editing a live shift drafts the change; nobody is told until publishing.
     drawer = await openCell(page, "Carol White", NEXT_WEEK);
-    await expect(drawer.getByText("This shift is live.")).toBeVisible();
-    await expect(drawer.getByRole("button", { name: /Edit/ })).toHaveCount(0);
-    await drawer.getByRole("button", { name: "Switch to Live" }).click();
-    await expect(page).toHaveURL(new RegExp(`/week\\?week=${NEXT_WEEK}$`));
-    await expect(drawer.getByRole("button", { name: "Edit Shift" })).toBeVisible();
+    await expect(drawer.getByRole("note")).toContainText("Changes you make here are drafts");
+    await drawer.getByRole("button", { name: "Edit Shift" }).click();
+    await setTimes(page, "07:00", "14:00");
+    await drawer.getByRole("button", { name: "Save Shift" }).click();
+    await expect(drawer).toBeHidden();
+    expect(state.calls.at(-1)).toEqual({
+      method: "POST",
+      path: "/api/drafts",
+      body: { replacesScheduleId: 3, startMinutes: 420, endMinutes: 840, override: false, note: null },
+    });
+    await expect(page.getByRole("button", { name: "Publish (4)" })).toBeEnabled();
   });
 
   test("publishing shows the week live and keeps the draft that clashes", async ({ page }) => {

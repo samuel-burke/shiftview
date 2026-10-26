@@ -1,8 +1,8 @@
 import { NextResponse, after } from "next/server";
-import { escapeHtml, sendEmail } from "@/lib/email";
+import { escapeHtml, isValidEmail, sendEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { CONTACT_LIMITS as LIMITS, TOPIC_LABELS, isContactTopic } from "@/lib/contact";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,6 @@ export const dynamic = "force-dynamic";
 //   2. Best-effort per-instance rate limit (same caveat as /api/demo/start:
 //      serverless memory only blunts naive loops on one warm instance).
 //   3. Cloudflare Turnstile (lib/turnstile.ts; required in production).
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -73,7 +71,7 @@ export async function POST(request: Request) {
   if (!name || name.length > LIMITS.name) {
     return NextResponse.json({ error: "Please enter your name" }, { status: 400 });
   }
-  if (!EMAIL_RE.test(email) || email.length > LIMITS.email) {
+  if (!isValidEmail(email) || email.length > LIMITS.email) {
     return NextResponse.json({ error: "Please enter a valid email address" }, { status: 400 });
   }
   if (!topic) {
@@ -112,14 +110,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "We couldn't send your message — please try again" }, { status: 502 });
   }
 
-  // The full message is in the email; the push is a heads-up with a preview.
-  const preview = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+  // The message is in the email; the Slack alert is only a heads-up, with no
+  // sender details or message text.
   after(() =>
-    sendNtfy({
+    sendSlackAlert({
       title: `Contact form: ${TOPIC_LABELS[topic]}`,
-      message: `${name} (${email})\n${preview}`,
-      tags: ["envelope"],
-      priority: 4,
+      message: "New message in the contact inbox.",
+      emoji: "envelope",
     })
   );
 

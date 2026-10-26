@@ -81,13 +81,39 @@ describe("AppDataProvider startup", () => {
     localStorage.setItem(ME_CACHE_KEY, JSON.stringify(ME));
     localStorage.setItem("sv_org_config", JSON.stringify({ orgId: "org-1", settings: { firstDayOfWeek: 3, timezone: "Pacific/Honolulu" }, storeHours: {} }));
     const answer = fetchMock.getMockImplementation()!;
-    fetchMock.mockImplementation((url: string) => (url === "/api/me" ? new Promise(() => {}) : answer(url))); // /api/me never answers
+    let answerMe!: () => void;
+    const meAnswered = new Promise<void>((resolve) => { answerMe = resolve; });
+    fetchMock.mockImplementation((url: string) => (url === "/api/me" ? meAnswered.then(() => answer(url)) : answer(url)));
     renderProvider();
-    // Cached identity and that org's settings show before any response.
-    await waitFor(() => expect(screen.getByTestId("probe").textContent).toMatch(/^Sam Kim\|Pacific\/Honolulu\|3\|/));
-    await waitFor(() => expect(screen.getByTestId("probe").textContent).toMatch(/\|clocked_in$/));
+    // That org's settings show before any response. The employee's id and
+    // name are not cached (code-scanning alert 8), so they wait for /api/me.
+    await waitFor(() => expect(screen.getByTestId("probe").textContent).toMatch(/^-\|Pacific\/Honolulu\|3\|/));
+    answerMe();
+    await waitFor(() => expect(screen.getByTestId("probe").textContent).toMatch(/^Sam Kim\|.*\|clocked_in$/));
     expect(calls("/api/punches/current")).toBe(1);
     fetchMock.mockImplementation(answer);
+  });
+
+  it("scrubs the employee's id and name from an older cache entry on read", async () => {
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify({ ...ME, employeeId: 7, employeeName: "Sam Kim" }));
+    const answer = fetchMock.getMockImplementation()!;
+    // /api/me never answers: the scrub can't come from rewriting its result.
+    fetchMock.mockImplementation((url: string) => (url === "/api/me" ? new Promise(() => {}) : answer(url)));
+    try {
+      renderProvider();
+      await waitFor(() =>
+        expect(JSON.parse(localStorage.getItem(ME_CACHE_KEY) ?? "{}")).toEqual({ isManager: true, isDemo: false, orgId: "org-1", organizations: [] })
+      );
+    } finally {
+      fetchMock.mockImplementation(answer);
+    }
+  });
+
+  it("keeps the employee's id and name out of the identity cache", async () => {
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("probe").textContent).toContain("Sam Kim"));
+    const cached = JSON.parse(localStorage.getItem(ME_CACHE_KEY) ?? "{}");
+    expect(cached).toEqual({ isManager: true, isDemo: false, orgId: "org-1", organizations: [] });
   });
 
   it("ignores cached settings that belong to another organization", async () => {
@@ -95,10 +121,13 @@ describe("AppDataProvider startup", () => {
     localStorage.setItem("sv_org_config", JSON.stringify({ orgId: "org-2", settings: { firstDayOfWeek: 3, timezone: "Pacific/Honolulu" }, storeHours: {} }));
     const answer = fetchMock.getMockImplementation()!;
     fetchMock.mockImplementation(() => new Promise(() => {}));
-    renderProvider();
-    await waitFor(() => expect(screen.getByTestId("probe").textContent).toMatch(/^Sam Kim\|/));
-    expect(screen.getByTestId("probe").textContent).not.toContain("Pacific/Honolulu");
-    fetchMock.mockImplementation(answer);
+    try {
+      renderProvider();
+      await act(async () => {});
+      expect(screen.getByTestId("probe").textContent).not.toContain("Pacific/Honolulu");
+    } finally {
+      fetchMock.mockImplementation(answer);
+    }
   });
 
   it("loads nothing on signed-out pages", async () => {

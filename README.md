@@ -18,7 +18,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml"><img alt="CI" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=dev" /></a>
+  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml?query=branch%3Adev"><img alt="CI · dev" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=dev" /></a>
+  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml?query=branch%3Amain"><img alt="CI · main" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=main" /></a>
   <img alt="Status: public beta" src="https://img.shields.io/badge/status-public%20beta-6366f1" />
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" />
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" />
@@ -177,7 +178,7 @@ npm install
 
 ### 2. Set environment variables
 
-Create a `.env.local` file in the project root:
+Copy `.env.example` to `.env.local` in the project root. The required values are:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
@@ -207,22 +208,22 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_SITE_URL` | The app's public URL (e.g. `https://shiftview.app`). Invite emails link back to `<site>/auth/callback`, so set it before inviting anyone |
 | `RESEND_API_KEY` | Contact form and low-coverage alert emails (via Resend). Invite emails come from Supabase Auth |
 | `CONTACT_TO_EMAIL` | Inbox that receives `/contact` form messages; the form returns 503 until this and `RESEND_API_KEY` are set |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile bot check on demo start, signup and the contact form. Set both or neither; required in production, where those routes refuse requests without the secret (see [docs/CONTACT_FORM.md](docs/CONTACT_FORM.md)) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile for demo start, signup, login and contact. Both required in production; also enable Supabase Auth CAPTCHA with the same widget secret to protect direct Auth requests (see [deployment runbook](docs/DEMO_ORG.md#deployment-runbook)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
-| `NTFY_TOPIC_URL` | [ntfy](https://ntfy.sh) push alerts to the operator for new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Use a long random topic name (e.g. `https://ntfy.sh/<openssl rand -hex 16>`): anyone who knows it can subscribe |
-| `NTFY_TOKEN` | Access token for a protected ntfy topic; sent as a Bearer token. Leave unset for public topics |
+| `SLACK_WEBHOOK_URL` | Optional. Slack [incoming webhook](https://api.slack.com/messaging/webhooks) for operator alerts: new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Alerts carry no names, emails or message text. Server-only: never prefix it with `NEXT_PUBLIC_`, since anyone with the URL can post to the channel |
 | `CRON_SECRET` | The two cron endpoints (shift reminders and the demo reset); they return 401 until it's set |
 
 `NEXT_PUBLIC_*` values are inlined at build time, so rebuild or redeploy after changing them.
 
-A Vercel production build (`VERCEL_ENV=production`) fails unless every variable above except `VAPID_SUBJECT` is set, the encryption key is 64 hex characters and `E2E_BYPASS_AUTH` is unset (`lib/production-env.ts`), so a deploy missing a secret keeps the previous deployment live. Preview and local builds aren't checked.
+A Vercel production build (`VERCEL_ENV=production`) fails unless every variable above except `VAPID_SUBJECT` and `SLACK_WEBHOOK_URL` is set, the encryption key is 64 hex characters and `E2E_BYPASS_AUTH` is unset (`lib/production-env.ts`), so a deploy missing a secret keeps the previous deployment live. Preview and local builds aren't checked.
 
 ### 3. Set up the database
 
 **New Supabase project**
 
 1. Enable **Authentication → Sign In / Up → Allow anonymous sign-ins**. The demo needs it.
+   In production, also enable **Authentication → Bot and Abuse Protection → CAPTCHA protection**, select Cloudflare Turnstile, and enter the widget secret. Deploy the app's token support first on existing projects; see the [deployment runbook](docs/DEMO_ORG.md#deployment-runbook).
 2. In the SQL editor, run `supabase/baseline.sql`. It creates the whole schema as of migration `0037` (tables, functions, triggers, RLS policies, Realtime) and the default and demo organizations.
 3. Run every migration numbered after `0037` (`0038_*` onward), in filename order.
 
@@ -251,6 +252,7 @@ npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest unit/integration tests
 npm run test:watch  # watch mode
+npm run test:coverage  # unit suite with coverage; fails below the floor in vitest.config.ts
 npm run test:security  # the unit tests named *.security.test.ts
 npm run test:sql    # every SQL suite in supabase/manual-tests, each in a fresh database (needs Postgres; uses PGHOST, PGUSER, ...)
 npx playwright install chromium   # once, before the first e2e run
@@ -258,7 +260,7 @@ npm run test:e2e    # Playwright e2e (APIs intercepted client-side, no backend n
 npm run build       # production build
 ```
 
-API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration after `0037`. CI runs lint, typecheck, the unit suite (also under two far-off timezones), a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration after `0037`. CI runs lint, typecheck, the unit suite with a coverage floor (also under two far-off timezones), a production dependency audit, a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
 
 ## Project Structure
 
@@ -376,18 +378,21 @@ Routes that touch organization data resolve the caller's organization on the ser
 
 | Route | Methods | Access |
 |---|---|---|
-| `/api/cron/reminders`, `/api/cron/demo-reset` | GET | `CRON_SECRET` (see Scheduled Tasks) |
+| `/api/cron/reminders`, `/api/cron/demo-reset`, `/api/cron/attendance` | GET | `CRON_SECRET` (see Scheduled Tasks) |
 
 ## Scheduled Tasks
 
-`vercel.json` schedules two cron jobs:
+`vercel.json` schedules three cron jobs:
 
 | Path | Schedule (UTC) | What it does |
 |---|---|---|
 | `/api/cron/reminders` | 22:00 daily | Notifies each employee scheduled tomorrow (in their store's timezone), honoring their notification preferences. Skips demo organizations |
 | `/api/cron/demo-reset` | 08:00 daily | Wipes and reseeds the demo organization and deletes the anonymous users of past demo sessions |
+| `/api/cron/attendance` | Every 15 minutes | In each store's timezone: tells managers about a no-call-no-show (the time card's NCNS rule), tells the employee and managers about a shift left open 2 hours past its scheduled end (16 hours after clock-in if unscheduled), and tells managers when an employee's worked plus remaining scheduled hours this week pass 40 (or worked hours pass 36). Each alert is sent once. Never clocks anyone out. Skips demo organizations |
 
-Both require `CRON_SECRET`. Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; for a manual run, send it in an `x-cron-secret` header:
+The attendance route isn't in `vercel.json`: Vercel's Hobby plan only runs crons once a day and rejects a deployment that schedules one more often. On Pro, add `{ "path": "/api/cron/attendance", "schedule": "*/15 * * * *" }` to its `crons`; on Hobby, call the route every 15 minutes from an external scheduler with the `CRON_SECRET` header.
+
+All require `CRON_SECRET`. Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; for a manual run, send it in an `x-cron-secret` header:
 
 ```bash
 curl -H "x-cron-secret: $CRON_SECRET" https://<your-site>/api/cron/demo-reset
@@ -431,7 +436,7 @@ Times are stored as minutes since midnight (e.g. `480` = 8:00 AM); an overnight 
 
 ## Row Level Security
 
-RLS is enabled on every tenant table. Policies apply to signed-in users (`authenticated`, which includes anonymous demo sessions) and compare each row with three sets looked up once per query: `my_org_ids()` (orgs where you have a `managers` or `employees` row), `my_managed_org_ids()` (orgs you manage) and `my_employees()` (the `(org_id, employee_id)` rows linked to your account), as in `org_id in (select my_org_ids())`. Calling a function per row instead (the older `is_org_member(org)` style) was 12–35× slower in a benchmark on 50,000 shifts. With migrations through `0042` applied:
+RLS is enabled on every tenant table. Policies apply to signed-in users (`authenticated`, which includes anonymous demo sessions) and compare each row with three sets looked up once per query: `my_org_ids()` (orgs where you have a `managers` or `employees` row), `my_managed_org_ids()` (orgs you manage) and `my_employees()` (the `(org_id, employee_id)` rows linked to your account), as in `org_id in (select my_org_ids())`. Calling a function per row instead (the older `is_org_member(org)` style) was 12–35× slower in a benchmark on 50,000 shifts. With migrations through `0076` applied:
 
 | Table | Read | Write |
 |---|---|---|
@@ -440,7 +445,8 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 | `managers` | Members | No direct writes: `manager_promote` / `manager_demote` (the owner, when the org has one; members only), sign-up and the service role |
 | `schedules`, `store_hours`, `app_settings`, `schedule_templates`, `schedule_template_rows`, `positions`, `announcements`, `open_shifts`, coverage tables | Members | Managers |
 | `draft_schedules` | Managers | Managers |
-| `availability`, `callouts` | Members | Your own rows, or managers |
+| `availability` | Members | Your own rows, or managers |
+| `callouts` | Members read status; `callouts_for_org(org)` includes reasons only for the employee and managers | Your own rows, or managers; atomic re-filing uses `save_callout` |
 | `time_off_requests` | Members | Employees file their own as pending; managers decide, edit and delete |
 | `shift_swaps` | Members | The requester files a pending swap of their own shift for the coworker's; the asked coworker can only accept or decline it; managers decide and delete. `approve_shift_swap` refuses (`stale`) if either shift changed hands since |
 | `open_shift_claims` | Members | Your own claims, as pending; managers decide |
@@ -459,7 +465,16 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 
 - The `SECURITY DEFINER` functions the app calls bypass RLS, so each either checks the caller itself (`approve_shift_swap`, `apply_generated_drafts`, `undo_generation_run`, `manager_promote`, `manager_demote`, `employee_pay_rates`; `presence_set` only writes the caller's own device; `my_*` only return the caller's own memberships) or can only be called with the service role (`notify_*`, `link_employee_account`, `org_signup_create`, `org_delete`, `reset_demo_org`). Trigger functions and the old `is_org_*` helpers can't be called through the API at all.
 - API roles can't select `employees.pay_rate` (`0042` grants the other columns one by one). A column added to `employees` later isn't readable through the API until it's added to that grant.
+- API roles can't select `callouts.reason` (`0076`); Realtime omits it from new and old records. `callouts_for_org` checks membership and redacts coworkers' reasons in the database; `save_callout` checks own-or-manager access and preserves the existing call-out rules. Deploy `0076` together with its API changes.
 - `punch_records` coordinates must be both null or both in range (`0050`), and a signed-in user's live `clock_in` must be inside the org's geofence when GPS and the geofence are on, so writing the table directly can't skip the check in `POST /api/punches`.
 - `anon` can't write any table, and only the service role can `TRUNCATE` (which skips RLS).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.
 - `push_subscriptions`, `user_notification_preferences` and `device_presence` are per user: you read and write only your own rows.
+
+## Contributing and project docs
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): branches (task branch → `dev` → `main`), checks to run, PR process
+- [AGENTS.md](AGENTS.md): engineering and Git policy for people and AI agents
+- [docs/architecture.md](docs/architecture.md), [docs/testing.md](docs/testing.md), [docs/ci-cd.md](docs/ci-cd.md), [docs/adr/](docs/adr/)
+- [CHANGELOG.md](CHANGELOG.md)
+- [SECURITY.md](SECURITY.md): report vulnerabilities privately, never in a public issue

@@ -137,21 +137,31 @@ export function useAppData() {
 
 export const ME_CACHE_KEY = "sv_me";
 
+type MeCacheData = Pick<MeData, "isManager" | "isDemo" | "orgId" | "organizations">;
+
 function readMeCache(): MeData | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(ME_CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<MeData>;
-    if (typeof parsed.isManager !== "boolean") return null;
-    return {
+    const parsed = JSON.parse(raw) as Partial<MeCacheData>;
+    // Older versions also cached the employee's id and name: scrub them now
+    // rather than waiting for /api/me to rewrite the entry.
+    const legacy = "employeeId" in parsed || "employeeName" in parsed;
+    if (typeof parsed.isManager !== "boolean") {
+      if (legacy) localStorage.removeItem(ME_CACHE_KEY);
+      return null;
+    }
+    const me: MeData = {
       isManager: parsed.isManager,
-      employeeId: parsed.employeeId ?? null,
-      employeeName: parsed.employeeName ?? null,
+      employeeId: null,
+      employeeName: null,
       isDemo: parsed.isDemo ?? false,
       orgId: parsed.orgId ?? null,
       organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
     };
+    if (legacy) writeMeCache(me);
+    return me;
   } catch {
     return null;
   }
@@ -159,7 +169,15 @@ function readMeCache(): MeData | null {
 
 function writeMeCache(data: MeData) {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(ME_CACHE_KEY, JSON.stringify(data)); } catch {}
+  try {
+    const cacheData: MeCacheData = {
+      isManager: data.isManager,
+      isDemo: data.isDemo,
+      orgId: data.orgId,
+      organizations: data.organizations,
+    };
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify(cacheData));
+  } catch {}
 }
 
 function clearMeCache() {

@@ -11,6 +11,7 @@ import { fmtMinutes } from "@/data/types";
 import { daysBetweenKeys, dayOfWeekForKey, eachDateKey, minutesFromScheduled, zonedTimeToUtc } from "@/lib/dates";
 import { assignPunchDays, MAX_SHIFT_MS } from "@/lib/punch-sessions";
 import { clockInTiming, clockOutTiming, type PunchPolicy } from "@/lib/punch-policy";
+import { roundPunchTimes, type RoundingMinutes } from "@/lib/pay-rules";
 
 export type ViolationType =
   | "late_in"
@@ -62,6 +63,10 @@ export type TimecardPunch = {
   localMinutes: number;
   isManual: boolean;
   note: string | null;
+  // With punch rounding on (Settings → Pay Rules), the time payroll pays this
+  // punch at; null when rounding is off or doesn't move it. punchedAt stays
+  // the real time.
+  roundedAt?: string | null;
 };
 
 export type TimecardDay = {
@@ -73,6 +78,8 @@ export type TimecardDay = {
   punches: TimecardPunch[];
   callout: { reason: string | null } | null;
   workedHours: number;
+  // The day's hours from the rounded punch times; null when rounding is off.
+  roundedWorkedHours: number | null;
   breakHours: number;
   breakCount: number;
   hasIncomplete: boolean;
@@ -87,6 +94,10 @@ export type Timecard = {
   timezone: string;
   days: TimecardDay[];
   totalWorkedHours: number;
+  // Hours from the rounded punch times; null when rounding is off.
+  totalRoundedWorkedHours: number | null;
+  // The rounding in force (0 = exact time).
+  roundingMinutes: RoundingMinutes;
   totalBreakHours: number;
   totalViolations: number;
   violationCounts: Record<ViolationType, number>;
@@ -111,6 +122,8 @@ type Shift = {
   endMs: number;
   sessions: Session[];
 };
+
+export type { Session as ShiftSession, Shift as ScheduledShift };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -185,23 +198,16 @@ function computeSegments(punches: { id: number; punchType: PunchType; punchedAt:
   };
 }
 
-export function computeTimecard(input: {
-  employeeId: number;
-  employeeName: string;
-  from: string;
-  to: string;
+// Turns schedules into shifts and punches into sessions, and gives each
+// session to the scheduled shift it was worked for. Shared by the time card
+// and the attendance alerts (lib/attendance-alerts.ts) so both judge which
+// shift a punch was for the same way.
+export function matchSessionsToShifts(input: {
   timezone: string;
-  policy: PunchPolicy;
   schedules: TimecardScheduleInput[];
   punches: TimecardPunchInput[];
-  callouts: TimecardCalloutInput[];
-  nowMs?: number;
-}): Timecard {
-  const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
-  const nowMs = input.nowMs ?? Date.now();
-
-  const calloutByDate = new Map<string, TimecardCalloutInput>();
-  for (const c of callouts) calloutByDate.set(c.date.slice(0, 10), c);
+}): { shifts: Shift[]; sessions: Session[] } {
+  const { timezone: tz, schedules, punches } = input;
 
   // Scheduled shifts as real instants. A day may hold several (a split
   // shift); shifts that touch or overlap are one block of work.
@@ -253,13 +259,6 @@ export function computeTimecard(input: {
     }
   });
 
-  // When a session ends: its last punch, or for one still open, up to 16 hours
-  // (the longest shift) after it began.
-  const sessionEndMs = (x: Session) =>
-    x.punches[x.punches.length - 1].punchType === "clock_out"
-      ? x.endMs
-      : Math.max(x.endMs, Math.min(nowMs, x.startMs + MAX_SHIFT_MS));
-
   const nearest = (list: Shift[], ms: number) =>
     list.reduce<Shift | null>((best, s) =>
       !best || Math.abs(ms - s.startMs) < Math.abs(ms - best.startMs) ? s : best, null);
@@ -272,12 +271,63 @@ export function computeTimecard(input: {
     shift?.sessions.push(session);
   }
 
+  return { shifts, sessions };
+}
+
+export function computeTimecard(input: {
+  employeeId: number;
+  employeeName: string;
+  from: string;
+  to: string;
+  timezone: string;
+  policy: PunchPolicy;
+  schedules: TimecardScheduleInput[];
+  punches: TimecardPunchInput[];
+  callouts: TimecardCalloutInput[];
+  // Punch rounding for pay (lib/pay-rules.ts). Off by default.
+  roundingMinutes?: RoundingMinutes;
+  nowMs?: number;
+}): Timecard {
+  const { employeeId, employeeName, from, to, timezone: tz, policy, schedules, punches, callouts } = input;
+  const nowMs = input.nowMs ?? Date.now();
+  const rounding = input.roundingMinutes ?? 0;
+
+  // Rounded times over the whole punch sequence, as payroll rounds them.
+  const roundedById = new Map<number, number>();
+  if (rounding) {
+    const ordered = [...punches].sort(
+      (a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime() || a.id - b.id
+    );
+    const ms = roundPunchTimes(
+      ordered.map((p) => ({ punchType: p.punchType, ms: new Date(p.punchedAt).getTime() })),
+      rounding,
+      tz,
+    );
+    ordered.forEach((p, i) => roundedById.set(p.id, ms[i]));
+  }
+
+  const calloutByDate = new Map<string, TimecardCalloutInput>();
+  for (const c of callouts) calloutByDate.set(c.date.slice(0, 10), c);
+
+  const { shifts, sessions } = matchSessionsToShifts({ timezone: tz, schedules, punches });
+
+  // When a session ends: its last punch, or for one still open, up to 16 hours
+  // (the longest shift) after it began.
+  const sessionEndMs = (x: Session) =>
+    x.punches[x.punches.length - 1].punchType === "clock_out"
+      ? x.endMs
+      : Math.max(x.endMs, Math.min(nowMs, x.startMs + MAX_SHIFT_MS));
+
   const punchesByDate = new Map<string, TimecardPunch[]>();
   for (const session of sessions) {
     const day = session.shift?.date ?? session.ownDay;
     const offset = 1440 * daysBetweenKeys(day, session.ownDay);
     const arr = punchesByDate.get(day) ?? [];
-    for (const p of session.punches) arr.push({ ...p, localMinutes: p.localMinutes + offset });
+    for (const p of session.punches) {
+      const r = roundedById.get(p.id);
+      const roundedAt = rounding && r !== undefined && r !== new Date(p.punchedAt).getTime() ? new Date(r).toISOString() : null;
+      arr.push({ ...p, localMinutes: p.localMinutes + offset, ...(rounding ? { roundedAt } : {}) });
+    }
     punchesByDate.set(day, arr);
   }
 
@@ -289,6 +339,7 @@ export function computeTimecard(input: {
     long_break: 0, short_break: 0, callout: 0, ncns: 0,
   };
   let totalWorkedMs = 0; // summed exactly, rounded once
+  let totalRoundedMs = 0;
   let totalBreakMs = 0;
   const days: TimecardDay[] = [];
 
@@ -307,6 +358,12 @@ export function computeTimecard(input: {
     const breakHours = round2(breakMs / 3_600_000);
     totalWorkedMs += workedMs;
     totalBreakMs += breakMs;
+    let roundedWorkedHours: number | null = null;
+    if (rounding) {
+      const roundedMs = computeSegments(dayPunches.map((p) => ({ ...p, punchedAt: p.roundedAt ?? p.punchedAt }))).workedMs;
+      totalRoundedMs += roundedMs;
+      roundedWorkedHours = round2(roundedMs / 3_600_000);
+    }
 
     const violations: Violation[] = [];
     const add = (v: Violation) => { violations.push(v); violationCounts[v.type]++; };
@@ -419,6 +476,7 @@ export function computeTimecard(input: {
       punches: dayPunches,
       callout: callout ? { reason: callout.reason ?? null } : null,
       workedHours,
+      roundedWorkedHours,
       breakHours,
       breakCount,
       hasIncomplete,
@@ -436,6 +494,8 @@ export function computeTimecard(input: {
     timezone: tz,
     days,
     totalWorkedHours: round2(totalWorkedMs / 3_600_000),
+    totalRoundedWorkedHours: rounding ? round2(totalRoundedMs / 3_600_000) : null,
+    roundingMinutes: rounding,
     totalBreakHours: round2(totalBreakMs / 3_600_000),
     totalViolations,
     violationCounts,

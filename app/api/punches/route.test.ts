@@ -1240,7 +1240,10 @@ describe("POST /api/punches — geofence coordinate validation", () => {
       ...overrides,
     }).map(([key, value]) => ({ key, value }));
 
-  function makeGeofenceClient(settingsRows: { key: string; value: string }[]) {
+  function makeGeofenceClient(
+    settingsRows: { key: string; value: string }[],
+    punches: { punch_type: string; punched_at: string }[] = []
+  ) {
     const insertData = {
       id: 7, employee_id: 1, schedule_id: null, punch_type: "clock_in",
       punched_at: new Date().toISOString(), lat: null, lng: null, is_manual: false, note: null,
@@ -1258,9 +1261,9 @@ describe("POST /api/punches — geofence coordinate validation", () => {
           }
           b.insert = vi.fn((row: unknown) => { insert(row); return b; });
           b.single = vi.fn().mockResolvedValue({ data: insertData, error: null });
-          // Current-shift read: nothing punched today.
+          // Current-shift read.
           b.then = (resolve: any, reject: any) =>
-            Promise.resolve({ data: [], error: null }).then(resolve, reject);
+            Promise.resolve({ data: punches, error: null }).then(resolve, reject);
           return b;
         }
         return makeBuilder({ data: null, error: null });
@@ -1294,13 +1297,51 @@ describe("POST /api/punches — geofence coordinate validation", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it("rejects a clock-in with no coordinates while enforcement is on", async () => {
-    const { client, insert } = makeGeofenceClient(enforced());
+  describe.each([
+    ["geofence on", enforced()],
+    ["geofence off", enforced({ geofence_enabled: "false" })],
+    ["blank centre", enforced({ geofence_lat: "", geofence_lng: "" })],
+    ["absent centre", enforced().filter(({ key }) => !["geofence_lat", "geofence_lng"].includes(key))],
+  ])("GPS required, %s", (_label, settingsRows) => {
+    it.each([{}, { lat: null, lng: null }])("rejects missing coordinates %j", async (coords) => {
+      const { client, insert } = makeGeofenceClient(settingsRows);
+      mockCreateClient.mockResolvedValue(client as any);
+      const res = await POST(makePostRequest({ punchType: "clock_in", ...coords }));
+      expect(res.status).toBe(422);
+      expect((await res.json()).error).toMatch(/GPS location required/);
+      expect(insert).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not let a live clock-in claim the manual-entry exception", async () => {
+    const { client, insert } = makeGeofenceClient(enforced({ geofence_enabled: "false" }));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", is_manual: true, isManual: true }));
+    expect(res.status).toBe(422);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("allows missing coordinates when GPS is not required", async () => {
+    const { client, insert } = makeGeofenceClient(enforced({ gps_required: "false" }));
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "clock_in" }));
-    expect(res.status).toBe(422);
-    expect((await res.json()).error).toMatch(/GPS location required/);
-    expect(insert).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ lat: null, lng: null }));
+  });
+
+  it.each([
+    ["clock_out", ["clock_in"]],
+    ["break_start", ["clock_in"]],
+    ["break_end", ["clock_in", "break_start"]],
+  ])("does not require GPS for %s", async (punchType, history) => {
+    const punches = history.map((punch_type, i) => ({
+      punch_type, punched_at: new Date(Date.now() - 60_000 + i).toISOString(),
+    }));
+    const { client, insert } = makeGeofenceClient(enforced(), punches);
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType }));
+    expect(res.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ punch_type: punchType, lat: null, lng: null }));
   });
 
   // Each of these used to reach haversineMeters, produce a NaN distance, and
@@ -1370,10 +1411,32 @@ describe("POST /api/punches — geofence coordinate validation", () => {
     expect((await res.json()).error).toMatch(/Outside geofence/);
   });
 
-  it("skips the distance check when no centre has been saved", async () => {
-    const { client } = makeGeofenceClient(enforced({ geofence_lat: "", geofence_lng: "" }));
+  it("returns 422 when the database requires GPS after settings changed", async () => {
+    const { client } = makeGeofenceClient(enforced({ gps_required: "false" }));
+    const base = client.from;
+    client.from = vi.fn().mockImplementation((table: string) => {
+      const b = base(table);
+      if (table === "punch_records")
+        b.single = vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: "GF002", message: "GPS location required to clock in" },
+        });
+      return b;
+    });
     mockCreateClient.mockResolvedValue(client as any);
     const res = await POST(makePostRequest({ punchType: "clock_in" }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/GPS location required/);
+  });
+
+  it.each([
+    ["geofence off", { geofence_enabled: "false" }],
+    ["no centre saved", { geofence_lat: "", geofence_lng: "" }],
+  ])("accepts valid coordinates without a distance check: %s", async (_label, overrides) => {
+    const { client, insert } = makeGeofenceClient(enforced(overrides));
+    mockCreateClient.mockResolvedValue(client as any);
+    const res = await POST(makePostRequest({ punchType: "clock_in", lat: 0, lng: 0 }));
     expect(res.status).toBe(201);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ lat: 0, lng: 0 }));
   });
 });

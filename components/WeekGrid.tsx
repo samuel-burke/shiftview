@@ -13,6 +13,8 @@ import { dayOfWeekForKey, formatDateKey } from "@/lib/dates";
 import { shiftMinutes } from "@/lib/schedule-hours";
 import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week-cells";
 import { shortTime } from "./WeekView";
+
+const fmtShort = (s: { startMinutes: number; endMinutes: number }) => `${shortTime(s.startMinutes)}–${shortTime(s.endMinutes)}`;
 import { markColor, tint } from "../lib/theme-colors";
 
 /** A pending or approved time-off request, as GET /api/time-off?from=&to= returns it. */
@@ -25,6 +27,16 @@ export function timeOffByCell(timeOff: WeekTimeOff[]): Map<string, "pending" | "
     if (t.status !== "pending" && t.status !== "approved") continue;
     const key = `${t.employeeId}|${t.date}`;
     if (byCell.get(key) !== "approved") byCell.set(key, t.status);
+  }
+  return byCell;
+}
+
+/** Part-day time off by cell key ("Off 3–6p"); whole days aren't listed. */
+export function partDayByCell(timeOff: WeekTimeOff[]): Map<string, { startMinutes: number; endMinutes: number }> {
+  const byCell = new Map<string, { startMinutes: number; endMinutes: number }>();
+  for (const t of timeOff) {
+    if ((t.status === "pending" || t.status === "approved") && t.startMinutes != null && t.endMinutes != null)
+      byCell.set(`${t.employeeId}|${t.date}`, { startMinutes: t.startMinutes, endMinutes: t.endMinutes });
   }
   return byCell;
 }
@@ -82,9 +94,10 @@ export default function WeekGrid({
 }: Props) {
   const isDraftMode = mode === "draft";
   const cells = weekCells(schedules, mode);
-  const EMPTY: WeekCell = { live: null, draft: null, shown: null };
+  const EMPTY: WeekCell = { live: null, draft: null, change: null, shown: null };
   const cellOf = (employeeId: number, date: string): WeekCell => cells.get(cellKey(employeeId, date)) ?? EMPTY;
   const timeOffCell = timeOffByCell(timeOff);
+  const partDayCell = partDayByCell(timeOff);
   const hoursOf = (s: GridShift) => Math.max(0, shiftMinutes(s, timezone)) / 60;
 
   const dayTotals = dates.map((date) => {
@@ -172,14 +185,18 @@ export default function WeekGrid({
                 {dates.map((date) => {
                   const cell = cellOf(emp.id, date);
                   const s = cell.shown;
-                  // Draft mode: live shifts are read-only context; a draft on a day
-                  // with a live shift (made before that was blocked) won't publish.
-                  const isLiveContext = isDraftMode && cell.live !== null;
-                  const clash = isDraftMode && cell.live !== null && cell.draft !== null;
+                  // Draft mode: an unchanged live shift is context; a draft that
+                  // changes it shows as "Changed" (or "Removed"); any other draft
+                  // on a day with a live shift won't publish.
+                  const isLiveContext = isDraftMode && cell.live !== null && cell.change === null;
+                  const clash = isLiveContext && cell.draft !== null;
+                  const removed = isDraftMode && cell.change === "remove";
                   const hours = weeklyHours[dayOfWeekForKey(date)];
                   const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
                   const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
                   const timeOffStatus = timeOffCell.get(`${emp.id}|${date}`);
+                  const partDay = partDayCell.get(`${emp.id}|${date}`);
+                  const partDayText = partDay ? ` ${shortTime(partDay.startMinutes)}–${shortTime(partDay.endMinutes)}` : "";
                   const requested = timeOffStatus === "pending";
                   const approved = timeOffStatus === "approved";
                   const isSel = selected?.employeeId === emp.id && selected.date === date;
@@ -192,6 +209,8 @@ export default function WeekGrid({
                     ? "Clash"
                     : isLiveContext
                     ? "Live"
+                    : cell.change === "edit"
+                    ? "Changed"
                     : s?.generationRunId
                     ? "Auto"
                     : s
@@ -204,14 +223,18 @@ export default function WeekGrid({
                     : clash
                     ? ", live shift; a draft for this day won't publish. Open the draft"
                     : isLiveContext
-                    ? ", live shift (change it in Live mode)"
+                    ? ", live shift. Change it as a draft"
+                    : cell.change === "edit"
+                    ? `, changes the live ${fmtShort(cell.live!)} shift when published`
                     : "";
-                  const timeOffNote = approved ? ", time off approved" : requested ? ", time off requested" : "";
+                  const timeOffNote = approved ? `, time off approved${partDayText}` : requested ? `, time off requested${partDayText}` : "";
                   const context = s
                     ? `, ${emp.name}, ${dayLabel}${status}${timeOffNote}`
+                    : removed
+                    ? `, ${emp.name}, ${dayLabel}: the live shift is removed when published. Open the draft`
                     : `${timeOffStatus ? ", " : ""}${emp.name}, ${dayLabel}: off. Add a ${isDraftMode ? "draft " : ""}shift`;
-                  // Clicking a clash opens the draft so it can be removed.
-                  const target = isDraftMode ? (clash ? cell.draft : s) : cell.live;
+                  // Clicking a clash or a change opens the draft.
+                  const target = isDraftMode ? (clash || cell.change ? cell.draft : s) : cell.live;
                   return (
                     <td key={date} className={`p-1 align-middle ${date === selectedDate ? "bg-accent/[0.07]" : ""}`}>
                       <button
@@ -226,6 +249,8 @@ export default function WeekGrid({
                           // text under 4.5:1).
                           s
                             ? "border-transparent"
+                            : removed
+                            ? "border-dashed border-warning/60 bg-warning/5"
                             : approved
                             ? "border-success/40 bg-success/10"
                             : requested
@@ -253,14 +278,21 @@ export default function WeekGrid({
                                 line short still shows it. */}
                             <span className="block text-[11px] font-semibold truncate" style={{ color: clash ? "var(--status-warn)" : color }}>
                               <span className="sr-only">, </span>
-                              {approved ? "Time off · " : requested ? "Time off? · " : ""}
+                              {approved ? (partDay ? `Off${partDayText} · ` : "Time off · ") : requested ? (partDay ? `Off${partDayText}? · ` : "Time off? · ") : ""}
                               {isLiveContext ? tag : tag ? `${tag}${type ? ` · ${SHIFT_LABEL[type]}` : ""}` : type ? SHIFT_LABEL[type] : "Shift"}
                             </span>
                           </>
+                        ) : removed ? (
+                          <>
+                            <span className="block text-[12px] leading-tight font-semibold tabular-nums text-fg-muted line-through">
+                              {shortTime(cell.live!.startMinutes)}–{shortTime(cell.live!.endMinutes)}
+                            </span>
+                            <span className="block text-[11px] font-semibold text-warning-fg">Removed</span>
+                          </>
                         ) : approved ? (
-                          <span className="block text-[11px] font-semibold text-success-fg-strong">Time off approved</span>
+                          <span className="block text-[11px] font-semibold text-success-fg-strong">{partDay ? `Off${partDayText}` : "Time off approved"}</span>
                         ) : requested ? (
-                          <span className="block text-[11px] font-semibold text-fg-muted">Time off requested</span>
+                          <span className="block text-[11px] font-semibold text-fg-muted">{partDay ? `Off${partDayText}?` : "Time off requested"}</span>
                         ) : (
                           <span aria-hidden="true" className="block text-center text-lg text-fg-subtle opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+</span>
                         )}

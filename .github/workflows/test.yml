@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request cancels its older run. Pushes to main
+# and dev are never cancelled, so every merge commit gets a full result.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   static-checks:
     runs-on: ubuntu-latest
@@ -39,7 +45,30 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test
+      # Fails if coverage drops below the floor in vitest.config.ts.
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+  dependency-audit:
+    # Known high or critical advisories in packages that ship to production.
+    # Dev-only tooling advisories are reported by Dependabot instead.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm audit --omit=dev --audit-level=high
 
   security:
     # Security regression tests: every behavioural SQL suite in

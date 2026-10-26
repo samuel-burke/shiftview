@@ -20,7 +20,7 @@ import { cellKey, weekCells, type SourcedShift, type WeekCell } from "@/lib/week
 import type { WeekMode } from "@/lib/week-params";
 import { SkeletonText } from "@/components/Skeleton";
 import type { PlannerEmployee } from "../AutoScheduleSheet";
-import { timeOffByCell, type WeekTimeOff } from "../WeekGrid";
+import { partDayByCell, timeOffByCell, type WeekTimeOff } from "../WeekGrid";
 import { varianceColor } from "./WeekInsights";
 import { tint } from "../../lib/theme-colors";
 
@@ -215,10 +215,11 @@ export function DayList({
     return scheduledMinutesByEmployee(shown, dates, timezone);
   }, [cells, dates, timezone]);
   const timeOffCell = timeOffByCell(timeOff.filter((t) => t.date === date));
+  const partDayCell = partDayByCell(timeOff.filter((t) => t.date === date));
   const hours = storeHours[dayOfWeek(date)];
 
   const rows = employees
-    .map((emp) => ({ emp, cell: cells.get(cellKey(emp.id, date)) ?? ({ live: null, draft: null, shown: null } as WeekCell) }))
+    .map((emp) => ({ emp, cell: cells.get(cellKey(emp.id, date)) ?? ({ live: null, draft: null, change: null, shown: null } as WeekCell) }))
     .sort((a, b) => {
       if (!a.cell.shown !== !b.cell.shown) return a.cell.shown ? -1 : 1;
       return (a.cell.shown?.startMinutes ?? 0) - (b.cell.shown?.startMinutes ?? 0);
@@ -257,12 +258,15 @@ export function DayList({
         {notice}
         {rows.map(({ emp, cell }) => {
           const s = cell.shown;
-          const isLiveContext = isDraftMode && cell.live !== null;
-          const clash = isDraftMode && cell.live !== null && cell.draft !== null;
+          const isLiveContext = isDraftMode && cell.live !== null && cell.change === null;
+          const clash = isLiveContext && cell.draft !== null;
+          const removed = isDraftMode && cell.change === "remove";
           const type = s && hours ? getShiftType(s.startMinutes, s.endMinutes, hours.open, hours.close) : null;
           const color = !isLiveContext && type ? SHIFT_COLORS[type] : "var(--status-muted)";
           const week = weekHours(emp);
           const timeOffStatus = timeOffCell.get(`${emp.id}|${date}`);
+          const partDay = partDayCell.get(`${emp.id}|${date}`);
+          const partDayText = partDay ? ` ${fmtMinutes(partDay.startMinutes)} – ${fmtMinutes(partDay.endMinutes)}` : "";
           const isSel = selected?.employeeId === emp.id && selected.date === date;
           // Named by its text (WCAG 2.5.3): the monogram is hidden, sr-only
           // commas keep the parts apart, and sr-only text says what a tap does.
@@ -300,27 +304,43 @@ export function DayList({
                   {/* The week's hours wrap as one piece, never "56/40 h" | "week". */}
                   {" "}<span className={`whitespace-nowrap ${week.over ? "text-danger-fg" : "text-fg-subtle"}`}>· {week.text}</span>
                 </div>
+                {removed && cell.live && (
+                  <div className="text-xs text-warning-fg mt-0.5">
+                    <span className="sr-only">, </span>Live {fmtMinutes(cell.live.startMinutes)} – {fmtMinutes(cell.live.endMinutes)} removed when published
+                  </div>
+                )}
+                {cell.change === "edit" && cell.live && (
+                  <div className="text-xs text-fg-subtle mt-0.5">
+                    <span className="sr-only">, </span>Was {fmtMinutes(cell.live.startMinutes)} – {fmtMinutes(cell.live.endMinutes)}
+                  </div>
+                )}
                 {clash && cell.draft && (
                   <div className="text-xs text-warning-fg mt-0.5">
                     <span className="sr-only">, </span>Draft {fmtMinutes(cell.draft.startMinutes)} – {fmtMinutes(cell.draft.endMinutes)} won&apos;t publish
                   </div>
                 )}
-                {timeOffStatus === "approved" && <div className="text-xs text-success-fg mt-0.5"><span className="sr-only">, </span>Time off approved</div>}
-                {timeOffStatus === "pending" && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested</div>}
+                {timeOffStatus === "approved" && <div className="text-xs text-success-fg mt-0.5"><span className="sr-only">, </span>Time off approved{partDayText}</div>}
+                {timeOffStatus === "pending" && <div className="text-xs text-warning-fg mt-0.5"><span className="sr-only">, </span>Time off requested{partDayText}</div>}
               </div>
               {s ? (
                 isLiveContext ? (
                   <>
                     <span className="sr-only">, </span>
                     <Pill tone="live">Live</Pill>
-                    <span className="sr-only">{clash ? " shift. Open the draft" : " shift, change it in Live mode"}</span>
+                    <span className="sr-only">{clash ? " shift. Open the draft" : " shift. Change it as a draft"}</span>
                   </>
                 ) : isDraftMode ? (
                   <>
                     <span className="sr-only">, </span>
-                    {s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>}
+                    {cell.change === "edit" ? <Pill tone="draft">Changed</Pill> : s.generationRunId ? <Pill tone="auto">Auto</Pill> : <Pill tone="draft">Draft</Pill>}
                   </>
                 ) : null
+              ) : removed ? (
+                <>
+                  <span className="sr-only">, </span>
+                  <Pill tone="draft">Removed</Pill>
+                  <span className="sr-only">. Open the draft</span>
+                </>
               ) : (
                 <>
                   <span aria-hidden="true" className="text-[11px] font-semibold text-accent-fg shrink-0">+ Add</span>

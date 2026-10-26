@@ -196,7 +196,7 @@ describe("POST /api/drafts", () => {
       isManager: true,
       tableOverrides: {
         draft_schedules: { data: null, error: null },
-        time_off_requests: { data: { id: 10, status: "approved" }, error: null },
+        time_off_requests: { data: [{ id: 10, status: "approved" }], error: null },
       },
     });
     mockCreateClient.mockResolvedValue(client as any);
@@ -279,7 +279,7 @@ describe("POST /api/drafts", () => {
       isManager: true,
       tableOverrides: {
         draft_schedules: { data: null, error: null },
-        time_off_requests: { data: { id: 10, status: "approved" }, error: null },
+        time_off_requests: { data: [{ id: 10, status: "approved" }], error: null },
       },
     });
     mockCreateClient.mockResolvedValue(client as any);
@@ -437,7 +437,7 @@ describe("PUT /api/drafts", () => {
       isManager: true,
       tableOverrides: {
         draft_schedules: { data: existingDraft, error: null },
-        time_off_requests: { data: { id: 10, status: "approved" }, error: null },
+        time_off_requests: { data: [{ id: 10, status: "approved" }], error: null },
       },
     });
     mockCreateClient.mockResolvedValue(client as any);
@@ -468,7 +468,7 @@ describe("PUT /api/drafts", () => {
       isManager: true,
       tableOverrides: {
         draft_schedules: { data: existingDraft, error: null },
-        time_off_requests: { data: { id: 10, status: "approved" }, error: null },
+        time_off_requests: { data: [{ id: 10, status: "approved" }], error: null },
       },
     });
     mockCreateClient.mockResolvedValue(client as any);

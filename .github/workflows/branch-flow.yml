@@ -1,0 +1,38 @@
+name: Branch flow
+
+# Enforces the branch model in AGENTS.md: short-lived task branches merge into
+# dev, and only dev (or an owner-approved hotfix/* labeled emergency-hotfix)
+# merges into main. pull_request_target runs this workflow and its script as
+# they are on the base branch, so a pull request can't change the rule it is
+# checked against. It checks out only the base branch: no PR code runs, and
+# the token is read-only.
+on:
+  pull_request_target:
+    branches: [dev, main]
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branch-flow-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-branch-flow:
+    name: Validate branch flow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.base_ref }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - run: node .github/scripts/branch-flow.mjs
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}

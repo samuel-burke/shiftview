@@ -1,0 +1,20 @@
+# Dependency update PRs. They target dev like every other change, and
+# branch-flow.yml accepts their dependabot/* branches into dev only.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for routine minor and patch bumps instead of one per package.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: monthly

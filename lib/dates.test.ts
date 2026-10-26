@@ -105,6 +105,9 @@ describe("date-key arithmetic", () => {
       expect(previousPayWeek(today)).toEqual({ from: "2026-09-28", to: "2026-10-04" });
     }
     expect(previousPayWeek("2026-10-04")).toEqual({ from: "2026-09-21", to: "2026-09-27" });
+    // The org's payroll workweek start: Sunday Oct 4 starts this week.
+    expect(previousPayWeek("2026-10-04", 0)).toEqual({ from: "2026-09-27", to: "2026-10-03" });
+    expect(previousPayWeek("2026-10-03", 0)).toEqual({ from: "2026-09-20", to: "2026-09-26" });
   });
 
   it("formats date keys without any runtime zone shifting them", () => {

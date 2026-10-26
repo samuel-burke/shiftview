@@ -13,6 +13,7 @@ import { resolveManualPunchTime } from "@/lib/manual-punch-time";
 import { checkManualPunchAgainstHistory } from "@/lib/manual-punch-rules";
 import { loadCarriedOverPunches, loadCurrentShift, PUNCH_COLUMNS } from "@/lib/current-shift-server";
 import { isClockInShift, isScheduleIdInput, isShiftNearPunch, loadOwnSchedule, type PunchSchedule } from "@/lib/punch-schedule";
+import { isPayPeriodLockedError } from "@/lib/pay-periods-server";
 
 export const dynamic = "force-dynamic";
 
@@ -221,11 +222,16 @@ export async function POST(request: Request) {
     }
   }
 
-  // Server-side geofence enforcement for clock_in
-  if (punchType === "clock_in") {
-    const gpsRequired    = settingsMap.gps_required === "true";
+  // GPS is required independently of the optional geofence for live clock-ins.
+  if (punchType === "clock_in" && settingsMap.gps_required === "true") {
+    if (lat === null || lng === null) {
+      return NextResponse.json(
+        { error: "GPS location required to clock in" },
+        { status: 422 }
+      );
+    }
     const geofenceEnabled = settingsMap.geofence_enabled === "true";
-    if (gpsRequired && geofenceEnabled) {
+    if (geofenceEnabled) {
       const geofence = parseGeofenceConfig(
         settingsMap.geofence_lat,
         settingsMap.geofence_lng,
@@ -242,12 +248,6 @@ export async function POST(request: Request) {
       }
       if (geofence.status === "ok") {
         const { lat: geofenceLat, lng: geofenceLng, radius: geofenceRadius } = geofence;
-        if (lat === null || lng === null) {
-          return NextResponse.json(
-            { error: "GPS location required — geofence enforcement is active" },
-            { status: 422 }
-          );
-        }
         const dist = haversineMeters(lat, lng, geofenceLat, geofenceLng);
         if (!(dist <= geofenceRadius)) {
           writeAuditLog({
@@ -305,6 +305,9 @@ export async function POST(request: Request) {
     // written without this route. Settings changed since the check above.
     if (typeof insertError.code === "string" && /^GF00[123]$/.test(insertError.code))
       return NextResponse.json({ error: insertError.message }, { status: 422 });
+    // A locked pay period (migration 0062).
+    if (isPayPeriodLockedError(insertError))
+      return NextResponse.json({ error: insertError.message }, { status: 409 });
     console.error("[api/punches]", insertError);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -416,8 +419,12 @@ export async function PUT(request: Request) {
   // which would let them move a real, server-stamped punch.
   if (!isManager && id != null)
     return NextResponse.json({ error: "Only managers can edit existing punches" }, { status: 403 });
-  if (!isManager && (typeof note !== "string" || !note.trim()))
-    return NextResponse.json({ error: "A note is required for manual corrections" }, { status: 400 });
+  // Every manual punch says why, a manager's own add or edit included. The
+  // reason is stored as the punch's note, which the punch_records_history
+  // trigger (0053) copies into the punch's history.
+  if (typeof note !== "string" || !note.trim())
+    return NextResponse.json({ error: "A reason is required for manual corrections" }, { status: 400 });
+  const reason = note.trim();
 
   // Determine target employee
   let targetEmployeeId: number;
@@ -483,11 +490,13 @@ export async function PUT(request: Request) {
         employee_id:  targetEmployeeId,
         punch_type:   punchType,
         punched_at:   punchedAtIso,
-        note:         note.trim(),
+        note:         reason,
         requested_by: user.id,
       }))
       .select("id")
       .single();
+    if (isPayPeriodLockedError(requestError))
+      return NextResponse.json({ error: requestError!.message }, { status: 409 });
     if (requestError || !request) {
       console.error("[api/punches]", requestError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -507,7 +516,7 @@ export async function PUT(request: Request) {
       actorId:      user.id,
       resourceType: "punch_correction",
       resourceId:   String(request.id),
-      after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: note.trim() },
+      after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: reason },
       metadata: { employeeId: targetEmployeeId, employeeName: targetEmployeeName, punchType, punchedAt: punchedAtIso },
     }).catch(() => {});
 
@@ -548,10 +557,12 @@ export async function PUT(request: Request) {
     // Update existing punch
     const { error: updateError } = await supabase
       .from("punch_records")
-      .update({ punch_type: punchType, punched_at: punchedAtIso, note: note ?? null, is_manual: true })
+      .update({ punch_type: punchType, punched_at: punchedAtIso, note: reason, is_manual: true })
       .eq("org_id", orgId)
       .eq("id", id)
       .eq("employee_id", targetEmployeeId);
+    if (isPayPeriodLockedError(updateError))
+      return NextResponse.json({ error: updateError!.message }, { status: 409 });
     if (updateError) {
       console.error("[api/punches]", updateError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -566,22 +577,27 @@ export async function PUT(request: Request) {
         punch_type:  punchType,
         punched_at:  punchedAtIso,
         is_manual:   true,
-        note:        note ?? null,
+        note:        reason,
       }));
+    if (isPayPeriodLockedError(insertError))
+      return NextResponse.json({ error: insertError!.message }, { status: 409 });
     if (insertError) {
       console.error("[api/punches]", insertError);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
-  writeAuditLog({
+  // Awaited so a failed write is logged against this request. It doesn't fail
+  // the request: the punch is already saved, and the database's own
+  // punch_record_history row (0053) is the guaranteed record of the change.
+  const audited = await writeAuditLog({
     action:       "punch.correction",
     orgId,
     actorId:      user.id,
     resourceType: "punch_record",
     resourceId:   id != null ? String(id) : null,
     before,
-    after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: note ?? null },
+    after: { employeeId: targetEmployeeId, punchType, punchedAt: punchedAtIso, note: reason },
     metadata: {
       employeeId:   targetEmployeeId,
       employeeName: targetEmployeeName,
@@ -590,7 +606,9 @@ export async function PUT(request: Request) {
       isUpdate:     id != null,
       byManager:    isManager,
     },
-  }).catch(() => {});
+  });
+  if (!audited)
+    console.error(`[api/punches] audit log NOT written for ${id != null ? `edit of punch ${id}` : "manual punch"} by ${user.id} in org ${orgId}`);
 
   return NextResponse.json({ ok: true });
 }

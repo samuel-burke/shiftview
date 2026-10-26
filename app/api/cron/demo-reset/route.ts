@@ -3,16 +3,15 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { DEMO_ORG_ID } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
 
 function alertCronFailed(reason: string) {
-  return sendNtfy({
+  return sendSlackAlert({
     title: "Demo reset cron failed",
     message: `${reason}. The demo may be empty or stale until it's fixed; check the server logs.`,
-    tags: ["warning"],
-    priority: 4,
+    emoji: "warning",
   });
 }
 
@@ -46,6 +45,14 @@ export async function GET(request: Request) {
     await alertCronFailed("reset_demo_org failed");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+  // Pay periods a demo visitor approved or locked (migration 0062) would
+  // otherwise outlive the reset and lock tomorrow's sample punches.
+  const { error: periodsError } = await admin.rpc("pay_periods_reset_demo", { p_org: DEMO_ORG_ID });
+  if (periodsError) {
+    console.error("[cron/demo-reset] pay_periods_reset_demo failed:", periodsError);
+    await alertCronFailed("pay_periods_reset_demo failed");
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   let seeded;
   try {
@@ -72,11 +79,10 @@ export async function GET(request: Request) {
 
   // A daily recap of the day's demo traffic, sent only when there was some.
   if (visitorIds.length > 0) {
-    await sendNtfy({
+    await sendSlackAlert({
       title: "Daily demo recap",
       message: `${visitorIds.length} demo visitor${visitorIds.length === 1 ? "" : "s"} since the last reset.`,
-      tags: ["bar_chart"],
-      priority: 2,
+      emoji: "bar_chart",
     });
   }
 

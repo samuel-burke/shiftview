@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST, DELETE } from "./route";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { writeAuditLog } from "@/lib/audit";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 import { makeQueryBuilder } from "../__tests__/helpers";
 import { DEFAULT_ORG_ID } from "@/lib/org-context";
 import { DEMO_ORG_ID } from "@/lib/demo-org";
@@ -11,7 +11,7 @@ import { DEMO_ORG_ID } from "@/lib/demo-org";
 vi.mock("@/lib/supabase-server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/slack", () => ({ sendSlackAlert: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   after: (fn: () => unknown) => fn(),
   NextResponse: {
@@ -26,7 +26,7 @@ vi.mock("next/server", () => ({
 const mockCreateClient = vi.mocked(createClient);
 const mockCreateAdminClient = vi.mocked(createAdminClient);
 const mockWriteAuditLog = vi.mocked(writeAuditLog);
-const mockSendNtfy = vi.mocked(sendNtfy);
+const mockSendSlackAlert = vi.mocked(sendSlackAlert);
 
 const MOCK_USER = { id: "user-123", email: "founder@test.com", is_anonymous: false };
 const NEW_ORG_ID = "11111111-2222-3333-4444-555555555555";
@@ -67,7 +67,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockCreateClient.mockResolvedValue(makeServerClient() as any);
   mockCreateAdminClient.mockReturnValue(makeAdminClient() as any);
-  mockWriteAuditLog.mockResolvedValue(undefined);
+  mockWriteAuditLog.mockResolvedValue(true);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -157,22 +161,22 @@ describe("POST /api/organizations — provisioning", () => {
     );
   });
 
-  it("sends an ntfy alert with the org name and creator", async () => {
+  it("sends a Slack alert with the org name but not the creator's details", async () => {
     const res = await POST(postReq({ name: "Acme Coffee", ownerName: "Alice Smith" }));
     expect(res.status).toBe(201);
-    expect(mockSendNtfy).toHaveBeenCalledTimes(1);
-    const { message } = mockSendNtfy.mock.calls[0][0];
+    expect(mockSendSlackAlert).toHaveBeenCalledTimes(1);
+    const { message } = mockSendSlackAlert.mock.calls[0][0];
     expect(message).toContain("Acme Coffee");
-    expect(message).toContain("Alice Smith");
-    expect(message).toContain(MOCK_USER.email);
+    expect(message).not.toContain("Alice Smith");
+    expect(message).not.toContain(MOCK_USER.email);
   });
 
   it("sends a sign-up failed alert instead when creation errors", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: "XX000", message: "db down" } });
     mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
     await POST(postReq({ name: "Acme Coffee", ownerName: "Alice Smith" }));
-    expect(mockSendNtfy).toHaveBeenCalledTimes(1);
-    expect(mockSendNtfy.mock.calls[0][0].title).toBe("Organization sign-up failed");
+    expect(mockSendSlackAlert).toHaveBeenCalledTimes(1);
+    expect(mockSendSlackAlert.mock.calls[0][0].title).toBe("Organization sign-up failed");
   });
 
   it("retries with a suffixed slug when the slug is already taken", async () => {
@@ -332,11 +336,43 @@ describe("DELETE /api/organizations — confirmation and deletion", () => {
   });
 
   it("returns 500 when the RPC fails", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } });
     mockCreateAdminClient.mockReturnValue({ rpc } as any);
 
     const res = await DELETE(deleteReq());
 
     expect(res.status).toBe(500);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("keeps an owner-controlled name inside a single deletion log record", async () => {
+    const name = 'Acme\r\n[api/organizations] forged event\t"\\\u001b[2J';
+    const rpc = vi.fn().mockResolvedValue({ data: OWNED_ORG_ID, error: null });
+    mockCreateAdminClient.mockReturnValue(makeAdminClient({ rpc }) as any);
+
+    const created = await POST(postReq({ name: `  ${name}  `, ownerName: "Alice Smith" }));
+    expect(created.status).toBe(201);
+    const storedName = rpc.mock.calls[0][1].p_name;
+    expect(storedName).toBe(name);
+
+    mockCreateClient.mockResolvedValue(
+      makeOrgServerClient({ orgRow: { id: OWNED_ORG_ID, name: storedName } }) as any
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const deleted = await DELETE(deleteReq({ confirmName: storedName }));
+
+    expect(deleted.status).toBe(200);
+    expect(rpc).toHaveBeenLastCalledWith("org_delete", { p_org: OWNED_ORG_ID });
+    expect(log).toHaveBeenCalledExactlyOnceWith(expect.any(String));
+    const record = log.mock.calls[0][0];
+    expect([...record].every((char) => char.charCodeAt(0) >= 0x20)).toBe(true);
+    expect(JSON.parse(record)).toEqual({
+      action: "organization.delete",
+      orgId: OWNED_ORG_ID,
+      orgName: name,
+      actorId: MOCK_USER.id,
+    });
   });
 });

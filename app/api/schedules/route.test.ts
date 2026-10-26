@@ -334,7 +334,7 @@ describe("POST /api/schedules — conflict detection", () => {
         // no duplicate schedule
         schedules: { data: null, error: null },
         // approved time-off
-        time_off_requests: { data: { id: 10, status: "approved" }, error: null },
+        time_off_requests: { data: [{ id: 10, status: "approved" }], error: null },
       },
     });
     mockCreateClient.mockResolvedValue(client as any);

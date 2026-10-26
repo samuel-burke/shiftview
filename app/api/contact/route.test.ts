@@ -5,7 +5,7 @@ vi.mock("@/lib/email", async (importOriginal) => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: vi.fn().mockResolvedValue(true) }));
-vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/slack", () => ({ sendSlackAlert: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   after: (fn: () => unknown) => fn(),
   NextResponse: {
@@ -68,15 +68,15 @@ describe("POST /api/contact", () => {
     expect(arg.html).toContain("Do you support multiple store locations?");
   });
 
-  it("sends an ntfy heads-up with the sender and a preview", async () => {
+  it("sends a Slack heads-up without the sender's details or message", async () => {
     const { POST } = await load();
-    const { sendNtfy } = await import("@/lib/ntfy");
+    const { sendSlackAlert } = await import("@/lib/slack");
     await POST(req({ ...VALID, message: "x".repeat(300) }));
-    const arg = vi.mocked(sendNtfy).mock.calls[0][0];
+    const arg = vi.mocked(sendSlackAlert).mock.calls[0][0];
     expect(arg.title).toBe("Contact form: Question");
-    expect(arg.message).toContain("Dana Owner (dana@example.com)");
-    expect(arg.message).toContain(`${"x".repeat(200)}…`);
-    expect(arg.message).not.toContain("x".repeat(201));
+    expect(arg.message).not.toContain("Dana");
+    expect(arg.message).not.toContain("dana@example.com");
+    expect(arg.message).not.toContain("xxx");
   });
 
   it("escapes HTML in the submitted fields", async () => {

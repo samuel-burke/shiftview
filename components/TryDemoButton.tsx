@@ -8,7 +8,8 @@ import StableLabel from "./StableLabel";
 // Starts a demo session (anonymous sign-in + demo-org membership via
 // POST /api/demo/start) and lands on the dashboard with a real session.
 // When Turnstile is configured, the token is collected here and verified
-// server-side by /api/demo/start before the anonymous user is minted.
+// by Supabase Auth before the anonymous user is minted, or by /api/demo/start
+// before an existing anonymous user receives demo membership.
 export default function TryDemoButton({
   className,
   children,
