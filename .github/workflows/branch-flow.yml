@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: branch-flow-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   validate-branch-flow:
     name: Validate branch flow
@@ -21,6 +25,7 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
           sparse-checkout: .github/scripts
+          persist-credentials: false
 
       # Until the pull request that adds this check merges, the base branch
       # has no script to run.
@@ -34,3 +39,5 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}

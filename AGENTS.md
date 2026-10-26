@@ -427,7 +427,7 @@ There is no separate formatter; ESLint is the style gate. Do not mass-reformat f
 - Branch from `origin/dev` with a prefix from Section 3 (`feat/`, `fix/`, `chore/`, ...). PRs target `dev`, never `main`.
 - Every feature or fix has a GitHub issue, and the PR body says `Closes #N`. `.github/workflows/close-linked-issues.yml` closes it when the PR merges into `dev`.
 - Commits are authored as `Samuel Burke <32547172+samuel-burke@users.noreply.github.com>`. Do not add AI co-author trailers. Never rewrite already-pushed commits.
-- The standing release PR from `dev` to `main` is the only PR allowed into `main`. When a PR merges into `dev`, add a line for it to the release PR body and to `CHANGELOG.md` under `Unreleased`, and add any new migration to the release PR's "Before release" list.
+- The standing release PR from `dev` to `main` is the only PR allowed into `main`, apart from an owner-approved `hotfix/*` PR labeled `emergency-hotfix` (Section 3). When a PR merges into `dev`, add a line for it to the release PR body and to `CHANGELOG.md` under `Unreleased`, and add any new migration to the release PR's "Before release" list.
 - Ask the owner before pushing, opening a PR, merging, or deploying unless they asked for that step.
 
 ### Security boundaries that every change must keep

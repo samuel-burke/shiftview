@@ -19,14 +19,16 @@ export default defineConfig({
       reporter: ["text-summary", "json-summary", "lcov"],
       include: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "hooks/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}", "proxy.ts"],
       exclude: ["**/*.test.{ts,tsx}", "**/*.d.ts"],
-      // Floor at the measured baseline (2026-10-26) so coverage can't drop.
+      // Just under the measured baseline (2026-10-26) so coverage can't drop.
+      // The 0.1-point margin absorbs run-to-run noise: identical code has
+      // measured 1 function and 1 statement apart between runs.
       // Raise these as coverage improves; the target is 85% lines / 80%
       // branches (docs/testing.md). Never lower them to get a green build.
       thresholds: {
-        lines: 68,
-        statements: 66,
-        branches: 64,
-        functions: 56,
+        lines: 68.8,
+        statements: 66.5,
+        branches: 64.1,
+        functions: 56.2,
       },
     },
   },

@@ -3,7 +3,7 @@
 // the owner has labeled emergency-hotfix) merges into main.
 
 // Prefixes people and agents use for task branches.
-const TASK_BRANCH = /^(feat|feature|fix|bug|bugfix|refactor|chore|docs|test|ci|perf|hotfix)\/[a-z0-9][a-z0-9._-]*$/;
+const TASK_BRANCH = /^(feat|fix|bug|refactor|chore|docs|test|ci|perf|hotfix)\/[a-z0-9][a-z0-9._-]*$/;
 
 // Branches that tools open pull requests from: Dependabot updates, CodeRabbit
 // and GitHub code scanning autofixes. They may target dev, never main.
@@ -12,8 +12,11 @@ const TOOL_BRANCH = /^(dependabot\/[\w./-]+|coderabbit\/[\w./-]+|alert-autofix-\
 const HOTFIX_BRANCH = /^hotfix\/[a-z0-9][a-z0-9._-]*$/;
 
 // Returns { ok, message } for a pull request from `head` into `base`.
-export function checkBranchFlow(base, head, labels = []) {
+// `fromFork` is true when the head branch lives in another repository: a
+// fork's branch named dev is not this repository's dev.
+export function checkBranchFlow(base, head, labels = [], fromFork = false) {
   if (base === "main") {
+    if (fromFork) return { ok: false, message: "PRs into main must come from this repository's dev, not a fork." };
     if (head === "dev") return { ok: true, message: "Release PR: dev -> main." };
     if (HOTFIX_BRANCH.test(head) && labels.includes("emergency-hotfix")) {
       return { ok: true, message: "Emergency hotfix -> main. The label is not an approval: owner review is still required." };
@@ -34,9 +37,10 @@ export function checkBranchFlow(base, head, labels = []) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { BASE_REF = "", HEAD_REF = "", PR_LABELS = "" } = process.env;
+  const { BASE_REF = "", HEAD_REF = "", PR_LABELS = "", HEAD_REPO = "", BASE_REPO = "" } = process.env;
   const labels = PR_LABELS.split(",").map((label) => label.trim()).filter(Boolean);
-  const { ok, message } = checkBranchFlow(BASE_REF, HEAD_REF, labels);
+  const fromFork = HEAD_REPO.toLowerCase() !== BASE_REPO.toLowerCase();
+  const { ok, message } = checkBranchFlow(BASE_REF, HEAD_REF, labels, fromFork);
   if (ok) {
     console.log(message);
   } else {

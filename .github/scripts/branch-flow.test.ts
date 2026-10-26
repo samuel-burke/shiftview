@@ -19,7 +19,7 @@ describe("checkBranchFlow", () => {
   });
 
   it("rejects unprefixed, agent-named and malformed branches into dev", () => {
-    for (const head of ["claude/project-thread-s6bujw", "integration/security-fixes", "my-change", "Feat/Kiosk", "feat/", "feat/-x", "main", "dev"]) {
+    for (const head of ["claude/project-thread-s6bujw", "integration/security-fixes", "feature/kiosk", "bugfix/clock", "my-change", "Feat/Kiosk", "feat/", "feat/-x", "main", "dev"]) {
       expect(checkBranchFlow("dev", head).ok, head).toBe(false);
     }
   });
@@ -37,6 +37,12 @@ describe("checkBranchFlow", () => {
     expect(checkBranchFlow("main", "fix/punch-crash", ["emergency-hotfix"]).ok).toBe(false);
   });
 
+  it("rejects a fork's dev or hotfix branch into main", () => {
+    expect(checkBranchFlow("main", "dev", [], true).ok).toBe(false);
+    expect(checkBranchFlow("main", "hotfix/punch-crash", ["emergency-hotfix"], true).ok).toBe(false);
+    expect(checkBranchFlow("main", "dev", [], false).ok).toBe(true);
+  });
+
   it("rejects other base branches", () => {
     expect(checkBranchFlow("feat/kiosk", "fix/x").ok).toBe(false);
   });
@@ -44,7 +50,10 @@ describe("checkBranchFlow", () => {
   it("fails the process with an annotation when the flow is wrong", () => {
     const script = path.join(__dirname, "branch-flow.mjs");
     const run = (env: Record<string, string>) =>
-      execFileSync(process.execPath, [script], { env: { PATH: process.env.PATH ?? "", ...env }, encoding: "utf8" });
+      execFileSync(process.execPath, [script], {
+        env: { PATH: process.env.PATH ?? "", HEAD_REPO: "samuel-burke/shiftview", BASE_REPO: "samuel-burke/shiftview", ...env },
+        encoding: "utf8",
+      });
     expect(run({ BASE_REF: "dev", HEAD_REF: "feat/kiosk" })).toContain("feat/kiosk -> dev");
     let failure: { status?: number; stdout?: string } = {};
     try {
@@ -55,5 +64,6 @@ describe("checkBranchFlow", () => {
     expect(failure.status).toBe(1);
     expect(failure.stdout).toContain("::error::PRs into main must come from dev");
     expect(run({ BASE_REF: "main", HEAD_REF: "hotfix/x", PR_LABELS: "bug, emergency-hotfix" })).toContain("Emergency hotfix");
+    expect(() => run({ BASE_REF: "main", HEAD_REF: "dev", HEAD_REPO: "someone/shiftview" })).toThrow();
   });
 });

@@ -14,7 +14,7 @@ Never point a local or test run at the production database.
 
 | Branch | Role |
 | --- | --- |
-| `main` | Production. Changes arrive only through the release PR from `dev`. |
+| `main` | Production. Changes arrive only through the release PR from `dev`, or an owner-approved `hotfix/*` PR (below). |
 | `dev` | Integration. Every task PR targets `dev`. |
 | `feat/…`, `fix/…` (or `bug/…`), `chore/…`, `docs/…`, `refactor/…`, `test/…`, `ci/…`, `perf/…` | Short-lived task branches cut from `dev`. |
 | `hotfix/…` | Only with the owner's approval for an urgent production fix: PR into `main` with the `emergency-hotfix` label, then back into `dev`. |

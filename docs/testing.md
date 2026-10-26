@@ -32,14 +32,14 @@ Baseline, 2026-10-26, on `dev` at `c4d5027` plus this setup:
 
 | Metric | Baseline | Floor enforced in `vitest.config.ts` | Target (AGENTS.md) |
 | --- | --- | --- | --- |
-| Lines | 68.86% | 68% | 85% |
-| Branches | 64.17% | 64% | 80% |
-| Statements | 66.57% | 66% | — |
-| Functions | 56.32% | 56% | — |
+| Lines | 68.86% | 68.8% | 85% |
+| Branches | 64.17% | 64.1% | 80% |
+| Statements | 66.56–66.57% | 66.5% | — |
+| Functions | 56.29–56.32% | 56.2% | — |
 
 By area (lines / branches): `app/api` 87.2% / 79.5%, `lib` 85.8% / 85.3%, `lib/scheduler` 98.5% / 92.7%, `components` 68.6% / 67.5%. The low areas are page clients with no component tests: `app/schedule` 2.9%, `app/reports` 0%, `app/week` 0%, `app/requests` 0%, `app/coverage` 0%, `components/marketing` 19.1%, `hooks` 45.5% / 20.4%, `proxy.ts` 0%.
 
-The floor stops coverage from dropping. It must only go up. CI uploads the `coverage/` report as an artifact on every run; there is no coverage badge because no coverage service is configured.
+The floor sits 0.1 point under the baseline, because identical code measured one function and one statement apart between runs. It stops coverage from dropping. It must only go up. CI uploads the `coverage/` report as an artifact on every run; there is no coverage badge because no coverage service is configured.
 
 ### Improvement plan
 
