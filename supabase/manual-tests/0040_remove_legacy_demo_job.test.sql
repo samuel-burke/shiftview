@@ -17,7 +17,7 @@ begin
 end $$;
 
 -- A database without pg_cron or the leftovers, like one built from baseline.sql.
-\ir ../migrations/0040_remove_legacy_demo_job.sql
+\ir ../archive/0040_remove_legacy_demo_job.sql
 select pg_temp.check('runs where pg_cron is not installed', true);
 
 create schema cron;
@@ -29,8 +29,8 @@ insert into cron.job (jobname, schedule, command) values
   ('someone-elses-job', '*/5 * * * *', 'select 1');
 create sequence public.schedules_demo_id_seq;
 
-\ir ../migrations/0040_remove_legacy_demo_job.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
+\ir ../archive/0040_remove_legacy_demo_job.sql
+\ir ../archive/0040_remove_legacy_demo_job.sql
 
 select pg_temp.check('the failing demo job is unscheduled',
   not exists (select 1 from cron.job where jobname = 'refresh-demo-schedules'));

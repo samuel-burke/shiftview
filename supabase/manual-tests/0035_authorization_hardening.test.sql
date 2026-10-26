@@ -121,10 +121,10 @@ insert into employees values
   (4, :orgb, :zoe,   'Zoe',   'zoe@example.com');
 insert into managers (org_id, user_id) values (:org, :mia);
 
-\ir ../migrations/0030_punch_timestamp_integrity.sql
-\ir ../migrations/0031_punch_correction_requests.sql
-\ir ../migrations/0035_authorization_hardening.sql
-\ir ../migrations/0038_notify_service_role_only.sql
+\ir ../archive/0030_punch_timestamp_integrity.sql
+\ir ../archive/0031_punch_correction_requests.sql
+\ir ../archive/0035_authorization_hardening.sql
+\ir ../archive/0038_notify_service_role_only.sql
 
 grant usage on schema public, auth to anon, authenticated, service_role;
 grant select, insert, update, delete on all tables in schema public to authenticated, service_role;

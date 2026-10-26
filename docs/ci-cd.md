@@ -8,7 +8,7 @@ How code gets from a task branch to shiftview.app, and what is verified versus s
 - **CI:** GitHub Actions, `.github/workflows/test.yml` (workflow name `CI`) and `.github/workflows/branch-flow.yml`.
 - **Hosting:** Vercel, already in use (`vercel.json` crons and region, `@vercel/analytics`, `lib/production-env.ts` checks `VERCEL_ENV`). See [ADR 0001](adr/0001-deployment-platform.md) for why it stays.
 - **Single deploy controller:** Vercel's Git integration. GitHub Actions never deploys the app. Do not add a deploy job or a second Vercel project for the same repository.
-- **Database changes** are not deployed by the app. Today they are applied by hand in the Supabase SQL editor after the app deploys, in the order the release PR lists. PR #197 proposes the Supabase CLI and a `db push` workflow on `main`; if it merges, that workflow becomes the one migration controller and this page needs updating.
+- **Database changes** are not deployed by the app. The `Migrate database` workflow (`.github/workflows/migrate.yml`) is the one migration controller: when Vercel reports the `main` production deployment as successful, it runs `supabase db push`, which applies the migrations production's history doesn't have yet, in timestamp order. Automatic runs are off until the repository variable `SUPABASE_AUTO_MIGRATE` is `true`; until then (and for the one-time cutover in the README) migrations are applied with the Supabase CLI by hand, never pasted into the SQL editor.
 
 ## Branch to environment mapping
 
@@ -45,8 +45,10 @@ The check names above are the job names GitHub reports. Confirm them on the firs
 2. When `dev` is ready, a `chore/release-…` PR into `dev` moves `Unreleased` into a version section (and bumps `package.json` `version` if versioning is adopted).
 3. The release PR (`dev` → `main`) is filled in using the template's release section: included PRs, migrations and their order, CI run on the release commit, preview checks, rollback.
 4. The owner approves and merges. Vercel builds `main` for production.
-5. Verify the deployment: the Vercel production deployment shows the merge commit SHA and state Ready, then run the smoke test below.
-6. Apply database migrations in the listed order (those marked DEPLOY THE APP FIRST only now), then run `supabase/schema-fingerprint.sql` (read-only) to confirm production matches the repository.
+5. If the repository variable `SUPABASE_AUTO_MIGRATE` is `true`, the `Migrate database` workflow applies the release's migrations (`supabase db push`) as soon as the production deployment is Ready. Check that its run on the merge commit succeeded and that the "Applied migrations" step's `supabase migration list` shows every local migration on the remote. Otherwise apply them with the Supabase CLI (README, "Set up the database") before treating the release as migrated.
+6. Verify the deployment: the Vercel production deployment shows the merge commit SHA and state Ready, run the smoke test below, and run `supabase/schema-fingerprint.sql` (read-only) to confirm production matches the repository.
+
+Migrations run about a minute after the new app goes live, so write them to work with both app versions: add tables, columns and functions in one release and remove the old ones in a later release (expand → contract). A migration that can't, such as one that revokes access the old app still uses while the new app needs objects it adds, says **DEPLOY WITH THE APP** in its header, and the release PR calls out the short window between the deploy and the migration where the affected feature errors.
 7. Tag the release (`vX.Y.Z`) on the merge commit once versioning is adopted.
 
 ### Post-deploy smoke test (manual for now)

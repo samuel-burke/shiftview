@@ -2,7 +2,7 @@
 -- functions and their privileges, columns, column grants, constraints,
 -- triggers, RLS flags, Realtime tables) with a count and an md5 of them all.
 -- Read-only. Run it against production (Supabase SQL editor) and against a
--- database built from baseline.sql plus the later migrations, and compare:
+-- database built from supabase/migrations, and compare:
 -- matching rows mean the repository builds what production runs.
 --
 -- Function bodies are compared with whitespace collapsed and -- comments
@@ -24,6 +24,10 @@ with l as (select regexp_replace(kind || ' | ' || name || ' | ' || detail, '\s+'
   select 'colgrant', table_name||'.'||column_name||'.'||grantee, string_agg(privilege_type, ',' order by privilege_type)
   from information_schema.column_privileges where table_schema='public' and grantee in ('anon','authenticated')
   group by table_name, column_name, grantee
+  union all
+  select 'tablegrant', table_name||'.'||grantee, string_agg(privilege_type, ',' order by privilege_type)
+  from information_schema.table_privileges where table_schema='public' and grantee in ('anon','authenticated')
+  group by table_name, grantee
   union all
   select 'constraint', conrelid::regclass::text||'.'||conname, pg_get_constraintdef(oid)
   from pg_constraint where connamespace='public'::regnamespace

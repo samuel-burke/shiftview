@@ -43,8 +43,8 @@ insert into employees values
   (2, '00000000-0000-0000-0000-00000000000a', '22222222-2222-2222-2222-222222222222', 'Bob');
 insert into managers values ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-00000000000a');
 
-\ir ../migrations/0030_punch_timestamp_integrity.sql
-\ir ../migrations/0031_punch_correction_requests.sql
+\ir ../archive/0030_punch_timestamp_integrity.sql
+\ir ../archive/0031_punch_correction_requests.sql
 
 -- An app-like role: RLS applies to it (superusers bypass RLS).
 do $$ begin

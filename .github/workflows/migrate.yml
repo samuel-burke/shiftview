@@ -1,0 +1,77 @@
+name: Migrate database
+
+# Applies supabase/migrations to production with `supabase db push`, which
+# runs only the migrations missing from the project's migration history, in
+# order, each in its own transaction.
+#
+# Runs after Vercel reports a successful production deployment, so migrations
+# marked DEPLOY THE APP FIRST find the new app code live. Automatic runs are
+# off until the repository variable SUPABASE_AUTO_MIGRATE is "true" (set it
+# once production's history has the baseline recorded; see README, "Set up
+# the database"). It can always be started by hand from the Actions tab.
+#
+# Secrets: SUPABASE_ACCESS_TOKEN (a personal access token), SUPABASE_DB_PASSWORD
+# and SUPABASE_PROJECT_REF.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List the migrations that would run, without applying them
+        type: boolean
+        default: true
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  push:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (vars.SUPABASE_AUTO_MIGRATE == 'true' &&
+       github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The commit Vercel deployed, not whatever main is by now. Full
+          # history so the next step can check it is on main.
+          ref: ${{ github.event.deployment.sha || github.sha }}
+          fetch-depth: 0
+
+      # A Production deployment can also come from promoting a preview or a
+      # CLI deploy. Only migrate commits that are on main.
+      - name: Check the deployed commit is on main
+        run: git merge-base --is-ancestor HEAD origin/main
+
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+        with:
+          version: 2.53.6
+
+      - run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+
+      - name: Pending migrations
+        run: supabase migration list
+
+      - name: Apply
+        if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+        run: supabase db push --yes
+
+      - name: Applied migrations
+        if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+        run: supabase migration list
+
+      - name: Dry run
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: supabase db push --dry-run

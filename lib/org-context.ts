@@ -4,7 +4,7 @@ import { isDemoOrgId } from "@/lib/demo-org";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-// Must match the org seeded by supabase/migrations/0001_multitenancy_expand.sql.
+// Must match the org seeded by supabase/archive/0001_multitenancy_expand.sql.
 export const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
 // Clients may pin a specific organization with this header; without it the

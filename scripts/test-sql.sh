@@ -12,13 +12,11 @@ cd "$(dirname "$0")/../supabase/manual-tests"
 
 filter="${1:-}"
 
-# baseline.sql is the schema as of 0037; a new project runs it and then every
-# later migration. baseline.test.sql replays that setup, so it must include
-# each of those migrations or a clean setup goes untested.
+# A new project runs every file in supabase/migrations in name order (the
+# baseline first). baseline.test.sql replays that setup, so it must include
+# each of them or a clean setup goes untested.
 missing=()
 for migration in ../migrations/*.sql; do
-  number=$(basename "$migration" | cut -d_ -f1)
-  ((10#$number <= 37)) && continue
   grep -qF "\\ir $migration" baseline.test.sql || missing+=("$(basename "$migration")")
 done
 if [[ ${#missing[@]} -gt 0 ]]; then
@@ -29,6 +27,43 @@ fi
 
 failed=()
 ran=0
+
+# The baseline migration is a squash of the archived 0001-0051 chain that
+# production ran. Build both and compare their schema fingerprints line by
+# line, so the baseline can't drift from what production has.
+if [[ -z "$filter" || "baseline-equivalence" == *"$filter"* ]]; then
+  fingerprint() {
+    local db=$1 setup=$2
+    dropdb --if-exists "$db" >/dev/null 2>&1
+    createdb "$db" || return 1
+    psql -X -q -v ON_ERROR_STOP=1 -d "$db" -f "$setup" >/dev/null 2>&1 || { dropdb "$db"; return 1; }
+    local lines status
+    lines=$(sed 's/^) x) select split_part.*/) x) select line from l order by line;/' ../schema-fingerprint.sql \
+      | psql -X -q -At -v ON_ERROR_STOP=1 -d "$db")
+    status=$?
+    dropdb --if-exists "$db" >/dev/null 2>&1
+    [[ $status -eq 0 && -n "$lines" ]] && echo "$lines"
+  }
+  chain=$(mktemp ./chain.XXXXXX.sql) squashed=$(mktemp ./squashed.XXXXXX.sql)
+  { echo '\ir supabase-stubs.sql'; echo '\ir ../archive/baseline.sql'
+    for f in ../archive/00*.sql; do (( 10#$(basename "$f" | cut -d_ -f1) > 37 )) && echo "\\ir $f"; done
+  } > "$chain"
+  printf '\\ir supabase-stubs.sql\n\\ir ../migrations/20261018000000_baseline.sql\n' > "$squashed"
+  ran=$((ran + 1))
+  if a=$(fingerprint sqltest_chain "$chain") && b=$(fingerprint sqltest_squashed "$squashed"); then
+    if difference=$(diff <(echo "$a") <(echo "$b")); then
+      echo "✓ baseline-equivalence ($(wc -l <<<"$a") schema objects match the archived chain)"
+    else
+      echo "✗ baseline-equivalence: the baseline migration differs from the archived 0001-0051 chain"
+      echo "$difference" | head -20 | sed 's/^/    /'
+      failed+=("baseline-equivalence")
+    fi
+  else
+    echo "✗ baseline-equivalence: a setup failed to apply"
+    failed+=("baseline-equivalence")
+  fi
+  rm -f "$chain" "$squashed"
+fi
 
 for file in *.test.sql; do
   [[ -n "$filter" && "$file" != *"$filter"* ]] && continue

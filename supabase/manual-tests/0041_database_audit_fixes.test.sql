@@ -15,10 +15,10 @@
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
-\ir ../baseline.sql
-\ir ../migrations/0038_notify_service_role_only.sql
-\ir ../migrations/0039_link_existing_accounts.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
+\ir ../archive/baseline.sql
+\ir ../archive/0038_notify_service_role_only.sql
+\ir ../archive/0039_link_existing_accounts.sql
+\ir ../archive/0040_remove_legacy_demo_job.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -246,8 +246,8 @@ end $$;
 
 select pg_temp.record_matrix('before');
 
-\ir ../migrations/0041_database_audit_fixes.sql
-\ir ../migrations/0041_database_audit_fixes.sql
+\ir ../archive/0041_database_audit_fixes.sql
+\ir ../archive/0041_database_audit_fixes.sql
 
 select pg_temp.record_matrix('after');
 
@@ -477,8 +477,8 @@ select pg_temp.check('signed-out callers cannot call it',
 select pg_temp.check('before 0042 any coworker can read pay rates directly (the bug)',
   pg_temp.try(:dan, 'select pay_rate from employees where pay_rate is not null') = 'ok:3');
 
-\ir ../migrations/0042_pay_rate_managers_only.sql
-\ir ../migrations/0042_pay_rate_managers_only.sql
+\ir ../archive/0042_pay_rate_managers_only.sql
+\ir ../archive/0042_pay_rate_managers_only.sql
 
 select pg_temp.check('an employee cannot read pay_rate',
   pg_temp.try(:dan, 'select pay_rate from employees') = 'err:42501');

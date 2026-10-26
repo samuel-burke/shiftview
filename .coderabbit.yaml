@@ -25,10 +25,8 @@ reviews:
         - Check atomicity: multi-statement changes should be safe to run in one transaction, and data backfills must not leave rows half-migrated if a later statement fails.
         - Flag non-idempotent DDL, destructive changes (DROP, column type changes, NOT NULL on existing columns) without a backfill, and long locks on large tables.
         - Flag grants to `authenticated` that expose columns or functions other orgs should not see, and tables added to the Realtime publication without RLS.
-        - If the migration changes the schema, check that supabase/baseline.sql is updated to match and that a test exists in supabase/manual-tests where behavior changes.
-    - path: "supabase/baseline.sql"
-      instructions: |
-        This is the full schema for a new project and must stay equivalent to the numbered migrations. Flag drift from the migrations in the same PR, and apply the same RLS and SECURITY DEFINER rules as for migrations.
+        - New migrations must be new timestamped files (`supabase migration new`); flag edits to a migration that is already on dev or main, including 20261018000000_baseline.sql, which production has recorded as applied.
+        - Check that a new migration is added to supabase/manual-tests/baseline.test.sql and that a test exists in supabase/manual-tests where behavior changes.
     - path: "app/api/**/route.ts"
       instructions: |
         API routes are the security boundary for a multi-tenant app.

@@ -148,7 +148,7 @@ select pg_temp.check('before: …and can rewrite its schedule',
   pg_temp.changed(:visitor, $q$update schedules set start_minutes = 0 where org_id = '00000000-0000-0000-0000-00000000000a'$q$) = 1);
 update schedules set start_minutes = 540;
 
-\ir ../migrations/0036_drop_legacy_policies.sql
+\ir ../archive/0036_drop_legacy_policies.sql
 
 -- After: nothing outside your own organizations.
 select pg_temp.check('after: the demo visitor sees none of the store''s employees',

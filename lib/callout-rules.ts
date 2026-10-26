@@ -2,7 +2,7 @@
 // are scheduled for today or tomorrow — store-local days — and not for today's
 // shift once they've clocked in for it. Shared by POST /api/callouts and the
 // screens that offer the button, and mirrored in the database by the
-// enforce_callout_rules() trigger (supabase/migrations/0032_callout_rules.sql).
+// enforce_callout_rules() trigger (supabase/archive/0032_callout_rules.sql).
 
 import { addDaysToKey } from "@/lib/dates";
 

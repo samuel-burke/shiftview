@@ -46,3 +46,7 @@ next-env.d.ts
 # local tooling
 /memory
 .claude/
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/

@@ -9,15 +9,15 @@
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
-\ir ../baseline.sql
-\ir ../migrations/0038_notify_service_role_only.sql
-\ir ../migrations/0039_link_existing_accounts.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
-\ir ../migrations/0041_database_audit_fixes.sql
-\ir ../migrations/0042_pay_rate_managers_only.sql
-\ir ../migrations/0043_punch_schedule_ownership.sql
-\ir ../migrations/0044_org_isolation.sql
-\ir ../migrations/0046_live_clock_in_same_day.sql
+\ir ../archive/baseline.sql
+\ir ../archive/0038_notify_service_role_only.sql
+\ir ../archive/0039_link_existing_accounts.sql
+\ir ../archive/0040_remove_legacy_demo_job.sql
+\ir ../archive/0041_database_audit_fixes.sql
+\ir ../archive/0042_pay_rate_managers_only.sql
+\ir ../archive/0043_punch_schedule_ownership.sql
+\ir ../archive/0044_org_isolation.sql
+\ir ../archive/0046_live_clock_in_same_day.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -109,8 +109,8 @@ select case when (select usable from scenario)
 
 -- Part 2: 0047.
 \set ON_ERROR_STOP on
-\ir ../migrations/0047_store_timezone.sql
-\ir ../migrations/0047_store_timezone.sql
+\ir ../archive/0047_store_timezone.sql
+\ir ../archive/0047_store_timezone.sql
 \unset ON_ERROR_STOP
 
 select pg_temp.check('a stored lower-case timezone is normalised',

@@ -17,13 +17,13 @@
 
 \set ON_ERROR_STOP on
 \ir supabase-stubs.sql
-\ir ../baseline.sql
-\ir ../migrations/0038_notify_service_role_only.sql
-\ir ../migrations/0039_link_existing_accounts.sql
-\ir ../migrations/0040_remove_legacy_demo_job.sql
-\ir ../migrations/0041_database_audit_fixes.sql
-\ir ../migrations/0042_pay_rate_managers_only.sql
-\ir ../migrations/0043_punch_schedule_ownership.sql
+\ir ../archive/baseline.sql
+\ir ../archive/0038_notify_service_role_only.sql
+\ir ../archive/0039_link_existing_accounts.sql
+\ir ../archive/0040_remove_legacy_demo_job.sql
+\ir ../archive/0041_database_audit_fixes.sql
+\ir ../archive/0042_pay_rate_managers_only.sql
+\ir ../archive/0043_punch_schedule_ownership.sql
 \unset ON_ERROR_STOP
 
 \set ann  '''aaaaaaaa-0000-0000-0000-000000000001'''
@@ -385,8 +385,8 @@ select pg_temp.check('before 0044 a manager can link a correction to another org
   pg_temp.try(:ben, :cross_punch) = 'ok:1');
 
 \set ON_ERROR_STOP on
-\ir ../migrations/0044_org_isolation.sql
-\ir ../migrations/0044_org_isolation.sql
+\ir ../archive/0044_org_isolation.sql
+\ir ../archive/0044_org_isolation.sql
 \unset ON_ERROR_STOP
 
 select pg_temp.check('a member cannot message a user of another org (' || r || ')', r = 'err:42501')
