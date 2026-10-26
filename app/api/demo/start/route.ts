@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { DEMO_ORG_ID, DEMO_MANAGER_EMAIL } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
 import { isProductionDeployment, verifyTurnstileToken } from "@/lib/turnstile";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
 
@@ -153,10 +153,10 @@ export async function POST(request: Request) {
       })
       .join(", ");
     after(() =>
-      sendNtfy({
+      sendSlackAlert({
         title: "Demo started on ShiftView",
         message: where ? `Someone just opened the demo from ${where}.` : "Someone just opened the demo.",
-        tags: ["eyes"],
+        emoji: "eyes",
       })
     );
   }

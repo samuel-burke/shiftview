@@ -1,12 +1,12 @@
 import { NextResponse, after } from "next/server";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 import { cleanRef, notableReferrerHost } from "@/lib/notable-visit";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/visit — sent once per browser session by NotableVisitBeacon when a
 // visitor arrives through a tagged link (?ref=…) or from a hiring/developer
-// site. Pushes an ntfy alert to the operator; stores nothing. Always answers
+// site. Pushes a Slack alert to the operator; stores nothing. Always answers
 // 204 so the endpoint reveals nothing about what it does with the data.
 //
 // Public and unauthenticated, so: a strict per-instance rate limit (same
@@ -31,7 +31,7 @@ const PATH_RE = /^\/[a-z0-9/_-]{0,63}$/i;
 
 export async function POST(request: Request) {
   const noContent = new NextResponse(null, { status: 204 });
-  if (!process.env.NTFY_TOPIC_URL) return noContent;
+  if (!process.env.SLACK_WEBHOOK_URL) return noContent;
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (rateLimited(ip)) return noContent;
@@ -58,11 +58,10 @@ export async function POST(request: Request) {
   if (where) lines.push(`Location: ${where}`);
 
   after(() =>
-    sendNtfy({
+    sendSlackAlert({
       title: "Possible recruiter visit",
       message: lines.join("\n"),
-      tags: ["briefcase"],
-      priority: 4,
+      emoji: "briefcase",
     })
   );
 

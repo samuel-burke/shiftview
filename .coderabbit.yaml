@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config for a solo-maintained repo: CodeRabbit is often the only
+# second pair of eyes, so it is tuned to flag smaller issues too.
+language: en-US
+reviews:
+  profile: assertive
+  auto_review:
+    enabled: true
+    base_branches:
+      - dev
+      - main
+
+  # Skip generated or vendored files that only add noise to reviews.
+  path_filters:
+    - "!package-lock.json"
+    - "!**/*.snap"
+    - "!public/**/*.{png,jpg,jpeg,gif,webp,ico,svg,woff,woff2}"
+
+  path_instructions:
+    - path: "supabase/migrations/**/*.sql"
+      instructions: |
+        Migrations run against a live multi-tenant production database, in order, and are not easily reversed.
+        - Every new table must enable RLS and have policies scoped to the caller's organization; flag any policy using `true`, missing an org check, or granting to `anon` without a clear reason.
+        - SECURITY DEFINER functions must `SET search_path = ''` (or a fixed schema), schema-qualify every object, check the caller's org/role inside the body, and REVOKE EXECUTE from `public`/`anon` unless intended.
+        - Check atomicity: multi-statement changes should be safe to run in one transaction, and data backfills must not leave rows half-migrated if a later statement fails.
+        - Flag non-idempotent DDL, destructive changes (DROP, column type changes, NOT NULL on existing columns) without a backfill, and long locks on large tables.
+        - Flag grants to `authenticated` that expose columns or functions other orgs should not see, and tables added to the Realtime publication without RLS.
+        - New migrations must be new timestamped files (`supabase migration new`); flag edits to a migration that is already on dev or main, including 20261018000000_baseline.sql, which production has recorded as applied.
+        - Check that a new migration is added to supabase/manual-tests/baseline.test.sql and that a test exists in supabase/manual-tests where behavior changes.
+    - path: "app/api/**/route.ts"
+      instructions: |
+        API routes are the security boundary for a multi-tenant app.
+        - Every user-facing handler that reads or changes existing organization data must authenticate the caller and resolve their organization first; flag any query not scoped to the caller's org (org isolation), including lookups by id that skip an org filter. Exceptions: cron routes (secret-authenticated, below) and org creation, where an authenticated user without an org creates their first one.
+        - Check role checks (manager vs employee) on every mutating route, not just in the UI.
+        - Validate and bound all input (body, query, params): types, lengths, enums, dates/timezones, and numeric ranges. Reject unknown fields where it matters.
+        - Flag use of the service-role/admin Supabase client (lib/supabase-admin.ts) where the user-scoped client would do, and any place it runs with caller-controlled filters.
+        - Cron routes (app/api/cron/**) must verify the cron secret via lib/cron-auth.ts.
+        - Check error responses do not leak internals or other orgs' data, and that status codes are correct.
+        - Point out race conditions in read-then-write flows that should be a single atomic statement or RPC.
+    - path: "lib/**/*.ts"
+      instructions: |
+        Shared server and client logic. Watch for timezone and DST bugs in date math (orgs have their own timezone), off-by-one errors in pay period and shift boundaries, and server-only code (secrets, admin client) being imported into client components.
+    - path: "**/*.test.{ts,tsx}"
+      instructions: |
+        Check that tests assert behavior, not implementation details, and cover the failure and edge cases (unauthorized caller, wrong org, invalid input, DST and midnight boundaries), not only the happy path. Flag tests that can pass without exercising the code under test, and missing tests for new API routes or security-relevant logic.
+    - path: "supabase/manual-tests/**/*.sql"
+      instructions: |
+        SQL tests should prove RLS and function behavior from the point of view of different roles and orgs, including that another org cannot read or change the data.
+    - path: "e2e/**/*.ts"
+      instructions: |
+        Playwright tests: flag fixed sleeps and brittle selectors; prefer role/label locators and web-first assertions.
+    - path: ".github/workflows/**"
+      instructions: |
+        Check least-privilege `permissions`, pinned action versions, and that secrets are never echoed or exposed to pull requests from forks.
+
+chat:
+  auto_reply: true

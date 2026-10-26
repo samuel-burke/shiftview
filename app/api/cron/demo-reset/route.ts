@@ -3,16 +3,15 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { DEMO_ORG_ID } from "@/lib/demo-org";
 import { seedDemoOrg } from "@/lib/demo-seed";
-import { sendNtfy } from "@/lib/ntfy";
+import { sendSlackAlert } from "@/lib/slack";
 
 export const dynamic = "force-dynamic";
 
 function alertCronFailed(reason: string) {
-  return sendNtfy({
+  return sendSlackAlert({
     title: "Demo reset cron failed",
     message: `${reason}. The demo may be empty or stale until it's fixed; check the server logs.`,
-    tags: ["warning"],
-    priority: 4,
+    emoji: "warning",
   });
 }
 
@@ -80,11 +79,10 @@ export async function GET(request: Request) {
 
   // A daily recap of the day's demo traffic, sent only when there was some.
   if (visitorIds.length > 0) {
-    await sendNtfy({
+    await sendSlackAlert({
       title: "Daily demo recap",
       message: `${visitorIds.length} demo visitor${visitorIds.length === 1 ? "" : "s"} since the last reset.`,
-      tags: ["bar_chart"],
-      priority: 2,
+      emoji: "bar_chart",
     });
   }
 

@@ -5,7 +5,7 @@ vi.mock("@/lib/notify", () => ({
   notify: vi.fn().mockResolvedValue(undefined),
   notifyManagers: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/slack", () => ({ sendSlackAlert: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: unknown, init?: { status?: number }) =>

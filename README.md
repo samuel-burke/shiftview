@@ -18,7 +18,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml"><img alt="CI" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=dev" /></a>
+  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml?query=branch%3Adev"><img alt="CI · dev" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=dev" /></a>
+  <a href="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml?query=branch%3Amain"><img alt="CI · main" src="https://github.com/samuel-burke/shiftview/actions/workflows/test.yml/badge.svg?branch=main" /></a>
   <img alt="Status: public beta" src="https://img.shields.io/badge/status-public%20beta-6366f1" />
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" />
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white" />
@@ -177,7 +178,7 @@ npm install
 
 ### 2. Set environment variables
 
-Create a `.env.local` file in the project root:
+Copy `.env.example` to `.env.local` in the project root. The required values are:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
@@ -210,13 +211,12 @@ Optional variables enable additional features:
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile for demo start, signup, login and contact. Both required in production; also enable Supabase Auth CAPTCHA with the same widget secret to protect direct Auth requests (see [deployment runbook](docs/DEMO_ORG.md#deployment-runbook)) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web push notifications. Generate a pair with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | Contact address sent to push services; defaults to `mailto:noreply@shiftview.app` |
-| `NTFY_TOPIC_URL` | [ntfy](https://ntfy.sh) push alerts to the operator for new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Use a long random topic name (e.g. `https://ntfy.sh/<openssl rand -hex 16>`): anyone who knows it can subscribe |
-| `NTFY_TOKEN` | Access token for a protected ntfy topic; sent as a Bearer token. Leave unset for public topics |
+| `SLACK_WEBHOOK_URL` | Optional. Slack [incoming webhook](https://api.slack.com/messaging/webhooks) for operator alerts: new organizations, new demo sessions (plus a daily recap), contact form messages, visits via a `?ref=` tag or a hiring site, and failed sign-ups or cron jobs. Alerts carry no names, emails or message text. Server-only: never prefix it with `NEXT_PUBLIC_`, since anyone with the URL can post to the channel |
 | `CRON_SECRET` | The two cron endpoints (shift reminders and the demo reset); they return 401 until it's set |
 
 `NEXT_PUBLIC_*` values are inlined at build time, so rebuild or redeploy after changing them.
 
-A Vercel production build (`VERCEL_ENV=production`) fails unless every variable above except `VAPID_SUBJECT` is set, the encryption key is 64 hex characters and `E2E_BYPASS_AUTH` is unset (`lib/production-env.ts`), so a deploy missing a secret keeps the previous deployment live. Preview and local builds aren't checked.
+A Vercel production build (`VERCEL_ENV=production`) fails unless every variable above except `VAPID_SUBJECT` and `SLACK_WEBHOOK_URL` is set, the encryption key is 64 hex characters and `E2E_BYPASS_AUTH` is unset (`lib/production-env.ts`), so a deploy missing a secret keeps the previous deployment live. Preview and local builds aren't checked.
 
 ### 3. Set up the database
 
@@ -264,6 +264,7 @@ npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
 npm test            # Vitest unit/integration tests
 npm run test:watch  # watch mode
+npm run test:coverage  # unit suite with coverage; fails below the floor in vitest.config.ts
 npm run test:security  # the unit tests named *.security.test.ts
 npm run test:sql    # every SQL suite in supabase/manual-tests, each in a fresh database (needs Postgres; uses PGHOST, PGUSER, ...)
 npx playwright install chromium   # once, before the first e2e run
@@ -271,7 +272,7 @@ npm run test:e2e    # Playwright e2e (APIs intercepted client-side, no backend n
 npm run build       # production build
 ```
 
-API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration or the baseline migration stops matching the archived chain. CI runs lint, typecheck, the unit suite (also under two far-off timezones), a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
+API route handlers are tested directly against mocked Supabase clients, components with React Testing Library, and the core dashboard flows end-to-end with Playwright (all `/api/*` calls intercepted client-side; the web server runs with `E2E_BYPASS_AUTH=1`). Database triggers and policies have behavioural SQL tests in `supabase/manual-tests/`; `npm run test:sql` runs each against its own throwaway database and fails on any FAIL or ERROR line, and also fails if `baseline.test.sql` doesn't apply every migration or the baseline migration stops matching the archived chain. CI runs lint, typecheck, the unit suite with a coverage floor (also under two far-off timezones), a production dependency audit, a security job (the SQL suites on Postgres 17 plus the `*.security.test.ts` unit tests) and the e2e suite on pushes to `main` and `dev` and on every pull request. Pages skip their auth gate only when `E2E_BYPASS_AUTH=1`, and never in a Vercel deployment, production or preview.
 
 ## Project Structure
 
@@ -481,3 +482,11 @@ RLS is enabled on every tenant table. Policies apply to signed-in users (`authen
 - `anon` can't write any table, and only the service role can `TRUNCATE` (which skips RLS).
 - The service-role admin client bypasses RLS entirely, so every query made with it filters on `org_id` explicitly.
 - `push_subscriptions`, `user_notification_preferences` and `device_presence` are per user: you read and write only your own rows.
+
+## Contributing and project docs
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): branches (task branch → `dev` → `main`), checks to run, PR process
+- [AGENTS.md](AGENTS.md): engineering and Git policy for people and AI agents
+- [docs/architecture.md](docs/architecture.md), [docs/testing.md](docs/testing.md), [docs/ci-cd.md](docs/ci-cd.md), [docs/adr/](docs/adr/)
+- [CHANGELOG.md](CHANGELOG.md)
+- [SECURITY.md](SECURITY.md): report vulnerabilities privately, never in a public issue

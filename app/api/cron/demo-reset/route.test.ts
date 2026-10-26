@@ -6,7 +6,7 @@ import { DEMO_ORG_ID } from "@/lib/demo-org";
 vi.mock("@/lib/supabase-admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/cron-auth", () => ({ isAuthorizedCron: vi.fn(() => true) }));
 vi.mock("@/lib/demo-seed", () => ({ seedDemoOrg: vi.fn().mockResolvedValue({}) }));
-vi.mock("@/lib/ntfy", () => ({ sendNtfy: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/slack", () => ({ sendSlackAlert: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("next/server", () => ({
   NextResponse: {
     json: (data: unknown, init?: { status?: number }) =>
