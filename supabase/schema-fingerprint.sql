@@ -25,6 +25,10 @@ with l as (select regexp_replace(kind || ' | ' || name || ' | ' || detail, '\s+'
   from information_schema.column_privileges where table_schema='public' and grantee in ('anon','authenticated')
   group by table_name, column_name, grantee
   union all
+  select 'tablegrant', table_name||'.'||grantee, string_agg(privilege_type, ',' order by privilege_type)
+  from information_schema.table_privileges where table_schema='public' and grantee in ('anon','authenticated')
+  group by table_name, grantee
+  union all
   select 'constraint', conrelid::regclass::text||'.'||conname, pg_get_constraintdef(oid)
   from pg_constraint where connamespace='public'::regnamespace
   union all

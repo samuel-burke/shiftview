@@ -37,9 +37,12 @@ if [[ -z "$filter" || "baseline-equivalence" == *"$filter"* ]]; then
     dropdb --if-exists "$db" >/dev/null 2>&1
     createdb "$db" || return 1
     psql -X -q -v ON_ERROR_STOP=1 -d "$db" -f "$setup" >/dev/null 2>&1 || { dropdb "$db"; return 1; }
-    sed 's/^) x) select split_part.*/) x) select line from l order by line;/' ../schema-fingerprint.sql \
-      | psql -X -q -At -d "$db"
+    local lines status
+    lines=$(sed 's/^) x) select split_part.*/) x) select line from l order by line;/' ../schema-fingerprint.sql \
+      | psql -X -q -At -v ON_ERROR_STOP=1 -d "$db")
+    status=$?
     dropdb --if-exists "$db" >/dev/null 2>&1
+    [[ $status -eq 0 && -n "$lines" ]] && echo "$lines"
   }
   chain=$(mktemp ./chain.XXXXXX.sql) squashed=$(mktemp ./squashed.XXXXXX.sql)
   { echo '\ir supabase-stubs.sql'; echo '\ir ../archive/baseline.sql'

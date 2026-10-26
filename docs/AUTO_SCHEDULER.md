@@ -211,11 +211,7 @@ npx playwright test e2e/auto-schedule.spec.ts e2e/week.spec.ts   # Draft mode an
 
 ## Deploying
 
-Apply `supabase/archive/0034_auto_scheduler.sql` in the Supabase SQL editor before deploying, as with earlier migrations:
-
-- It needs 0031 applied first (for `is_own_employee`); overnight shifts also need 0033.
-- Paste the whole file into a new snippet and run it with nothing selected.
-- If an AI assistant or another tool applies it for you, have it apply the file exactly as it is, in one piece.
+The auto-scheduler schema (originally migration `0034_auto_scheduler.sql`, now part of `supabase/migrations/20261018000000_baseline.sql`) is in every database built from `supabase/migrations`, and production already has it. Schema changes to it go in a new migration (`npx supabase migration new <name>`) and reach production through the release process in the README, "Set up the database".
 - Unlike earlier migrations, the file has no `begin;`/`commit;`. Some runners send statements separately over more than one connection, and an open transaction hides earlier statements' work from later ones. Every statement is safe to repeat, so if a run stops partway, run the whole file again.
 
 To check it applied, run this; every column should be `true`:

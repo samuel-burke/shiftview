@@ -272,8 +272,9 @@ The plan in §6 is implemented. Map of the moving parts:
    `captcha_failed`, with no user created or verification email sent. Check
    `/auth/v1/signup` without a token is rejected too. See Supabase's
    [CAPTCHA setup guide](https://supabase.com/docs/guides/auth/auth-captcha).
-2. **Apply the migration**: run `supabase/archive/0006_demo_org.sql`
-   (after 0001–0005) in the SQL editor or via the Supabase CLI.
+2. **Schema**: the demo organization's schema and row (originally migration
+   `0006_demo_org.sql`) are part of the baseline migration, so any database
+   built from `supabase/migrations` already has them. Nothing to apply.
 3. **Seeding is automatic**: the first `POST /api/demo/start` against an
    empty demo org seeds it (guarded by an `app_settings` mutex row so
    concurrent first visitors can't double-seed). To force a reset/reseed on

@@ -237,9 +237,17 @@ npx supabase db reset   # builds the schema from supabase/migrations
    In production, also enable **Authentication → Bot and Abuse Protection → CAPTCHA protection**, select Cloudflare Turnstile, and enter the widget secret. Deploy the app's token support first on existing projects; see the [deployment runbook](docs/DEMO_ORG.md#deployment-runbook).
 2. `npx supabase link --project-ref <your-project-ref>`, then `npx supabase db push`. It applies every migration the project hasn't run yet, in order, and records each one in the project's migration history.
 
+**Existing project that was set up before the CLI (one time)**
+
+A database built from the old numbered files or pasted SQL has the schema but an empty migration history, so a plain `db push` would try to run the baseline again. Before the first push:
+
+1. Run `supabase/schema-fingerprint.sql` (read-only) in the project and in a local database built from `supabase/migrations` up to the baseline; every row must match.
+2. `npx supabase link --project-ref <ref>`, then `npx supabase migration repair --status applied 20261018000000` plus the version of every newer migration the project already has. This only writes migration-history rows.
+3. `npx supabase db push` (add `--include-all` if a missing migration is older than one you marked applied), then run the fingerprint again.
+
 **Adding a migration**
 
-Run `npx supabase migration new <short_name>` and write the SQL in the file it creates. Timestamped names mean parallel branches never collide on a number. Add the file to the `\ir` list in `supabase/manual-tests/baseline.test.sql` (`npm run test:sql` fails until you do) and give it a behavioural test there. If a migration needs new app code live first, say **DEPLOY THE APP FIRST** in its header; production migrations run after the deploy (see below), and new migrations should keep working with the previous app version where they can.
+Run `npx supabase migration new <short_name>` and write the SQL in the file it creates. Timestamped names mean parallel branches never collide on a number. Add the file to the `\ir` list in `supabase/manual-tests/baseline.test.sql` (`npm run test:sql` fails until you do) and give it a behavioural test there. Production migrations run right after the production deploy (see below), so write them to work with both the old and the new app version (add first, remove in a later release). One that can't says **DEPLOY WITH THE APP** in its header.
 
 **Production**
 
